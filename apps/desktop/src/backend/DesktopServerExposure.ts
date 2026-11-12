@@ -353,6 +353,11 @@ interface RuntimeState {
   readonly tailscaleServePort: number;
 }
 
+type TailscaleServeSettings = Pick<
+  DesktopAppSettings.DesktopSettings,
+  "tailscaleServeEnabled" | "tailscaleServePort"
+>;
+
 interface ResolvedRuntimeState {
   readonly state: RuntimeState;
   readonly unavailable: boolean;
@@ -397,7 +402,7 @@ const toResolvedExposure = (state: RuntimeState): ResolvedDesktopServerExposure 
 
 function runtimeStateFromResolvedExposure(input: {
   readonly requestedMode: DesktopServerExposureMode;
-  readonly settings: DesktopAppSettings.DesktopSettings;
+  readonly settings: TailscaleServeSettings;
   readonly exposure: ResolvedDesktopServerExposure;
   readonly port: number;
 }): RuntimeState {
@@ -418,7 +423,7 @@ function runtimeStateFromResolvedExposure(input: {
 
 function resolveRuntimeState(input: {
   readonly requestedMode: DesktopServerExposureMode;
-  readonly settings: DesktopAppSettings.DesktopSettings;
+  readonly settings: TailscaleServeSettings;
   readonly port: number;
   readonly networkInterfaces: DesktopNetworkInterfaces.NetworkInterfaces;
   readonly advertisedHostOverride: Option.Option<string>;
@@ -544,12 +549,28 @@ export const make = Effect.gen(function* () {
       ? settings
       : { ...settings, serverExposureMode: "local-only" as const, tailscaleServeEnabled: false };
 
+  // Saved network access that fell back to loopback for lack of an address resumes once one
+  // appears; the new binding takes effect when the backend next starts.
   const readCurrentState = (currentNetworkInterfaces: DesktopNetworkInterfaces.NetworkInterfaces) =>
-    Ref.get(stateRef).pipe(
-      Effect.map((state) =>
-        withCurrentAdvertisedHost(state, currentNetworkInterfaces, config.desktopLanHostOverride),
-      ),
-    );
+    Ref.modify(stateRef, (state) => {
+      if (state.requestedMode === state.mode) {
+        const current = withCurrentAdvertisedHost(
+          state,
+          currentNetworkInterfaces,
+          config.desktopLanHostOverride,
+        );
+        return [current, state] as const;
+      }
+      const resolved = resolveRuntimeState({
+        requestedMode: state.requestedMode,
+        settings: state,
+        port: state.port,
+        networkInterfaces: currentNetworkInterfaces,
+        advertisedHostOverride: config.desktopLanHostOverride,
+      });
+      const next = resolved.unavailable ? state : resolved.state;
+      return [next, next] as const;
+    });
 
   const getState = readNetworkInterfaces.pipe(
     Effect.flatMap(readCurrentState),
