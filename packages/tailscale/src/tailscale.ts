@@ -5,6 +5,7 @@ import { isLocalLoopbackHost, normalizeHostname } from "@t3tools/shared/hostClas
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
@@ -483,6 +484,29 @@ export const ensureTailscaleServe = Effect.fn("tailscale.ensureTailscaleServe")(
   const args = ["serve", "--bg", `--https=${servePort}`, `http://${localHost}:${input.localPort}`];
   return yield* runTailscaleCommand(args, TAILSCALE_SERVE_TIMEOUT);
 });
+
+// Serve fails until Tailscale is running and signed in, which can be long after launch.
+export const TAILSCALE_SERVE_RETRY = Schedule.min([
+  Schedule.exponential(Duration.seconds(5)),
+  Schedule.spaced(Duration.minutes(5)),
+]);
+
+export const ensureTailscaleServeEventually = (input: {
+  readonly localPort: number;
+  readonly servePort?: number;
+  readonly localHost?: string;
+}): Effect.Effect<void, never, ChildProcessSpawner.ChildProcessSpawner> =>
+  ensureTailscaleServe(input).pipe(
+    Effect.tapError((cause) =>
+      Effect.logWarning("Failed to configure Tailscale Serve; retrying", {
+        cause,
+        localPort: input.localPort,
+        servePort: input.servePort ?? DEFAULT_TAILSCALE_SERVE_PORT,
+      }),
+    ),
+    Effect.retry(TAILSCALE_SERVE_RETRY),
+    Effect.orDie,
+  );
 
 /** A Serve route: a web handler at `mount` on `servePort`, or a TCP forward without one. */
 export interface TailscaleServeRoute {
