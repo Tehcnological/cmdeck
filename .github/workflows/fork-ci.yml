@@ -74,8 +74,9 @@ jobs:
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         working-directory: evals
         run: |
-          set -o pipefail
-          vp exec effect-tsgo tsrs --noEmit 2>&1 | grep -v 'suggestion TS' | grep -v '^\s*$' | tail -80
+          vp exec effect-tsgo tsrs --noEmit > tsc.log 2>&1; code=$?
+          grep -v 'suggestion TS' tsc.log | grep -v '^\s*$' | tail -80 || true
+          exit $code
 
       - name: Server tests (areas this fork changes)
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
