@@ -83,6 +83,13 @@ jobs:
           fi
           exit $code
 
+      - name: Upload typecheck log
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: typecheck-log
+          path: typecheck.log
+
       - name: Typecheck evals
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         working-directory: evals
