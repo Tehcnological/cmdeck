@@ -1,0 +1,57 @@
+# Merging upstream into this private fork
+
+This fork tracks [pingdotgg/t3code](https://github.com/pingdotgg/t3code). Nothing updates on its
+own: installers carry no release feed, servers do not fetch releases, and no workflow pulls
+upstream. You merge upstream when you choose, review it as a pull request, then rebuild.
+
+## Steps
+
+```sh
+scripts/fork/sync-upstream.sh            # or: scripts/fork/sync-upstream.sh <upstream-sha-or-tag>
+```
+
+The script:
+
+1. Refuses to run on a dirty tree.
+2. Adds the `upstream` remote if missing and makes it fetch-only (push URL `DISABLED`).
+3. Creates `upstream-sync/<date>-<sha>` from `origin/main` and merges upstream into it.
+4. Runs `scripts/fork/guard.sh`.
+
+It never pushes, never touches `main`, and never builds or installs. When it finishes:
+
+```sh
+git push -u origin upstream-sync/<...>
+gh pr create --base main --fill
+```
+
+Review the PR (the diff from upstream is the part to read), let CI pass, then merge.
+
+## When the merge conflicts
+
+The script stops and lists the files. Resolve, `git add -A && git commit --no-edit`, then run
+`scripts/fork/guard.sh` yourself. The usual conflicts:
+
+- **Telemetry, Antigravity quota probing, T3 Connect/relay.** The fork deleted these. If upstream
+  edited a deleted file, keep it deleted (`git rm <file>`). If upstream added a new call site, remove
+  it. The guard's forbidden-pattern list catches the common ones.
+- **Migrations.** Always take upstream's `apps/server/src/persistence/Migrations.ts` and
+  `Migrations/` exactly. Fork-only tables live in `apps/server/src/persistence/ForkSchema.ts`
+  (idempotent `CREATE ... IF NOT EXISTS`), never in a numbered migration: the migrator skips every
+  id at or below the highest one recorded, so a fork id would make later upstream migrations
+  silently never run.
+- **Protocol version.** Always take upstream's `ORCHESTRATION_PROTOCOL_VERSION`. The official T3
+  mobile app pairs only when it matches.
+- **Settings defaults.** Keep the fork's defaults (device approval on, remote MCP off) when upstream
+  touches the same lines.
+
+## What the guard checks
+
+`scripts/fork/guard.sh [upstream-ref]` fails when:
+
+- `ORCHESTRATION_PROTOCOL_VERSION` differs from upstream's;
+- a numbered migration exists that upstream does not have;
+- a forbidden pattern (analytics ingest, PostHog, crash reporting, OTLP exporters, Google
+  `v1internal`, the T3 relay host) reappears in `apps/`, `packages/` or `scripts/`;
+- the desktop build would publish a release feed again.
+
+Add a pattern to its list whenever you remove something upstream may reintroduce.
