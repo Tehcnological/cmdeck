@@ -118,6 +118,11 @@ Release builds show the plain name; Dev and Nightly keep their stage suffix.
 - Internal names: the `t3` package and CLI (still works), `@t3tools/*` imports, `T3CODE_*`
   environment variables, `t3code://` deep links, `t3.json` project files, the "T3 home" wording.
 - Wire and compatibility identifiers listed above.
+- Model-facing text: agent system prompts and runtime notes (`packages/provider-core`), MCP tool
+  descriptions and the MCP server name, agent-to-agent message prefixes (`[T3 Code: …]` in
+  `packages/contracts/src/orchestrationV2.ts`), title prompts, and replay-fixture git identities.
+  Recorded provider replays and evals match this text exactly, and keeping it as upstream keeps
+  merges clean. The model may therefore call the app "T3 Code".
 - Provider-facing identities: Codex `clientInfo`/originator and ChatGPT `agent_name_hint`,
   Antigravity and Muse `clientInfo`, recorded provider transcripts (`*.ndjson`), and the git
   identity of hidden checkpoint commits. Providers may key behavior on these.
