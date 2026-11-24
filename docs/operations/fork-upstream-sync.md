@@ -55,3 +55,19 @@ The script stops and lists the files. Resolve, `git add -A && git commit --no-ed
 - the desktop build would publish a release feed again.
 
 Add a pattern to its list whenever you remove something upstream may reintroduce.
+
+## Shared data with the official T3 Code
+
+The fork deliberately keeps upstream's data directory (`~/.t3`, or `T3CODE_HOME`), app ID and version
+numbers, so threads, settings, pairings and the official mobile app carry over unchanged. The cost:
+
+- **Run one of them per machine.** Quit and uninstall the official desktop app and its background
+  service before starting the fork, and do not let the official app run against `~/.t3` afterwards.
+- **Never run the fork behind upstream.** If the official app migrated `~/.t3` further than the fork
+  knows, the fork refuses to start (`assertV2MigrationsCanRun`) or runs on an unknown schema. Sync
+  upstream first (`scripts/fork/sync-upstream.sh`), then rebuild.
+- **Installed runtimes share version numbers.** `~/.t3/versions/<version>` may hold an upstream build
+  of the same version. Before `t3 service install` with the fork, remove any official runtimes there
+  so the service cannot reuse one.
+- The fork's `inference_requests` table and `inferenceServers` settings are ignored by upstream; if
+  the official app rewrites `settings.json`, re-check Settings → Inference.
