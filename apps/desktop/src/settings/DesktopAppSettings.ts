@@ -41,7 +41,14 @@ export interface DesktopSettings {
   readonly wslDistro: string | null;
   // Requires restart because the pool chooses its primary spec at layer initialization.
   readonly wslOnly: boolean;
+  readonly closeToTray: boolean;
+  readonly launchAtLogin: boolean;
+  readonly trayHintShown: boolean;
 }
+
+export type DesktopTraySettingsChange = Partial<
+  Pick<DesktopSettings, "closeToTray" | "launchAtLogin" | "trayHintShown">
+>;
 
 export interface DesktopSettingsChange {
   readonly settings: DesktopSettings;
@@ -81,6 +88,9 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   wslBackendEnabled: false,
   wslDistro: null,
   wslOnly: false,
+  closeToTray: true,
+  launchAtLogin: false,
+  trayHintShown: false,
 };
 
 const DesktopWindowBoundsDocument = Schema.Struct({
@@ -109,6 +119,9 @@ const DesktopSettingsDocument = Schema.Struct({
   wslMode: optionalReadableKey(Schema.Literals(["local", "wsl"])),
   wslDistro: optionalReadableKey(Schema.NullOr(Schema.String)),
   wslOnly: optionalReadableKey(Schema.Boolean),
+  closeToTray: optionalReadableKey(Schema.Boolean),
+  launchAtLogin: optionalReadableKey(Schema.Boolean),
+  trayHintShown: optionalReadableKey(Schema.Boolean),
 });
 
 type DesktopSettingsDocument = typeof DesktopSettingsDocument.Type;
@@ -179,6 +192,9 @@ export class DesktopAppSettings extends Context.Service<
     readonly setWslOnly: (
       enabled: boolean,
     ) => Effect.Effect<DesktopSettingsChange, DesktopSettingsWriteError>;
+    readonly setTraySettings: (
+      change: DesktopTraySettingsChange,
+    ) => Effect.Effect<DesktopSettingsChange, DesktopSettingsWriteError>;
     readonly applyWslWindowsFallback: Effect.Effect<
       DesktopSettingsChange,
       DesktopSettingsWriteError
@@ -240,6 +256,9 @@ function normalizeDesktopSettingsDocument(
     wslBackendEnabled,
     wslDistro: normalizeWslDistro(parsed.wslDistro),
     wslOnly: parsed.wslOnly === true,
+    closeToTray: parsed.closeToTray !== false,
+    launchAtLogin: parsed.launchAtLogin === true,
+    trayHintShown: parsed.trayHintShown === true,
   };
 }
 
@@ -285,6 +304,15 @@ function toDesktopSettingsDocument(
   }
   if (settings.wslOnly !== defaults.wslOnly) {
     document.wslOnly = settings.wslOnly;
+  }
+  if (settings.closeToTray !== defaults.closeToTray) {
+    document.closeToTray = settings.closeToTray;
+  }
+  if (settings.launchAtLogin !== defaults.launchAtLogin) {
+    document.launchAtLogin = settings.launchAtLogin;
+  }
+  if (settings.trayHintShown !== defaults.trayHintShown) {
+    document.trayHintShown = settings.trayHintShown;
   }
 
   return document;
@@ -380,6 +408,18 @@ function setLocalEnvironmentEnabled(settings: DesktopSettings, enabled: boolean)
   return settings.localEnvironmentEnabled === enabled
     ? settings
     : { ...settings, localEnvironmentEnabled: enabled };
+}
+
+function setTraySettings(
+  settings: DesktopSettings,
+  change: DesktopTraySettingsChange,
+): DesktopSettings {
+  const next = { ...settings, ...change };
+  return next.closeToTray === settings.closeToTray &&
+    next.launchAtLogin === settings.launchAtLogin &&
+    next.trayHintShown === settings.trayHintShown
+    ? settings
+    : next;
 }
 
 function applyWslWindowsFallback(settings: DesktopSettings): DesktopSettings {
@@ -599,6 +639,11 @@ export const make = Effect.gen(function* () {
         return yield* persist((settings) => setLocalEnvironmentEnabled(settings, enabled));
       },
     ),
+    setTraySettings: Effect.fn("desktop.settings.setTraySettings")(function* (change) {
+      yield* Effect.annotateCurrentSpan(change);
+
+      return yield* persist((settings) => setTraySettings(settings, change));
+    }),
     applyWslWindowsFallback: persist(applyWslWindowsFallback).pipe(
       Effect.withSpan("desktop.settings.applyWslWindowsFallback"),
     ),
@@ -662,6 +707,9 @@ export const layerTest = (initialSettings: DesktopSettings = DEFAULT_DESKTOP_SET
             return update((settings) => setLocalEnvironmentEnabled(settings, enabled));
           },
         ),
+        setTraySettings: Effect.fn("DesktopAppSettings.setTraySettings")(function (change) {
+          return update((settings) => setTraySettings(settings, change));
+        }),
         applyWslWindowsFallback: update(applyWslWindowsFallback),
         applyWslWindowsFallbackInMemory: update(applyWslWindowsFallback),
       });

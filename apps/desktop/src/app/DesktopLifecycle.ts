@@ -22,6 +22,7 @@ import * as ElectronTheme from "../electron/ElectronTheme.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
 import * as DesktopState from "./DesktopState.ts";
 import * as DesktopWindow from "../window/DesktopWindow.ts";
+import { LAUNCH_HIDDEN_ARGUMENT } from "../window/DesktopTrayPolicy.ts";
 
 export class DesktopLifecycleRelaunchError extends Schema.TaggedError<DesktopLifecycleRelaunchError>()(
   "DesktopLifecycleRelaunchError",
@@ -103,6 +104,15 @@ const requestDesktopShutdownAndWait = Effect.fn("desktop.lifecycle.requestShutdo
     yield* shutdown.awaitComplete;
   },
 );
+
+/** Electron keeps running when a `window-all-closed` listener does not quit. */
+export function shouldQuitWhenAllWindowsClosed(input: {
+  readonly platform: NodeJS.Platform;
+  readonly quitting: boolean;
+  readonly trayActive: boolean;
+}): boolean {
+  return input.platform !== "darwin" && !input.quitting && !input.trayActive;
+}
 
 interface QuitState {
   phase: "running" | "waiting" | "allowed";
@@ -232,11 +242,17 @@ export const make = DesktopLifecycle.of({
         return;
       }
       // Startup already acted on the app link that launched it; passing it on replays it.
+      // A relaunch the user asked for shows its window, even after a hidden login launch.
       const appLinkPrefix = `${ElectronProtocol.getDesktopScheme(environment.isDevelopment)}:`;
       const args = yield* HostProcess.Arguments;
       yield* electronApp.relaunch({
         execPath: yield* HostProcess.ExecutablePath,
-        args: args.slice(1).filter((arg) => !arg.toLowerCase().startsWith(appLinkPrefix)),
+        args: args
+          .slice(1)
+          .filter(
+            (arg) =>
+              !arg.toLowerCase().startsWith(appLinkPrefix) && arg !== LAUNCH_HIDDEN_ARGUMENT,
+          ),
       });
       yield* electronApp.exit(0);
     }).pipe(
@@ -254,6 +270,7 @@ export const make = DesktopLifecycle.of({
     const electronApp = yield* ElectronApp.ElectronApp;
     const electronTheme = yield* ElectronTheme.ElectronTheme;
     const environment = yield* DesktopEnvironment.DesktopEnvironment;
+    const desktopState = yield* DesktopState.DesktopState;
     const context = yield* Effect.context<DesktopLifecycleRegistrationServices>();
     const runEffect = Effect.runPromiseWith(context);
     const quit: QuitState = { phase: "running", waitingSinceNanos: 0n };
@@ -267,6 +284,8 @@ export const make = DesktopLifecycle.of({
       // Cancelling the following app "before-quit" event breaks that sequence,
       // most visibly on macOS where the native updater performs the relaunch.
       quit.phase = "allowed";
+      // The updater's own quit must still end the app once its windows close.
+      Effect.runSync(Ref.set(desktopState.trayActive, false));
       // This event is synchronous and the updater's quit proceeds as soon as
       // the listener returns, so a forked destroyAll would race the quit
       // and windows could still be open when the process exits (visible on
@@ -298,9 +317,12 @@ export const make = DesktopLifecycle.of({
         Effect.gen(function* () {
           const app = yield* ElectronApp.ElectronApp;
           const state = yield* DesktopState.DesktopState;
-          if (environment.platform !== "darwin" && !(yield* Ref.get(state.quitting))) {
-            yield* app.quit;
-          }
+          const quitNow = shouldQuitWhenAllWindowsClosed({
+            platform: environment.platform,
+            quitting: yield* Ref.get(state.quitting),
+            trayActive: yield* Ref.get(state.trayActive),
+          });
+          if (quitNow) yield* app.quit;
         }).pipe(Effect.withSpan("desktop.lifecycle.windowAllClosed")),
       );
     });

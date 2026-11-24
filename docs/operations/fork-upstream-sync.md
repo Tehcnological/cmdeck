@@ -92,3 +92,5 @@ the official app, and nothing stops the official app from running against `~/.t3
 stopped.
 Second-model reviews are ordinary side chats tagged `second-model-review`, so the official clients
 show them as plain side chats; the last reviewer choice is a client setting they may drop.
+Close to tray and launch at login are fork-only desktop settings. The official desktop app drops
+them the next time it saves its desktop settings, and it leaves an existing login item in place.

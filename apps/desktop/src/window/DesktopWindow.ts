@@ -1082,6 +1082,7 @@ export const make = Effect.gen(function* () {
     const window = yield* createWindow();
     if (Option.isSome(window)) {
       mainClosedDuringStartup = false;
+      yield* Ref.set(desktopState.mainHiddenInTray, false);
       yield* logWindowInfo("main window created");
     }
     return window;
@@ -1115,12 +1116,14 @@ export const make = Effect.gen(function* () {
 
   const createMainIfBackendReady = Effect.gen(function* () {
     if (yield* Ref.get(desktopState.quitting)) return;
+    if (yield* Ref.get(desktopState.mainHiddenInTray)) return;
     if (yield* waitingForBackend) return;
     yield* ensureMain;
   }).pipe(Effect.withSpan("desktop.window.createMainIfBackendReady"));
 
   const showConnectingSplash = Effect.gen(function* () {
     if (yield* Ref.get(desktopState.quitting)) return;
+    if (yield* Ref.get(desktopState.mainHiddenInTray)) return;
     const existingSplash = yield* Ref.get(splashWindowRef);
     if (Option.isSome(existingSplash)) return;
     const existingWindow = yield* electronWindow.currentMainOrFirst;
@@ -1213,7 +1216,7 @@ export const make = Effect.gen(function* () {
         yield* revealMain(existingWindow.value);
         return;
       }
-      if (mainClosedDuringStartup) {
+      if (mainClosedDuringStartup || (yield* Ref.get(desktopState.mainHiddenInTray))) {
         yield* ensureMain;
         return;
       }
