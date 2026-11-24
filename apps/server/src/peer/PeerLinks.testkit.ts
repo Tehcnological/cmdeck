@@ -64,7 +64,7 @@ export const descriptorOf = (
 /** An environment's own sessions and pairing links, on a database and secret store of its own. */
 export const layerEnvironmentAuth = (prefix: string) =>
   EnvironmentAuth.layer.pipe(
-    Layer.provide(ManagedPolicy.layerTest()),
+    Layer.provideMerge(ManagedPolicy.layerTest()),
     Layer.provideMerge(ServerSettings.layerTest({ linkedEnvironmentsEnabled: true })),
     Layer.provide(Sqlite.layerMemory),
     Layer.provideMerge(ServerSecretStore.layer),
