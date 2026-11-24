@@ -71,7 +71,8 @@ jobs:
         run: |
           code=0
           vp run --filter './apps/*' --filter './packages/*' --filter './scripts' --filter './infra/*' --concurrency-limit 1 typecheck > typecheck.log 2>&1 || code=$?
-          tail -40 typecheck.log
+          tail -5 typecheck.log
+          grep -E 'error TS|: error|✗|exit code' typecheck.log | grep -v 'suggestion TS' | head -200 || true
           if [ "$code" -ne 0 ]; then
             # vp truncates per-package output; list every error in the app packages.
             for dir in apps/server apps/web apps/desktop apps/mobile packages/client-runtime; do
