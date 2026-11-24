@@ -241,7 +241,7 @@ const setUp = Effect.fn("cli.up")(function* (flags: {
   if (before.connect === null && Option.getOrElse(flags.connect, () => false)) {
     return yield* new CliError.UserError({
       cause: "connect",
-      userMessage: "T3 Connect is unavailable in this build.",
+      userMessage: "T3 Connect is removed in this build. Use `t3 up --lan` with Tailscale, or your own Cloudflare Tunnel.",
     });
   }
 
@@ -459,7 +459,7 @@ export const upCommand = Command.make("up", {
   ...projectLocationFlags,
   connect: Flag.Boolean("connect").pipe(
     Flag.withDescription(
-      "Allow access through T3 Connect with your T3 account. Turn off with --no-connect.",
+      "T3 Connect is removed in this build; --connect is refused. Use --lan with Tailscale, or your own Cloudflare Tunnel.",
     ),
     Flag.optional,
   ),
@@ -471,7 +471,7 @@ export const upCommand = Command.make("up", {
   ),
   yes: Flag.Boolean("yes").pipe(
     Flag.withDescription(
-      "Ask nothing. Keep the access settings; a new machine gets T3 Connect. A restart stops running agent turns.",
+      "Ask nothing. Keep the access settings. A restart stops running agent turns.",
     ),
     Flag.withDefault(false),
   ),
@@ -483,7 +483,6 @@ export const upCommand = Command.make("up", {
   ),
   Command.withExamples([
     { command: "t3 up", description: "Choose remote access." },
-    { command: "t3 up --connect", description: "Turn on T3 Connect. Keep other settings." },
     { command: "t3 up --lan", description: "Allow LAN access with pairing codes." },
     { command: "t3 up --no-lan", description: "Stop LAN access." },
     { command: "t3 up --yes", description: "Take the defaults with no questions." },
