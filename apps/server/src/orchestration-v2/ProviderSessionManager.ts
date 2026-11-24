@@ -1560,8 +1560,7 @@ export const layerWithOptions = (
           ([entry, releasedAt]) =>
             Option.match(entry, {
               onNone: () => Effect.void,
-              onSome: (entry) =>
-                Effect.gen(function* () {
+              onSome: Effect.fn("ProviderSessionManager.releaseLiveEntry")(function* (entry) {
                   const detachedThread =
                     input.detachedThreadId === undefined
                       ? {}
