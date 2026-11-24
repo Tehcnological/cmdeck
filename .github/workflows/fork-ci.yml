@@ -14,10 +14,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
-    name: Guard, typecheck, tests
+  guard:
+    name: Fork guard
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -25,11 +25,21 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Fetch upstream for the fork guard
+      - name: Fetch upstream
         run: git fetch --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
 
       - name: Fork guard
         run: bash scripts/fork/guard.sh upstream/main
+
+  check:
+    name: Typecheck and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
 
       - name: Setup Vite+
         uses: ./.github/actions/setup-ci-deps
