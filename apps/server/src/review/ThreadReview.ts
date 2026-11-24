@@ -1,7 +1,6 @@
 import {
   CHECKPOINT_DIFF_TRUNCATED_MARKER,
   CommandId,
-  isReviewerDriverAllowed,
   MessageId,
   type ModelSelection,
   type OrchestrationGetFullThreadDiffResult,
@@ -37,7 +36,7 @@ export class ThreadReview extends Context.Service<
   {
     /**
      * Starts a second model reviewing the thread's diff in a side chat of the thread. The
-     * reviewer is exactly `modelSelection`; an excluded or unusable one fails, never falls back.
+     * reviewer is exactly `modelSelection`; an unusable one fails, never falls back.
      */
     readonly start: (input: {
       readonly threadId: ThreadId;
@@ -68,7 +67,8 @@ function reviewPatch(diff: OrchestrationGetFullThreadDiffResult): string {
   return [
     diff.diff,
     ...(diff.repositories ?? []).map(
-      (repository) => `# Repository ${repository.name} (${repository.relativePath})\n${repository.diff}`,
+      (repository) =>
+        `# Repository ${repository.name} (${repository.relativePath})\n${repository.diff}`,
     ),
   ]
     .filter((part) => part.trim().length > 0)
@@ -82,9 +82,7 @@ function reviewPrompt(patch: string): string {
     "You are a second-model code reviewer. Review the diff below, which another agent produced in this workspace.",
     "Do not edit files, run commands that change anything, or commit. Read files in the workspace only when you need context.",
     "Report concrete findings, most severe first. For each: the file and line, what is wrong, and why it matters. Skip style nits unless they hide a bug. If you find nothing worth fixing, say so plainly.",
-    ...(truncated
-      ? ["The diff is truncated; say which parts you could not review."]
-      : []),
+    ...(truncated ? ["The diff is truncated; say which parts you could not review."] : []),
     "",
     "```diff",
     patch.slice(0, MAX_REVIEW_DIFF_CHARS),
@@ -112,12 +110,6 @@ const make = Effect.gen(function* () {
       return yield* new ThreadReviewError({
         reason: "reviewer_unavailable",
         message: `Provider instance ${input.modelSelection.instanceId} is not available on this environment.`,
-      });
-    }
-    if (!isReviewerDriverAllowed(reviewer.driver)) {
-      return yield* new ThreadReviewError({
-        reason: "reviewer_excluded",
-        message: `${reviewer.driver} cannot be used as a reviewer.`,
       });
     }
     const runtimeMode = REVIEWER_RUNTIME_MODES.find(

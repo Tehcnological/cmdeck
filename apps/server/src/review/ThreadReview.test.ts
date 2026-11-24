@@ -87,19 +87,21 @@ function setup() {
   return { dispatched, layer };
 }
 
-it.effect("rejects an Antigravity reviewer before starting anything", () => {
+it.effect("uses an Antigravity reviewer as chosen, like any other provider", () => {
   const { dispatched, layer } = setup();
   return Effect.gen(function* () {
     const review = yield* ThreadReview.ThreadReview;
-    const error = yield* review
-      .start({
-        threadId,
-        modelSelection: { instanceId: ProviderInstanceId.make("antigravity"), model: "gemini" },
-        requestedBy: "user",
-      })
-      .pipe(Effect.flip);
-    assert.strictEqual(error.reason, "reviewer_excluded");
-    assert.deepEqual(dispatched, []);
+    const modelSelection = { instanceId: ProviderInstanceId.make("antigravity"), model: "gemini" };
+    const { reviewThreadId } = yield* review.start({
+      threadId,
+      modelSelection,
+      requestedBy: "user",
+    });
+    const message = dispatched.find((command) => command.type === "message.dispatch");
+    assert.isTrue(message?.type === "message.dispatch");
+    if (message?.type !== "message.dispatch") return;
+    assert.deepEqual(message.modelSelection, modelSelection);
+    assert.strictEqual(message.threadId, reviewThreadId);
   }).pipe(Effect.provide(layer));
 });
 
