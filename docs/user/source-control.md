@@ -34,6 +34,15 @@ commit links follow your **Open links in** setting; on web, when that opens a ne
 shows an **Open link** button. Command/Ctrl+Click always opens the link in your browser. Commit links follow the **Open pull requests in T3 Code**
 setting in **Settings → Diffs**.
 
+### Comment on lines for the agent
+
+In the Diff pane, click the comment button in a line's gutter, or select several lines first, and
+write what you want changed. Comments collect in the thread's composer as chips, so you can review
+a whole diff before the agent sees anything. A bar under the diff counts them: **Send** sends them
+in one message with whatever you typed in the composer, and **Clear** removes them. Use a comment's
+pencil to edit it or its trash button to remove it. Each comment reaches the agent with its file,
+lines, and the diff lines it covers. Pending comments stay with the thread's draft across reloads.
+
 ## Connect an account
 
 Install Git and configure authentication on the machine running your T3 Code server. For a remote
