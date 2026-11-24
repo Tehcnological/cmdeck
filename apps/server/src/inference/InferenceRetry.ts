@@ -44,17 +44,19 @@ export function recoverField(rawError: Uint8Array, rawBody: Uint8Array): Uint8Ar
 }
 
 /** Only exact structured rejection evidence allows removing one optional top-level field. */
-export function rejectedField(error: unknown, body: JsonObject): Uint8Array | undefined {
+export function rejectedField(error: unknown, body: unknown): Uint8Array | undefined {
+  const parsedBody = record(body);
+  if (parsedBody === undefined) return;
   const wrapper = record(error);
   const detail = record(wrapper?.error) ?? wrapper;
   if (detail === undefined) return;
   const candidates = [detail.param, ...(Array.isArray(detail.loc) ? [detail.loc.at(-1)] : [])];
   const field = candidates.find(
     (candidate) =>
-      typeof candidate === "string" && OPTIONAL_FIELDS.has(candidate) && candidate in body,
+      typeof candidate === "string" && OPTIONAL_FIELDS.has(candidate) && candidate in parsedBody,
   );
   if (typeof field !== "string") return;
-  const compatible = { ...body };
+  const compatible = { ...parsedBody };
   delete compatible[field];
   // Remove the injected usage request with a rejected stream_options object.
   return new TextEncoder().encode(JSON.stringify(compatible));

@@ -198,4 +198,55 @@ describe("makeUsageMeter", () => {
     const body = JSON.stringify({ pad: huge + huge + huge, usage: { prompt_tokens: 1 } });
     expect(meter("chat-completions", false, body, 64 * 1024).usage.promptTokens).toBeNull();
   });
+
+  it("distinguishes non-streaming replies with content from empty terminal replies", () => {
+    const checkEmpty = (api: InferenceApi, body: unknown) => {
+      const usage = makeUsageMeter(api, false);
+      usage.push(encoder.encode(JSON.stringify(body)));
+      usage.finish();
+      return { finished: usage.finished(), empty: usage.empty() };
+    };
+
+    expect(
+      checkEmpty("chat-completions", {
+        choices: [{ finish_reason: "stop", message: { role: "assistant", content: "Hi" } }],
+      }),
+    ).toEqual({ finished: true, empty: false });
+    expect(
+      checkEmpty("chat-completions", {
+        choices: [{ finish_reason: "stop", message: { role: "assistant", content: "" } }],
+      }),
+    ).toEqual({ finished: true, empty: true });
+    expect(
+      checkEmpty("completions", {
+        choices: [{ finish_reason: "stop", text: "Hi" }],
+      }),
+    ).toEqual({ finished: true, empty: false });
+    expect(
+      checkEmpty("responses", {
+        id: "resp_3",
+        status: "completed",
+        output: [{ type: "message", content: [{ type: "output_text", text: "Hi" }] }],
+      }),
+    ).toEqual({ finished: true, empty: false });
+    expect(
+      checkEmpty("responses", {
+        id: "resp_4",
+        status: "completed",
+        output: [],
+      }),
+    ).toEqual({ finished: true, empty: true });
+    expect(
+      checkEmpty("messages", {
+        stop_reason: "end_turn",
+        content: [{ type: "text", text: "Hi" }],
+      }),
+    ).toEqual({ finished: true, empty: false });
+    expect(
+      checkEmpty("messages", {
+        stop_reason: "end_turn",
+        content: [],
+      }),
+    ).toEqual({ finished: true, empty: true });
+  });
 });
