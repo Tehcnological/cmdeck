@@ -19,6 +19,7 @@ import { startBackgroundThreadAnnouncements } from "./components/BackgroundThrea
 import { startSshPasswordPromptQueue } from "./components/desktop/SshPasswordPromptDialog";
 import { startHostFreezeToasts } from "./components/HostFreezeToastCoordinator";
 import { startKeybindingsUpdateToasts } from "./components/KeybindingsUpdateToast";
+import { startForkImportOfferToast } from "./components/ForkImportOfferToast";
 import { startForkSharedDataToasts } from "./components/ForkSharedDataToast";
 import { startLegacyThreadMigrationToast } from "./components/LegacyThreadMigrationToast";
 import { startPermissionUpdateNotices } from "./components/PermissionUpdateNotice";
@@ -317,6 +318,7 @@ export function startAppServices(): AppRouter {
 
   startKeybindingsUpdateToasts();
   startForkSharedDataToasts();
+  startForkImportOfferToast();
   startSlowRpcRequestToasts();
   startHostFreezeToasts();
   startLegacyThreadMigrationToast();

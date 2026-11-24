@@ -90,6 +90,13 @@ warning toast (`fork.shared-data` server config issues, which the official clien
 Only documented: the fork's `inference_requests` table and other fork-only state are invisible to
 the official app, and nothing stops the official app from running against `~/.t3` while the fork is
 stopped.
+
+`cmdeck import-from-t3` ([user guide](../user/import-from-t3-code.md)) copies an official T3 Code
+data folder into the fork's own. It refuses a source database newer than this build, so sync
+upstream before importing from a newer official release. When upstream adds identity-bound state
+(signing keys, sessions, device or peer tables), add it to the exclusions in
+`apps/server/src/fork/T3Import.ts`.
+
 Second-model reviews are ordinary side chats tagged `second-model-review`, so the official clients
 show them as plain side chats; the last reviewer choice is a client setting they may drop.
 Close to tray and launch at login are fork-only desktop settings. The official desktop app drops

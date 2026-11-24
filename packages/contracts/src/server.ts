@@ -53,10 +53,18 @@ const ForkSharedDataIssue = Schema.Struct({
   message: TrimmedNonEmptyString,
 });
 
+/** Fork-only: an official T3 Code data folder this server can import with `command`. */
+const ForkImportAvailableIssue = Schema.Struct({
+  kind: Schema.Literal("fork.import-available"),
+  message: TrimmedNonEmptyString,
+  command: TrimmedNonEmptyString,
+});
+
 export const ServerConfigIssue = Schema.Union([
   KeybindingsMalformedConfigIssue,
   KeybindingsInvalidEntryIssue,
   ForkSharedDataIssue,
+  ForkImportAvailableIssue,
 ]);
 export type ServerConfigIssue = typeof ServerConfigIssue.Type;
 
