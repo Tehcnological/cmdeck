@@ -1,12 +1,25 @@
 # Brand icons
 
+> **CMDeck placeholder.** The T3 logo is T3 Tools' trademark, so CMDeck uses a neutral
+> placeholder: a white terminal prompt (`>_`) on a dark rounded square. The vector sources are
+> already switched: `prod/logo.svg`, each project's `Assets/text.svg`, the web and mobile
+> `T3Wordmark` components, `T3AppIcon`, the DMG backgrounds, the mobile widget mark and the
+> Android notification mark.
+>
+> **Still showing T3 art until regenerated** (needs `vp run icons:export` on a Mac with Icon
+> Composer, plus the manual macOS export below, then `scripts/export-android-icons.ts` for
+> Android): every PNG/ICO in `dev/`, `nightly/` and `prod/` (iOS, macOS, universal/Linux,
+> Windows `.ico`, web favicons, apple-touch and 192/512 icons), their copies in
+> `apps/web/public/`, and `apps/mobile/assets/android-*` icons and splash images. Desktop
+> `.icns`/`.ico` files are built from these at packaging time, so they follow once regenerated.
+
 The three Icon Composer projects are the source of truth for full application icons:
 
 - `dev/app-icon.icon`
 - `nightly/app-icon.icon`
 - `prod/app-icon.icon`
 
-Each project uses `text.svg` for the T3 mark and `background.svg` when the background is a vector layer. Additional layers use semantic names that describe their role and placement.
+Each project uses `text.svg` for the mark and `background.svg` when the background is a vector layer. Additional layers use semantic names that describe their role and placement.
 
 Run `vp run icons:export` from the repository root to regenerate the tracked iOS, Linux, Windows, and web assets. The development web exports are also copied to `apps/web/public` for the browser favicon, web app manifest icons, and splash screen. Run `vp run icons:check` to verify that the generated assets and public copies match their sources without changing files.
 
