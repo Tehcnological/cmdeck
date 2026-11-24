@@ -526,9 +526,9 @@ it.layer(layerCodexTextGenerationTest)("CodexTextGeneration", (it) => {
     ),
   );
 
-  it.effect("identifies codex exec as T3 Code", () =>
+  it.effect("identifies codex exec as CMDeck", () =>
     withFakeCodexEnv(
-      { output: JSON.stringify({ title: "Live title" }), requireOriginator: "T3 Code" },
+      { output: JSON.stringify({ title: "Live title" }), requireOriginator: "CMDeck" },
       (textGeneration) =>
         Effect.gen(function* () {
           const result = yield* textGeneration.generateThreadTitle({

@@ -1,8 +1,8 @@
 # Cloudflare Tunnel
 
-Reach T3 Code from a browser anywhere through a Cloudflare Tunnel you run
+Reach CMDeck from a browser anywhere through a Cloudflare Tunnel you run
 yourself, with Cloudflare Access in front of it. Everything here works on
-Cloudflare's free plans. T3 Code does not create, start, or manage the tunnel;
+Cloudflare's free plans. CMDeck does not create, start, or manage the tunnel;
 you run `cloudflared` and own the Cloudflare account.
 
 For the T3 Code mobile apps, use [Tailscale](./remote-access.md#tailscale-https)
@@ -13,24 +13,24 @@ send, so the apps cannot get past Access. See [Phones and other apps](#phones-an
 
 - A domain whose DNS is on Cloudflare (the free plan is enough), such as
   `example.com`. The tunnel gets a hostname under it, such as `t3.example.com`.
-- T3 Code running on the host as a [background service](./background-service.md)
+- CMDeck running on the host as a [background service](./background-service.md)
   or with `t3 serve`.
 - Cloudflare ends TLS at its edge, so Cloudflare can see the traffic between
-  your browser and T3 Code. Tailscale is end-to-end encrypted. Choose
+  your browser and CMDeck. Tailscale is end-to-end encrypted. Choose
   Tailscale if that matters to you.
 
 ### Pin the port
 
 The tunnel forwards to a fixed local port. The background service picks a free
-port when it starts, so set one in `~/.t3/service.env`:
+port when it starts, so set one in `~/.cmdeck/service.env`:
 
 ```dotenv
-T3CODE_PORT=3773
+T3CODE_PORT=3783
 ```
 
-Then run `t3 service restart`. For `t3 serve`, pass `--port 3773`.
+Then run `t3 service restart`. For `t3 serve`, pass `--port 3783`.
 
-Keep T3 Code on loopback (the default without `t3 up --lan`). `cloudflared`
+Keep CMDeck on loopback (the default without `t3 up --lan`). `cloudflared`
 connects to `localhost`, so nothing else on your network needs to reach the
 port.
 
@@ -62,7 +62,7 @@ cloudflared tunnel create t3code
 Treat that credentials file like a password: anyone who has it can run your
 tunnel.
 
-## 3. Point the tunnel at T3 Code
+## 3. Point the tunnel at CMDeck
 
 Create `~/.cloudflared/config.yml`:
 
@@ -72,7 +72,7 @@ credentials-file: /home/you/.cloudflared/<tunnel-id>.json
 
 ingress:
   - hostname: t3.example.com
-    service: http://localhost:3773
+    service: http://localhost:3783
   - service: http_status:404
 ```
 
@@ -99,13 +99,13 @@ sign-in.
 2. Go to **Access → Applications → Add an application → Self-hosted**.
 3. Name it, and set **Application domain** to `t3.example.com` with no path.
 4. Add a policy with **Action: Allow**. Under **Include**, choose **Emails** and
-   enter your address. Add anyone else who should reach T3 Code.
+   enter your address. Add anyone else who should reach CMDeck.
 5. Choose login methods. **One-time PIN** emails a code and needs no setup. To
    use GitHub, first add it under **Settings → Authentication → Login methods**
    with a GitHub OAuth app, then select it for the application.
 6. Save the application.
 
-Access then asks every browser to sign in before any request reaches T3 Code.
+Access then asks every browser to sign in before any request reaches CMDeck.
 
 ## 6. Run the tunnel
 
@@ -130,17 +130,17 @@ On macOS, `sudo cloudflared service install` installs a launch daemon that reads
 
 ## 7. Pair a browser
 
-Access lets you reach the address; T3 Code still asks for its own pairing,
-because Access sign-in is not a T3 Code login.
+Access lets you reach the address; CMDeck still asks for its own pairing,
+because Access sign-in is not a CMDeck login.
 
 1. On the host, run `t3 pair`. It prints a URL such as
-   `http://127.0.0.1:3773/pair#token=ABCD…`.
+   `http://127.0.0.1:3783/pair#token=ABCD…`.
 2. Replace the start of that URL with your hostname:
    `https://t3.example.com/pair#token=ABCD…`.
-3. Open it in your browser. Sign in to Access, then T3 Code pairs the browser.
+3. Open it in your browser. Sign in to Access, then CMDeck pairs the browser.
 
 The pairing code works once and expires after 5 minutes (`t3 pair --ttl 15m`
-for longer). To pair from a desktop app or another T3 Code client, use
+for longer). To pair from a desktop app or another CMDeck client, use
 **Add environment** with `https://t3.example.com` as the host and the code from
 `t3 pair`; the client must be able to pass Access, which in practice means a
 browser.
@@ -153,7 +153,7 @@ other device.
 The T3 Code iPhone and Android apps cannot sign in to Access, so requests from
 them stop at Cloudflare. Use [Tailscale](./remote-access.md#tailscale-https)
 for phones. Do not add an Access **Bypass** policy for the whole hostname to make
-the apps work: that leaves only T3 Code's pairing between the internet and
+the apps work: that leaves only CMDeck's pairing between the internet and
 your machine.
 
 Scripts and other non-browser clients can pass Access with a service token:
@@ -171,7 +171,7 @@ Scripts and other non-browser clients can pass Access with a service token:
         https://t3.example.com/...
    ```
 
-The client still needs a T3 Code credential, such as a session from
+The client still needs a CMDeck credential, such as a session from
 `t3 auth session issue`.
 
 ## Webhooks
@@ -196,7 +196,7 @@ if it leaks.
 
 ## Troubleshooting
 
-- **502 or "Bad gateway"**: T3 Code is not listening on the port in
+- **502 or "Bad gateway"**: CMDeck is not listening on the port in
   `config.yml`. Check `t3 status` and `T3CODE_PORT`.
 - **Redirect loop or blank page after sign-in**: make sure the application
   domain matches the tunnel hostname exactly.

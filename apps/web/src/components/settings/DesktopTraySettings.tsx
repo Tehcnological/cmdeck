@@ -53,9 +53,9 @@ export function DesktopTraySettings() {
         description={
           state.trayAvailable
             ? gt(
-                "Closing the window keeps T3 Code, its server, and running agents going in the tray.",
+                "Closing the window keeps CMDeck, its server, and running agents going in the tray.",
               )
-            : gt("This desktop has no system tray, so closing the window quits T3 Code.")
+            : gt("This desktop has no system tray, so closing the window quits CMDeck.")
         }
         control={
           <Switch
@@ -70,7 +70,7 @@ export function DesktopTraySettings() {
         <SettingsRow
           {...setting("launch-at-login")}
           description={gt(
-            "Start T3 Code when you log in. With close to tray on, it starts in the tray without opening a window.",
+            "Start CMDeck when you log in. With close to tray on, it starts in the tray without opening a window.",
           )}
           control={
             <Switch

@@ -7,7 +7,7 @@ import {
 } from "./captureConfigEdit.ts";
 import { readKdlNodes } from "./captureConfigKdl.ts";
 
-const app = "com.t3tools.T3Code";
+const app = "com.tehcnological.CMDeck";
 const binding = captureConfigBinding("niri", app, "Ctrl+Shift+2");
 
 describe("Niri capture config edits", () => {

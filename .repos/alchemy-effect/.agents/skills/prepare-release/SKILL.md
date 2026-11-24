@@ -187,7 +187,7 @@ failing services ∪ leaking services.
 
 ## 6. Fix fleet
 
-Launch one agent per service on the worklist, in parallel. In T3 Code each
+Launch one agent per service on the worklist, in parallel. In CMDeck each
 fixer is a detached top-level thread from `t3_thread_launch` with
 `workspaceStrategy: { type: "existing_worktree", worktreePath: <this worktree> }`,
 never a `delegate_task` subagent thread. Collect each result with

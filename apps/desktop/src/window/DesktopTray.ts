@@ -40,8 +40,8 @@ export class DesktopTrayLoginItemError extends Schema.TaggedError<DesktopTrayLog
 ) {
   override get message(): string {
     return this.enabled
-      ? "Could not add T3 Code to the apps that open at login."
-      : "Could not remove T3 Code from the apps that open at login.";
+      ? "Could not add CMDeck to the apps that open at login."
+      : "Could not remove CMDeck from the apps that open at login.";
   }
 }
 
@@ -147,9 +147,9 @@ export const make = Effect.gen(function* () {
     const current = tray;
     if (current === undefined || current.isDestroyed()) return;
     const labels = [
-      m(msg("Open T3 Code")),
+      m(msg("Open CMDeck")),
       m(STATUS_LABELS[yield* readStatus]),
-      m(msg("Quit T3 Code")),
+      m(msg("Quit CMDeck")),
     ] as const;
     const key = labels.join("\n");
     if (key === menuKey) return;
@@ -221,9 +221,9 @@ export const make = Effect.gen(function* () {
   });
 
   const showStillRunningHint = () => {
-    const title = m(msg("T3 Code is still running"));
+    const title = m(msg("CMDeck is still running"));
     const content = m(
-      msg("Agents keep working in the background. Open or quit T3 Code from its tray icon."),
+      msg("Agents keep working in the background. Open or quit CMDeck from its tray icon."),
     );
     if (environment.platform === "win32") {
       tray?.displayBalloon({ title, content, iconType: "info" });

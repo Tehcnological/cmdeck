@@ -47,7 +47,7 @@ const KeybindingsInvalidEntryIssue = Schema.Struct({
   index: Schema.Number,
 });
 
-/** Fork-only: the official T3 Code used this data folder. Upstream clients drop unknown kinds. */
+/** Fork-only: data-folder alerts (see apps/server/src/fork). Upstream clients drop unknown kinds. */
 const ForkSharedDataIssue = Schema.Struct({
   kind: Schema.Literal("fork.shared-data"),
   message: TrimmedNonEmptyString,

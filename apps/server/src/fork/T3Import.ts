@@ -4,6 +4,11 @@ import * as NodeFS from "node:fs";
 import * as NodeSqlite from "node:sqlite";
 
 import type { ServerConfigIssue } from "@t3tools/contracts";
+import {
+  APP_HOME_ENV,
+  UPSTREAM_HOME_DIR_NAME,
+  UPSTREAM_HOME_ENV,
+} from "@t3tools/shared/appIdentity";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Clock from "effect/Clock";
 import * as Config from "effect/Config";
@@ -513,14 +518,14 @@ export const resolveImportLocations = Effect.fn("T3Import.resolveImportLocations
   readonly baseDir: string | undefined;
 }) {
   const path = yield* Path.Path;
-  const envHome = yield* Config.String("CMDECK_HOME").pipe(
-    Config.orElse(() => Config.String("T3CODE_HOME")),
+  const envHome = yield* Config.String(APP_HOME_ENV).pipe(
+    Config.orElse(() => Config.String(UPSTREAM_HOME_ENV)),
     Config.option,
   );
   const target = yield* resolveBaseDir(input.baseDir ?? Option.getOrUndefined(envHome));
   const rawSource =
     input.from === undefined
-      ? path.join(yield* HostProcess.HomeDirectory, ".t3")
+      ? path.join(yield* HostProcess.HomeDirectory, UPSTREAM_HOME_DIR_NAME)
       : path.resolve(yield* expandHomePath(input.from.trim()));
   // `--from ~/.t3/userdata` names the state folder; the import wants the folder holding it.
   const source =
@@ -535,7 +540,7 @@ export const resolveImportLocations = Effect.fn("T3Import.resolveImportLocations
 export const importOfferIssues = Effect.fn("T3Import.importOfferIssues")(function* () {
   const path = yield* Path.Path;
   const config = yield* ServerConfig.ServerConfig;
-  const source = path.join(yield* HostProcess.HomeDirectory, ".t3");
+  const source = path.join(yield* HostProcess.HomeDirectory, UPSTREAM_HOME_DIR_NAME);
   const sourceDb = (yield* ServerConfig.deriveServerPaths(source, undefined)).dbPath;
   if (
     path.resolve(source) === path.resolve(config.baseDir) ||

@@ -53,11 +53,11 @@ describe("shouldStartHidden", () => {
 describe("renderAutostartDesktopEntry", () => {
   it("quotes the launcher and passes the hidden-launch argument", () => {
     const entry = renderAutostartDesktopEntry({
-      displayName: "T3 Code",
-      execTarget: "/home/me/Apps/T3 Code.AppImage",
+      displayName: "CMDeck",
+      execTarget: "/home/me/Apps/CMDeck.AppImage",
     });
-    assert.include(entry, `Exec="/home/me/Apps/T3 Code.AppImage" ${LAUNCH_HIDDEN_ARGUMENT}\n`);
-    assert.include(entry, "Name=T3 Code\n");
+    assert.include(entry, `Exec="/home/me/Apps/CMDeck.AppImage" ${LAUNCH_HIDDEN_ARGUMENT}\n`);
+    assert.include(entry, "Name=CMDeck\n");
     assert.isTrue(entry.startsWith("[Desktop Entry]\nType=Application\n"));
   });
 });

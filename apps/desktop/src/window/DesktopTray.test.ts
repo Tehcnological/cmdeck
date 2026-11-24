@@ -89,11 +89,11 @@ function layerTray(
         Layer.succeed(DesktopEnvironment.DesktopEnvironment, {
           platform: "win32",
           isPackaged: true,
-          displayName: "T3 Code",
+          displayName: "CMDeck",
         } as DesktopEnvironment.DesktopEnvironment["Service"]),
         Layer.mock(DesktopAssets.DesktopAssets, {
           iconPaths: Effect.succeed({
-            ico: Option.some("C:\\T3 Code\\resources\\icon.ico"),
+            ico: Option.some("C:\\CMDeck\\resources\\icon.ico"),
             icns: Option.none(),
             png: Option.none(),
           }),
@@ -136,13 +136,13 @@ describe("DesktopTray", () => {
           const [created] = electron.trays;
           assert.deepEqual(
             created?.menu.map((item) => item.label ?? item.type),
-            ["Open T3 Code", "Server: running", "separator", "Quit T3 Code"],
+            ["Open CMDeck", "Server: running", "separator", "Quit CMDeck"],
           );
           assert.isFalse(created?.menu[1]?.enabled);
 
           created?.listeners.get("click")?.();
           yield* Deferred.await(activated);
-          created?.menu.find((item) => item.label === "Quit T3 Code")?.click?.();
+          created?.menu.find((item) => item.label === "Quit CMDeck")?.click?.();
           yield* Deferred.await(quitRequested);
         }),
       ).pipe(

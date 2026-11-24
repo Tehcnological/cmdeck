@@ -1,6 +1,6 @@
 # Antigravity
 
-T3 Code runs Google's official Antigravity CLI (`agy acp`) unchanged on your selected environment.
+CMDeck runs Google's official Antigravity CLI (`agy acp`) unchanged on your selected environment.
 It does not patch the CLI, fake its environment, or identify itself as another client: the CLI
 signs in through its own flow and talks to Google itself. Google controls which models and account
 access are available through this agent.
@@ -9,7 +9,7 @@ access are available through this agent.
 
 On web or desktop, open **Settings > Providers**, choose the environment that runs
 your project, and enable Antigravity. Install its runtime there, then choose
-**Sign in** and complete the browser sign-in. Wait for T3 Code to confirm
+**Sign in** and complete the browser sign-in. Wait for CMDeck to confirm
 account access and load models before starting a thread. Once the runtime is installed,
 you can also sign in from **Settings > Providers** in the mobile app.
 
@@ -24,7 +24,7 @@ page's full address, into the code field in the client where you started sign-in
 This works the same from any device.
 
 The code is temporary. Paste it only into the setup field. The page alone does not
-confirm account access; wait for T3 Code's confirmation.
+confirm account access; wait for CMDeck's confirmation.
 
 ### Other sign-in methods
 
@@ -88,7 +88,7 @@ Questions with fixed choices still need one of the offered answers, even in
 
 On web and desktop, [Edit from here](./composer.md#edit-an-earlier-prompt) works with
 Antigravity. Antigravity cannot rewind its own conversation, so the next turn
-starts a fresh Antigravity session and T3 Code sends it the kept conversation,
+starts a fresh Antigravity session and CMDeck sends it the kept conversation,
 without the turns you removed.
 
 Use `/compact` to summarize a long conversation when your Antigravity runtime
@@ -97,7 +97,7 @@ or send `/clear` when you need a fresh context.
 
 ### Skills and attachments
 
-Put project skills in `.agents/skills`. T3 Code also reads `.gemini/skills` and the
+Put project skills in `.agents/skills`. CMDeck also reads `.gemini/skills` and the
 legacy `.agent/skills` directory. Among these project locations, the first copy
 wins in this order: `.gemini/skills`, `.agents/skills`, `.agent/skills`. See
 [commands and skills](./composer.md#commands-and-skills) for invoking them.
@@ -105,7 +105,7 @@ wins in this order: `.gemini/skills`, `.agents/skills`, `.agent/skills`. See
 Skills for every project go in `~/.gemini/config/skills` or
 `~/.gemini/antigravity-cli/skills`. Antigravity does not read `~/.agents/skills`
 on its own; to share a folder like that one, list it in `~/.gemini/config/skills.json`
-(or a project's `.agents/skills.json`), and T3 Code shows the skills it declares,
+(or a project's `.agents/skills.json`), and CMDeck shows the skills it declares,
 honoring `inherits`, `include_only`, and `exclude`.
 
 Antigravity receives images and audio directly, and reads PDFs and text files as
@@ -156,7 +156,7 @@ T3 does not support Antigravity goal status, pause, resume, or clear commands.
 
 ## Check access and troubleshoot
 
-T3 Code shows no Antigravity quota. It never reads the CLI's saved sign-in or calls
+CMDeck shows no Antigravity quota. It never reads the CLI's saved sign-in or calls
 Google's account or quota services itself, so **Usage > Limits** has no Antigravity windows. Google's own messages,
 such as a usage-limit error with its retry time, still appear in the thread.
 
