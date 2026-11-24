@@ -1,8 +1,15 @@
 # Remote architecture
 
 Each connection joins a client to one environment over HTTP and WebSocket. Direct access, Tailscale,
-SSH, and T3 Connect change how the client reaches the server; they do not introduce a different
-execution model.
+SSH, and a user-run reverse proxy (such as a Cloudflare Tunnel) change how the client reaches the
+server; they do not introduce a different execution model. T3 Connect is removed in this fork (see
+[06_t3-connect.md](./06_t3-connect.md)).
+
+- **A user-run tunnel needs no server support.** `cloudflared` forwards to loopback and keeps the
+  `Host` header, so the same-origin cookie check and `X-Forwarded-For` handling already treat it
+  like Tailscale Serve. Cloudflare Access is the outer gate; T3 pairing still admits each client.
+  The server does not verify `Cf-Access-Jwt-Assertion`, so the tunnel hostname must have an Access
+  application.
 
 ## Identity is independent of the route
 

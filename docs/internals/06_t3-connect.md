@@ -1,5 +1,14 @@
 # T3 Connect
 
+> **Removed in this fork.** The cut sits at existing upstream seams so merges stay small:
+> [`ManagedLimits.allowsConnect`](../../apps/server/src/policy/managedLimits.ts) is always false,
+> which reuses upstream's "policy turns Connect off" path (unlink stored relay state on start,
+> refuse link/mint, never run or install cloudflared, revoke `cloud-connect` sessions); the server
+> resolves no relay origin or Clerk config; `AgentAwarenessRelay.layer` is a no-op; and no build
+> bakes relay or Clerk values, so clients hide Connect through their no-cloud gates. Keep it that
+> way when merging: new relay callers must go through these seams. The rest of this page describes
+> upstream.
+
 T3 Connect uses Clerk for cloud identity. The relay manages environment links, bootstrap
 credentials, and managed tunnel allocations. Regular HTTP and WebSocket traffic goes directly from
 clients to the environment's tunnel hostname—the relay Worker is not in the data path.

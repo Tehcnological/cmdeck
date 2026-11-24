@@ -92,7 +92,10 @@ started from then on; your own Device panel is unaffected.
 ## Remote connections
 
 The device stream goes through the environment server, so it works over the
-local network, Tailscale, and T3 Connect. Live video needs a secure page
+local network, Tailscale, and your own Cloudflare Tunnel (T3 Connect is removed
+in this build; see [Remote access](./remote-access.md#choose-how-to-reach-the-host)).
+Which phones and computers may open the environment is decided by pairing; see
+[Approve new devices](./remote-access.md#approve-new-devices). Live video needs a secure page
 (HTTPS or localhost); on a plain-HTTP remote origin iOS falls back to a slower
 still-image stream and Android cannot show video, except on Expo Simulators.
 

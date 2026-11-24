@@ -1,5 +1,11 @@
 # T3 Connect troubleshooting
 
+> This build removes T3 Connect. Hosts are unlinked on start and never contact
+> T3's relay, so these errors only appear for saved T3 Connect routes from an
+> older install. Remove those routes and reach the host with
+> [Tailscale or your own Cloudflare Tunnel](./remote-access.md#choose-how-to-reach-the-host).
+> The rest of this page describes upstream T3 Connect.
+
 A T3 Connect connection goes through four parts, in this order:
 
 1. **This device** reaches T3 Connect over the internet.
