@@ -1,3 +1,4 @@
+import * as Headers from "effect/http/Headers";
 import * as Mime from "effect/http/Mime";
 import {
   AuthOrchestrationOperateScope,
@@ -509,7 +510,18 @@ const layerUntracedRequests = Layer.succeed(HttpMiddleware.TracerDisabledWhen)((
 // Signed URLs carry their bearer token in the path; spans and request logs record it as REDACTED.
 const SIGNED_URL_ROUTE_OPTIONS = { redactedParams: ["*"] };
 
-export const withUntracedRequests = Layer.provide(layerUntracedRequests);
+// A Cloudflare Access service token's secret arrives in a header; request spans must not record it.
+const layerRedactedHeaders = Layer.succeed(Headers.CurrentRedactedNames)([
+  "authorization",
+  "cookie",
+  "set-cookie",
+  "x-api-key",
+  "cf-access-client-secret",
+]);
+
+export const withUntracedRequests = Layer.provide(
+  Layer.merge(layerUntracedRequests, layerRedactedHeaders),
+);
 
 // Request spans otherwise parent to the server's lifetime span, so every request shares one trace id.
 export const withRootRequestSpans = <A, E, R>(layer: Layer.Layer<A, E, R>) =>

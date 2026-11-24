@@ -56,6 +56,11 @@ export interface McpClientCaller {
   readonly senderThread?: OrchestrationV2LinkedSender | undefined;
   /** An outside client's thread links go through this hosted app, as Copy thread's do. */
   readonly hostedAppUrl?: string | undefined;
+  /**
+   * A `t3 auth mcp-token` token rather than a session: no session row exists to watch for
+   * revocation, so streams do not end with it and it cannot own webhook subscriptions.
+   */
+  readonly sessionless?: boolean | undefined;
 }
 
 /**
