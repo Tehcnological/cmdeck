@@ -197,6 +197,7 @@ import * as SecretResolver from "@t3tools/secret-provider-core/server/SecretReso
 import * as ManagedProviders from "./policy/managedProviders.ts";
 import * as ServerSettings from "./serverSettings.ts";
 import * as ForkAlerts from "./fork/ForkAlerts.ts";
+import * as T3Import from "./fork/T3Import.ts";
 import { invalidateSettingsSecrets } from "./sourceControl/sourceControlHostSecrets.ts";
 import * as DatabaseStorage from "./persistence/DatabaseStorage.ts";
 import * as StorageCleanup from "./storageCleanup.ts";
@@ -1499,6 +1500,13 @@ export const layerWsRpc = (
       const databaseStorage = yield* DatabaseStorage.DatabaseStorage;
       const serverSettings = yield* ServerSettings.ServerSettingsService;
       const forkAlerts = yield* Effect.serviceOption(ForkAlerts.ForkAlerts);
+      // Checked once, on the first config read, after startup migrated this build's database.
+      const importOffer = yield* Effect.cached(
+        T3Import.importOfferIssues().pipe(
+          Effect.provideService(ServerConfig.ServerConfig, config),
+          Effect.provideService(Path.Path, yield* Path.Path),
+        ),
+      );
       const secretResolver = yield* SecretResolver.SecretResolver;
       const peerLinks = yield* PeerLinks.PeerLinks;
       const peerLinkRequests = yield* PeerLinkRequests.PeerLinkRequests;
@@ -1822,7 +1830,11 @@ export const layerWsRpc = (
           hostname: yield* HostProcess.Hostname,
           keybindingsConfigPath: config.keybindingsConfigPath,
           keybindings: keybindingsConfig.keybindings,
-          issues: [...keybindingsConfig.issues, ...(yield* ForkAlerts.configIssues(forkAlerts))],
+          issues: [
+            ...keybindingsConfig.issues,
+            ...(yield* ForkAlerts.configIssues(forkAlerts)),
+            ...(yield* importOffer),
+          ],
           providers,
           inferenceServers: yield* inferenceServers.current,
           ...discovery,
