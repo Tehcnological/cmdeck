@@ -4,7 +4,7 @@ Ask a different model to review what a thread changed before you accept it. Star
 the command palette (**Review with another model**) or from the review button in the diff panel.
 
 You choose the reviewer's provider and model every time. The dialog starts on the reviewer you used
-last on that environment; if that provider is gone or turned off, pick again. T3 Code never picks
+last on that environment; if that provider is gone or turned off, pick again. CMDeck never picks
 or swaps a reviewer for you.
 
 ## What the reviewer sees and may do

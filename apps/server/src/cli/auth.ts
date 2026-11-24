@@ -419,7 +419,7 @@ const mcpTokenCreateCommand = Command.make("create", {
         });
         yield* Console.log(
           `Created remote MCP token ${record.id} (${record.label}, ${record.access}).\n` +
-            "Copy it now: it is not shown again, and T3 Code keeps only a hash of it.\n\n" +
+            "Copy it now: it is not shown again, and CMDeck keeps only a hash of it.\n\n" +
             `${token}\n`,
         );
       }),

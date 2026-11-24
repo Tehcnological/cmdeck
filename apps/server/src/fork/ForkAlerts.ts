@@ -1,4 +1,4 @@
-// Fork-only. CMDeck keeps its own data folder, but a database can still come from a newer T3 Code
+// Fork-only. CMDeck keeps its own data folder, but a database can still come from a newer CMDeck
 // (imported, or a shared T3CODE_HOME), and a service can run a runtime CMDeck did not install.
 // See docs/operations/fork-upstream-sync.md.
 import * as Context from "effect/Context";

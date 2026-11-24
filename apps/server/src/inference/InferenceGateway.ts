@@ -221,9 +221,9 @@ function prepareBody(protocol: InferenceApiProtocol, raw: Uint8Array) {
 }
 
 const STOP_MESSAGES: Record<WatchdogReason, string> = {
-  loop: "T3 Code stopped this reply: the model kept repeating the same text.",
-  "reasoning-limit": "T3 Code stopped this reply: the model reasoned at length without answering.",
-  idle: "T3 Code stopped this reply: the model server stopped sending anything.",
+  loop: "CMDeck stopped this reply: the model kept repeating the same text.",
+  "reasoning-limit": "CMDeck stopped this reply: the model reasoned at length without answering.",
+  idle: "CMDeck stopped this reply: the model server stopped sending anything.",
 };
 
 /** The protocol's own error event, so the harness ends the turn instead of taking it as done. */
@@ -545,7 +545,7 @@ const make = Effect.gen(function* () {
       return errorResponse(
         400,
         "t3_watchdog_stopped",
-        "T3 Code stopped this run's last reply. Send a new message to continue.",
+        "CMDeck stopped this run's last reply. Send a new message to continue.",
       );
     }
 
@@ -681,7 +681,7 @@ const make = Effect.gen(function* () {
         return errorResponse(
           504,
           "t3_watchdog_idle",
-          "T3 Code stopped this reply: the inference server sent nothing for 5 minutes.",
+          "CMDeck stopped this reply: the inference server sent nothing for 5 minutes.",
         );
       }
       if (next === undefined || !isPreDispatchFailure(answered.failure)) {

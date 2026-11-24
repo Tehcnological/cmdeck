@@ -65,7 +65,7 @@ async function download(url, file) {
         shown = step;
         const percent = total ? ` ${step}%` : "";
         process.stderr.write(
-          `\r\x1b[2Kt3: downloading T3 Code ${version}${percent} (${(received / 1048576).toFixed(1)} MB)`,
+          `\r\x1b[2Kt3: downloading CMDeck ${version}${percent} (${(received / 1048576).toFixed(1)} MB)`,
         );
       }
     }
@@ -179,7 +179,7 @@ async function main() {
   const key = `${process.platform}-${process.arch}`;
   if (!SUPPORTED.includes(key)) {
     throw new Error(
-      `no T3 Code CLI build is available for ${key} (supported: ${SUPPORTED.join(", ")}).\n` +
+      `no CMDeck CLI build is available for ${key} (supported: ${SUPPORTED.join(", ")}).\n` +
         "The desktop app is at https://github.com/pingdotgg/t3code/releases",
     );
   }
@@ -241,7 +241,7 @@ function killTree(child) {
 
 function executableError(key, detail) {
   return new Error(
-    `could not run T3 Code ${version} for ${key}: ${detail}` +
+    `could not run CMDeck ${version} for ${key}: ${detail}` +
       (process.platform === "linux"
         ? "\nThe Linux release requires glibc; musl-based systems such as Alpine are not supported. Use a glibc-based Linux environment."
         : ""),

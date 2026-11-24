@@ -103,7 +103,7 @@ script with bounded parallelism, enforces an agent budget, and journals
 every finished agent's result, so a crash costs only the agents still
 running. When no workflow tool exists, launch each agent as a detached
 top-level thread (`t3_thread_launch` with `workspaceStrategy: "worktree"`
-in T3 Code), never a `delegate_task` subagent thread; the coordinator reads
+in CMDeck), never a `delegate_task` subagent thread; the coordinator reads
 each thread's result with `t3_thread_read`. Either way,
 each agent gets the task contract from **What every agent task prompt must
 include** in `AGENTS.md`, owns one distilled service, and returns the

@@ -12,7 +12,7 @@ it.effect("never adopts the official T3 Code's Electron profiles", () =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const directory = yield* fs.makeTempDirectoryScoped({ prefix: "cmdeck-profile-" });
-    for (const official of ["t3code", "t3code-v2", "T3 Code (Alpha)"]) {
+    for (const official of ["t3code", "t3code-v2", "CMDeck (Alpha)"]) {
       yield* fs.makeDirectory(path.join(directory, official), { recursive: true });
       yield* fs.writeFileString(path.join(directory, official, "Local State"), "official");
     }

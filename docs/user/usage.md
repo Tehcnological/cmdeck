@@ -68,7 +68,7 @@ update model pricing.
 
 ## Local compute
 
-Below Cost and Tokens, **Local compute** shows the requests T3 Code's gateway sent to your
+Below Cost and Tokens, **Local compute** shows the requests CMDeck's gateway sent to your
 registered inference servers in the past 24 hours or 7 days. See
 [Local models](./local-models.md#see-what-your-hardware-did).
 
@@ -102,7 +102,7 @@ the dialog.
 ## Show only some models
 
 To count only some models, or to leave some out, add `usageModelFilter` to the server's
-`settings.json` in its `userdata` directory, such as `~/.t3/userdata/settings.json`:
+`settings.json` in its `userdata` directory, such as `~/.cmdeck/userdata/settings.json`:
 
 ```json
 {

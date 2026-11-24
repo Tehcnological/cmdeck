@@ -1,8 +1,8 @@
-# T3 Code docs
+# CMDeck docs
 
-## Using T3 Code
+## Using CMDeck
 
-- [Install T3 Code](./user/install.md)
+- [Install CMDeck](./user/install.md)
 - [Messages and context](./user/composer.md)
 - [Working with threads](./user/thread-sidebar.md)
 - [Permission modes](./user/permission-modes.md)
@@ -17,7 +17,7 @@
 - [SnapShots](./user/snap-shot.md)
 - [Visual replies](./user/html-renders.md)
 - [Import browser sessions](./user/browser-import.md)
-- [Use T3 Code as your default browser](./user/default-browser.md)
+- [Use CMDeck as your default browser](./user/default-browser.md)
 - [Devices](./user/devices.md)
 - [Usage and limits](./user/usage.md)
 - [Secrets](./user/secrets.md)
@@ -29,13 +29,13 @@
 - [Outside agents (MCP)](./user/outside-agents.md)
 - [Remote MCP with a token](./user/remote-mcp.md)
 - [Running in the background](./user/background-service.md)
-- [Updating T3 Code](./user/updating.md)
+- [Updating CMDeck](./user/updating.md)
 - [Triage an issue](./user/triage.md)
 - Provider guides: [Local models](./user/local-models.md) · [Codex](./user/providers-codex.md) · [Claude](./user/providers-claude.md) · [OpenCode](./user/providers-opencode.md) · [Antigravity](./user/providers-antigravity.md) · [Kiro](./user/providers-kiro.md) · [Pi](./user/providers-pi.md) · [Muse Code](./user/providers-muse.md) · [fx](./user/providers-fx.md)
 
 ---
 
-## Working on T3 Code
+## Working on CMDeck
 
 Start with the [development runbook](./operations/00_development.md),
 [contribution policy](../CONTRIBUTING.md), and [trademark policy](../TRADEMARK.md).

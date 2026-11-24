@@ -93,7 +93,7 @@ const refuse = (policy: PolicyDocument, action: string, detail?: string) =>
 export const refuseConnect = (policy: PolicyDocument) =>
   policy.document === undefined
     ? new ManagedPolicyRefusedError({
-        organization: "This T3 Code build",
+        organization: "This CMDeck build",
         action: "T3 Connect",
         detail: "use Tailscale or your own Cloudflare Tunnel instead",
       })

@@ -53,42 +53,85 @@ The script stops and lists the files. Resolve, `git add -A && git commit --no-ed
 - a forbidden pattern (analytics ingest, PostHog, crash reporting, OTLP exporters, Google
   `v1internal`, the T3 relay host) reappears in `apps/`, `packages/` or `scripts/`;
 - the desktop build would publish a release feed again;
-- a shared-data safeguard (below) lost its hook in an upstream file.
+- a fork hook or CMDeck identity value (below) lost its place in an upstream file.
 
 Add a pattern to its list whenever you remove something upstream may reintroduce.
 
-## Shared data with the official T3 Code
 
-The fork deliberately keeps upstream's data directory (`~/.t3`, or `T3CODE_HOME`), app ID, service
-label and version numbers, so threads, settings, pairings and the official mobile app carry over
-unchanged. Run only one of them per machine: quit and uninstall the official desktop app and its
-background service before starting the fork.
+## Separate data from T3 Code
 
-What the fork enforces or reports. Alerts are logged and shown in the web and desktop app as a
-warning toast (`fork.shared-data` server config issues, which the official clients ignore):
+CMDeck keeps its own data and identity, so it installs and runs next to the official T3 Code
+without either one touching the other's state:
 
-- **Desktop apps.** The shared app ID makes the fork's installer replace the official app, and the
-  single-instance lock (keyed on the shared user-data folder) lets only one of them run. A running
-  background service of either build owns `~/.t3`; the desktop app then says so and quits.
-- **Database newer than the fork.** If the official app migrated the database further than this
-  build knows, the fork still starts (so you can sync from inside it) and alerts until you run
-  `scripts/fork/sync-upstream.sh` and rebuild. Upgrade-time preflight (`t3 update`, server
-  self-update) still refuses to switch to a build older than the database.
-- **Runtimes.** Every runtime the fork stages in `runtime/versions/<version>` (installs, updates,
-  `scripts/install.sh`/`.ps1`, the desktop's SSH bootstrap) gets a `.t3code-fork` marker. Installs and
-  updates refuse to reuse a complete runtime without it and name the folder to delete. A background
-  service already running an unmarked runtime keeps running; the launcher logs it and the server
-  alerts. Runtimes the fork installed before the marker existed trigger the same alert; if you are
-  sure one is the fork's, create an empty `.t3code-fork` file in it.
-- **Settings.** Every settings write mirrors the fork-only keys (`inferenceServers`,
-  `textGenerationFallback`, `textGenerationModelSelectionExplicit`, provider instances' `inference`
-  and `inferenceServerId`) to `fork-settings-backup.json` next to `settings.json`, without inline
-  credentials (stored API keys stay in the secret store). When `settings.json` lacks a key the backup
-  has, the fork restores it, rewrites the file and alerts. Add new fork-only settings keys to
-  `apps/server/src/fork/forkSettingsBackup.ts`.
+| What                    | CMDeck                                                        | Official T3 Code                  |
+| ----------------------- | ------------------------------------------------------------- | --------------------------------- |
+| Data directory          | `~/.cmdeck` (`CMDECK_HOME`, else `T3CODE_HOME`)                | `~/.t3` (`T3CODE_HOME`)           |
+| Desktop app ID          | `com.tehcnological.cmdeck`                                    | `com.t3tools.t3code`              |
+| Electron profile        | `<app data>/cmdeck` (dev: `cmdeck-dev`)                       | `<app data>/t3code-v2`            |
+| Windows install folder  | `%LOCALAPPDATA%\Programs\cmdeck`                              | `%LOCALAPPDATA%\Programs\t3code`  |
+| Background service      | `cmdeck.service`, `com.tehcnological.cmdeck.service`, task `cmdeck-<domain>-<user>` | `t3code.service`, `com.t3tools.t3code.service`, `t3code-…` |
+| Default server port     | 3783                                                          | 3773                              |
 
-Only documented: the fork's `inference_requests` table and other fork-only state are invisible to
-the official app, and nothing stops the official app from running against `~/.t3` while the fork is
-stopped.
-Second-model reviews are ordinary side chats tagged `second-model-review`, so the official clients
-show them as plain side chats; the last reviewer choice is a client setting they may drop.
+All of these come from `packages/shared/src/appIdentity.ts`, which also exports upstream's values
+for the importer. CMDeck never reads the official app's folders on its own: the upstream code that
+copied the old Windows `Local State` and imported V1 `localStorage` is disabled. To bring threads
+and settings over, run `cmdeck import-from-t3`.
+
+Still enforced or reported. Alerts are logged and shown in the web and desktop app as a warning
+toast (`fork.shared-data` server config issues, which the official clients ignore):
+
+- **Database newer than CMDeck.** An imported database (or one under a shared `T3CODE_HOME`) that a
+  newer T3 Code migrated still starts, and alerts until you run `scripts/fork/sync-upstream.sh` and
+  rebuild. Upgrade-time preflight still refuses to switch to a build older than the database.
+- **Runtimes.** Every runtime CMDeck stages in `runtime/versions/<version>` (installs, updates,
+  `scripts/install.sh`/`.ps1`, the desktop's SSH bootstrap) gets a `.cmdeck` marker. Installs and
+  updates refuse to reuse a complete runtime without it, and the server alerts when the background
+  service runs one.
+
+Deep links stay on `t3code://` (and `t3code-dev://`). Both apps register that scheme, so the OS
+sends a link to whichever registered last; a separate `cmdeck://` scheme is not wired up.
+
+Compatibility with the official mobile app and other T3 Code servers is unchanged: protocol
+versions, RPC and schema names, pairing and auth token formats, `/.well-known/t3/...` paths,
+mDNS service names and HTTP headers are upstream's. Second-model reviews are ordinary side chats
+tagged `second-model-review`, so the official clients show them as plain side chats; the last
+reviewer choice is a client setting they may drop.
+
+## Renamed in this fork
+
+**Renamed to CMDeck:** every user-visible "T3 Code" in apps (web, desktop, mobile, server CLI and
+errors), packages, scripts, `docs/user/`, `docs/README.md` and the README; window titles, menus,
+About, PWA manifest and `<title>`, installer product name (`CMDeck`, nightly `CMDeck (Nightly)`),
+artifact names (`CMDeck-<version>-<arch>.<ext>`), Linux executable `cmdeck` and desktop entry
+`com.tehcnological.CMDeck`, the CLI's help name (`cmdeck`, with a `cmdeck` bin beside `t3`), the
+translation catalogs (re-keyed, see below), and the identity values in the table above.
+Release builds show the plain name; Dev and Nightly keep their stage suffix.
+
+**Deliberately kept:**
+
+- Internal names: the `t3` package and CLI (still works), `@t3tools/*` imports, `T3CODE_*`
+  environment variables, `t3code://` deep links, `t3.json` project files, the "T3 home" wording.
+- Wire and compatibility identifiers listed above.
+- Provider-facing identities: Codex `clientInfo`/originator and ChatGPT `agent_name_hint`,
+  Antigravity and Muse `clientInfo`, recorded provider transcripts (`*.ndjson`), and the git
+  identity of hidden checkpoint commits. Providers may key behavior on these.
+- Mentions of the official product: the official mobile app and its store listings, "official
+  T3 Code" in fork code, T3 Connect and T3 Chat (upstream services), `TRADEMARK.md`,
+  `AGENTS.md`, `docs/internals/`, `docs/operations/`, `apps/marketing/`, `evals/`, and the
+  managed-policy domain `com.t3tools.t3code` (MDM profiles target the official app ID).
+- Mobile bundle IDs and the fork's own mobile modules (CMDeck ships no mobile app; use the official
+  one).
+- Linux capture-helper names (`com.t3tools.T3Code.SnapShot`, `…KdeCapture`).
+
+**Translations.** GT keys are the first 16 hex characters of the SHA-256 of the stable JSON
+`{"dataFormat":"ICU"|"JSX","source":…}` (plus `context` when set; JSX drops `i` and `t`). The
+rename changed the English source strings, so each affected key was recomputed and moved in every
+locale, with "T3 Code" replaced by "CMDeck" in the translations. `vp run i18n:check` should pass;
+`vp run i18n:generate` rewrites the same keys.
+
+**Merge conflicts on rebranded strings.** Take upstream's version of the line, then reapply the
+rename: replace "T3 Code" with "CMDeck" unless it is one of the kept cases above. For translated
+strings, run `vp run i18n:generate` in the app afterwards; it moves upstream's new English to the
+new key, and you replace the product name in each locale's value. `scripts/fork/guard.sh` checks
+that `appIdentity.ts` and its hooks survived the merge. To find leftovers:
+`git grep -n "T3 Code" -- apps packages docs/user ':!apps/marketing'`.

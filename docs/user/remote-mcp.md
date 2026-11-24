@@ -30,7 +30,7 @@ On the machine that runs the environment:
 t3 auth mcp-token create --label laptop-claude --access read-only
 ```
 
-The token is printed once. Copy it into the client's config right away; T3 Code keeps
+The token is printed once. Copy it into the client's config right away; CMDeck keeps
 only a hash of it and cannot show it again. `--access` is required:
 
 - `read-only` reads projects, threads and the available models. It cannot change
@@ -91,13 +91,13 @@ client that supports remote MCP over HTTP with custom headers works the same way
 
 Use the `https://<machine>.<tailnet>.ts.net/mcp` address from
 [Tailscale HTTPS](./remote-access.md#tailscale-https). Only devices on your tailnet
-can reach it. Plain `http://100.x.y.z:3773/mcp` also works on the tailnet, but sends
+can reach it. Plain `http://100.x.y.z:3783/mcp` also works on the tailnet, but sends
 the token unencrypted on any hop Tailscale does not cover; prefer `https`.
 
 ### Over a Cloudflare Tunnel with Cloudflare Access
 
 Run `cloudflared` on the machine and point a hostname at the local server, for example
-`http://localhost:3773`. Put the hostname behind a Cloudflare Access application with a
+`http://localhost:3783`. Put the hostname behind a Cloudflare Access application with a
 **Service Auth** policy, and create a service token for the client. The client then sends
 three headers:
 
