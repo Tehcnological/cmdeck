@@ -125,8 +125,11 @@ it.effect("tells clients Connect is off when the policy leaves out remote client
       clients: ["desktop", "local-browser"],
       connect: false,
     });
-    assert.isTrue(ManagedLimits.allowsConnect(policy({ clients: ["remote"] })));
-    assert.isFalse(ManagedLimits.allowsConnect(policy({ connect: false })));
+    assert.isTrue(ManagedLimits.policyAllowsConnect(policy({ clients: ["remote"] })));
+    assert.isFalse(ManagedLimits.policyAllowsConnect(policy({ connect: false })));
+    // This fork removes T3 Connect, whatever the policy says.
+    assert.isFalse(ManagedLimits.allowsConnect(policy({ clients: ["remote"] })));
+    assert.isFalse(ManagedLimits.allowsConnect({ document: undefined }));
   }),
 );
 

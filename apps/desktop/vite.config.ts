@@ -5,9 +5,7 @@ import { defaultInclude, defineConfig } from "vite-plus";
 import { Rolldown } from "vite-plus/pack";
 
 import { isDesktopRuntimeExternalDependency } from "../../scripts/lib/desktop-external-packages.ts";
-import { loadRepoEnv } from "../../scripts/lib/public-config.ts";
 
-const repoEnv = loadRepoEnv();
 const domTests = ["src/preview/PickPreload.test.ts"];
 
 // Install only bundle externals; the server bundle already carries its dependency tree.
@@ -21,10 +19,9 @@ const devElectronCommand =
   NodeOS.platform() === "win32"
     ? "node scripts/dev-electron.mjs"
     : "exec node scripts/dev-electron.mjs";
+// This fork removes T3 Connect, so the desktop shell trusts no Clerk origin.
 const publicConfigDefine = {
-  __T3CODE_BUILD_CLERK_PUBLISHABLE_KEY__: JSON.stringify(
-    repoEnv.T3CODE_CLERK_PUBLISHABLE_KEY?.trim() ?? "",
-  ),
+  __T3CODE_BUILD_CLERK_PUBLISHABLE_KEY__: JSON.stringify(""),
 };
 
 const PAGE_WORLD_MODULE = /[\\/]src[\\/]preview[\\/]PageWorld\.ts$/;

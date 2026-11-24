@@ -73,8 +73,15 @@ export const allowsRemoteClients = (policy: PolicyDocument) =>
   allowsAuthPolicy(policy, "remote-reachable");
 
 /** T3 Connect is a way for remote clients in, so a policy without `remote` turns it off too. */
-export const allowsConnect = (policy: PolicyDocument) =>
+export const policyAllowsConnect = (policy: PolicyDocument) =>
   policy.document?.limits?.connect !== false && allowsRemoteClients(policy);
+
+/**
+ * This fork removes T3 Connect: no policy turns it on, so the relay link, managed tunnel,
+ * connector install, and Connect sessions all stay off. Reach the machine with Tailscale or your
+ * own Cloudflare Tunnel instead (docs/user/remote-access.md).
+ */
+export const allowsConnect = (_policy: PolicyDocument): boolean => false;
 
 const refuse = (policy: PolicyDocument, action: string, detail?: string) =>
   new ManagedPolicyRefusedError({
@@ -83,7 +90,14 @@ const refuse = (policy: PolicyDocument, action: string, detail?: string) =>
     ...(detail === undefined ? {} : { detail }),
   });
 
-export const refuseConnect = (policy: PolicyDocument) => refuse(policy, "T3 Connect");
+export const refuseConnect = (policy: PolicyDocument) =>
+  policy.document === undefined
+    ? new ManagedPolicyRefusedError({
+        organization: "This T3 Code build",
+        action: "T3 Connect",
+        detail: "use Tailscale or your own Cloudflare Tunnel instead",
+      })
+    : refuse(policy, "T3 Connect");
 
 // Node throws ENOTDIR, outside the spawner's error mapping, when PATH ends in a file.
 const isMissingCli = (cause: unknown) =>
