@@ -257,9 +257,9 @@ Marked instances:
 **Settings → Threads → Text generation fallback** decides where background writing
 goes when its model cannot run:
 
-- **Local models only** (default): another ready local instance, or an error. Your
+- **Any provider** (default): local instances first, then any signed-in provider.
+- **Local models only**: another ready local instance, or an error. Your
   diffs and messages never move to a cloud provider on their own.
-- **Any provider**: local instances first, then any signed-in provider.
 - **Don't fall back**: report the error.
 
 The fallback never replaces a model you selected that is working. With **Local

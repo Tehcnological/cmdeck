@@ -209,7 +209,7 @@ export const make = Effect.gen(function* () {
       if (fallback !== null) {
         selection = fallback;
         substituted = true;
-      } else if (localPolicy || operation !== "generateReviewGuide") return yield* noLocalModel;
+      } else if (localPolicy) return yield* noLocalModel;
     }
     // Only a selection T3 chose; one the user picked keeps the options they gave it.
     if (substituted) {

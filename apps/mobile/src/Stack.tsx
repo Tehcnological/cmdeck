@@ -294,7 +294,7 @@ const SETTINGS_SCREENS = {
   SettingsInference: createNativeStackScreen({
     screen: SettingsInferenceRouteScreen,
     linking: "settings/inference",
-    options: settingsPage("Inference"),
+    options: settingsPage(),
   }),
   SettingsEnvironmentMaintenance: createNativeStackScreen({
     screen: SettingsEnvironmentMaintenanceRouteScreen,
