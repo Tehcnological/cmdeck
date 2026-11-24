@@ -2437,6 +2437,11 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     return true;
   };
   const submitComposerStable = useStableCallback(submitComposer);
+  const setSubmitHandler = useComposerDraftStore((store) => store.setSubmitHandler);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- registers this composer's send for panels outside it, such as the diff comment batch
+  useEffect(() => {
+    return setSubmitHandler(composerDraftTarget, () => submitComposerStable());
+  }, [composerDraftTarget, setSubmitHandler, submitComposerStable]);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- publishes the committed submission handler to the asynchronous dictation completion
   useLayoutEffect(() => {
     submitComposerRef.current = (mode, intent, options) =>

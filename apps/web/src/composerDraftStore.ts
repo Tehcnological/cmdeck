@@ -462,6 +462,9 @@ export type ComposerContextInsertionHandler = (
   references: ReadonlyArray<ComposerContextReference>,
 ) => boolean;
 const contextInsertionHandlers = new Map<string, ComposerContextInsertionHandler>();
+/** Sends the mounted composer's draft as it stands; returns whether it dispatched. */
+export type ComposerSubmitHandler = () => boolean;
+const submitHandlers = new Map<string, ComposerSubmitHandler>();
 
 export interface ComposerThreadDraftState {
   prompt: string;
@@ -736,6 +739,12 @@ interface ComposerDraftStoreState {
     threadRef: ComposerThreadTarget,
     handler: ComposerContextInsertionHandler | null,
   ) => (() => void) | undefined;
+  setSubmitHandler: (
+    threadRef: ComposerThreadTarget,
+    handler: ComposerSubmitHandler | null,
+  ) => (() => void) | undefined;
+  /** Asks the target's mounted composer to send; `false` when none is mounted or it refused. */
+  requestSubmit: (threadRef: ComposerThreadTarget) => boolean;
   setReviewComments: (
     threadRef: ComposerThreadTarget,
     comments: ReadonlyArray<ReviewCommentContext>,
@@ -4184,6 +4193,19 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
               contextInsertionHandlers.delete(threadKey);
             }
           };
+        },
+        setSubmitHandler: (threadRef, handler) => {
+          const threadKey = resolveComposerDraftKey(get(), threadRef);
+          if (!threadKey) return;
+          if (handler) submitHandlers.set(threadKey, handler);
+          else submitHandlers.delete(threadKey);
+          return () => {
+            if (submitHandlers.get(threadKey) === handler) submitHandlers.delete(threadKey);
+          };
+        },
+        requestSubmit: (threadRef) => {
+          const threadKey = resolveComposerDraftKey(get(), threadRef);
+          return threadKey ? (submitHandlers.get(threadKey)?.() ?? false) : false;
         },
         setReviewComments: (threadRef, comments) => {
           const threadKey = resolveComposerDraftKey(get(), threadRef);

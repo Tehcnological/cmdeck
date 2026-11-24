@@ -77,6 +77,7 @@ import { DiffFilePathCopyButton } from "./DiffFilePathCopyButton";
 import { DiffPanelLoadingState, DiffPanelShell, type DiffPanelMode } from "./DiffPanelShell";
 import { DiffStatLabel } from "./chat/DiffStatLabel";
 import { AnnotatableCodeView, type AnnotatableCodeViewHandle } from "./diffs/AnnotatableCodeView";
+import { DiffCommentBatchBar } from "./diffs/DiffCommentBatchBar";
 import { DiffFileTree } from "./diffs/DiffFileTree";
 import { FileExplorerPane } from "./files/FileExplorerPane";
 import { diffFileTreeEntries } from "./diffs/diffFileTree.logic";
@@ -1821,6 +1822,7 @@ export default function DiffPanel({
                 </div>
               </div>
             )}
+            <DiffCommentBatchBar composerDraftTarget={composerDraftTarget} />
           </div>
         </>
       )}
