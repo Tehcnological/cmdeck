@@ -30,6 +30,7 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer home
     try {
       await NodeFSP.mkdir(target, { recursive: true });
       await NodeFSP.writeFile(NodePath.join(target, ".install-complete"), `${version}\n`);
+      await NodeFSP.writeFile(NodePath.join(target, ".t3code-fork"), "");
       await NodeFSP.writeFile(NodePath.join(target, "t3"), "#!/bin/sh\necho 't3 v1.2.3'\n", {
         mode: 0o755,
       });
@@ -96,6 +97,7 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer chan
       // An existing completed install isolates release resolution from archive downloads.
       await NodeFSP.mkdir(target, { recursive: true });
       await NodeFSP.writeFile(NodePath.join(target, ".install-complete"), `${version}\n`);
+      await NodeFSP.writeFile(NodePath.join(target, ".t3code-fork"), "");
       await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
       const address = server.address();
       if (!address || typeof address === "string") throw new Error("Expected a TCP listener");
@@ -196,10 +198,13 @@ async function installOver(input: {
   readonly binDir: string;
   readonly env?: NodeJS.ProcessEnv;
   readonly cwd?: string;
+  /** False seeds a runtime the official T3 Code installed, without the fork's marker. */
+  readonly forkInstalled?: boolean;
 }) {
   const target = NodePath.join(input.home, "runtime", "versions", "1.2.3");
   await NodeFSP.mkdir(target, { recursive: true });
   await NodeFSP.writeFile(NodePath.join(target, ".install-complete"), "1.2.3\n");
+  if (input.forkInstalled !== false) await NodeFSP.writeFile(NodePath.join(target, ".t3code-fork"), "");
   const installer = NodePath.resolve(import.meta.dirname, input.script);
   const [command, args] =
     input.script === "install.sh"
@@ -222,6 +227,23 @@ async function installOver(input: {
 }
 
 describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("install.sh t3 command", () => {
+  it("refuses to reuse a runtime the official T3 Code installed", async () => {
+    const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-install-official-"));
+    try {
+      const binDir = NodePath.join(root, "bin");
+      const result = await installOver({
+        script: "install.sh",
+        home: NodePath.join(root, "home"),
+        binDir,
+        forkInstalled: false,
+      });
+      expect(result.code).not.toBe(0);
+      expect(result.output).toContain(`${result.target} holds a T3 Code runtime this fork did not`);
+    } finally {
+      await NodeFSP.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("replaces only this home's own launchers and prints a PATH command", async () => {
     const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-install-link-"));
     try {
@@ -516,6 +538,9 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer chec
             expect(
               await NodeFSP.readFile(NodePath.join(versions, version, ".install-complete"), "utf8"),
             ).toBe("1.2.3\n");
+            expect(
+              await NodeFSP.readFile(NodePath.join(versions, version, ".t3code-fork"), "utf8"),
+            ).toBe("t3code-fork\n");
             expect(
               NodeChildProcess.execFileSync(NodePath.join(root, "bin/t3"), ["--version"], {
                 encoding: "utf8",

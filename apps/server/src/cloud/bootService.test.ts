@@ -22,6 +22,7 @@ import * as ProcessRunner from "../processRunner.ts";
 import { serviceLauncherLockPath } from "../serviceLauncher.ts";
 import * as BootService from "./bootService.ts";
 import { pinnedRuntimePaths } from "./pinnedRuntime.ts";
+import { FORK_RUNTIME_MARKER_FILE } from "../fork/forkRuntimeMarker.ts";
 import { RESTORE_OOMD_WATCH_SCRIPT } from "./userManagerOom.ts";
 import {
   decodeServiceUnit,
@@ -207,6 +208,7 @@ const makeHarness = Effect.fn("test.make_boot_service_harness")(function* (
   yield* fs.makeDirectory(path.dirname(runtime.entryPath), { recursive: true });
   yield* fs.writeFileString(runtime.entryPath, "#!/bin/sh\n");
   yield* fs.writeFileString(runtime.sentinelPath, "1.2.3\n");
+  yield* fs.writeFileString(path.join(runtime.versionDir, FORK_RUNTIME_MARKER_FILE), "");
 
   const markersAtStop: boolean[] = [];
   const markersAtPreparation: boolean[] = [];
@@ -371,6 +373,7 @@ const makeHarness = Effect.fn("test.make_boot_service_harness")(function* (
       yield* fs.makeDirectory(path.dirname(paths.entryPath), { recursive: true });
       yield* fs.writeFileString(paths.entryPath, "#!/bin/sh\n");
       yield* fs.writeFileString(paths.sentinelPath, `${cliVersion}\n`);
+      yield* fs.writeFileString(path.join(paths.versionDir, FORK_RUNTIME_MARKER_FILE), "");
       return yield* BootService.make({
         baseDir: serviceBaseDir,
         logsDir: path.join(serviceBaseDir, "userdata", "logs"),

@@ -227,6 +227,9 @@ versions_dir="${t3_home}/runtime/versions"
 target_dir="${versions_dir}/${version}"
 
 if [ -f "${target_dir}/.install-complete" ] && [ "$(cat "${target_dir}/.install-complete")" = "$version" ]; then
+  # Fork: the official T3 Code installs the same versions here; only reuse this fork's own build.
+  [ -f "${target_dir}/.t3code-fork" ] ||
+    fail "${target_dir} holds a T3 Code runtime this fork did not install, most likely the official T3 Code build of the same version. Delete that folder, then run this installer again"
   step "Version ${version} is already downloaded."
 else
   mkdir -p "$versions_dir"
@@ -258,6 +261,7 @@ else
   tar -xzf "${staging}/${archive}" -C "$staging" --strip-components=1
   rm -f "${staging}/${archive}" "${staging}/SHA256SUMS"
   "${staging}/t3" --version >/dev/null || fail "the downloaded executable does not run"
+  printf 't3code-fork\n' > "${staging}/.t3code-fork"
   printf '%s\n' "$version" > "${staging}/.install-complete"
 
   rm -rf "$target_dir"

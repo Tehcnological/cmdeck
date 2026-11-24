@@ -577,6 +577,8 @@ if ! t3_runtime_ready; then
   if ! "$T3_STAGING/t3" --version >/dev/null 2>&1; then
     printf 'The t3 %s executable does not run on this host.\\n' "$T3_ARCHIVE_VERSION" >&2; exit 1
   fi
+  # Fork: lets this fork's \`t3 service install\` on the host reuse the runtime.
+  printf 't3code-fork\\n' > "$T3_STAGING/.t3code-fork"
   printf '%s\\n' "$T3_ARCHIVE_VERSION" > "$T3_STAGING/.install-complete"
   rm -rf "$T3_RUNTIME_DIR"
   mv "$T3_STAGING" "$T3_RUNTIME_DIR"
