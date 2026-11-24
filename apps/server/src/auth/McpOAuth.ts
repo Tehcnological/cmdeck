@@ -628,9 +628,7 @@ export const layerMcpClientAuthenticator = Layer.effect(
       ),
     );
     const policy = yield* ManagedPolicy.ManagedPolicy;
-    const remoteTokenServices = yield* Effect.context<
-      ServerSecretStore.ServerSecretStore | Digest.Digest
-    >();
+    const remoteTokens = yield* RemoteMcpTokens.makeVerifier;
     const toScope = (client: McpInvocationContext.McpClientCaller) =>
       Clock.currentTimeMillis.pipe(
         Effect.map(
@@ -654,8 +652,7 @@ export const layerMcpClientAuthenticator = Layer.effect(
     ): Effect.Effect<McpInvocationContext.McpInvocationScope | undefined> =>
       !remoteTokensEnabled || !ManagedLimits.allowsRemoteClients(policy)
         ? Effect.undefined
-        : RemoteMcpTokens.verify(token).pipe(
-            Effect.provide(remoteTokenServices),
+        : remoteTokens.verify(token).pipe(
             Effect.flatMap(
               (record): Effect.Effect<McpInvocationContext.McpInvocationScope | undefined> =>
                 record === undefined
@@ -664,7 +661,7 @@ export const layerMcpClientAuthenticator = Layer.effect(
                       sessionId: `remote-mcp-token:${record.id}`,
                       label: record.label,
                       access: record.access,
-                      sessionless: true,
+                      tokenRevoked: remoteTokens.awaitRevocation(record.id),
                     }),
             ),
             Effect.catch((error) =>

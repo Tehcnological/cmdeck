@@ -42,7 +42,7 @@ only a hash of it and cannot show it again. `--access` is required:
 
 ```bash
 t3 auth mcp-token list            # ids, access, creation time, labels; never the tokens
-t3 auth mcp-token revoke <id>     # the token's next request is refused
+t3 auth mcp-token revoke <id>
 ```
 
 A token does not expire. Revoke it when you stop using the client, and create one
@@ -133,8 +133,8 @@ bearer token.
 - Anyone who can reach the URL can try tokens. A token is 32 random bytes, so guessing
   is not practical, but put the endpoint behind Tailscale or Cloudflare Access rather
   than the open internet.
-- Revoking a token refuses its next request. A request already running, such as
-  `t3_thread_wait`, finishes first.
+- Within a few seconds of revocation, the server refuses new requests using that
+  token and closes its open requests, including `t3_thread_wait` and event streams.
 - Token clients cannot register webhooks; use OAuth for bots that need webhook delivery.
 - Tokens are stored as SHA-256 hashes in the environment's secrets directory. They do
   not appear in **Settings → Sharing & access**; use `t3 auth mcp-token list`.

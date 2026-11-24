@@ -295,27 +295,29 @@ const makeMcpAuthMiddleware = Effect.gen(function* () {
   const pullRequests = yield* Effect.serviceOption(PullRequestService.PullRequestService);
   const projections = yield* Effect.serviceOption(ProjectionStore.ProjectionStoreV2);
   const sessions = yield* Effect.serviceOption(SessionStore.SessionStore);
-  // Auth runs once per request, so a response that streams on ends when the outside client's
-  // session is revoked or expires. `events/stream` ends itself first with
-  // `notifications/events/terminated`, which cutting the body here would lose.
-  const endWithSession = (
+  // Auth runs once per request, so a streaming response ends here when the outside client's
+  // session or token is revoked.
+  const endOnRevocation = (
     response: HttpServerResponse.HttpServerResponse,
     request: HttpServerRequest.HttpServerRequest,
     client: McpInvocationContext.McpClientCaller | undefined,
   ) => {
     const body = response.body;
+    if (client === undefined || body._tag !== "Stream") return response;
+    // This protocol validates Mcp-Method against the body. Its event stream sends a final
+    // notifications/events/terminated itself, which cutting the body here would lose.
     if (
-      client === undefined ||
-      client.sessionless === true ||
-      Option.isNone(sessions) ||
-      body._tag !== "Stream"
+      request.headers["mcp-protocol-version"] === McpProtocol.v2026_07_28.protocolVersion &&
+      request.headers["mcp-method"] === "events/stream"
     ) {
       return response;
     }
-    if (request.headers["mcp-method"] === "events/stream") return response;
-    const invalidated = sessions.value
-      .awaitInvalidation(AuthSessionId.make(client.sessionId))
-      .pipe(Effect.ignore);
+    const invalidated =
+      client.tokenRevoked ??
+      Option.getOrUndefined(sessions)
+        ?.awaitInvalidation(AuthSessionId.make(client.sessionId))
+        .pipe(Effect.ignore);
+    if (invalidated === undefined) return response;
     return HttpServerResponse.setBody(
       response,
       HttpBody.stream(
@@ -396,10 +398,21 @@ const makeMcpAuthMiddleware = Effect.gen(function* () {
     if (HttpServerResponse.isHttpServerResponse(admitted)) return admitted;
     if (yield* isUndefinedNotification(request)) return HttpServerResponse.empty({ status: 202 });
     const linkExpiresAt = admitted.client?.linkExpiresAt;
-    return yield* httpEffect.pipe(
+    // A tool can wait for its first result before the transport returns a response body.
+    const tokenRevoked = admitted.client?.tokenRevoked;
+    const responseEffect =
+      tokenRevoked === undefined
+        ? httpEffect
+        : Effect.raceFirst(
+            httpEffect,
+            tokenRevoked.pipe(
+              Effect.map(() => unauthorized({ request, presentedToken: true, offerOAuth: true })),
+            ),
+          );
+    return yield* responseEffect.pipe(
       Effect.provideService(McpInvocationContext.McpInvocationContext, admitted),
       Effect.map(normalizeMcpHttpResponse),
-      Effect.map((response) => endWithSession(response, request, admitted.client)),
+      Effect.map((response) => endOnRevocation(response, request, admitted.client)),
       Effect.map((response) =>
         linkExpiresAt === undefined
           ? response
@@ -1376,7 +1389,7 @@ export const layerToolSearch = Layer.mergeAll(
 const webhookPrincipal = Effect.serviceOption(McpInvocationContext.McpInvocationContext).pipe(
   Effect.flatMap((scope) => {
     const client = Option.getOrUndefined(scope)?.client;
-    return client === undefined || client.sessionless === true
+    return client === undefined || client.tokenRevoked !== undefined
       ? Effect.fail(
           new McpSchema.Forbidden({
             message: "Webhook delivery needs an outside client's OAuth sign-in",

@@ -383,7 +383,7 @@ const sessionCommand = Command.make("session").pipe(
   Command.withSubcommands([sessionIssueCommand, sessionListCommand, sessionRevokeCommand]),
 );
 
-/** The server reads the token list on every check, so these need no running server. */
+/** These commands update the local secret store even when the server is stopped. */
 const runWithRemoteMcpTokens = Effect.fn("auth.runWithRemoteMcpTokens")(function* <A, E, R>(
   flags: CliAuthLocationFlags,
   run: Effect.Effect<A, E, R>,
@@ -447,7 +447,9 @@ const mcpTokenRevokeCommand = Command.make("revoke", {
   ...authLocationFlags,
   id: Argument.String("id").pipe(Argument.withDescription("Token id from `list`.")),
 }).pipe(
-  Command.withDescription("Revoke a remote MCP token. Its next request is refused."),
+  Command.withDescription(
+    "Revoke a remote MCP token and close its open requests within a few seconds.",
+  ),
   Command.withHandler((flags) =>
     runWithRemoteMcpTokens(
       flags,

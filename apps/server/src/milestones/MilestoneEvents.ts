@@ -78,10 +78,14 @@ export const make = Effect.gen(function* () {
   const untilRevoked = Effect.fnUntraced(function* <A>(items: Stream.Stream<A>) {
     const scope = yield* Effect.serviceOption(McpInvocationContext.McpInvocationContext);
     const client = Option.getOrUndefined(scope)?.client;
-    const sessionId = client?.sessionless === true ? undefined : client?.sessionId;
-    if (sessionId === undefined || Option.isNone(sessions)) return items;
-    const revoked = sessions.value.awaitInvalidation(AuthSessionId.make(sessionId)).pipe(
-      Effect.ignore,
+    if (client === undefined) return items;
+    const invalidated =
+      client.tokenRevoked ??
+      Option.getOrUndefined(sessions)
+        ?.awaitInvalidation(AuthSessionId.make(client.sessionId))
+        .pipe(Effect.ignore);
+    if (invalidated === undefined) return items;
+    const revoked = invalidated.pipe(
       Effect.andThen(
         Effect.fail(
           new McpSchema.Forbidden({

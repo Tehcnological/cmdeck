@@ -1,10 +1,14 @@
 import { AuthMcpClientAccess } from "@t3tools/contracts";
+import { lock } from "proper-lockfile";
 import * as Config from "effect/Config";
 import * as Digest from "effect/crypto/Digest";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as DateTime from "effect/DateTime";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
+import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 
 import * as ServerSecretStore from "./ServerSecretStore.ts";
@@ -21,6 +25,8 @@ const SECRET_NAME = "remote-mcp-tokens";
 /** Tells these tokens apart from session and provider tokens without reading the store. */
 export const TOKEN_PREFIX = "t3mcp_";
 const TOKEN_BYTES = 32;
+const TOKEN_FORMAT = new RegExp(`^${TOKEN_PREFIX}[A-Za-z0-9_-]{43}$`);
+const RECHECK_INTERVAL = "1 second";
 
 const RemoteMcpToken = Schema.Struct({
   id: Schema.String,
@@ -59,7 +65,45 @@ const write = (tokens: ReadonlyArray<RemoteMcpToken>) =>
     Effect.flatMap((store) =>
       store.set(SECRET_NAME, new TextEncoder().encode(encodeTokenList(tokens))),
     ),
+    Effect.uninterruptible,
   );
+
+class RemoteMcpTokenLockError extends Schema.TaggedError<RemoteMcpTokenLockError>()(
+  "RemoteMcpTokenLockError",
+  { cause: Schema.Defect() },
+) {
+  override get message(): string {
+    return "Could not lock the remote MCP token list for an update. Try again.";
+  }
+}
+
+// The store atomically renames each write. Separate CLI and server processes must also
+// serialize the preceding read, including when the first token file does not exist yet.
+// `realpath: false` locks `<file>.lock` without needing the file itself.
+const withWriteLock = Effect.fn("RemoteMcpTokens.withWriteLock")(function* <A, E, R>(
+  update: Effect.Effect<A, E, R>,
+) {
+  const { directory } = yield* ServerSecretStore.ServerSecretStore;
+  // A store without a directory is in memory, so no other process shares it.
+  if (directory === undefined) return yield* update;
+  const path = yield* Path.Path;
+  const file = path.join(directory, `${SECRET_NAME}.bin`);
+  const compromised = yield* Deferred.make<never, RemoteMcpTokenLockError>();
+  return yield* Effect.acquireUseRelease(
+    Effect.tryPromise({
+      try: () =>
+        lock(file, {
+          realpath: false,
+          retries: { retries: 60, minTimeout: 25, maxTimeout: 250 },
+          onCompromised: (cause) =>
+            Deferred.doneUnsafe(compromised, Effect.fail(new RemoteMcpTokenLockError({ cause }))),
+        }),
+      catch: (cause) => new RemoteMcpTokenLockError({ cause }),
+    }),
+    () => Effect.raceFirst(update, Deferred.await(compromised)),
+    (release) => Effect.promise(() => release().catch(() => undefined)),
+  );
+});
 
 const sha256 = (token: string) =>
   Digest.Digest.pipe(
@@ -88,7 +132,7 @@ export const create = Effect.fn("RemoteMcpTokens.create")(function* (input: {
   };
   yield* write([...tokens, record]);
   return { record, token };
-});
+}, withWriteLock);
 
 /** False when no token has this id. */
 export const revoke = Effect.fn("RemoteMcpTokens.revoke")(function* (id: string) {
@@ -97,20 +141,34 @@ export const revoke = Effect.fn("RemoteMcpTokens.revoke")(function* (id: string)
   if (kept.length === tokens.length) return false;
   yield* write(kept);
   return true;
-});
+}, withWriteLock);
 
-/**
- * The stored token `token` matches, by hash in constant time. The list is read per call, so a
- * CLI revoke applies at once.
- */
-export const verify = Effect.fn("RemoteMcpTokens.verify")(function* (token: string) {
-  if (!token.startsWith(TOKEN_PREFIX)) return undefined;
-  const presented = yield* sha256(token);
-  const tokens = yield* read();
-  let match: RemoteMcpToken | undefined;
-  // Compare every entry so the time taken does not depend on which one matched.
-  for (const candidate of tokens) {
-    if (timingSafeEqualBase64Url(candidate.sha256, presented)) match = candidate;
-  }
-  return match;
+/** One snapshot per authenticator, shared by incoming requests and open responses. */
+export const makeVerifier = Effect.gen(function* () {
+  const services = yield* Effect.context<ServerSecretStore.ServerSecretStore | Digest.Digest>();
+  const snapshot = yield* read().pipe(
+    Effect.provide(services),
+    Effect.cachedWithTTL(RECHECK_INTERVAL),
+  );
+  const verify = Effect.fn("RemoteMcpTokens.verify")(function* (token: string) {
+    if (!TOKEN_FORMAT.test(token)) return undefined;
+    const tokens = yield* snapshot;
+    if (tokens.length === 0) return undefined;
+    const presented = yield* sha256(token).pipe(Effect.provide(services));
+    let match: RemoteMcpToken | undefined;
+    // Compare every entry so the time taken does not depend on which one matched.
+    for (const candidate of tokens) {
+      if (timingSafeEqualBase64Url(candidate.sha256, presented)) match = candidate;
+    }
+    return match;
+  });
+  const awaitRevocation = (id: string) =>
+    snapshot.pipe(
+      Effect.repeat({
+        schedule: Schedule.spaced(RECHECK_INTERVAL),
+        while: (tokens) => tokens.some((candidate) => candidate.id === id),
+      }),
+      Effect.ignore,
+    );
+  return { verify, awaitRevocation };
 });
