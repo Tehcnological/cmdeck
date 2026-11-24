@@ -5076,6 +5076,109 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
     }),
   );
 
+  it.effect("quotes a failing check's log only in a failure wake", () =>
+    Effect.gen(function* () {
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const threadId = ThreadId.make("runtime-pull-request-watch-log");
+      const projectId = ProjectId.make("pr-watch-log-project");
+      yield* seedProject({
+        projectId,
+        title: "Watch log",
+        workspaceRoot: "/workspace/watch-log",
+        defaultModelSelection: null,
+        createdAt: "2026-10-01T00:00:00.000Z",
+      });
+      yield* orchestrator.dispatch({
+        type: "thread.create",
+        createdBy: "user",
+        creationSource: "web",
+        commandId: CommandId.make("pr-watch-log-create"),
+        threadId,
+        projectId,
+        title: "Watch log",
+        modelSelection,
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        branch: null,
+        worktreePath: null,
+      });
+      yield* orchestrator.dispatch({
+        type: "thread.pull-request.watch",
+        commandId: CommandId.make("pr-watch-log-start"),
+        threadId,
+        host: "github.com",
+        repository: "pingdotgg/t3code",
+        number: 21,
+        watching: true,
+        link: { url: "https://github.com/pingdotgg/t3code/pull/21", source: "agent" },
+      });
+      const jobUrl = "https://github.com/pingdotgg/t3code/actions/runs/1/job/2";
+      let status: "pending" | "failure" = "pending";
+      let logReads = 0;
+      const reactor = yield* PullRequestWatchReactor.make.pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            NodeServices.layer,
+            NodeCrypto.layer,
+            Layer.mock(PullRequestService.PullRequestService)({
+              watchFingerprint: () => Effect.succeed(null),
+              detail: () =>
+                Effect.succeed({
+                  ...watchedPullRequestDetail({
+                    projectId,
+                    number: 21,
+                    at: "2026-10-02T12:00:00.000Z",
+                  }),
+                  checks: [{ name: "test", status, description: null, url: jobUrl }],
+                }),
+              activity: () =>
+                Effect.succeed({
+                  comments: [],
+                  commentCount: 0,
+                  commentsTruncated: false,
+                  reviewThreads: [],
+                  commits: [],
+                }),
+              checkLogs: () =>
+                Effect.sync(() => {
+                  logReads += 1;
+                  return [
+                    {
+                      name: "test",
+                      url: jobUrl,
+                      log: "pnpm test\nFAIL src/a.test.ts\nexpected 1 to be 2",
+                      truncated: false,
+                      detail: null,
+                    },
+                  ];
+                }),
+            }),
+          ),
+        ),
+      );
+      const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
+      const sweep = reactor.sweep.pipe(Effect.andThen(worker.drain()));
+      yield* sweep;
+      assert.equal(logReads, 0);
+      status = "failure";
+      yield* TestClock.adjust("2 minutes");
+      yield* sweep;
+
+      const wakes = (yield* orchestrator.getThreadRecords(threadId, ["messages"])).messages.filter(
+        (message) => message.notification != null,
+      );
+      assert.deepEqual(
+        wakes.map((message) => message.notification?.summary),
+        ["#21: checks failed"],
+      );
+      assert.include(
+        wakes[0]!.text,
+        "test:\n```\npnpm test\nFAIL src/a.test.ts\nexpected 1 to be 2\n```",
+      );
+      assert.equal(logReads, 1);
+    }),
+  );
+
   it.effect.each([
     // The agent's merge of #19 needs no wake, but its command did not close #20.
     { name: "completed", status: "completed", wakes: ["#20: closed, stopped watching"] },
