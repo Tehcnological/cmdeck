@@ -80,7 +80,7 @@ import {
 import { compareSemverVersions } from "@t3tools/shared/semver";
 import * as KeyedLock from "@t3tools/shared/KeyedLock";
 import { modelSelectionsEqual } from "@t3tools/shared/model";
-import { causeErrorTag } from "@t3tools/shared/observability";
+import { causeErrorTag } from "@t3tools/shared/errorTag";
 
 import {
   isProviderNativeImageAttachment,

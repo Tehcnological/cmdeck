@@ -21,7 +21,7 @@
 - [Devices](./user/devices.md)
 - [Usage and limits](./user/usage.md)
 - [Secrets](./user/secrets.md)
-- [Product usage data](./user/telemetry.md)
+- [Telemetry and network calls](./user/telemetry.md)
 - [Remote access](./user/remote-access.md)
 - [Guest links](./user/guest-links.md)
 - [Cloudflare Tunnel](./user/cloudflare-tunnel.md)

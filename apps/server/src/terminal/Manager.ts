@@ -74,7 +74,6 @@ import { resolveCodexHomeLayout } from "../provider/Drivers/CodexHomeLayout.ts";
 import { makeClaudeEnvironment } from "../provider/Drivers/ClaudeHome.ts";
 import type { deriveProviderInstanceConfigMap } from "../provider/ProviderInstanceRegistryHydration.ts";
 import * as ServerSettings from "../serverSettings.ts";
-import { increment, terminalSessionsTotal } from "../observability/Metrics.ts";
 import { expandHomeVariable } from "@t3tools/provider-core/server/pathExpansion";
 import * as ProcessRunner from "../processRunner.ts";
 import * as PortScanner from "../preview/PortScanner.ts";
@@ -2898,9 +2897,7 @@ export const makeWithOptions = Effect.fn("TerminalManager.makeWithOptions")(func
     let startedShell: string | null = null;
 
     const startResult = yield* Effect.result(
-      increment(terminalSessionsTotal, { lifecycle: eventType }).pipe(
-        Effect.andThen(
-          Effect.gen(function* () {
+      Effect.gen(function* () {
             const shellCandidates = yield* resolveShellCandidates(
               shellResolver,
               platform,
@@ -2989,9 +2986,7 @@ export const makeWithOptions = Effect.fn("TerminalManager.makeWithOptions")(func
             // Publish startup before draining any events replayed during subscription.
             eventsActivated = true;
             if (session.processEventDrainRunning) runFork(drainProcessEvents(session, processPid));
-          }),
-        ),
-      ),
+      }),
     );
 
     if (startResult._tag === "Success") {

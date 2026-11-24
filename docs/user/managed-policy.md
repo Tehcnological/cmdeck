@@ -30,8 +30,7 @@ The desktop app includes the `t3` command; see [The `t3` command](./install.md#t
   },
   "limits": {
     "maxRuntimeMode": "auto-accept-edits",
-    "clients": ["desktop", "local-browser"],
-    "telemetry": false
+    "clients": ["desktop", "local-browser"]
   }
 }
 ```
@@ -170,7 +169,6 @@ A few settings need care:
     "webhookTasks": false,
     "browserCookieImport": false,
     "previewTunnel": false,
-    "telemetry": false,
     "providers": {
       "allowedDrivers": ["claudeAgent", "codex"],
       "instances": {
@@ -256,8 +254,8 @@ so restart T3 Code after that.
   Browser tabs stream from it instead, and port forwarding and **Open on this device** are
   unavailable. This wins over the user's
   [Preview tunnel setting](./remote-access.md#browser-on-a-remote-environment).
-- `telemetry: false`: the server and desktop app send no [product usage data](./telemetry.md) or
-  relay connection traces, even when `T3CODE_TELEMETRY_ENABLED=true`. A policy cannot turn them on.
+- `telemetry`: accepted so existing policy files still load, but has no effect: this build has
+  [no telemetry](./telemetry.md) to turn off.
 
 ### Providers
 
