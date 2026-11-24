@@ -38,7 +38,7 @@ jobs:
   check:
     name: Typecheck and tests
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -68,7 +68,7 @@ jobs:
           path: pnpm-lock.yaml
 
       - name: Typecheck
-        run: vp run typecheck || { vp run --last-details; exit 1; }
+        run: vp run -r --concurrency-limit 1 typecheck || { vp run --last-details; exit 1; }
 
       - name: Server tests (areas this fork changes)
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
