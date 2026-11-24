@@ -585,8 +585,10 @@ const make = Effect.gen(function* () {
     let retryBody = prepared.body;
     let retried = false;
     let bufferedReply: Uint8Array | undefined;
-    for (const [index, target] of plan.success.entries()) {
-      const next = plan.success[index + 1];
+    // A mutable copy: a bounded retry appends its next attempt, which this loop then reaches.
+    const targets = [...plan.success];
+    for (const [index, target] of targets.entries()) {
+      const next = targets[index + 1];
       if (next !== undefined && !target.ready) continue;
       yield* Ref.set(served, { serverId: target.serverId, fallbackFrom: target.fallbackFrom });
       const attempt = yield* Scope.fork(lifetime);
@@ -669,7 +671,7 @@ const make = Effect.gen(function* () {
             ...meter.finish(),
           });
           const nextTarget = { ...target, index: index + 1, ready: true };
-          plan.success.push(nextTarget);
+          targets.push(nextTarget);
           retryBody = nextBody;
           retried = true;
           continue;
