@@ -950,6 +950,20 @@ export const SETTINGS_SEARCH_ITEMS = [
     desktopOnly: true,
   },
   {
+    id: "close-to-tray",
+    title: msg("Close to tray"),
+    to: "/settings/general",
+    searchTerms: [msg("system tray menu bar background keep running hide window minimize quit")],
+    desktopOnly: true,
+  },
+  {
+    id: "launch-at-login",
+    title: msg("Launch at login"),
+    to: "/settings/general",
+    searchTerms: [msg("startup start automatically boot login item autostart minimized tray")],
+    desktopOnly: true,
+  },
+  {
     id: "text-generation-model",
     title: msg("Text generation model"),
     to: "/settings/threads",

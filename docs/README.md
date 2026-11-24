@@ -29,6 +29,7 @@
 - [Outside agents (MCP)](./user/outside-agents.md)
 - [Remote MCP with a token](./user/remote-mcp.md)
 - [Running in the background](./user/background-service.md)
+- [Close to tray and launch at login](./user/close-to-tray.md)
 - [Updating T3 Code](./user/updating.md)
 - [Triage an issue](./user/triage.md)
 - Provider guides: [Local models](./user/local-models.md) · [Codex](./user/providers-codex.md) · [Claude](./user/providers-claude.md) · [OpenCode](./user/providers-opencode.md) · [Antigravity](./user/providers-antigravity.md) · [Kiro](./user/providers-kiro.md) · [Pi](./user/providers-pi.md) · [Muse Code](./user/providers-muse.md) · [fx](./user/providers-fx.md)

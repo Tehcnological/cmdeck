@@ -40,6 +40,8 @@ import * as Schema from "effect/Schema";
 import { APP_VERSION, HOSTED_APP_CHANNEL, HOSTED_APP_CHANNEL_LABEL } from "../../branding";
 import { AboutVersionTitle } from "./AboutVersionTitle";
 import { CliCommandSettingsRow } from "./CliCommandSettingsRow";
+import { DesktopTraySettings } from "./DesktopTraySettings";
+import { getDesktopTrayBridge } from "~/state/desktopTraySettings";
 import { MobileAppSettingsRow } from "./MobileAppSettingsRow";
 import {
   canCheckForUpdate,
@@ -1132,6 +1134,12 @@ export function GeneralSettingsPanel() {
           />
         ) : null}
       </SettingsSection>
+
+      {getDesktopTrayBridge() ? (
+        <SettingsSection id="desktop-app" title={gt("Desktop app")}>
+          <DesktopTraySettings />
+        </SettingsSection>
+      ) : null}
 
       <SettingsSection id="display" title={gt("Display")}>
         <SettingsRow

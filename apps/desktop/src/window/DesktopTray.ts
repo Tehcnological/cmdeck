@@ -242,6 +242,11 @@ export const make = Effect.gen(function* () {
     yield* appSettings.setTraySettings({ trayHintShown: true }).pipe(Effect.ignore);
   }).pipe(Effect.withSpan("desktop.tray.allWindowsClosed"));
 
+  // A second launch only reveals an existing window, and one closed to the tray is gone.
+  const openFromSecondLaunch = Effect.gen(function* () {
+    if (yield* Ref.get(desktopState.mainHiddenInTray)) yield* desktopWindow.activate;
+  }).pipe(Effect.ignoreCause);
+
   const launchedAtLogin = Effect.gen(function* () {
     if (environment.platform !== "darwin") {
       return (yield* HostProcess.Arguments).includes(LAUNCH_HIDDEN_ARGUMENT);
@@ -306,6 +311,9 @@ export const make = Effect.gen(function* () {
           : environment.platform === "win32" || environment.platform === "darwin";
       yield* electronApp.on("window-all-closed", () => {
         Effect.runFork(onAllWindowsClosed);
+      });
+      yield* electronApp.on("second-instance", () => {
+        Effect.runFork(openFromSecondLaunch);
       });
       yield* Effect.addFinalizer(() => Effect.sync(destroyTray));
       const current = yield* appSettings.get;
