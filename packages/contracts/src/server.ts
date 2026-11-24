@@ -47,9 +47,16 @@ const KeybindingsInvalidEntryIssue = Schema.Struct({
   index: Schema.Number,
 });
 
+/** Fork-only: the official T3 Code used this data folder. Upstream clients drop unknown kinds. */
+const ForkSharedDataIssue = Schema.Struct({
+  kind: Schema.Literal("fork.shared-data"),
+  message: TrimmedNonEmptyString,
+});
+
 export const ServerConfigIssue = Schema.Union([
   KeybindingsMalformedConfigIssue,
   KeybindingsInvalidEntryIssue,
+  ForkSharedDataIssue,
 ]);
 export type ServerConfigIssue = typeof ServerConfigIssue.Type;
 
