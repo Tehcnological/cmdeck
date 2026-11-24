@@ -42,6 +42,8 @@ export function inferenceFailureAdvice(cause: InferenceFailureCause): string {
       return "The model reasoned without answering; lower reasoning or choose another model.";
     case "watchdog-idle":
       return "The server stopped producing output; check its health and loaded model.";
+    case "upstream-http":
+      return "The model server returned an error status; check its logs for the request.";
     case "unknown":
       return "Inspect the model server's error logs for the request failure.";
   }

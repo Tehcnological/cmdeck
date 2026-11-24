@@ -129,4 +129,11 @@ export const make = Effect.fn("NpmRelease.make")(function* () {
 
 // Private fork: published `t3` releases are upstream builds, so clients are never offered one to
 // install over this fork. Upstream arrives through scripts/fork/sync-upstream.sh and a rebuild.
-export const layer = Layer.succeed(NpmRelease, NpmRelease.of({ get: () => Effect.succeed(null) }));
+export const layer = Layer.succeed(
+  NpmRelease,
+  NpmRelease.of({
+    get: Effect.fn("NpmRelease.get")(function* () {
+      return null;
+    }),
+  }),
+);

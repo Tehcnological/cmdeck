@@ -218,7 +218,8 @@ function readEvent(api: InferenceApi, event: unknown, tally: Tally): boolean {
   }
 }
 
-function readBody(api: InferenceApi, body: unknown, tally: Tally) {
+/** Whether the body carried content. */
+function readBody(api: InferenceApi, body: unknown, tally: Tally): boolean {
   const usage = field(body, "usage");
   if (api === "responses") {
     readResponsesUsage(usage, tally);
@@ -229,8 +230,7 @@ function readBody(api: InferenceApi, body: unknown, tally: Tally) {
     api === "messages" && isRecord(body) && body.stop_reason !== undefined
       ? { ...body, type: "message_stop" }
       : body;
-  const content = readEvent(api, bodyEvent, tally);
-  if (content) sawContent = true;
+  return readEvent(api, bodyEvent, tally);
 }
 
 /**
@@ -311,7 +311,7 @@ export function makeUsageMeter(
       if (!skippingLine) readLine((pending + rest).trim());
     } else if (!bodyTooLarge && pending.length + rest.length <= MAX_BODY_CHARS) {
       const body = parseJson(pending + rest);
-      readBody(api, body, tally);
+      if (readBody(api, body, tally)) sawContent = true;
       errorBody = body;
     }
     pending = "";

@@ -70,7 +70,9 @@ it("advertises only string enum values, which Gemini requires", () => {
 });
 
 it("advertises baseRef as required for worktree launch and decodes the same shape", () => {
-  const schema = advertisedJsonSchema(ProjectToolkit.tools.t3_thread_launch);
+  const schema = advertisedJsonSchema(ProjectToolkit.tools.t3_thread_launch) as {
+    readonly properties: { readonly workspaceStrategy: { readonly required?: unknown; readonly allOf?: unknown } };
+  };
   const strategy = schema.properties.workspaceStrategy;
   expect(strategy.required).toEqual(["type"]);
   expect(strategy.allOf).toEqual(
