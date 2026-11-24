@@ -14,7 +14,7 @@ import * as ServerConfig from "../config.ts";
 import { BUILD_MIGRATION_HEAD, recordedMigrations } from "../persistence/databaseMigrationHead.ts";
 import { FORK_RUNTIME_MARKER_FILE, unmarkedActiveRuntimeAlert } from "./forkRuntimeMarker.ts";
 
-export const databaseNewerThanForkAlert = (migrations: ReadonlyArray<string>) =>
+const databaseNewerThanForkAlert =(migrations: ReadonlyArray<string>) =>
   `The official T3 Code upgraded this database past this fork's schema (${migrations.join(", ")}). This fork still started, but some features may misbehave until you sync it: run \`scripts/fork/sync-upstream.sh\`, then rebuild.`;
 
 export class ForkAlerts extends Context.Service<
