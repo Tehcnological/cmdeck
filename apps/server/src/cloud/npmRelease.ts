@@ -13,7 +13,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
-import { FetchHttpClient, HttpClient } from "effect/http";
+import { HttpClient } from "effect/http";
 
 import * as ProcessRunner from "../processRunner.ts";
 
@@ -127,6 +127,6 @@ export const make = Effect.fn("NpmRelease.make")(function* () {
   });
 });
 
-export const layer = Layer.effect(NpmRelease, make()).pipe(
-  Layer.provide([ProcessRunner.layer, FetchHttpClient.layer]),
-);
+// Private fork: published `t3` releases are upstream builds, so clients are never offered one to
+// install over this fork. Upstream arrives through scripts/fork/sync-upstream.sh and a rebuild.
+export const layer = Layer.succeed(NpmRelease, NpmRelease.of({ get: () => Effect.succeed(null) }));

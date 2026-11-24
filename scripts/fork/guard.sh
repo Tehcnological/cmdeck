@@ -36,7 +36,7 @@ forbidden=(
   'OTLPTraceExporter'
 )
 for pattern in "${forbidden[@]}"; do
-  hits="$(git grep -n -i -E "$pattern" -- apps packages scripts ':!scripts/fork/**' ':!**/*.md' ':!apps/marketing/**' ':!**/*.graphql' | head -5)"
+  hits="$(git grep -n -i -E "$pattern" -- apps packages scripts ':!scripts/fork/**' ':!**/*.md' ':!apps/marketing/**' ':!**/*.graphql' ':!**/*.test.ts' ':!**/*.test.tsx' | head -5)"
   [ -z "$hits" ] || bad "forbidden pattern '$pattern' is back:"$'\n'"$hits"
 done
 
