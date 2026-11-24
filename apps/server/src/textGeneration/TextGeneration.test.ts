@@ -182,6 +182,7 @@ describe("TextGeneration local-first routing", () => {
   });
 
   it.effect("refuses to send background writing to the cloud when no local model is ready", () => {
+    const localOnly = { textGenerationFallback: "local" as const };
     const unavailableLocal = setup({
       providers: [
         snapshot(codex, "codex", ["gpt-6-luna"]),
@@ -191,10 +192,13 @@ describe("TextGeneration local-first routing", () => {
           installed: false,
         }),
       ],
-      settings: markedLocal,
+      settings: { ...markedLocal, ...localOnly },
     });
     // "Local models only" also holds before any instance is marked local.
-    const nothingLocal = setup({ providers: [snapshot(codex, "codex", ["gpt-6-luna"])] });
+    const nothingLocal = setup({
+      providers: [snapshot(codex, "codex", ["gpt-6-luna"])],
+      settings: localOnly,
+    });
     return Effect.gen(function* () {
       for (const fixture of [unavailableLocal, nothingLocal]) {
         const error = yield* Effect.flip(fixture.commit(builtIn));
