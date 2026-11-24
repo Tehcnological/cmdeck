@@ -6,6 +6,8 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { act, render } from "../../../test/render";
 
 import { DraftId, useComposerDraftStore } from "~/composerDraftStore";
+import { collectInlineContextIds } from "~/lib/composerContextReferences";
+import { reviewCommentContextId } from "~/lib/composerContextRecords";
 import { buildFileDiffIdentityKey } from "~/lib/diffRendering";
 
 type ViewerProps = Omit<ComponentProps<typeof StyledDiffCodeView<unknown>>, "options"> & {
@@ -106,6 +108,14 @@ function click(label: string) {
   return act(() => button.click());
 }
 
+function clickLabeled(label: string, index = 0) {
+  const button = container.querySelectorAll<HTMLButtonElement>(`button[aria-label="${label}"]`)[
+    index
+  ];
+  if (!button) throw new Error(`Missing button: ${label}`);
+  return act(() => button.click());
+}
+
 function editor() {
   const textarea = container.querySelector("textarea");
   if (!textarea) throw new Error("Comment editor is not available");
@@ -159,5 +169,51 @@ describe("diff comment drafts", () => {
       }),
     ]);
     expect(container.querySelector("p")?.textContent).toBe("Keep this draft");
+  });
+
+  it("batches comments, edits one in place, and removes one", async () => {
+    using _drafts = setup();
+    await using _screen = await render(view([file("a.ts"), file("b.ts")]), { container });
+    const comments = () =>
+      useComposerDraftStore.getState().getComposerDraft(target)?.reviewComments ?? [];
+    const references = () =>
+      collectInlineContextIds(
+        useComposerDraftStore.getState().getComposerDraft(target)?.prompt ?? "",
+      );
+
+    await click("Comment on a.ts");
+    await typeComment("First note");
+    await click("Comment");
+    await click("Comment on b.ts");
+    await typeComment("Second note");
+    await click("Comment");
+    expect(comments().map((comment) => [comment.filePath, comment.text])).toEqual([
+      ["a.ts", "First note"],
+      ["b.ts", "Second note"],
+    ]);
+
+    await clickLabeled("Edit comment");
+    expect(editor().value).toBe("First note");
+    await typeComment("First note, revised");
+    await click("Comment");
+    expect(comments()).toHaveLength(2);
+    expect(comments().find((comment) => comment.filePath === "a.ts")?.text).toBe(
+      "First note, revised",
+    );
+    expect(references().toSorted()).toEqual(
+      comments()
+        .map((comment) => reviewCommentContextId(comment.id))
+        .toSorted(),
+    );
+
+    await clickLabeled("Edit comment");
+    await click("Cancel");
+    expect(comments().find((comment) => comment.filePath === "a.ts")?.text).toBe(
+      "First note, revised",
+    );
+
+    await clickLabeled("Delete comment", 1);
+    expect(comments().map((comment) => comment.filePath)).toEqual(["a.ts"]);
+    expect(references()).toEqual([reviewCommentContextId(comments()[0]!.id)]);
   });
 });

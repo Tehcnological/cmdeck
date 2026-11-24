@@ -1,7 +1,7 @@
 import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
 import { T, useGT, useMessages } from "gt-react";
 import { reviewCommentRangeText } from "~/lib/composerContextRecords";
-import { MessageCircle, Trash2 } from "lucide-react";
+import { MessageCircle, Pencil, Trash2 } from "lucide-react";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import { Button } from "~/components/ui/button";
@@ -37,6 +37,7 @@ interface DiffCommentAnnotationProps {
   onCancel: () => void;
   onComment: (text: string) => void;
   onDelete?: () => void;
+  onEdit?: () => void;
   placeholder?: string;
   submitLabel?: string;
   pending?: boolean;
@@ -57,6 +58,7 @@ export function DiffCommentAnnotation({
   onCancel,
   onComment,
   onDelete,
+  onEdit,
   placeholder,
   submitLabel,
   pending = false,
@@ -95,16 +97,28 @@ export function DiffCommentAnnotation({
         >
           {displayedText}
         </p>
-        {onDelete ? (
+        {onDelete || onEdit ? (
           <span className="-my-1 -mr-1 flex shrink-0 opacity-0 transition-opacity group-hover/comment:opacity-100 focus-within:opacity-100 max-sm:opacity-100">
-            <Button
-              variant="ghost-muted"
-              size="icon-xs"
-              aria-label={gt("Delete comment")}
-              onClick={onDelete}
-            >
-              <Trash2 className="size-3" />
-            </Button>
+            {onEdit ? (
+              <Button
+                variant="ghost-muted"
+                size="icon-xs"
+                aria-label={gt("Edit comment")}
+                onClick={onEdit}
+              >
+                <Pencil className="size-3" />
+              </Button>
+            ) : null}
+            {onDelete ? (
+              <Button
+                variant="ghost-muted"
+                size="icon-xs"
+                aria-label={gt("Delete comment")}
+                onClick={onDelete}
+              >
+                <Trash2 className="size-3" />
+              </Button>
+            ) : null}
           </span>
         ) : null}
       </div>
