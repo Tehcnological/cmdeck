@@ -789,6 +789,8 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
   Layer.provideMerge(layerVcs),
   Layer.provideMerge(Layer.mergeAll(layerTerminal, layerPreview, layerDevice)),
   Layer.provideMerge(layerPersistence),
+  // pipe() takes at most 20 steps; the fork's inference layers pushed this chain past it.
+).pipe(
   Layer.provideMerge(
     Layer.mergeAll(
       Keybindings.layer,

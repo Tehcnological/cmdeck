@@ -34,6 +34,7 @@ forbidden=(
   'relay\.t3\.codes'
   '@opentelemetry/exporter'
   'OTLPTraceExporter'
+  'github\.com/\$\{CLI_RELEASE_REPOSITORY\}/releases/download'
 )
 for pattern in "${forbidden[@]}"; do
   hits="$(git grep -n -i -E "$pattern" -- apps packages scripts ':!scripts/fork/**' ':!**/*.md' ':!apps/marketing/**' ':!**/*.graphql' ':!**/*.test.ts' ':!**/*.test.tsx' ':!packages/contracts/src/relay.ts' | head -5)"
