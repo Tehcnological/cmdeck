@@ -74,7 +74,7 @@ jobs:
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         working-directory: evals
         run: |
-          vp exec effect-tsgo tsrs --noEmit > tsc.log 2>&1; code=$?
+          code=0; vp exec effect-tsgo tsrs --noEmit > tsc.log 2>&1 || code=$?
           grep -v 'suggestion TS' tsc.log | grep -v '^\s*$' | tail -80 || true
           exit $code
 
