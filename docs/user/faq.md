@@ -73,7 +73,7 @@ Yes, and this build puts them first. Point Pi, OpenCode, Claude, or Codex at Oll
 
 ## Does my code go to T3 servers?
 
-No. Your code and prompts go from your machine to your provider (Anthropic, OpenAI, etc.), not to us. With T3 Connect, traffic rides a Cloudflare tunnel (`cloudflared` on your machine). Our relay sets up the link. It does not proxy your HTTP or WebSocket sessions. Product usage events (provider, model, token totals, that kind of thing; no prompts, no file contents) are off unless you opt in with `T3CODE_TELEMETRY_ENABLED=true`. That is the same on Tailscale, LAN, or T3 Connect. The same page lists the other calls T3 Code makes by default, such as model catalog and update checks. [Product usage data](./telemetry.md)
+No. Your code and prompts go from your machine to your provider (Anthropic, OpenAI, etc.), not to us. With T3 Connect, traffic rides a Cloudflare tunnel (`cloudflared` on your machine). Our relay sets up the link. It does not proxy your HTTP or WebSocket sessions. T3 Code sends no telemetry: no usage events, crash reports, or traces, on Tailscale, LAN, or T3 Connect. [Telemetry and network calls](./telemetry.md) lists the calls T3 Code does make, such as model catalog and update checks.
 
 ## Worktrees are eating my disk. How do I clean them up?
 
