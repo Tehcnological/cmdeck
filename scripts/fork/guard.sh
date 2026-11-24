@@ -46,6 +46,25 @@ if git grep -q -E 'resolveGitHubPublishConfig\(updateChannel\)' -- scripts/build
   bad "scripts/build-desktop-artifact.ts publishes a GitHub update feed again"
 fi
 
+# 5. Shared-data safeguards hook into upstream files; a merge that takes upstream's side drops them.
+required=(
+  'apps/server/src/cloud/pinnedRuntime.ts:FORK_RUNTIME_MARKER_FILE'
+  'apps/server/src/serviceLauncher.ts:FORK_RUNTIME_MARKER_FILE'
+  'scripts/install.sh:\.t3code-fork'
+  'scripts/install.ps1:\.t3code-fork'
+  'packages/ssh/src/tunnel.ts:\.t3code-fork'
+  'apps/server/src/serverSettings.ts:writeForkSettingsBackup'
+  'apps/server/src/serverSettings.ts:restoreForkSettingsFromBackup'
+  'apps/server/src/server.ts:ForkAlerts\.layer'
+  'apps/server/src/ws.ts:ForkAlerts\.configIssues'
+  'packages/contracts/src/server.ts:fork\.shared-data'
+  'apps/web/src/appInit.tsx:startForkSharedDataToasts'
+)
+for entry in "${required[@]}"; do
+  file="${entry%%:*}"
+  grep -q -E "${entry#*:}" "$file" 2>/dev/null || bad "$file lost its fork hook '${entry#*:}'"
+done
+
 if [ "$fail" -ne 0 ]; then
   echo "Fork guard failed. See docs/operations/fork-upstream-sync.md." >&2
   exit 1

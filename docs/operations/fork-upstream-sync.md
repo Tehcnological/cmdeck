@@ -52,22 +52,40 @@ The script stops and lists the files. Resolve, `git add -A && git commit --no-ed
 - a numbered migration exists that upstream does not have;
 - a forbidden pattern (analytics ingest, PostHog, crash reporting, OTLP exporters, Google
   `v1internal`, the T3 relay host) reappears in `apps/`, `packages/` or `scripts/`;
-- the desktop build would publish a release feed again.
+- the desktop build would publish a release feed again;
+- a shared-data safeguard (below) lost its hook in an upstream file.
 
 Add a pattern to its list whenever you remove something upstream may reintroduce.
 
 ## Shared data with the official T3 Code
 
-The fork deliberately keeps upstream's data directory (`~/.t3`, or `T3CODE_HOME`), app ID and version
-numbers, so threads, settings, pairings and the official mobile app carry over unchanged. The cost:
+The fork deliberately keeps upstream's data directory (`~/.t3`, or `T3CODE_HOME`), app ID, service
+label and version numbers, so threads, settings, pairings and the official mobile app carry over
+unchanged. Run only one of them per machine: quit and uninstall the official desktop app and its
+background service before starting the fork.
 
-- **Run one of them per machine.** Quit and uninstall the official desktop app and its background
-  service before starting the fork, and do not let the official app run against `~/.t3` afterwards.
-- **Never run the fork behind upstream.** If the official app migrated `~/.t3` further than the fork
-  knows, the fork refuses to start (`assertV2MigrationsCanRun`) or runs on an unknown schema. Sync
-  upstream first (`scripts/fork/sync-upstream.sh`), then rebuild.
-- **Installed runtimes share version numbers.** `~/.t3/versions/<version>` may hold an upstream build
-  of the same version. Before `t3 service install` with the fork, remove any official runtimes there
-  so the service cannot reuse one.
-- The fork's `inference_requests` table and `inferenceServers` settings are ignored by upstream; if
-  the official app rewrites `settings.json`, re-check Settings → Inference.
+What the fork enforces or reports. Alerts are logged and shown in the web and desktop app as a
+warning toast (`fork.shared-data` server config issues, which the official clients ignore):
+
+- **Desktop apps.** The shared app ID makes the fork's installer replace the official app, and the
+  single-instance lock (keyed on the shared user-data folder) lets only one of them run. A running
+  background service of either build owns `~/.t3`; the desktop app then says so and quits.
+- **Database newer than the fork.** If the official app migrated the database further than this
+  build knows, the fork still starts (so you can sync from inside it) and alerts until you run
+  `scripts/fork/sync-upstream.sh` and rebuild. Upgrade-time preflight (`t3 update`, server
+  self-update) still refuses to switch to a build older than the database.
+- **Runtimes.** Every runtime the fork stages in `runtime/versions/<version>` (installs, updates,
+  `scripts/install.sh`/`.ps1`, the desktop's SSH bootstrap) gets a `.t3code-fork` marker. Installs and
+  updates refuse to reuse a complete runtime without it and name the folder to delete. A background
+  service already running an unmarked runtime keeps running; the launcher logs it and the server
+  alerts.
+- **Settings.** Every settings write mirrors the fork-only keys (`inferenceServers`,
+  `textGenerationFallback`, `textGenerationModelSelectionExplicit`, provider instances' `inference`
+  and `inferenceServerId`) to `fork-settings-backup.json` next to `settings.json`, without inline
+  credentials (stored API keys stay in the secret store). When `settings.json` lacks a key the backup
+  has, the fork restores it, rewrites the file and alerts. Add new fork-only settings keys to
+  `apps/server/src/fork/forkSettingsBackup.ts`.
+
+Only documented: the fork's `inference_requests` table and other fork-only state are invisible to
+the official app, and nothing stops the official app from running against `~/.t3` while the fork is
+stopped.
