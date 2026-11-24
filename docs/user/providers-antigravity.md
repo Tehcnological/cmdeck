@@ -1,8 +1,9 @@
 # Antigravity
 
-T3 Code runs Google's official Antigravity ACP agent on your selected environment.
-T3 manages its own CLI installation and sign-in, separate from your terminal or IDE. Google controls
-which models and account access are available through this agent.
+T3 Code runs Google's official Antigravity CLI (`agy acp`) unchanged on your selected environment.
+It does not patch the CLI, fake its environment, or identify itself as another client: the CLI
+signs in through its own flow and talks to Google itself. Google controls which models and account
+access are available through this agent.
 
 ## Set up Antigravity
 
@@ -123,9 +124,10 @@ activity.
 
 ## Accounts and removal
 
-Add an Antigravity provider instance for each Google account in
-**Settings > Providers** on web or desktop. Each has its own sign-in; downloaded
-runtimes are shared on the environment.
+Add Antigravity provider instances in **Settings > Providers** on web or desktop;
+downloaded runtimes are shared on the environment. The CLI decides where it keeps a
+Google-account sign-in. Where it uses the operating system's keyring, every instance on
+that environment, and your own `agy` in a terminal, share one Google account.
 
 | Action                    | Effect                                                            |
 | ------------------------- | ----------------------------------------------------------------- |
@@ -154,9 +156,9 @@ T3 does not support Antigravity goal status, pause, resume, or clear commands.
 
 ## Check access and troubleshoot
 
-Open **Usage > Limits** to see the remaining Gemini and shared Claude/GPT allowances
-for Google sign-ins. Each group has separate five-hour and weekly limits and reset
-times. Limits refresh with provider status and include usage outside T3 Code.
+T3 Code shows no Antigravity quota. It never reads the CLI's saved sign-in or calls
+Google's account or quota services itself, so **Usage > Limits** has no Antigravity windows. Google's own messages,
+such as a usage-limit error with its retry time, still appear in the thread.
 
 A server restart keeps your Google sign-in. The provider shows the saved account
 until a session, a refresh, or a sign-out reports something new.
