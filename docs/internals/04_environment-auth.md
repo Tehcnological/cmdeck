@@ -59,6 +59,11 @@ model.
   picks its own modes, so only a caller at the broadest mode a thread may run in here (full access,
   or an administrator's ceiling below it) can start or change runs, change what workflows store, or
   read webhook paths. Narrower callers can still read runs.
+- **Remote MCP tokens are not sessions.** [`RemoteMcpTokens`](../../apps/server/src/auth/RemoteMcpTokens.ts)
+  keeps SHA-256 hashes of user-created `/mcp` bearer tokens in the secret store, read on every
+  check so a CLI revoke needs no running server. Only the `/mcp` client authenticator accepts them,
+  and only while `T3CODE_REMOTE_MCP` is on. With no session row to watch, their callers are
+  `sessionless`: streams do not end on revoke, and they cannot own webhook subscriptions.
 - **Peer-link client pairing.** Only a full-access peer link may mint a one-time client pairing on
   the linked environment (since full-access agents can already run `t3 auth pairing create`). The
   linked side enforces this itself, and the operation stays a human-triggered RPC/HTTP route rather

@@ -314,7 +314,14 @@ const makeMcpAuthMiddleware = Effect.gen(function* () {
     client: McpInvocationContext.McpClientCaller | undefined,
   ) => {
     const body = response.body;
-    if (client === undefined || Option.isNone(sessions) || body._tag !== "Stream") return response;
+    if (
+      client === undefined ||
+      client.sessionless === true ||
+      Option.isNone(sessions) ||
+      body._tag !== "Stream"
+    ) {
+      return response;
+    }
     if (request.headers["mcp-method"] === "events/stream") return response;
     const invalidated = sessions.value
       .awaitInvalidation(AuthSessionId.make(client.sessionId))
@@ -1582,10 +1589,10 @@ export const layerToolSearch = Layer.mergeAll(
 const webhookPrincipal = Effect.serviceOption(McpInvocationContext.McpInvocationContext).pipe(
   Effect.flatMap((scope) => {
     const client = Option.getOrUndefined(scope)?.client;
-    return client === undefined
+    return client === undefined || client.sessionless === true
       ? Effect.fail(
           new McpSchema.Forbidden({
-            message: "Webhook delivery needs an outside client's sign-in",
+            message: "Webhook delivery needs an outside client's OAuth sign-in",
           }),
         )
       : Effect.succeed(client.sessionId);

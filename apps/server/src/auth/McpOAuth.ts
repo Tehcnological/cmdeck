@@ -40,6 +40,9 @@ import type * as McpInvocationContext from "../mcp/McpInvocationContext.ts";
 import * as PayloadSigner from "./PayloadSigner.ts";
 import * as EnvironmentAuth from "./EnvironmentAuth.ts";
 import * as ServerSecretStore from "./ServerSecretStore.ts";
+import * as RemoteMcpTokens from "./RemoteMcpTokens.ts";
+import * as ManagedLimits from "../policy/managedLimits.ts";
+import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
 import {
   base64UrlDecodeUtf8,
   base64UrlEncode,
@@ -626,32 +629,77 @@ export const layerMcpClientAuthenticator = Layer.effect(
         ),
       ),
     );
+    const remoteTokensEnabled = yield* RemoteMcpTokens.enabledConfig.pipe(
+      Effect.catch((cause) =>
+        Effect.logWarning("T3CODE_REMOTE_MCP is not a boolean; remote MCP tokens stay off.", {
+          cause,
+        }).pipe(Effect.as(false)),
+      ),
+    );
+    const policy = yield* ManagedPolicy.ManagedPolicy;
+    const remoteTokenServices = yield* Effect.context<
+      ServerSecretStore.ServerSecretStore | Digest.Digest
+    >();
+    const toScope = (client: McpInvocationContext.McpClientCaller) =>
+      Clock.currentTimeMillis.pipe(
+        Effect.map(
+          (issuedAt): McpInvocationContext.McpInvocationScope => ({
+            environmentId,
+            requestNamespace: `client:${client.sessionId}`,
+            thread: undefined,
+            client,
+            capabilities: new Set<McpInvocationContext.McpCapability>([
+              "orchestration",
+              "worktree",
+              "pull-requests",
+            ]),
+            issuedAt,
+          }),
+        ),
+      );
+    // A remote token is refused, never passed on to OAuth, while the feature or the policy is off.
+    const authenticateRemoteToken = (
+      token: string,
+    ): Effect.Effect<McpInvocationContext.McpInvocationScope | undefined> =>
+      !remoteTokensEnabled || !ManagedLimits.allowsRemoteClients(policy)
+        ? Effect.undefined
+        : RemoteMcpTokens.verify(token).pipe(
+            Effect.provide(remoteTokenServices),
+            Effect.flatMap(
+              (record): Effect.Effect<McpInvocationContext.McpInvocationScope | undefined> =>
+                record === undefined
+                  ? Effect.undefined
+                  : toScope({
+                      sessionId: `remote-mcp-token:${record.id}`,
+                      label: record.label,
+                      access: record.access,
+                      sessionless: true,
+                      hostedAppUrl,
+                    }),
+            ),
+            Effect.catch((error) =>
+              Effect.logWarning("Remote MCP token check failed.", { cause: error }).pipe(
+                Effect.as(undefined),
+              ),
+            ),
+          );
     return McpHttpServer.McpClientAuthenticator.of({
       authenticate: Effect.fn("McpHttpServer.McpClientAuthenticator.authenticate")(
         function (request) {
+          const token = EnvironmentAuth.parseBearerToken(request);
+          if (token !== null && token.startsWith(RemoteMcpTokens.TOKEN_PREFIX)) {
+            return authenticateRemoteToken(token);
+          }
           return environmentAuth.authenticateMcpClient(request).pipe(
             Effect.flatMap((client) =>
-              Clock.currentTimeMillis.pipe(
-                Effect.map((issuedAt): McpInvocationContext.McpInvocationScope => ({
-                  environmentId,
-                  requestNamespace: `client:${client.sessionId}`,
-                  thread: undefined,
-                  client: {
-                    sessionId: client.sessionId,
-                    label: client.label,
-                    access: client.access,
-                    linked: client.peerLink,
-                    linkExpiresAt: client.linkExpiresAt,
-                    ...(client.peerLink ? {} : { hostedAppUrl }),
-                  },
-                  capabilities: new Set<McpInvocationContext.McpCapability>([
-                    "orchestration",
-                    "worktree",
-                    "pull-requests",
-                  ]),
-                  issuedAt,
-                })),
-              ),
+              toScope({
+                sessionId: client.sessionId,
+                label: client.label,
+                access: client.access,
+                linked: client.peerLink,
+                linkExpiresAt: client.linkExpiresAt,
+                ...(client.peerLink ? {} : { hostedAppUrl }),
+              }),
             ),
             Effect.catch((error) =>
               (EnvironmentAuth.isServerAuthCredentialError(error)

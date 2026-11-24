@@ -18,6 +18,7 @@ import {
   RuntimeMode,
   ThreadId,
 } from "@t3tools/contracts";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -28,7 +29,14 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import * as Tracer from "effect/Tracer";
 import { McpSchema, McpServer, Tool, Toolkit } from "effect/ai";
-import { HttpBody, HttpClient, HttpClientRequest, HttpRouter, HttpServer } from "effect/http";
+import {
+  HttpBody,
+  HttpClient,
+  HttpClientRequest,
+  HttpRouter,
+  HttpServer,
+  HttpServerRequest,
+} from "effect/http";
 import * as NetAddress from "effect/net/NetAddress";
 
 import * as ProjectService from "../project/ProjectService.ts";
@@ -40,6 +48,7 @@ import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
 import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import * as EnvironmentAuth from "../auth/EnvironmentAuth.ts";
 import * as McpOAuth from "../auth/McpOAuth.ts";
+import * as RemoteMcpTokens from "../auth/RemoteMcpTokens.ts";
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as Sqlite from "../persistence/Sqlite.ts";
@@ -1410,8 +1419,9 @@ it.effect("accepts case-insensitive MCP bearer schemes and diagnoses rejected cr
       }),
     ),
     Layer.provideMerge(Sqlite.layerMemory),
-    Layer.provide(ServerSecretStore.layer),
-    Layer.provide(ManagedPolicy.layerTest()),
+    // The client authenticator reads remote MCP tokens and the managed policy too.
+    Layer.provideMerge(ServerSecretStore.layer),
+    Layer.provideMerge(ManagedPolicy.layerTest()),
     Layer.provideMerge(ServerEnvironment.layerIdentity),
     Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "t3-mcp-auth-header-test-" })),
     Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
@@ -1498,6 +1508,111 @@ it.effect("accepts case-insensitive MCP bearer schemes and diagnoses rejected cr
       ),
     ),
   );
+});
+
+it.effect("accepts remote MCP tokens only while enabled and until revoked", () => {
+  const layerStorage = EnvironmentAuth.layer.pipe(
+    Layer.provideMerge(ManagedPolicy.layerTest()),
+    Layer.provideMerge(
+      Layer.mock(ServerEnvironment.ServerEnvironment)({
+        getEnvironmentId: Effect.succeed(environmentId),
+      }),
+    ),
+    Layer.provideMerge(Sqlite.layerMemory),
+    Layer.provideMerge(ServerSecretStore.layer),
+    Layer.provideMerge(ServerEnvironment.layerIdentity),
+    Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "t3-remote-mcp-test-" })),
+    Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
+  );
+  const authenticatorWith = (env: Record<string, string>) =>
+    McpOAuth.layerMcpClientAuthenticator.pipe(
+      Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env }))),
+    );
+  const PingToolkit = Toolkit.make(
+    Tool.make("ping", {
+      description: "Answers.",
+      success: Schema.Struct({ ok: Schema.Boolean }),
+      failure: OrchestratorMcpFailure,
+      failureMode: "return",
+    }),
+  );
+  return Effect.scoped(
+    Effect.gen(function* () {
+      const fullAccess = yield* RemoteMcpTokens.create({ label: "laptop", access: "full-access" });
+      const revoked = yield* RemoteMcpTokens.create({ label: "old", access: "read-only" });
+      yield* RemoteMcpTokens.revoke(revoked.record.id);
+
+      const disabled = Context.get(
+        yield* Layer.build(authenticatorWith({})),
+        McpHttpServer.McpClientAuthenticator,
+      );
+      const request = HttpServerRequest.fromWeb(
+        new Request("http://localhost/mcp", {
+          headers: { authorization: `Bearer ${fullAccess.token}` },
+        }),
+      );
+      expect(yield* disabled.authenticate(request)).toBeUndefined();
+
+      yield* HttpRouter.serve(
+        McpHttpServer.layerMcpTransport(
+          McpHttpServer.toolkitRegistration(
+            PingToolkit,
+            McpToolAccess.toLayer(PingToolkit, {
+              ping: McpToolAccess.reads(() => Effect.succeed({ ok: true })),
+            }),
+          ),
+        ).pipe(
+          Layer.provide(authenticatorWith({ T3CODE_REMOTE_MCP: "1" })),
+          Layer.provide(ServerSettings.layerTest()),
+          Layer.provide(McpToolAccessTestkit.liveThreadsLayer),
+          Layer.provide(
+            Layer.mock(McpSessionRegistry.McpSessionRegistry)({ resolve: () => Effect.undefined }),
+          ),
+        ),
+        { disableListenLog: true, disableLogger: true },
+      ).pipe(Layer.build);
+      const httpClient = yield* HttpClient.HttpClient;
+      const initialize = (token?: string) =>
+        httpClient.post("/mcp", {
+          headers: {
+            accept: "application/json, text/event-stream",
+            ...(token === undefined ? {} : { authorization: `Bearer ${token}` }),
+          },
+          body: HttpBody.text(
+            `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"remote-mcp-test","version":"1.0.0"}}}`,
+            "application/json",
+          ),
+        });
+
+      for (const token of [undefined, "t3mcp_not-a-real-token", revoked.token]) {
+        expect((yield* initialize(token)).status).toBe(401);
+      }
+      const session = yield* initialize(fullAccess.token);
+      expect(session.status).toBe(200);
+      const listed = yield* httpClient
+        .post("/mcp", {
+          headers: {
+            accept: "application/json, text/event-stream",
+            authorization: `Bearer ${fullAccess.token}`,
+            "mcp-session-id": session.headers["mcp-session-id"]!,
+            "mcp-protocol-version": "2025-06-18",
+          },
+          body: HttpBody.text(
+            `{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`,
+            "application/json",
+          ),
+        })
+        .pipe(Effect.flatMap((response) => response.json));
+      expect(
+        (listed as { result: { tools: ReadonlyArray<{ name: string }> } }).result.tools.map(
+          (tool) => tool.name,
+        ),
+      ).toEqual(["ping"]);
+
+      yield* RemoteMcpTokens.revoke(fullAccess.record.id);
+      expect((yield* initialize(fullAccess.token)).status).toBe(401);
+    }),
+  ).pipe(Effect.provide(layerStorage.pipe(Layer.provideMerge(NodeHttpServer.layerTest))));
 });
 
 it.effect("gives outside clients an upload URL on the origin their request reached", () =>
