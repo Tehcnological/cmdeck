@@ -18,7 +18,6 @@ import {
   parseMcpApprovalCode,
   type RuntimeMode,
 } from "@t3tools/contracts";
-import { DEFAULT_HOSTED_APP_URL } from "@t3tools/shared/connectAuth";
 import { encodeOAuthScope } from "@t3tools/shared/oauthScope";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
@@ -32,7 +31,6 @@ import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import { HttpServerRequest } from "effect/http";
 
-import { hostedAppUrlConfig } from "../cloud/publicConfig.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as McpHttpServer from "../mcp/McpHttpServer.ts";
@@ -622,13 +620,6 @@ export const layerMcpClientAuthenticator = Layer.effect(
     const environmentAuth = yield* EnvironmentAuth.EnvironmentAuth;
     const environment = yield* ServerEnvironment.ServerEnvironment;
     const environmentId = yield* environment.getEnvironmentId;
-    const hostedAppUrl = yield* hostedAppUrlConfig.pipe(
-      Effect.catch((cause) =>
-        Effect.logWarning("Outside MCP clients get app.t3.codes thread links", { cause }).pipe(
-          Effect.as(DEFAULT_HOSTED_APP_URL),
-        ),
-      ),
-    );
     const remoteTokensEnabled = yield* RemoteMcpTokens.enabledConfig.pipe(
       Effect.catch((cause) =>
         Effect.logWarning("T3CODE_REMOTE_MCP is not a boolean; remote MCP tokens stay off.", {
@@ -674,7 +665,6 @@ export const layerMcpClientAuthenticator = Layer.effect(
                       label: record.label,
                       access: record.access,
                       sessionless: true,
-                      hostedAppUrl,
                     }),
             ),
             Effect.catch((error) =>
@@ -698,7 +688,6 @@ export const layerMcpClientAuthenticator = Layer.effect(
                 access: client.access,
                 linked: client.peerLink,
                 linkExpiresAt: client.linkExpiresAt,
-                ...(client.peerLink ? {} : { hostedAppUrl }),
               }),
             ),
             Effect.catch((error) =>

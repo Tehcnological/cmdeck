@@ -239,10 +239,10 @@ const config: ExpoConfig = {
   orientation: "portrait",
   icon: variant.assets.appIcon,
   userInterfaceStyle: "automatic",
+  // Private fork: never ask upstream's EAS update server for bundles (it would also see a per-install id).
   updates: {
-    enabled: repoEnv.T3CODE_MOBILE_UPDATES_ENABLED !== "0",
-    url: "https://u.expo.dev/d763fcb8-d37c-41ea-a773-b54a0ab4a454",
-    checkAutomatically: "ON_LOAD",
+    enabled: false,
+    checkAutomatically: "NEVER",
     fallbackToCacheTimeout: 0,
   },
   ios: {

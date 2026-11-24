@@ -44,4 +44,17 @@ describe("resolveDesktopSshCliRunner", () => {
       });
     }),
   );
+
+  it.effect("never falls back to upstream's GitHub releases", () =>
+    Effect.gen(function* () {
+      const environment = yield* packagedEnvironment;
+
+      const runner = resolveDesktopSshCliRunner(environment, {});
+
+      assert.deepStrictEqual(runner, {
+        archiveVersion: "0.0.22",
+        releaseBaseUrl: "https://t3code-release-base-url-not-set.invalid",
+      });
+    }),
+  );
 });

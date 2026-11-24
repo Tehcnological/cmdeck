@@ -2,7 +2,6 @@ import {
   clerkFrontendApiHostnameFromPublishableKey,
   relayClerkTokenOptions,
 } from "@t3tools/shared/relayAuth";
-import { normalizeSecureRelayUrl } from "@t3tools/shared/relayUrl";
 import * as Schema from "effect/Schema";
 
 export class CloudPublicConfigMissingError extends Schema.TaggedError<CloudPublicConfigMissingError>()(
@@ -26,16 +25,9 @@ export function trimNonEmpty(value: string | undefined): string | null {
   return value?.trim() || null;
 }
 
+// Private fork: T3 Connect is removed, so build environment values never enable Clerk or the relay.
 export function resolveCloudPublicConfig(): CloudPublicConfig {
-  return {
-    clerkPublishableKey: trimNonEmpty(
-      import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined,
-    ),
-    clerkJwtTemplate: trimNonEmpty(import.meta.env.VITE_CLERK_JWT_TEMPLATE as string | undefined),
-    relayUrl: normalizeSecureRelayUrl(
-      (import.meta.env.VITE_T3CODE_RELAY_URL as string | undefined) ?? "",
-    ),
-  };
+  return { clerkPublishableKey: null, clerkJwtTemplate: null, relayUrl: null };
 }
 
 export function hasCloudPublicConfig(): boolean {

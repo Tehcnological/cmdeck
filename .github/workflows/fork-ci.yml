@@ -68,7 +68,7 @@ jobs:
           path: pnpm-lock.yaml
 
       - name: Typecheck
-        run: vp run typecheck
+        run: vp run typecheck || { vp run --last-details; exit 1; }
 
       - name: Server tests (areas this fork changes)
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
