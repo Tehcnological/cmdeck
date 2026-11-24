@@ -164,6 +164,7 @@ const writeFakeRuntime = (
       path.join(versionDir, ".install-complete"),
       `${path.basename(versionDir)}\n`,
     );
+    yield* fs.writeFileString(path.join(versionDir, ".t3code-fork"), "");
     return entryPath;
   });
 

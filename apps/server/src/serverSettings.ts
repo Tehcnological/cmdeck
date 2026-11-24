@@ -56,6 +56,10 @@ import {
   isModelSelectionProviderEnabled,
 } from "@t3tools/shared/serverSettings";
 import * as ServerSecretStore from "./auth/ServerSecretStore.ts";
+import {
+  restoreForkSettingsFromBackup,
+  writeForkSettingsBackup,
+} from "./fork/forkSettingsBackup.ts";
 import * as ManagedPolicy from "./policy/ManagedPolicy.ts";
 import { secretProviderDefinitions } from "./secrets/secretProviderDefinitions.ts";
 import { watchDirectoryReplacements } from "./watchDirectoryReplacements.ts";
@@ -806,6 +810,7 @@ const make = Effect.gen(function* () {
         filePath: settingsPath,
         contents: `${sparseSettingsJson}\n`,
       }).pipe(
+        Effect.andThen(writeForkSettingsBackup(settingsPath, sparseSettingsJson)),
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, pathService),
       );
@@ -855,9 +860,15 @@ const make = Effect.gen(function* () {
     let legacyProviders: Readonly<Record<string, unknown>> | undefined;
     let legacySourceControl: Parameters<typeof migrateLegacySourceControlSettings>[1] = {};
     let parseFailure = Option.none<unknown>();
+    let forkSettingsRestored = false;
 
     if (yield* readConfigExists) {
-      const file = decodeSettingsFile(yield* readRawConfig, managed);
+      const fork = yield* restoreForkSettingsFromBackup(settingsPath, yield* readRawConfig).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, pathService),
+      );
+      forkSettingsRestored = fork.restored.length > 0;
+      const file = decodeSettingsFile(fork.raw, managed);
       if (file.legacy !== undefined) {
         legacyProviders = file.legacy.providers;
         legacySourceControl = { bitbucket: file.legacy.bitbucket, github: file.legacy.github };
@@ -969,6 +980,7 @@ const make = Effect.gen(function* () {
     if (
       migrated !== loaded ||
       (settingsFileTrusted && legacyProviders !== undefined) ||
+      (settingsFileTrusted && forkSettingsRestored) ||
       hasLegacySourceControl
     ) {
       yield* writeSettingsAtomically(migrated);

@@ -11,6 +11,7 @@ import { acquireServiceSelectionLock } from "./cloud/serviceSelectionLock.ts";
 import { RESTORE_OOMD_WATCH_SCRIPT } from "./cloud/userManagerOom.ts";
 import { windowsSystem32Path } from "@t3tools/shared/windowsSystem";
 import { isNoCopyOnWrite, markNoCopyOnWrite } from "./noCopyOnWrite.ts";
+import { FORK_RUNTIME_MARKER_FILE, unmarkedActiveRuntimeAlert } from "./fork/forkRuntimeMarker.ts";
 
 import type {
   PendingServiceUpdate,
@@ -1222,6 +1223,10 @@ export class Launcher {
     }
     if (this.#stopping) return;
     const paths = runtimePaths(this.#baseDir, version);
+    // Fork: alert only; refusing would stop a service that works today.
+    if (!NodeFS.existsSync(NodePath.join(paths.versionDir, FORK_RUNTIME_MARKER_FILE))) {
+      this.#log(`[service-launcher] ${unmarkedActiveRuntimeAlert(paths.versionDir)}\n`);
+    }
     const context: ServiceLauncherContext = {
       protocol: SERVICE_LAUNCHER_PROTOCOL,
       childVersion: version,

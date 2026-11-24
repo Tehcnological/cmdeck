@@ -183,6 +183,10 @@ $targetDir = Join-Path $versionsDir $version
 $marker = Join-Path $targetDir ".install-complete"
 
 if ((Test-Path $marker) -and ((Get-Content $marker -Raw).Trim() -eq $version)) {
+  # Fork: the official T3 Code installs the same versions here; only reuse this fork's own build.
+  if (-not (Test-Path (Join-Path $targetDir ".t3code-fork"))) {
+    Fail "$targetDir holds a T3 Code runtime this fork did not install, most likely the official T3 Code build of the same version. Delete that folder, then run this installer again"
+  }
   Step "Version $version is already downloaded."
 } else {
   New-Item -ItemType Directory -Force -Path $versionsDir | Out-Null
@@ -223,6 +227,7 @@ if ((Test-Path $marker) -and ((Get-Content $marker -Raw).Trim() -eq $version)) {
 
     & (Join-Path $staging "t3.exe") --version | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail "the downloaded executable does not run" }
+    Set-Content -Path (Join-Path $staging ".t3code-fork") -Value "t3code-fork" -NoNewline
     Set-Content -Path (Join-Path $staging ".install-complete") -Value $version -NoNewline
 
     if (Test-Path $targetDir) { Remove-Item $targetDir -Recurse -Force }

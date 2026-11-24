@@ -26,6 +26,7 @@ import {
   readPosixLauncherTarget,
   resolveLauncherPath,
 } from "../cloud/pinnedRuntime.ts";
+import { FORK_RUNTIME_MARKER_FILE } from "../fork/forkRuntimeMarker.ts";
 import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
 import * as ProcessRunner from "../processRunner.ts";
 import {
@@ -574,6 +575,7 @@ it.layer(NodeServices.layer)("t3 update with a background service", (it) => {
       yield* fs.makeDirectory(runtime.versionDir, { recursive: true });
       yield* fs.writeFileString(runtime.entryPath, "");
       yield* fs.writeFileString(runtime.sentinelPath, `${version}\n`);
+      yield* fs.writeFileString(path.join(runtime.versionDir, FORK_RUNTIME_MARKER_FILE), "");
       const unitPath = path.join(baseDir, "t3code.service");
       const logPath = path.join(baseDir, "boot-service.log");
       // An earlier `t3 update` pointed the service at this version without restarting it.
@@ -708,6 +710,7 @@ it.layer(NodeServices.layer)("t3 update checks the database before switching", (
       yield* fs.makeDirectory(runtime.versionDir, { recursive: true });
       yield* fs.writeFileString(runtime.entryPath, "");
       yield* fs.writeFileString(runtime.sentinelPath, `${targetVersion}\n`);
+      yield* fs.writeFileString(path.join(runtime.versionDir, FORK_RUNTIME_MARKER_FILE), "");
       const service = Layer.mock(BootService.BootService, {
         status: Effect.succeed<BootService.BootServiceStatus>({
           supported: true,
