@@ -549,6 +549,10 @@ export const ClientSettingsSchema = Schema.Struct({
   sideThreadOpenTarget: SideThreadOpenTarget.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDE_THREAD_OPEN_TARGET)),
   ),
+  // The last second-model reviewer per environment id. It only prefills the Review dialog.
+  reviewerModelSelections: Schema.Record(Schema.String, ModelSelection).pipe(
+    Schema.withDecodingDefault(Effect.succeed({})),
+  ),
   proactivePanelsEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   showSkillsInSlashMenu: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
   boringSidebarEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
@@ -2177,6 +2181,7 @@ export const ClientSettingsPatch = Schema.Struct({
   sendShortcut: Schema.optionalKey(Schema.Literals(["enter", "mod-enter-multiline", "mod-enter"])),
   followUpBehavior: Schema.optionalKey(Schema.Literals(["queue", "steer"])),
   sideThreadOpenTarget: Schema.optionalKey(SideThreadOpenTarget),
+  reviewerModelSelections: Schema.optionalKey(Schema.Record(Schema.String, ModelSelection)),
   proactivePanelsEnabled: Schema.optionalKey(Schema.Boolean),
   showSkillsInSlashMenu: Schema.optionalKey(Schema.Boolean),
   boringSidebarEnabled: Schema.optionalKey(Schema.Boolean),

@@ -26,6 +26,7 @@ import {
   ChevronRightIcon,
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
+  ScanSearchIcon,
 } from "lucide-react";
 import * as Schema from "effect/Schema";
 import { type MouseEvent, useEffect, useRef, useState } from "react";
@@ -74,6 +75,7 @@ import {
 import { useClientSettings, updateClientSettings } from "../hooks/useSettings";
 import { formatRelativeTimeLabel, formatShortTimestamp } from "../timestampFormat";
 import { DiffFilePathCopyButton } from "./DiffFilePathCopyButton";
+import { openThreadReviewDialog } from "./chat/threadReviewDialogState";
 import { DiffPanelLoadingState, DiffPanelShell, type DiffPanelMode } from "./DiffPanelShell";
 import { DiffStatLabel } from "./chat/DiffStatLabel";
 import { AnnotatableCodeView, type AnnotatableCodeViewHandle } from "./diffs/AnnotatableCodeView";
@@ -1430,6 +1432,26 @@ export default function DiffPanel({
             </TooltipTrigger>
             <TooltipPopup side="top">
               {isRefreshingDiff ? gt("Refreshing diff…") : gt("Refresh diff")}
+            </TooltipPopup>
+          </Tooltip>
+        )}
+        {routeThreadRef !== null && activeThread !== null && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={gt("Review with another model")}
+                  onClick={() => openThreadReviewDialog(routeThreadRef)}
+                />
+              }
+            >
+              <ScanSearchIcon className="size-3.5" />
+            </TooltipTrigger>
+            <TooltipPopup side="top">
+              {gt("Review this thread's changes with another model")}
             </TooltipPopup>
           </Tooltip>
         )}

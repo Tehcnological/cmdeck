@@ -152,6 +152,11 @@ import {
   OrchestrationGetTurnDiffError,
 } from "./checkpointDiff.ts";
 import {
+  ThreadReviewError,
+  ThreadReviewStartInput,
+  ThreadReviewStartResult,
+} from "./threadReview.ts";
+import {
   WorktreeSetupCancelInput,
   WorktreeSetupCancelResult,
   WorktreeSetupStreamEvent,
@@ -655,6 +660,8 @@ export const WS_METHODS = {
   workflowsGetDefinition: "workflows.getDefinition",
   workflowsSaveDefinition: "workflows.saveDefinition",
   workflowsDeleteDefinition: "workflows.deleteDefinition",
+
+  threadReviewStart: "threadReview.start",
 
   scheduledTasksSubscribe: "scheduledTasks.subscribe",
   scheduledTasksUpsert: "scheduledTasks.upsert",
@@ -2384,6 +2391,12 @@ const WsWorkflowsCancelRpc = Rpc.make(WS_METHODS.workflowsCancel, {
   error: Schema.Union([WorkflowRequestError, EnvironmentAuthorizationError]),
 });
 
+const WsThreadReviewStartRpc = Rpc.make(WS_METHODS.threadReviewStart, {
+  payload: ThreadReviewStartInput,
+  success: ThreadReviewStartResult,
+  error: Schema.Union([ThreadReviewError, EnvironmentAuthorizationError]),
+});
+
 const WsWorkflowsGetDefinitionRpc = Rpc.make(WS_METHODS.workflowsGetDefinition, {
   payload: WorkflowDefinitionGetInput,
   success: WorkflowDefinitionFiles,
@@ -2587,6 +2600,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsWorkflowsAnswerRpc,
   WsWorkflowsResumeRpc,
   WsWorkflowsCancelRpc,
+  WsThreadReviewStartRpc,
   WsWorkflowsGetDefinitionRpc,
   WsWorkflowsSaveDefinitionRpc,
   WsWorkflowsDeleteDefinitionRpc,

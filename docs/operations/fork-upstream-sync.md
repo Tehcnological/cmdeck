@@ -90,3 +90,5 @@ warning toast (`fork.shared-data` server config issues, which the official clien
 Only documented: the fork's `inference_requests` table and other fork-only state are invisible to
 the official app, and nothing stops the official app from running against `~/.t3` while the fork is
 stopped.
+Second-model reviews are ordinary side chats tagged `second-model-review`, so the official clients
+show them as plain side chats; the last reviewer choice is a client setting they may drop.
