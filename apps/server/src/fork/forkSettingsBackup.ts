@@ -4,12 +4,15 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
 import { writeFileStringAtomically } from "@t3tools/shared/atomicWrite";
 
 import { SECRET_REDACTED } from "../settingsSecrets.ts";
 import * as ForkAlerts from "./ForkAlerts.ts";
 
 export const FORK_SETTINGS_BACKUP_FILE = "fork-settings-backup.json";
+
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 const FORK_SETTINGS_KEYS = [
   "inferenceServers",
@@ -99,9 +102,10 @@ export const writeForkSettingsBackup = Effect.fn("forkSettingsBackup.write")(
     const settings = parseJsonObject(settingsJson);
     if (settings === undefined) return;
     const path = yield* Path.Path;
+    const contents = yield* encodeJson(forkSettingsSubset(settings));
     yield* writeFileStringAtomically({
       filePath: backupPath(path, settingsPath),
-      contents: `${JSON.stringify(forkSettingsSubset(settings), null, 2)}\n`,
+      contents: `${contents}\n`,
     });
   },
   // The settings write already succeeded; a missing backup only loses the next restore.
@@ -129,5 +133,7 @@ export const restoreForkSettingsFromBackup = Effect.fn("forkSettingsBackup.resto
   yield* Option.isSome(alerts)
     ? alerts.value.record(message)
     : Effect.logWarning(message);
-  return { raw: JSON.stringify(result.settings), restored: result.restored };
+  const restoredRaw = yield* encodeJson(result.settings).pipe(Effect.option);
+  if (Option.isNone(restoredRaw)) return { raw, restored: [] };
+  return { raw: restoredRaw.value, restored: result.restored };
 });
