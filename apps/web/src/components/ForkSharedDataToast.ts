@@ -6,8 +6,9 @@ import { appAtomRegistry } from "../rpc/atomRegistry";
 import { primaryServerConfigAtom } from "../state/server";
 import { stackedThreadToast, toastManager } from "./ui/toast";
 
-/** Fork-only: the server reports when the official T3 Code used this fork's data folder. The
- * description is server-authored English; it stays up until dismissed, once per page load. */
+/** Fork-only: the server reports data-folder problems (a database from a newer T3 Code, a runtime
+ * CMDeck did not install). The description is server-authored English; it stays up until
+ * dismissed, once per page load. */
 export function startForkSharedDataToasts(): () => void {
   const shown = new Set<string>();
   const show = (config: ServerConfig | null) => {
@@ -17,7 +18,7 @@ export function startForkSharedDataToasts(): () => void {
       toastManager.add(
         stackedThreadToast({
           type: "warning",
-          title: m(msg("The official T3 Code used this data folder")),
+          title: m(msg("Check this data folder")),
           description: issue.message,
           timeout: 0,
         }),

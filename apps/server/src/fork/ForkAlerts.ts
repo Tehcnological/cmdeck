@@ -1,5 +1,6 @@
-// Fork-only. This fork shares its T3 home with the official T3 Code (see
-// docs/operations/fork-upstream-sync.md); these alerts say when the official build used it.
+// Fork-only. CMDeck keeps its own data folder, but a database can still come from a newer T3 Code
+// (imported, or a shared T3CODE_HOME), and a service can run a runtime CMDeck did not install.
+// See docs/operations/fork-upstream-sync.md.
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -15,7 +16,7 @@ import { BUILD_MIGRATION_HEAD, recordedMigrations } from "../persistence/databas
 import { FORK_RUNTIME_MARKER_FILE, unmarkedActiveRuntimeAlert } from "./forkRuntimeMarker.ts";
 
 const databaseNewerThanForkAlert =(migrations: ReadonlyArray<string>) =>
-  `The official T3 Code upgraded this database past this fork's schema (${migrations.join(", ")}). This fork still started, but some features may misbehave until you sync it: run \`scripts/fork/sync-upstream.sh\`, then rebuild.`;
+  `A newer T3 Code build migrated this database past this fork's schema (${migrations.join(", ")}), for example before it was imported. CMDeck still started, but some features may misbehave until you sync it: run \`scripts/fork/sync-upstream.sh\`, then rebuild.`;
 
 export class ForkAlerts extends Context.Service<
   ForkAlerts,
@@ -33,7 +34,7 @@ const make = Effect.gen(function* () {
   const alerts = yield* Ref.make<ReadonlyArray<string>>([]);
 
   const record = Effect.fn("ForkAlerts.record")(function* (message: string) {
-    yield* Effect.logWarning("The official T3 Code used this fork's data folder").pipe(
+    yield* Effect.logWarning("CMDeck data folder alert").pipe(
       Effect.annotateLogs({ alert: message }),
     );
     yield* Ref.update(alerts, (current) =>

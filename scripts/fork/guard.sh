@@ -46,19 +46,24 @@ if git grep -q -E 'resolveGitHubPublishConfig\(updateChannel\)' -- scripts/build
   bad "scripts/build-desktop-artifact.ts publishes a GitHub update feed again"
 fi
 
-# 5. Shared-data safeguards hook into upstream files; a merge that takes upstream's side drops them.
+# 5. Fork hooks and the CMDeck identity live in upstream files; a merge that takes upstream's side drops them.
 required=(
   'apps/server/src/cloud/pinnedRuntime.ts:FORK_RUNTIME_MARKER_FILE'
   'apps/server/src/serviceLauncher.ts:FORK_RUNTIME_MARKER_FILE'
-  'scripts/install.sh:\.t3code-fork'
-  'scripts/install.ps1:\.t3code-fork'
-  'packages/ssh/src/tunnel.ts:\.t3code-fork'
-  'apps/server/src/serverSettings.ts:writeForkSettingsBackup'
-  'apps/server/src/serverSettings.ts:restoreForkSettingsFromBackup'
+  'scripts/install.sh:\.cmdeck"'
+  'scripts/install.ps1:"\.cmdeck"'
+  'packages/ssh/src/tunnel.ts:T3_STAGING/\.cmdeck'
   'apps/server/src/server.ts:ForkAlerts\.layer'
   'apps/server/src/ws.ts:ForkAlerts\.configIssues'
   'packages/contracts/src/server.ts:fork\.shared-data'
   'apps/web/src/appInit.tsx:startForkSharedDataToasts'
+  'packages/shared/src/appIdentity.ts:APP_DISPLAY_NAME = "CMDeck"'
+  'apps/server/src/os-jank.ts:APP_HOME_DIR_NAME'
+  'apps/desktop/src/app/DesktopStatePaths.ts:APP_HOME_DIR_NAME'
+  'apps/desktop/src/app/DesktopUserData.ts:DESKTOP_USER_DATA_DIR_NAME'
+  'apps/server/src/cloud/bootService.ts:SERVICE_LAUNCHD_LABEL'
+  'scripts/build-desktop-artifact.ts:com\.tehcnological\.cmdeck'
+  'apps/server/src/bin.ts:applyAppHomeEnv'
 )
 for entry in "${required[@]}"; do
   file="${entry%%:*}"

@@ -21,7 +21,9 @@ export class DesktopLegacyLocalStorage extends Context.Service<
 >()("@t3tools/desktop/app/DesktopLegacyLocalStorage") {}
 
 const MARKER_FILE_NAME = "v1-local-storage-imported";
-const V1_PROFILE_NAMES = ["T3 Code (Alpha)", "t3code"];
+// Upstream reads the official T3 Code's V1 profiles ("T3 Code (Alpha)", "t3code"). CMDeck never
+// imports another app's data on its own; `cmdeck import-from-t3` does that on request.
+const V1_PROFILE_NAMES: ReadonlyArray<string> = [];
 
 const make = Effect.gen(function* () {
   const environment = yield* DesktopEnvironment.DesktopEnvironment;

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Installs the T3 Code CLI from a GitHub Release archive. Needs only sh, tar,
+# Installs the T3 Code CLI (as `cmdeck` and `t3`) from a GitHub Release archive. Needs only sh, tar,
 # sha256sum or shasum, and curl or wget; no Node, npm, or compiler.
 #
 #   curl -fsSL https://t3.codes/install.sh | sh
@@ -8,8 +8,9 @@
 #   T3CODE_CHANNEL           release train to follow: stable, nightly, or preview
 #                            (default: stable; preview is a maintainers' test train)
 #   T3CODE_VERSION           exact version to install (overrides T3CODE_CHANNEL)
-#   T3CODE_HOME              T3 home directory (default: ~/.t3)
-#   T3CODE_INSTALL_BIN_DIR   where the `t3` command goes (default: ~/.local/bin)
+#   CMDECK_HOME              data directory (default: ~/.cmdeck); wins over T3CODE_HOME
+#   T3CODE_HOME              data directory, read when CMDECK_HOME is unset
+#   T3CODE_INSTALL_BIN_DIR   where the `cmdeck` and `t3` commands go (default: ~/.local/bin)
 #   T3CODE_RELEASE_BASE_URL  mirror for releases/download (default: GitHub)
 #
 # The archive is unpacked into $T3CODE_HOME/runtime/versions/<version>, the
@@ -19,7 +20,7 @@ set -eu
 
 repo="pingdotgg/t3code"
 base_url="${T3CODE_RELEASE_BASE_URL:-https://github.com/${repo}/releases/download}"
-t3_home="${T3CODE_HOME:-$HOME/.t3}"
+t3_home="${CMDECK_HOME:-${T3CODE_HOME:-$HOME/.cmdeck}}"
 case "$t3_home" in
   /*) ;;
   *)
@@ -228,7 +229,7 @@ target_dir="${versions_dir}/${version}"
 
 if [ -f "${target_dir}/.install-complete" ] && [ "$(cat "${target_dir}/.install-complete")" = "$version" ]; then
   # Fork: the official T3 Code installs the same versions here; only reuse this fork's own build.
-  [ -f "${target_dir}/.t3code-fork" ] ||
+  [ -f "${target_dir}/.cmdeck" ] ||
     fail "${target_dir} holds a T3 Code runtime this fork did not install, most likely the official T3 Code build of the same version. Delete that folder, then run this installer again"
   step "Version ${version} is already downloaded."
 else
@@ -261,7 +262,7 @@ else
   tar -xzf "${staging}/${archive}" -C "$staging" --strip-components=1
   rm -f "${staging}/${archive}" "${staging}/SHA256SUMS"
   "${staging}/t3" --version >/dev/null || fail "the downloaded executable does not run"
-  printf 't3code-fork\n' > "${staging}/.t3code-fork"
+  printf 'cmdeck\n' > "${staging}/.cmdeck"
   printf '%s\n' "$version" > "${staging}/.install-complete"
 
   rm -rf "$target_dir"
@@ -351,6 +352,18 @@ trap - EXIT
 launcher="$(CDPATH='' cd -P -- "$bin_dir" && pwd)/t3"
 launchers="${t3_home}/runtime/launchers"
 grep -qxF "$launcher" "$launchers" 2>/dev/null || printf '%s\n' "$launcher" >> "$launchers"
+# CMDeck: the same launcher as `cmdeck`, only over nothing or an unedited launcher of this home.
+cmdeck="${bin_dir}/cmdeck"
+cmdeck_target="$(script_t3 "$cmdeck")"
+if { [ ! -e "$cmdeck" ] && [ ! -L "$cmdeck" ]; } ||
+  { [ -n "$cmdeck_target" ] && version_t3 "$cmdeck_target" "$versions_dir"; }; then
+  launcher_script "${target_dir}/t3" > "${cmdeck}.tmp.$$" && chmod 755 "${cmdeck}.tmp.$$" &&
+    mv -f "${cmdeck}.tmp.$$" "$cmdeck"
+  cmdeck="$(CDPATH='' cd -P -- "$bin_dir" && pwd)/cmdeck"
+  grep -qxF "$cmdeck" "$launchers" 2>/dev/null || printf '%s\n' "$cmdeck" >> "$launchers"
+else
+  printf '  Left the other %s alone; use t3 instead.\n' "$cmdeck" >&2
+fi
 if "$interactive"; then printf '\r\033[2K' >&2; fi
 printf '  %sInstalled T3 Code %s%s\n\n' "$green" "$version" "$reset" >&2
 # The folder a shell reads its startup file from: $1 when set and safe to paste, else $2 when

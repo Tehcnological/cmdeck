@@ -1,3 +1,4 @@
+import { SERVICE_NAME } from "@t3tools/shared/appIdentity";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import {
   CLI_RELEASE_BASE_URL_ENV,
@@ -217,16 +218,19 @@ export const findWindowsShim = Effect.fn("cli.update.find_windows_shim")(functio
     ...(environment["PATH"] ?? environment["Path"] ?? "").split(";"),
   ]
     .filter((entry) => entry.trim().length > 0)
-    .map((directory) => ({
-      shimPath: path.join(directory, "t3.cmd"),
-      parseTarget: windowsShimTarget,
-    }));
+    .flatMap((directory) =>
+      ["t3.cmd", "cmdeck.cmd"].map((name) => ({
+        shimPath: path.join(directory, name),
+        parseTarget: windowsShimTarget,
+      })),
+    );
   if (versionsDir !== undefined) {
     const recorded = yield* fs
       .readFileString(path.join(path.dirname(versionsDir), "launchers"))
       .pipe(Effect.orElseSucceed(() => ""));
     for (const shimPath of recorded.split(/\r?\n/)) {
-      if (path.isAbsolute(shimPath) && path.basename(shimPath).toLowerCase() === "t3.cmd") {
+      const name = path.basename(shimPath).toLowerCase();
+      if (path.isAbsolute(shimPath) && (name === "t3.cmd" || name === "cmdeck.cmd")) {
         candidates.push({ shimPath, parseTarget: generatedWindowsShimTarget });
       }
     }
@@ -339,7 +343,7 @@ const belongsToBootService = Effect.fn("cli.update.belongs_to_boot_service")(fun
   const runner = yield* ProcessRunner.ProcessRunner;
   if (platform === "linux") {
     const cgroup = yield* fs.readFileString(`/proc/${pid}/cgroup`).pipe(Effect.option);
-    return Option.isSome(cgroup) && cgroup.value.includes("/t3code.service");
+    return Option.isSome(cgroup) && cgroup.value.includes(`/${SERVICE_NAME}.service`);
   }
   if (platform === "darwin") {
     const parent = yield* runner

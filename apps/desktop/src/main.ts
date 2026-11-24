@@ -4,6 +4,7 @@ import { handleStdioError } from "./app/stdioErrors.ts";
 for (const stream of [process.stdout, process.stderr]) {
   stream.on("error", handleStdioError);
 }
+applyAppHomeEnv(process.env);
 
 import * as NodeHttpClient from "@effect/platform-node/NodeHttpClient";
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
@@ -19,6 +20,7 @@ import * as Layer from "effect/Layer";
 
 import * as Electron from "electron";
 
+import { applyAppHomeEnv } from "@t3tools/shared/appIdentity";
 import * as NetService from "@t3tools/shared/Net";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 

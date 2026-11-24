@@ -17,7 +17,7 @@ const currentAlerts = Effect.gen(function* () {
 }).pipe(Effect.provide(ForkAlerts.layer));
 
 it.layer(NodeServices.layer)("fork alerts", (it) => {
-  it.effect("alerts, without failing, when the official T3 Code used this home", () =>
+  it.effect("alerts, without failing, about a newer database and a foreign runtime", () =>
     Effect.gen(function* () {
       const config = yield* ServerConfig.ServerConfig;
       const fs = yield* FileSystem.FileSystem;

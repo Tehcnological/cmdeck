@@ -576,7 +576,7 @@ it.layer(NodeServices.layer)("t3 update with a background service", (it) => {
       yield* fs.writeFileString(runtime.entryPath, "");
       yield* fs.writeFileString(runtime.sentinelPath, `${version}\n`);
       yield* fs.writeFileString(path.join(runtime.versionDir, FORK_RUNTIME_MARKER_FILE), "");
-      const unitPath = path.join(baseDir, "t3code.service");
+      const unitPath = path.join(baseDir, "cmdeck.service");
       const logPath = path.join(baseDir, "boot-service.log");
       // An earlier `t3 update` pointed the service at this version without restarting it.
       const service = Layer.mock(BootService.BootService, {
@@ -716,7 +716,7 @@ it.layer(NodeServices.layer)("t3 update checks the database before switching", (
           supported: true,
           installed: false,
           current: false,
-          unitPath: path.join(baseDir, "t3code.service"),
+          unitPath: path.join(baseDir, "cmdeck.service"),
           logPath: path.join(baseDir, "boot-service.log"),
         }),
       });

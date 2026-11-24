@@ -30,7 +30,7 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer home
     try {
       await NodeFSP.mkdir(target, { recursive: true });
       await NodeFSP.writeFile(NodePath.join(target, ".install-complete"), `${version}\n`);
-      await NodeFSP.writeFile(NodePath.join(target, ".t3code-fork"), "");
+      await NodeFSP.writeFile(NodePath.join(target, ".cmdeck"), "");
       await NodeFSP.writeFile(NodePath.join(target, "t3"), "#!/bin/sh\necho 't3 v1.2.3'\n", {
         mode: 0o755,
       });
@@ -54,6 +54,9 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer home
       expect(status, stdout + stderr).toBe(0);
       expect(stderr).toContain(`Installed T3 Code ${version}`);
       expect(await NodeFSP.readFile(launcher, "utf8")).toBe(
+        launcherScript(NodePath.join(target, "t3")),
+      );
+      expect(await NodeFSP.readFile(NodePath.join(root, "bin/cmdeck"), "utf8")).toBe(
         launcherScript(NodePath.join(target, "t3")),
       );
       expect(
@@ -97,7 +100,7 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer chan
       // An existing completed install isolates release resolution from archive downloads.
       await NodeFSP.mkdir(target, { recursive: true });
       await NodeFSP.writeFile(NodePath.join(target, ".install-complete"), `${version}\n`);
-      await NodeFSP.writeFile(NodePath.join(target, ".t3code-fork"), "");
+      await NodeFSP.writeFile(NodePath.join(target, ".cmdeck"), "");
       await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
       const address = server.address();
       if (!address || typeof address === "string") throw new Error("Expected a TCP listener");
@@ -204,7 +207,7 @@ async function installOver(input: {
   const target = NodePath.join(input.home, "runtime", "versions", "1.2.3");
   await NodeFSP.mkdir(target, { recursive: true });
   await NodeFSP.writeFile(NodePath.join(target, ".install-complete"), "1.2.3\n");
-  if (input.forkInstalled !== false) await NodeFSP.writeFile(NodePath.join(target, ".t3code-fork"), "");
+  if (input.forkInstalled !== false) await NodeFSP.writeFile(NodePath.join(target, ".cmdeck"), "");
   const installer = NodePath.resolve(import.meta.dirname, input.script);
   const [command, args] =
     input.script === "install.sh"
@@ -539,8 +542,8 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer chec
               await NodeFSP.readFile(NodePath.join(versions, version, ".install-complete"), "utf8"),
             ).toBe("1.2.3\n");
             expect(
-              await NodeFSP.readFile(NodePath.join(versions, version, ".t3code-fork"), "utf8"),
-            ).toBe("t3code-fork\n");
+              await NodeFSP.readFile(NodePath.join(versions, version, ".cmdeck"), "utf8"),
+            ).toBe("cmdeck\n");
             expect(
               NodeChildProcess.execFileSync(NodePath.join(root, "bin/t3"), ["--version"], {
                 encoding: "utf8",

@@ -8,10 +8,12 @@ import * as Path from "effect/Path";
 import type * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
 
+import { DEFAULT_SERVER_PORT } from "@t3tools/shared/appIdentity";
+
 import { sweepStalePendingAttachments } from "./attachmentStore.ts";
 import { markNoCopyOnWrite } from "./noCopyOnWrite.ts";
 
-export const DEFAULT_PORT = 3773;
+export const DEFAULT_PORT = DEFAULT_SERVER_PORT;
 
 declare const __T3CODE_RELEASE_CHANNEL__: string | undefined;
 export const releaseChannel =

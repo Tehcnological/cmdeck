@@ -146,7 +146,7 @@ const unitPlan = (root: string, version: string) => ({
   program: [`${root}/runtime/versions/${version}/t3`, "__service-launcher"],
   baseDir: root,
   logPath: `${root}/logs/boot-service.log`,
-  unitPath: `${root}/unit/t3code.service`,
+  unitPath: `${root}/unit/cmdeck.service`,
 });
 
 const writeFakeRuntime = (
@@ -164,7 +164,7 @@ const writeFakeRuntime = (
       path.join(versionDir, ".install-complete"),
       `${path.basename(versionDir)}\n`,
     );
-    yield* fs.writeFileString(path.join(versionDir, ".t3code-fork"), "");
+    yield* fs.writeFileString(path.join(versionDir, ".cmdeck"), "");
     return entryPath;
   });
 
@@ -461,7 +461,7 @@ setInterval(() => {}, 1_000);
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const root = yield* fs.makeTempDirectoryScoped({ prefix: "t3-service-launcher-task-" });
-      const unitPath = path.join(root, "t3code-task.xml");
+      const unitPath = path.join(root, "cmdeck-task.xml");
       const unit = renderBootServiceTask(unitPlan(root, "1.1.0"), {
         userId: "PC\\theo",
         homeDir: "C:\\Users\\theo",
@@ -477,7 +477,7 @@ setInterval(() => {}, 1_000);
 
       yield* Effect.promise(() => registerServiceTask(unitPath, "t3code-PC-theo", schtasks));
       assert.equal(task, disabledServiceTask(unit));
-      assert.deepEqual(yield* fs.readDirectory(root), ["t3code-task.xml"]);
+      assert.deepEqual(yield* fs.readDirectory(root), ["cmdeck-task.xml"]);
 
       task = unit.replace("1.1.0", "1.0.0");
       yield* Effect.promise(() => registerServiceTask(unitPath, "t3code-PC-theo", schtasks));
@@ -536,7 +536,7 @@ setInterval(() => {}, 1_000);
         const root = yield* fs.makeTempDirectoryScoped({ prefix: "t3-service-launcher-xdg-" });
         const home = path.join(root, "home");
         const managerUnitDir = path.join(home, ".config", "systemd", "user");
-        const unitPath = path.join(managerUnitDir, "t3code.service");
+        const unitPath = path.join(managerUnitDir, "cmdeck.service");
         const render = (version: string) =>
           renderBootServiceUnit({ ...unitPlan(root, version), unitPath });
         yield* fs.makeDirectory(managerUnitDir, { recursive: true });
@@ -580,7 +580,7 @@ setInterval(() => {}, 1_000);
         vi.stubEnv("HOME", home);
         // environment.d changes what services inherit, not where the manager reads units.
         vi.stubEnv("XDG_CONFIG_HOME", path.join(home, "service-config"));
-        vi.stubEnv("T3_BOOT_SERVICE_UNIT", "t3code.service");
+        vi.stubEnv("T3_BOOT_SERVICE_UNIT", "cmdeck.service");
 
         yield* Effect.promise(() =>
           expect(runLauncher(root)).rejects.toThrow("Active child exited unexpectedly (0)."),

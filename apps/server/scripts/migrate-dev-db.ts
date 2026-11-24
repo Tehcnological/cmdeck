@@ -4,6 +4,7 @@ import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as NodeOS from "node:os";
 import * as NodeURL from "node:url";
+import { APP_HOME_DIR_NAME } from "@t3tools/shared/appIdentity";
 import { resolveWorktreeT3Home } from "@t3tools/shared/devHome";
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
@@ -35,7 +36,7 @@ export class MigrateDevDbSharedHomeError extends Schema.TaggedError<MigrateDevDb
   {},
 ) {
   override get message(): string {
-    return "Refusing to rebuild the shared ~/.t3 database. Use an isolated --base-dir.";
+    return "Refusing to rebuild the shared ~/.cmdeck database. Use an isolated --base-dir.";
   }
 }
 
@@ -391,7 +392,7 @@ export const dropResumableFamilies = Effect.fn("dropResumableDevDbFamilies")(fun
       Effect.map((info) => Option.map(info.ino, (ino) => `${info.dev}:${ino}`)),
       Effect.orElseSucceed(() => Option.none<string>()),
     );
-  const sharedHome = path.resolve(options.sharedHome ?? path.join(NodeOS.homedir(), ".t3"));
+  const sharedHome = path.resolve(options.sharedHome ?? path.join(NodeOS.homedir(), APP_HOME_DIR_NAME));
   const liveDatabase = path.join(sharedHome, "userdata", "statev2.sqlite");
   const [target, live] = yield* Effect.all([resolve(databasePath), resolve(liveDatabase)]);
   const targetIdentity = yield* identity(target);
@@ -613,7 +614,7 @@ export const runMigrateDevDb = Effect.fn("runMigrateDevDb")(function* (
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
-  const sharedHome = path.resolve(options.sharedHome ?? path.join(NodeOS.homedir(), ".t3"));
+  const sharedHome = path.resolve(options.sharedHome ?? path.join(NodeOS.homedir(), APP_HOME_DIR_NAME));
   const sourcePath = path.resolve(
     input.source ?? path.join(sharedHome, "userdata", "statev2.sqlite"),
   );
@@ -760,7 +761,7 @@ export const migrateDevDbCommand = Command.make(
     ),
     source: Flag.String("source").pipe(
       Flag.optional,
-      Flag.withDescription("Source database. Defaults to ~/.t3/userdata/statev2.sqlite."),
+      Flag.withDescription("Source database. Defaults to ~/.cmdeck/userdata/statev2.sqlite."),
     ),
     dropResumable: Flag.String("drop-resumable").pipe(
       Flag.optional,
@@ -798,7 +799,7 @@ export const migrateDevDbCommand = Command.make(
     }),
 ).pipe(
   Command.withDescription(
-    "Rebuild the worktree dev database from a pruned snapshot of the real ~/.t3 data, then run migrations.",
+    "Rebuild the worktree dev database from a pruned snapshot of the real ~/.cmdeck data, then run migrations.",
   ),
 );
 
