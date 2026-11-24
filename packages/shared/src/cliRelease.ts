@@ -42,7 +42,10 @@ export function cliArchiveFileName(version: string, platformKey: CliArchivePlatf
   return `t3-${version}-${platformKey}.${platformKey.startsWith("win32") ? "zip" : "tar.gz"}`;
 }
 
-const CLI_RELEASE_DEFAULT_BASE_URL = `https://github.com/${CLI_RELEASE_REPOSITORY}/releases/download`;
+// Private fork: upstream's GitHub releases are upstream builds. With no T3CODE_RELEASE_BASE_URL or
+// managed mirror, every install path (service, SSH remote, self-update) fails closed here;
+// `.invalid` never resolves (RFC 6761). A version already installed locally is still reused.
+const CLI_RELEASE_DEFAULT_BASE_URL = "https://t3code-release-base-url-not-set.invalid";
 
 export function cliReleaseDownloadBaseUrl(
   version: string,

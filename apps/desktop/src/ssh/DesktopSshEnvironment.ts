@@ -90,12 +90,11 @@ export const resolveDesktopSshCliRunner = (
       nodeEngineRange: serverPackageJson.engines.node,
     };
   }
-  // Private fork: the default source is upstream's GitHub releases, which would put an upstream
-  // server on the remote host. Without a configured source of this fork's builds, downloads fail
-  // closed (`.invalid` never resolves); a version already installed on the host is still reused.
-  const releaseBaseUrl =
-    env[CLI_RELEASE_BASE_URL_ENV]?.trim() || "https://t3code-release-base-url-not-set.invalid";
-  return { archiveVersion: environment.appVersion, releaseBaseUrl };
+  const releaseBaseUrl = env[CLI_RELEASE_BASE_URL_ENV]?.trim() || undefined;
+  return {
+    archiveVersion: environment.appVersion,
+    ...(releaseBaseUrl === undefined ? {} : { releaseBaseUrl }),
+  };
 };
 
 // Remote servers record this ID as their owner, so it has to outlive restarts,
