@@ -312,7 +312,7 @@ function stringToBytes(value: string): Uint8Array {
   return new TextEncoder().encode(value);
 }
 
-export function consumeCloudReplayGuards(input: {
+function consumeCloudReplayGuards(input: {
   readonly secrets: ServerSecretStore.ServerSecretStore["Service"];
   readonly names: ReadonlyArray<string>;
   readonly value: Uint8Array;

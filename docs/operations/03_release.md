@@ -26,9 +26,10 @@ Nightly installs check `releases.atom` (the 10 newest git tags), then the `updat
 
 ## T3 Connect relay deployment
 
-`.github/workflows/deploy-relay.yml` deploys Alchemy stage `prod` on every push to `main`. See [infra/relay/README.md](../../infra/relay/README.md#deployment-ci) for required variables/secrets. Keep `.env.example` in sync with `production` public identifiers so preview builds work off non-`main` branches. After editing a secret/variable, manually run **Deploy T3 Connect relay** (with `force` unchecked).
-
-Labeling a same-repo PR `relay:preview` deploys stage `pr-<number>` (cleaned up on unlabel/close).
+This fork removes T3 Connect: the relay deploy and preview workflows are deleted, builds carry no
+relay origin or Clerk identifiers, and `.env.example` no longer lists them. The relay source under
+`infra/relay` is kept only so upstream merges stay simple; nothing deploys it. The notes below
+describe upstream's hosted relay.
 
 ### Managed tunnel cleanup rollout
 

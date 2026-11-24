@@ -139,7 +139,7 @@ function summarizeLimits(
     providers,
     updates,
   } = document.limits ?? {};
-  const connect = ManagedLimits.allowsConnect({ document });
+  const connect = ManagedLimits.policyAllowsConnect({ document });
   return {
     ...(maxRuntimeMode === undefined ? {} : { maxRuntimeMode }),
     ...(clients === undefined ? {} : { clients }),

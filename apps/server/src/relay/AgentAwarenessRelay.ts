@@ -1004,4 +1004,14 @@ export const make = Effect.gen(function* () {
   });
 });
 
-export const layer = Layer.effect(AgentAwarenessRelay, make);
+// This fork removes T3 Connect, so agent activity is never published to the relay. `make` stays
+// for its tests and upstream merges.
+export const layer = Layer.succeed(
+  AgentAwarenessRelay,
+  AgentAwarenessRelay.of({
+    publishThread: () => Effect.void,
+    drain: Effect.void,
+    requestCatchUp: () => Effect.void,
+    start: () => Effect.void,
+  }),
+);

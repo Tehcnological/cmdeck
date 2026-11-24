@@ -108,7 +108,12 @@ export function makeRelayUrlConfig(fallback = buildTimeRelayUrl) {
   );
 }
 
-export const relayUrlConfig = makeRelayUrlConfig();
+// This fork removes T3 Connect: no relay origin resolves, from the build or from T3CODE_RELAY_URL.
+const connectRemoved = new ConfigProvider.SourceError({
+  message: "T3 Connect is removed in this build; use Tailscale or your own Cloudflare Tunnel.",
+});
+
+export const relayUrlConfig: Config.Config<string> = Config.fail(connectRemoved);
 
 export const hostedAppUrlConfig = makePublicValueConfig(
   "T3CODE_HOSTED_APP_URL",
@@ -216,10 +221,6 @@ export function makeCloudCliOAuthConfig({
   );
 }
 
-export const cloudCliOAuthConfig = makeCloudCliOAuthConfig();
+export const cloudCliOAuthConfig: Config.Config<CloudCliOAuthConfig> = Config.fail(connectRemoved);
 
-export const hasCloudPublicConfig = Boolean(
-  (normalizeSecureRelayUrl(process.env.T3CODE_RELAY_URL ?? "") ?? buildTimeRelayUrl) &&
-  (process.env.T3CODE_CLERK_PUBLISHABLE_KEY?.trim() || buildTimeClerkPublishableKey) &&
-  (process.env.T3CODE_CLERK_CLI_OAUTH_CLIENT_ID?.trim() || buildTimeClerkCliOAuthClientId),
-);
+export const hasCloudPublicConfig: boolean = false;

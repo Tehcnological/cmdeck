@@ -279,7 +279,7 @@ const reportRelayClientInstallProgress = (event: RelayClientInstallProgressEvent
     ? Console.log(`Relay client: ${relayClientInstallProgressMessage(event.stage)}...`)
     : Effect.void;
 
-export const acquireRelayClientForLink = Effect.fn("cloud.cli.acquire_relay_client_for_link")(
+const acquireRelayClientForLink = Effect.fn("cloud.cli.acquire_relay_client_for_link")(
   function* <ConfirmError, ConfirmContext>(
     relayClient: RelayClient.RelayClient["Service"],
     confirmInstall: (version: string) => Effect.Effect<boolean, ConfirmError, ConfirmContext>,
