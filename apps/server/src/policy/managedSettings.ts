@@ -262,7 +262,6 @@ export function listManageableSettings() {
     .filter(
       ([key]) =>
         !UNMANAGEABLE_KEYS.has(key) &&
-        !ENVIRONMENT_OVERRIDDEN_KEYS.has(key) &&
         !DERIVED_FROM.has(key),
     )
     .flatMap(([key, field]) => leaves(key, getPath(builtIn, [key]), field.ast))
