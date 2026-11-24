@@ -238,6 +238,7 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
           setWslDistro: () => Effect.die("unexpected WSL distro change"),
           setLocalEnvironmentEnabled: () => Effect.die("unexpected local environment toggle"),
           setWslOnly: () => Effect.die("unexpected WSL-only toggle"),
+          setTraySettings: () => Effect.die("unexpected tray settings change"),
           applyWslWindowsFallback: Effect.die("unexpected WSL Windows fallback"),
           applyWslWindowsFallbackInMemory: Effect.die("unexpected WSL Windows fallback"),
         } satisfies DesktopAppSettings.DesktopAppSettings["Service"])
