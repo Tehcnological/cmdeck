@@ -110,3 +110,4 @@ jobs:
           src/textGeneration
           src/provider/ProviderInstanceRegistry.test.ts
           src/serverSettings.test.ts
+          src/fork/T3Import.test.ts
