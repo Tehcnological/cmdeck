@@ -78,7 +78,8 @@ warning toast (`fork.shared-data` server config issues, which the official clien
   `scripts/install.sh`/`.ps1`, the desktop's SSH bootstrap) gets a `.t3code-fork` marker. Installs and
   updates refuse to reuse a complete runtime without it and name the folder to delete. A background
   service already running an unmarked runtime keeps running; the launcher logs it and the server
-  alerts.
+  alerts. Runtimes the fork installed before the marker existed trigger the same alert; if you are
+  sure one is the fork's, create an empty `.t3code-fork` file in it.
 - **Settings.** Every settings write mirrors the fork-only keys (`inferenceServers`,
   `textGenerationFallback`, `textGenerationModelSelectionExplicit`, provider instances' `inference`
   and `inferenceServerId`) to `fork-settings-backup.json` next to `settings.json`, without inline
