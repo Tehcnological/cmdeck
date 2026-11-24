@@ -78,7 +78,7 @@ export const ManagedPolicyLimits = Schema.Struct({
   /** `false` turns T3 Connect off and unlinks this machine. */
   connect: Schema.optionalKey(Schema.Boolean),
   webhookTasks: Schema.optionalKey(Schema.Boolean),
-  /** Can only turn product analytics off, never force it on. */
+  /** Accepted so existing policy files still load; there is no telemetry for it to turn off. */
   telemetry: Schema.optionalKey(Schema.Boolean),
   browserCookieImport: Schema.optionalKey(Schema.Boolean),
   /** `false` turns the preview tunnel off: no client reaches this machine's loopback ports. */

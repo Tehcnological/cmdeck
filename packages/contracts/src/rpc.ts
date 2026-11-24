@@ -380,11 +380,9 @@ import {
 import {
   ServerConfigStreamEvent,
   DesktopUpdateCommitInput,
-  OtlpEndpointCheckInput,
   ServerPrepareTriageError,
   ServerPrepareTriageInput,
   ServerPrepareTriageResult,
-  OtlpEndpointCheckResult,
   ServerConfig,
   ServerProviderUpdateError,
   ServerProviderUpdateInput,
@@ -399,7 +397,6 @@ import {
   ServerSelfUpdateInput,
   ServerSelfUpdateProgressEvent,
   ServerSelfUpdateResult,
-  ServerTraceDiagnosticsResult,
   ServerProcessDiagnosticsResult,
   ServerProcessResourceHistoryInput,
   ServerProcessResourceHistoryResult,
@@ -637,13 +634,11 @@ export const WS_METHODS = {
   serverSetAcpRegistryProvider: "server.setAcpRegistryProvider",
   serverDisableAcpRegistryProvider: "server.disableAcpRegistryProvider",
   serverLogoutAcpRegistry: "server.logoutAcpRegistry",
-  serverGetTraceDiagnostics: "server.getTraceDiagnostics",
   serverGetProcessDiagnostics: "server.getProcessDiagnostics",
   serverGetHostResources: "server.getHostResources",
   serverGetProcessResourceHistory: "server.getProcessResourceHistory",
   serverGetResourceTelemetryHistory: "server.getResourceTelemetryHistory",
   serverRetryResourceTelemetry: "server.retryResourceTelemetry",
-  serverCheckOtlpEndpoint: "server.checkOtlpEndpoint",
   serverListTextGeneratorModels: "server.listTextGeneratorModels",
   serverPrepareTriage: "server.prepareTriage",
   serverSignalProcess: "server.signalProcess",
@@ -1168,12 +1163,6 @@ const WsServerLogoutAcpRegistryRpc = Rpc.make(WS_METHODS.serverLogoutAcpRegistry
   error: Schema.Union([AcpRegistryOperationError, EnvironmentAuthorizationError]),
 });
 
-const WsServerGetTraceDiagnosticsRpc = Rpc.make(WS_METHODS.serverGetTraceDiagnostics, {
-  payload: Schema.Struct({}),
-  success: ServerTraceDiagnosticsResult,
-  error: EnvironmentAuthorizationError,
-});
-
 const WsServerGetProcessDiagnosticsRpc = Rpc.make(WS_METHODS.serverGetProcessDiagnostics, {
   payload: Schema.Struct({}),
   success: ServerProcessDiagnosticsResult,
@@ -1204,12 +1193,6 @@ const WsServerGetResourceTelemetryHistoryRpc = Rpc.make(
 const WsServerRetryResourceTelemetryRpc = Rpc.make(WS_METHODS.serverRetryResourceTelemetry, {
   payload: Schema.Struct({}),
   success: ResourceTelemetryRetryResult,
-  error: EnvironmentAuthorizationError,
-});
-
-const WsServerCheckOtlpEndpointRpc = Rpc.make(WS_METHODS.serverCheckOtlpEndpoint, {
-  payload: OtlpEndpointCheckInput,
-  success: OtlpEndpointCheckResult,
   error: EnvironmentAuthorizationError,
 });
 
@@ -2588,13 +2571,11 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerSetAcpRegistryProviderRpc,
   WsServerDisableAcpRegistryProviderRpc,
   WsServerLogoutAcpRegistryRpc,
-  WsServerGetTraceDiagnosticsRpc,
   WsServerGetProcessDiagnosticsRpc,
   WsServerGetHostResourcesRpc,
   WsServerGetProcessResourceHistoryRpc,
   WsServerGetResourceTelemetryHistoryRpc,
   WsServerRetryResourceTelemetryRpc,
-  WsServerCheckOtlpEndpointRpc,
   WsServerListTextGeneratorModelsRpc,
   WsServerPrepareTriageRpc,
   WsServerGetUsageSummaryRpc,
