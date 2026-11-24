@@ -39,6 +39,7 @@ import * as Stream from "effect/Stream";
 
 import {
   type ProviderChangeRequestWatchFingerprint,
+  type ProviderCheckLog,
   PullRequestProviderError,
 } from "@t3tools/source-control-core/server/PullRequestProvider";
 import * as PullRequestService from "../pullRequest/PullRequestService.ts";
@@ -49,6 +50,7 @@ import { isTerminalRunStatus } from "./ThreadManagementService.ts";
 import {
   combinePullRequestWatchWakes,
   evaluatePullRequestWatch,
+  PULL_REQUEST_WATCH_LOG_LINES,
   PULL_REQUEST_WATCH_NO_CHECKS_MS,
   pullRequestWatchEndMessage,
   pullRequestWatchMessage,
@@ -632,6 +634,23 @@ export const make = Effect.gen(function* () {
       ),
     );
 
+  // A failure wake goes out without log excerpts when the host has none, is slow, or refuses.
+  const failingLogs = (group: WatchGroup) =>
+    pullRequests
+      .checkLogs({ ...referenceOf(group), tailLines: PULL_REQUEST_WATCH_LOG_LINES })
+      .pipe(
+        Effect.timeout("20 seconds"),
+        Effect.catchCause(
+          (cause): Effect.Effect<ReadonlyArray<ProviderCheckLog>> =>
+            Cause.hasInterruptsOnly(cause)
+              ? Effect.interrupt
+              : Effect.logDebug("pull request watch log read failed", {
+                  pullRequest: group.key,
+                  cause,
+                }).pipe(Effect.as([])),
+        ),
+      );
+
   const readGroup = Effect.fn("PullRequestWatchReactor.readGroup")(function* (
     group: WatchGroup,
     fingerprint: ProviderChangeRequestWatchFingerprint | null,
@@ -746,8 +765,21 @@ export const make = Effect.gen(function* () {
       status: fingerprint?.status ?? null,
       remarks: fingerprint?.remarks ?? null,
     });
+    const reports = new Map(
+      group.targets.map(
+        (target) => [target, evaluatePullRequestWatch(target.watch, detail, remarks, now)] as const,
+      ),
+    );
+    // One log read serves every watch of the pull request, and only a failure wake asks for it.
+    const logs = [...reports.values()].some((report) =>
+      report.changes.some(
+        (change) => change.kind === "checks-failed" || change.kind === "checks-finished",
+      ),
+    )
+      ? yield* failingLogs(group)
+      : [];
     yield* eachTarget(group, (target) => {
-      const report = evaluatePullRequestWatch(target.watch, detail, remarks, now);
+      const report = reports.get(target)!;
       if (report.changes.length > 0) {
         const wake = {
           ...pullRequestWatchMessage({
@@ -756,6 +788,7 @@ export const make = Effect.gen(function* () {
             baseBranch: detail.baseBranch,
             headSha: report.next.headSha,
             report,
+            logs,
           }),
           includesRemarks: report.changes.some((change) => change.kind === "remarks"),
         };
