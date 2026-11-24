@@ -55,6 +55,21 @@ Blocking `select`, `confirm`, `input`, and `editor` dialogs work in T3 Code. Not
 the work log. Extensions can publish status text near the composer. Terminal titles and generic
 widgets do not have a T3 Code equivalent.
 
+## T3 Tools
+
+Pi's **T3 tools** setting chooses which T3 Code tools Pi sees. **Full** offers all of them. **Lean**
+offers only delegation, thread, project, worktree, secret and scheduling tools, which leaves a local
+model more context; Pi then cannot use the in-app browser, devices, HTML renders or pull request
+tools. **Automatic** uses Lean when the instance is linked to an enabled inference server and Full
+otherwise.
+
+## Compaction on Linked Servers
+
+When a linked instance compacts a long thread, Pi writes the summary as one more message on the
+conversation it already sent, so the server answers from its prompt cache instead of reading the
+whole thread again. The last two turns stay word for word. When the request would not fit, or Pi
+restarted since its last request, Pi compacts the usual way. `/compact` instructions still apply.
+
 ## Permission Modes
 
 T3 Code applies the composer permission mode through Pi's blocking tool hook:

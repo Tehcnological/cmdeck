@@ -1,4 +1,16 @@
 import {
+  InferenceDiscoveryInput,
+  InferenceDiscoveryResult,
+  InferenceImageCheckInput,
+  InferenceImageCheckResult,
+  InferenceServerId,
+  InferenceServerSnapshot,
+  InferenceThreadLastRequest,
+  InferenceThreadStop,
+  InferenceUsageSummary,
+  InferenceUsageWindow,
+} from "./inference.ts";
+import {
   OrchestrationV2SearchThreadError,
   OrchestrationV2SearchThreadInput,
   OrchestrationV2SearchThreadResult,
@@ -45,7 +57,7 @@ import * as Schema from "effect/Schema";
 import * as Rpc from "effect/rpc/Rpc";
 import * as RpcGroup from "effect/rpc/RpcGroup";
 import * as RpcMiddleware from "effect/rpc/RpcMiddleware";
-import { IsoDateTime, NonNegativeInt, TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { IsoDateTime, NonNegativeInt, ThreadId, TrimmedNonEmptyString } from "./baseSchemas.ts";
 import { SecretSourceCheckResult } from "./settingsSecretValue.ts";
 import { SecretReference } from "./secretReference.ts";
 import {
@@ -584,6 +596,12 @@ export const WS_METHODS = {
   serverGetConfig: "server.getConfig",
   serverGetNpmRelease: "server.getNpmRelease",
   serverRefreshProviders: "server.refreshProviders",
+  serverRefreshInferenceServers: "server.refreshInferenceServers",
+  serverDiscoverInferenceServers: "server.discoverInferenceServers",
+  serverGetInferenceUsage: "server.getInferenceUsage",
+  serverGetThreadInferenceRequest: "server.getThreadInferenceRequest",
+  serverGetThreadInferenceStop: "server.getThreadInferenceStop",
+  serverCheckInferenceModelImages: "server.checkInferenceModelImages",
   serverUpdateProvider: "server.updateProvider",
   serverUpdateServer: "server.updateServer",
   serverUpdateServerWithProgress: "server.updateServerWithProgress",
@@ -763,6 +781,42 @@ const WsServerGetConfigRpc = Rpc.make(WS_METHODS.serverGetConfig, {
   payload: Schema.Struct({}),
   success: ServerConfig,
   error: Schema.Union([KeybindingsConfigError, ServerSettingsError, EnvironmentAuthorizationError]),
+});
+
+const WsServerGetInferenceUsageRpc = Rpc.make(WS_METHODS.serverGetInferenceUsage, {
+  payload: Schema.Struct({ window: InferenceUsageWindow }),
+  success: InferenceUsageSummary,
+  error: Schema.Union([EnvironmentAuthorizationError]),
+});
+
+const WsServerGetThreadInferenceRequestRpc = Rpc.make(WS_METHODS.serverGetThreadInferenceRequest, {
+  payload: Schema.Struct({ threadId: ThreadId }),
+  success: Schema.Struct({ last: Schema.NullOr(InferenceThreadLastRequest) }),
+  error: Schema.Union([EnvironmentAuthorizationError]),
+});
+
+const WsServerGetThreadInferenceStopRpc = Rpc.make(WS_METHODS.serverGetThreadInferenceStop, {
+  payload: Schema.Struct({ threadId: ThreadId }),
+  success: Schema.Struct({ stop: Schema.NullOr(InferenceThreadStop) }),
+  error: Schema.Union([EnvironmentAuthorizationError]),
+});
+
+const WsServerRefreshInferenceServersRpc = Rpc.make(WS_METHODS.serverRefreshInferenceServers, {
+  payload: Schema.Struct({ id: Schema.optional(InferenceServerId) }),
+  success: Schema.Struct({ inferenceServers: Schema.Array(InferenceServerSnapshot) }),
+  error: Schema.Union([ServerSettingsError, EnvironmentAuthorizationError]),
+});
+
+const WsServerCheckInferenceModelImagesRpc = Rpc.make(WS_METHODS.serverCheckInferenceModelImages, {
+  payload: InferenceImageCheckInput,
+  success: InferenceImageCheckResult,
+  error: Schema.Union([EnvironmentAuthorizationError]),
+});
+
+const WsServerDiscoverInferenceServersRpc = Rpc.make(WS_METHODS.serverDiscoverInferenceServers, {
+  payload: InferenceDiscoveryInput,
+  success: InferenceDiscoveryResult,
+  error: Schema.Union([EnvironmentAuthorizationError]),
 });
 
 export const WsServerRefreshProvidersRpc = Rpc.make(WS_METHODS.serverRefreshProviders, {
@@ -2477,6 +2531,12 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerProbeRpc,
   WsServerGetConfigRpc,
   WsServerRefreshProvidersRpc,
+  WsServerRefreshInferenceServersRpc,
+  WsServerDiscoverInferenceServersRpc,
+  WsServerGetInferenceUsageRpc,
+  WsServerGetThreadInferenceRequestRpc,
+  WsServerGetThreadInferenceStopRpc,
+  WsServerCheckInferenceModelImagesRpc,
   WsServerUpdateProviderRpc,
   WsProviderConsumeResetCreditRpc,
   WsProviderAuthStartRpc,

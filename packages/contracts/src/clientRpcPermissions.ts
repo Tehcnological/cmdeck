@@ -34,6 +34,13 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   // Listing models spends the stored API key, so only those who can choose a model may.
   [WS_METHODS.serverListTextGeneratorModels]: AuthSettingsWriteScope,
   [WS_METHODS.serverRefreshProviders]: AuthOrchestrationReadScope,
+  [WS_METHODS.serverRefreshInferenceServers]: AuthOrchestrationReadScope,
+  // It probes ports on the environment's machine, and only ends in a settings write.
+  [WS_METHODS.serverDiscoverInferenceServers]: AuthSettingsWriteScope,
+  [WS_METHODS.serverCheckInferenceModelImages]: AuthSettingsWriteScope,
+  [WS_METHODS.serverGetInferenceUsage]: AuthOrchestrationReadScope,
+  [WS_METHODS.serverGetThreadInferenceRequest]: AuthOrchestrationReadScope,
+  [WS_METHODS.serverGetThreadInferenceStop]: AuthOrchestrationReadScope,
   [WS_METHODS.pullRequestsRunAction]: AuthSourceControlWriteScope,
   [WS_METHODS.pullRequestsUpdate]: AuthSourceControlWriteScope,
   [WS_METHODS.pullRequestsComment]: AuthSourceControlWriteScope,

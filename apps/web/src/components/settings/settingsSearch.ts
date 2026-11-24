@@ -28,6 +28,7 @@ export type SettingsPath =
   | "/settings/keybindings"
   | "/settings/snap-shot"
   | "/settings/providers"
+  | "/settings/inference"
   | "/settings/threads"
   | "/settings/browser"
   | "/settings/devices"
@@ -106,6 +107,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/keybindings": msg("Keybindings"),
   "/settings/snap-shot": msg("SnapShots"),
   "/settings/providers": msg("Providers"),
+  "/settings/inference": msg("Inference"),
   "/settings/threads": msg("Threads"),
   "/settings/browser": msg("Browser"),
   "/settings/devices": msg("Devices"),
@@ -156,6 +158,7 @@ const ALL_SETTINGS_NAV_GROUPS: ReadonlyArray<SettingsNavGroup> = [
     heading: msg("Agents"),
     paths: [
       "/settings/providers",
+      "/settings/inference",
       "/settings/threads",
       "/settings/browser",
       "/settings/devices",
@@ -954,6 +957,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: [msg("generated thread titles source control content default provider")],
   },
   {
+    id: "text-generation-fallback",
+    title: "Text generation fallback",
+    to: "/settings/threads",
+    scope: "environment",
+    searchTerms: ["local models only cloud privacy background writing titles commit messages"],
+  },
+  {
     id: "thread-title-instructions",
     title: msg("Thread title instructions"),
     to: "/settings/threads",
@@ -1080,9 +1090,18 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/providers",
     searchTerms: [
       msg(
-        "agents cli codex claude cursor grok fx kiro opencode antigravity google sign in sign out install subscription instances authentication api key models configuration binary path config directory codex_home shadow home endpoint arguments environment variables display name accent color custom favorite hidden auto compact native sessions import resume",
+        "agents cli local models self-hosted ollama lm studio llama.cpp vllm sglang pi codex claude cursor grok fx kiro opencode antigravity google sign in sign out install subscription instances authentication api key models configuration binary path config directory codex_home shadow home endpoint arguments environment variables display name accent color custom favorite hidden auto compact native sessions import resume",
       ),
     ],
+  },
+  {
+    id: "inference-servers",
+    title: "Inference servers",
+    to: "/settings/inference",
+    searchTerms: [
+      "local models self-hosted model server gpu ollama lm studio llama.cpp vllm sglang openai compatible base url api key context window concurrency load queue",
+    ],
+    providerSettingsOnly: true,
   },
   {
     id: "usage-providers",
@@ -1533,6 +1552,7 @@ const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScop
   "/settings/snap-shot": null,
   "/settings/keybindings": null,
   "/settings/providers": null,
+  "/settings/inference": null,
   "/settings/threads": null,
   "/settings/browser": null,
   "/settings/devices": null,

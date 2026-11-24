@@ -35,6 +35,7 @@ const MCP_LIST_FILTER: LaunchArgFilter = {
   inlinePrefixes: [...SHARED_INLINE_PREFIXES, "--profile=", "-p="],
 };
 
+// `codex exec` also takes the local model provider flags; `codex mcp list` rejects them.
 const EXEC_FILTER: LaunchArgFilter = {
   switches: new Set(["--strict-config", "--oss"]),
   valueFlags: new Set([...SHARED_VALUE_FLAGS, "--local-provider", "--profile", "-p"]),

@@ -1,5 +1,4 @@
 import * as Path from "effect/Path";
-import * as Option from "effect/Option";
 import * as NodeURL from "node:url";
 
 import {
@@ -54,6 +53,7 @@ import * as Hex from "effect/encoding/Hex";
 import * as Exit from "effect/Exit";
 import * as P from "effect/Predicate";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Queue from "effect/Queue";
 import * as Schedule from "effect/Schedule";
 import * as Scope from "effect/Scope";
@@ -61,6 +61,7 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 
+import * as InferenceGateway from "@t3tools/provider-core/server/inferenceGateway";
 import * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
 import * as OpenCode2Client from "./OpenCode2Client.ts";
 import * as OpenCode2Server from "./OpenCode2Server.ts";
@@ -845,6 +846,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
   const paths = yield* Path.Path;
   const continuationRequests = yield* ProviderContinuationRequests.ProviderContinuationRequests;
   const crypto = yield* Digest.Digest;
+  const gateway = yield* Effect.serviceOption(InferenceGateway.InferenceGatewayAccess);
   const driver = OPENCODE_PROVIDER;
   let nativeGoalSupport: boolean | undefined;
   const mcpServerNameFor = (threadId: string) =>
@@ -913,6 +915,15 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
     const childOwners = new Map<string, ThreadState>();
     const announced = new Map<string, EventOf<"session.created">["data"]>();
     const strays = new Map<string, ThreadState>();
+    // The shared server's gateway requests name their session; this maps it while T3 tracks it.
+    if (Option.isSome(gateway)) {
+      yield* gateway.value.attributeSessions(
+        instanceId,
+        (sessionId) =>
+          (threads.get(sessionId) ?? childOwners.get(sessionId))?.providerThread.appThreadId ??
+          undefined,
+      );
+    }
     const busy = new Set<string>();
     const pending = new Map<RuntimeRequestId, PendingRequest>();
     const lock = yield* Semaphore.make(1);

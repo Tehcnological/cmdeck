@@ -177,6 +177,10 @@ vi.mock(import("../ThreadTerminalDrawer"), async (original) => ({
   ...(await original()),
   TerminalViewport: () => <div />,
 }));
+vi.mock(import("../settings/UseLocalModelDialog"), async (original) => ({
+  ...(await original()),
+  UseLocalModelDialog: () => <div>Use a local model dialog</div>,
+}));
 vi.mock(import("../../state/use-atom-command"), async (original) => ({
   ...(await original()),
   useAtomCommand: ((
@@ -444,6 +448,13 @@ it("finishes setup without landing when the imported project never reaches the c
       expect.objectContaining({ type: "success", title: "Imported 1 thread" }),
     ),
   );
+});
+
+it("offers first-run local model setup for the environment's agents", async () => {
+  using _now = setup();
+  await using _screen = await mountWelcome();
+  await click("Use a local model");
+  expect(pageText()).toContain("Use a local model dialog");
 });
 
 it("waits for a ready agent to start, and Start without an agent still finishes setup", async () => {

@@ -10,7 +10,9 @@ import {
   UploadIcon,
 } from "lucide-react";
 import { useState, type ReactElement } from "react";
+import type { DarkStyle } from "@t3tools/contracts/settings";
 import { useEnvironmentThemeDefinitions } from "../../hooks/useEnvironmentTheme";
+import { useClientSettings } from "../../hooks/useSettings";
 import { readThemeHalvesRaw } from "../../hooks/useTheme";
 import { cn } from "../../lib/utils";
 import {
@@ -37,6 +39,12 @@ import {
   AlertDialogPopup,
   AlertDialogTitle,
 } from "../ui/alert-dialog";
+import {
+  APPEARANCE_OPTIONS,
+  applyAppearanceOption,
+  isAppearanceOptionActive,
+  type AppearanceOption,
+} from "../CommandPaletteThemeItems";
 import { Button } from "../ui/button";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
@@ -44,6 +52,7 @@ import { ThemeImportDialog } from "./ThemeImportDialog";
 import { useSearchableSetting } from "./settingsSearch";
 import { useThemeEditorStore } from "./themeEditorStore";
 import {
+  STANDARD_GRAY_DARK_PREVIEW_COLORS,
   STANDARD_THEME_CARDS,
   getThemeCardDefinition,
   previewColorsOf,
@@ -597,6 +606,7 @@ export function ThemeLibrary({
   const removeDialogCollectionLabel =
     removeDialogTheme?.collection?.label ?? removeDialogTheme?.label;
 
+  const darkStyle = useClientSettings((settings) => settings.darkStyle);
   const notifyThemeSaveFailure = () => {
     toastManager.add(
       stackedThreadToast({
@@ -698,10 +708,6 @@ export function ThemeLibrary({
     return previewColorsOf(card, appearance) ?? card.previews[0]!.colors;
   };
 
-  const setMode = (mode: ThemeMode) => {
-    if (!setAppearanceMode(mode)) notifyThemeSaveFailure();
-  };
-
   const handlePairPick = (cardId: string | null) => (mode: ThemeMode) => {
     if (mode === "system") return;
     assignHalf(mode, cardId);
@@ -714,35 +720,39 @@ export function ThemeLibrary({
     return rings;
   };
 
-  const wireframeColors = (appearance: ThemeAppearance) =>
-    pickColors(appearance === "light" ? lightOwner : darkOwner, appearance);
+  const wireframeColors = (appearance: ThemeAppearance, style: DarkStyle = darkStyle) =>
+    appearance === "dark" && darkOwner === null && style === "gray"
+      ? STANDARD_GRAY_DARK_PREVIEW_COLORS
+      : pickColors(appearance === "light" ? lightOwner : darkOwner, appearance);
 
-  const renderWireframe = (mode: ThemeMode) => (
+  const renderWireframe = (option: AppearanceOption) => (
     <ThemeWireframe
       className="h-[8.75rem]"
       panes={
-        mode === "system"
+        option.mode === "system"
           ? [
               { clip: "left", colors: wireframeColors("light") },
               { clip: "right", colors: wireframeColors("dark") },
             ]
-          : [{ colors: wireframeColors(mode === "dark" ? "dark" : "light") }]
+          : [{ colors: wireframeColors(option.mode, option.darkStyle ?? darkStyle) }]
       }
     />
   );
 
   const renderModeTiles = () => (
-    <div aria-label={gt("Appearance mode")} className="grid w-full grid-cols-3 gap-3" role="group">
-      {(["system", "light", "dark"] as const).map((mode) => {
-        const isActive = appearanceMode === mode;
+    <div
+      aria-label={gt("Appearance mode")}
+      className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4"
+      role="group"
+    >
+      {APPEARANCE_OPTIONS.map((option) => {
+        const isActive = isAppearanceOptionActive(option, appearanceMode, darkStyle);
         return (
           <button
             aria-label={
-              mode === "system"
+              option.mode === "system"
                 ? gt("Follow the system appearance")
-                : mode === "light"
-                  ? gt("Use light mode")
-                  : gt("Use dark mode")
+                : gt("Use {appearance} appearance", { appearance: option.label })
             }
             aria-pressed={isActive}
             className={cn(
@@ -752,18 +762,20 @@ export function ThemeLibrary({
                 ? "border-transparent bg-accent/30 ring-2 ring-inset ring-ring"
                 : "border-border/70 bg-card/60 hover:bg-accent/10",
             )}
-            key={mode}
-            onClick={() => setMode(mode)}
+            key={option.key}
+            onClick={() => {
+              if (!applyAppearanceOption(option, setAppearanceMode)) notifyThemeSaveFailure();
+            }}
             type="button"
           >
-            {renderWireframe(mode)}
+            {renderWireframe(option)}
             <span
               className={cn(
                 "flex items-center justify-center text-xs font-medium",
                 isActive ? "text-foreground" : "text-muted-foreground",
               )}
             >
-              {mode === "system" ? gt("System") : mode === "light" ? gt("Light") : gt("Dark")}
+              {option.label}
             </span>
           </button>
         );

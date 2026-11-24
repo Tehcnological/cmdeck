@@ -48,6 +48,7 @@ import * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
 import { providerMessageTextWithAttachmentPaths } from "@t3tools/provider-core/server/attachmentPrompt";
 import { mcpToolPresentation } from "@t3tools/provider-core/server/mcpToolPresentation";
 import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
+import { makePiGatewaySource, type PiGatewaySource, unmanagedPiGatewaySource } from "./gateway.ts";
 import { parsePiCompactCommand, type PiCompactCommand } from "./commands.ts";
 import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
 import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
@@ -78,6 +79,7 @@ import {
   buildPiRpcLaunch,
   materializePiT3McpExtension,
   resolvePiLaunchArgs,
+  resolvePiToolProfile,
 } from "./mcpInjection.ts";
 import { PI_FILE_CHANGE_TOOLS, PI_T3_SERVICE_TIER_COMMAND } from "./mcpExtensionSource.ts";
 import { PI_STANDARD_SERVICE_TIER } from "./modelCapabilities.ts";
@@ -201,6 +203,9 @@ export interface PiAdapterV2Options {
   readonly instanceId: ProviderInstanceId;
   readonly settings: PiSettings;
   readonly environment: NodeJS.ProcessEnv;
+  /** Routes a linked inference server through T3's gateway; absent means unmanaged. */
+  readonly gateway?: PiGatewaySource;
+  readonly linkedToInferenceServer?: boolean;
   readonly continuationRequests?: {
     readonly offer: (
       request: ProviderContinuationRequests.ProviderContinuationRequest,
@@ -518,6 +523,11 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
       if (!resolvedLaunchArgs.ok) {
         return yield* protocolError(resolvedLaunchArgs.message);
       }
+      const gateway = yield* (options.gateway ?? unmanagedPiGatewaySource).forSession(mcpSession);
+      const resolvedToolProfile = resolvePiToolProfile(
+        options.settings.toolProfile,
+        options.linkedToInferenceServer === true,
+      );
       // A workspace handoff restarts Pi in a new cwd, but the session header still names the old one.
       const sessionHeaderNamesCwd = Effect.fnUntraced(function* (sessionFile: string) {
         const header = yield* fileSystem.stream(sessionFile).pipe(
@@ -548,8 +558,10 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
             environment: { ...options.environment, T3CODE_THREAD_ID: input.threadId },
             mcpSession,
             extensionPath,
+            gateway,
             sessionPath,
             runtimeMode: input.runtimePolicy.runtimeMode,
+            toolProfile: resolvedToolProfile,
           });
           const scopedLaunch = yield* agentScope.wrap({
             command: options.settings.binaryPath || "pi",
@@ -4576,10 +4588,13 @@ export const PiAdapterV2Driver: ProviderAdapterDriver<PiSettings, PiAdapterV2Dri
     function* (input: ProviderAdapterDriverCreateInput<PiSettings>) {
       const hostEnvironment = yield* HostProcess.Environment;
       const continuationRequests = yield* ProviderContinuationRequests.ProviderContinuationRequests;
+      const host = yield* ProviderHost.ProviderHost;
       return yield* makePiAdapterV2({
         instanceId: input.instanceId,
+        gateway: yield* makePiGatewaySource(input.instanceId, host.paths.providerStatusCacheDir),
         settings: { ...input.config, enabled: input.enabled },
         environment: yield* mergeProviderInstanceEnvironment(input.environment, hostEnvironment),
+        linkedToInferenceServer: input.inferenceServerId !== undefined,
         continuationRequests,
       });
     },

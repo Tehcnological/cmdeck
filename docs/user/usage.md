@@ -45,6 +45,8 @@ variable to the same directory. Pi includes recorded tool and summary costs unde
 Muse Code reads native session history, including child sessions, from the home reported by the
 configured Muse CLI. Its environment settings, including `XDG_DATA_HOME`, apply. Models without
 known prices still contribute tokens and appear as unpriced; set custom prices to estimate their cost.
+[Local models](./local-models.md) are never priced from the public list and stay out of the
+cost total; a custom price shows only as an estimate on their row.
 Use absolute paths or `~/` paths in the account's environment settings; relative environment paths
 depend on each project's working directory and cannot be reliably discovered by Usage. Accounts
 sharing a history directory count once.
@@ -63,6 +65,12 @@ saved totals first, then updates them when Cursor's API responds.
 
 If recent work is missing or a new model shows no cost, refresh to rescan session history and
 update model pricing.
+
+## Local compute
+
+Below Cost and Tokens, **Local compute** shows the requests T3 Code's gateway sent to your
+registered inference servers in the past 24 hours or 7 days. See
+[Local models](./local-models.md#see-what-your-hardware-did).
 
 ## Set custom model prices
 

@@ -299,9 +299,15 @@ import {
   sameUsageLimitCommandCoverage,
   withUsageLimitsCommands,
 } from "@t3tools/shared/usageLimits";
+import { collectLocalUsageModels } from "@t3tools/shared/usageMerge";
 import * as AgentSessionScanner from "./project/AgentSessionScanner.ts";
 import * as AgentSessionImporter from "./project/AgentSessionImporter.ts";
 import * as UsageLimitSources from "./usage/UsageLimitSources.ts";
+import * as InferenceDiscovery from "./inference/InferenceDiscovery.ts";
+import * as InferenceImageChecks from "./inference/InferenceImageChecks.ts";
+import * as InferenceStops from "./inference/InferenceStops.ts";
+import * as InferenceServerRegistry from "./inference/InferenceServerRegistry.ts";
+import * as InferenceRequests from "./persistence/InferenceRequests.ts";
 import { requestUrl } from "./requestUrl.ts";
 
 const CONFIG_DISCOVERY_TIMEOUT = Duration.seconds(5);
@@ -417,7 +423,16 @@ export const withLateConfigDiscovery = <E, R>(
           case "keybindingsUpdated":
             return [{ ...current, ...event.payload }, [event]];
           case "providerStatuses":
-            return [{ ...current, providers: event.payload.providers }, [event]];
+            return [
+              {
+                ...current,
+                providers: event.payload.providers,
+                ...(event.payload.inferenceServers === undefined
+                  ? {}
+                  : { inferenceServers: event.payload.inferenceServers }),
+              },
+              [event],
+            ];
           case "settingsUpdated":
             return [{ ...current, settings: event.payload.settings }, [event]];
           // Themes and usage-limit sources survive snapshots because snapshots never include them.
@@ -1543,6 +1558,11 @@ export const layerWsRpc = (
             );
       const usage = yield* UsageService.UsageService;
       const usageLimitSources = yield* UsageLimitSources.UsageLimitSources;
+      const inferenceServers = yield* InferenceServerRegistry.InferenceServerRegistry;
+      const inferenceDiscovery = yield* InferenceDiscovery.InferenceDiscovery;
+      const inferenceStops = yield* InferenceStops.InferenceStops;
+      const inferenceImageChecks = yield* InferenceImageChecks.InferenceImageChecks;
+      const inferenceRequests = yield* InferenceRequests.InferenceRequestLog;
       const worktreeSetupTracker = yield* WorktreeSetupTracker.WorktreeSetupTracker;
       const projectCloneTracker = yield* ProjectCloneTracker.ProjectCloneTracker;
       const repositoryIdentityResolver =
@@ -1910,6 +1930,7 @@ export const layerWsRpc = (
           keybindings: keybindingsConfig.keybindings,
           issues: keybindingsConfig.issues,
           providers,
+          inferenceServers: yield* inferenceServers.current,
           ...discovery,
           observability: {
             logsDirectoryPath: config.logsDir,
@@ -2565,6 +2586,17 @@ export const layerWsRpc = (
               }),
             ),
           ),
+        [WS_METHODS.serverGetInferenceUsage]: (input) => inferenceRequests.summarize(input.window),
+        [WS_METHODS.serverGetThreadInferenceRequest]: (input) =>
+          inferenceRequests.latestForThread(input.threadId).pipe(Effect.map((last) => ({ last }))),
+        [WS_METHODS.serverRefreshInferenceServers]: (input) =>
+          inferenceServers
+            .refresh(input.id)
+            .pipe(Effect.map((snapshots) => ({ inferenceServers: snapshots }))),
+        [WS_METHODS.serverDiscoverInferenceServers]: (input) => inferenceDiscovery.discover(input),
+        [WS_METHODS.serverGetThreadInferenceStop]: (input) =>
+          inferenceStops.latest(input.threadId).pipe(Effect.map((stop) => ({ stop }))),
+        [WS_METHODS.serverCheckInferenceModelImages]: (input) => inferenceImageChecks.check(input),
         [WS_METHODS.serverRefreshProviders]:
           /* Request instrumentation already owns the span; keep this helper in that context. */
           Effect.fnUntraced(function* (input) {
@@ -2844,7 +2876,12 @@ export const layerWsRpc = (
           processResourceMonitor.readHistory(input),
         [WS_METHODS.serverGetResourceTelemetryHistory]: (input) =>
           resourceTelemetry.readHistory(input),
-        [WS_METHODS.serverGetUsageSummary]: (input) => usage.readSummary(input),
+        [WS_METHODS.serverGetUsageSummary]: (input) =>
+          Effect.all([providerRegistry.getProviders, inferenceServers.current]).pipe(
+            Effect.flatMap(([providers, servers]) =>
+              usage.readSummary(input, collectLocalUsageModels(providers, servers)),
+            ),
+          ),
         [WS_METHODS.serverRefreshUsageRates]: (_input) => usage.refreshRates,
         [WS_METHODS.serverRetryResourceTelemetry]: (_input) => resourceTelemetry.retry,
         [WS_METHODS.serverCheckOtlpEndpoint]: (input) => otlpEndpointCheck.check(input),
@@ -3576,16 +3613,31 @@ export const layerWsRpc = (
                       )
                     : Effect.succeed(commandProviders),
                 ),
+                (providerUpdates) =>
+                  Stream.zipLatestWith(
+                    providerUpdates,
+                    inferenceServers.streamChanges,
+                    (providers, servers) => ({ providers, inferenceServers: servers }),
+                  ),
                 // Compare initial paired values with the snapshot; blindly dropping them loses changes between snapshot and subscription.
-                (updates) => Stream.concat(rpcInitialItems([config.providers]), updates),
+                (updates) =>
+                  Stream.concat(
+                    rpcInitialItems([
+                      {
+                        providers: config.providers,
+                        inferenceServers: config.inferenceServers ?? [],
+                      },
+                    ]),
+                    updates,
+                  ),
                 Stream.changesWith(
                   (previous, next) => JSON.stringify(previous) === JSON.stringify(next),
                 ),
                 Stream.drop(1),
-                Stream.map((providers) => ({
+                Stream.map((payload) => ({
                   version: 1 as const,
                   type: "providerStatuses" as const,
-                  payload: { providers },
+                  payload,
                 })),
                 Stream.debounce(Duration.millis(PROVIDER_STATUS_DEBOUNCE_MS)),
               );

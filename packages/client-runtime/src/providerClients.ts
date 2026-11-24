@@ -27,7 +27,10 @@ export const openRouterIcon: ProviderIcon = {
   ],
 };
 
+// Harnesses that can run local models come first.
 export const providerClients = makeProviderClientRegistry([
+  piClient,
+  openCodeClient,
   {
     driverKind: ProviderDriverKind.make("codex"),
     label: "Codex",
@@ -45,7 +48,6 @@ export const providerClients = makeProviderClientRegistry([
   cursorClient,
   grokClient,
   fxClient,
-  openCodeClient,
   {
     driverKind: ProviderDriverKind.make("antigravity"),
     label: "Antigravity",
@@ -55,7 +57,6 @@ export const providerClients = makeProviderClientRegistry([
   },
   kiroClient,
   museClient,
-  piClient,
   acpRegistryClient,
 ]);
 

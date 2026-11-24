@@ -60,6 +60,13 @@ You can stop the turn while it reconnects. If the server exits or an external
 connection cannot be restored, send another prompt to resume the same OpenCode
 session.
 
+## Local models
+
+Link the instance to a server registered in **Settings → Inference** and T3 Code adds it to
+OpenCode as `t3-<server>` with the server's models, routed through T3 Code's gateway. This works
+only for an OpenCode server T3 Code starts, so leave **Server URL** empty. See
+[Local models](./local-models.md#opencode).
+
 ## Approvals
 
 OpenCode follows the shared [permission modes](./permission-modes.md). **Auto** has

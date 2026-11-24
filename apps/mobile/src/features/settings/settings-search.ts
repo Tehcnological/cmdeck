@@ -136,6 +136,16 @@ const SETTINGS_SEARCH_TERMS = {
     msg("login", { $context: "settings search keyword" }),
     msg("auth", { $context: "settings search keyword" }),
   ],
+  SettingsInference: [
+    "inference servers",
+    "local models",
+    "ollama",
+    "llama.cpp",
+    "vllm",
+    "prompt cache",
+    "context",
+    "fallback",
+  ],
   SettingsEnvironmentSourceControl: [
     "git",
     msg("pull requests", { $context: "settings search keyword" }),

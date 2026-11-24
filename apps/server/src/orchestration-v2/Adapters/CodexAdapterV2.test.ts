@@ -1172,6 +1172,101 @@ describe("CodexAdapterV2 process exit", () => {
   });
 });
 
+describe("CodexAdapterV2 sessions", () => {
+  it.effect(
+    "a linked instance opens one session per thread, so each keeps its gateway routing",
+    () =>
+      Effect.gen(function* () {
+        const sharesSessions = (linkedToInferenceServer: boolean) =>
+          Effect.gen(function* () {
+            const adapter = yield* CodexAdapterV2.makeCodexAdapterV2({
+              instanceId: CodexAdapterV2.CODEX_DEFAULT_INSTANCE_ID,
+              settings: DEFAULT_CODEX_SETTINGS,
+              environment: {},
+              linkedToInferenceServer,
+              clientFactory: { open: () => Effect.die("unused") },
+              digest: yield* Digest.Digest,
+              fileSystem: yield* FileSystem.FileSystem,
+              idAllocator: yield* IdAllocator.IdAllocatorV2,
+              serverConfig: yield* ProviderReplayHarness.makeReplayServerConfig("linked").pipe(
+                Effect.orDie,
+              ),
+            });
+            const capabilities = yield* adapter.getCapabilities();
+            return capabilities.sessions.supportsMultipleProviderThreadsPerSession;
+          });
+        assert.isTrue(yield* sharesSessions(false));
+        assert.isFalse(yield* sharesSessions(true));
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(
+          Layer.mergeAll(
+            IdAllocator.layer,
+            McpProviderSessions.layer,
+            NodeServices.layer,
+            NodeCrypto.layer,
+          ),
+        ),
+      ),
+  );
+
+  it.effect(
+    "a local instance whose server is down refuses to open instead of using the cloud",
+    () =>
+      Effect.gen(function* () {
+        let opened = 0;
+        const adapter = yield* CodexAdapterV2.makeCodexAdapterV2({
+          instanceId: CodexAdapterV2.CODEX_DEFAULT_INSTANCE_ID,
+          settings: DEFAULT_CODEX_SETTINGS,
+          environment: {},
+          linkedToInferenceServer: true,
+          gateway: {
+            resolution: Effect.succeed({
+              managed: false,
+              reason: "Inference server rtx is not ready.",
+              local: true,
+            }),
+            forSession: () => Effect.undefined,
+            forBackground: Effect.undefined,
+            withoutGateway: Effect.succeed("Inference server rtx is not ready."),
+          },
+          clientFactory: {
+            open: () =>
+              Effect.sync(() => {
+                opened++;
+              }).pipe(Effect.andThen(Effect.die("a cloud session opened"))),
+          },
+          digest: yield* Digest.Digest,
+          fileSystem: yield* FileSystem.FileSystem,
+          idAllocator: yield* IdAllocator.IdAllocatorV2,
+          serverConfig: yield* ProviderReplayHarness.makeReplayServerConfig("local-down").pipe(
+            Effect.orDie,
+          ),
+        });
+        const error = yield* Effect.flip(
+          adapter.openSession({
+            threadId: ThreadId.make("thread-local-down"),
+            providerSessionId: ProviderSessionId.make("session-local-down"),
+            modelSelection: CODEX_TEST_MODEL_SELECTION,
+            runtimePolicy: CODEX_TEST_RUNTIME_POLICY,
+          }),
+        );
+        assert.equal(error._tag, "ProviderAdapterOpenSessionError");
+        assert.equal(opened, 0);
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(
+          Layer.mergeAll(
+            IdAllocator.layer,
+            McpProviderSessions.layer,
+            NodeServices.layer,
+            NodeCrypto.layer,
+          ),
+        ),
+      ),
+  );
+});
+
 describe("CodexAdapterV2 session initialize", () => {
   const openReplaySession = (
     transcript: CodexReplay.CodexAppServerReplayTranscript,

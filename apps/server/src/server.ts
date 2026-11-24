@@ -137,6 +137,16 @@ import * as ProviderAdapterRegistry from "./orchestration-v2/ProviderAdapterRegi
 import * as ProviderRegistry from "./provider/ProviderRegistry.ts";
 import * as ProviderUsageLimitsIngestion from "./provider/ProviderUsageLimitsIngestion.ts";
 import * as UsageLimitSources from "./usage/UsageLimitSources.ts";
+import * as InferenceAdmission from "./inference/InferenceAdmission.ts";
+import * as InferenceGateway from "./inference/InferenceGateway.ts";
+import * as InferenceRouting from "./inference/InferenceRouting.ts";
+import * as InferenceGatewayAccess from "./inference/InferenceGatewayAccess.ts";
+import * as InferenceDiscovery from "./inference/InferenceDiscovery.ts";
+import * as InferenceImageChecks from "./inference/InferenceImageChecks.ts";
+import * as InferenceImageVerdicts from "./inference/InferenceImageVerdicts.ts";
+import * as InferenceStops from "./inference/InferenceStops.ts";
+import * as InferenceServerRegistry from "./inference/InferenceServerRegistry.ts";
+import * as InferenceRequests from "./persistence/InferenceRequests.ts";
 import * as ProjectFaviconResolver from "./project/ProjectFaviconResolver.ts";
 import * as T3ProjectFileLoader from "./project/T3ProjectFileLoader.ts";
 import * as RepositoryIdentityResolver from "./project/RepositoryIdentityResolver.ts";
@@ -793,11 +803,29 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
   Layer.provideMerge(layerVcs),
   Layer.provideMerge(Layer.mergeAll(layerTerminal, layerPreview, layerDevice)),
   Layer.provideMerge(layerPersistence),
-  Layer.provideMerge(Layer.mergeAll(Keybindings.layer, UsageLimitSources.layer)),
+  Layer.provideMerge(
+    Layer.mergeAll(
+      Keybindings.layer,
+      EnvironmentTheme.layer,
+      UsageLimitSources.layer,
+      InferenceRequests.layer,
+      InferenceStops.layer,
+      InferenceImageChecks.layer,
+      InferenceGatewayAccess.layerRefreshLinkedInstances,
+    ),
+  ),
   Layer.provideMerge(ProviderRegistry.layer),
   Layer.provideMerge(
     ProviderInstanceRegistryHydration.layer.pipe(Layer.provide(SqlitePersistence.layerConfig)),
   ),
+  // Below provider hydration: Pi instances reach a linked server through the gateway from here.
+  Layer.provideMerge(
+    InferenceGatewayAccess.layer.pipe(
+      Layer.provideMerge(InferenceServerRegistry.layer),
+      Layer.provideMerge(InferenceImageVerdicts.layer),
+    ),
+  ),
+  Layer.provideMerge(InferenceDiscovery.layer),
   // One gate for the server, below hydration so the Claude adapter sees it: layers memoize by
   // reference, so the runtime layer shares it.
   Layer.provideMerge(ProviderInstallationGate.layer),
@@ -921,6 +949,10 @@ const layerMakeRoutes = Layer.mergeAll(
     Layer.provide(ProviderAdapterRegistry.layerFromProviderInstanceRegistry),
     Layer.provide(McpOAuth.layerMcpClientAuthenticator),
     Layer.provide(ProjectionStoreV2.layer),
+  ),
+  InferenceGateway.routeLayer.pipe(
+    Layer.provide(InferenceGateway.layer),
+    Layer.provide(Layer.mergeAll(InferenceAdmission.layer, InferenceRouting.layer)),
   ),
   // Follows delegated tasks running in linked environments, including after a restart.
   Layer.effectDiscard(

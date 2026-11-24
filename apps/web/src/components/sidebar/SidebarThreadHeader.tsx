@@ -121,6 +121,9 @@ export function SidebarThreadHeader({
         >
           <SquarePenIcon />
         </SidebarHeaderIconButton>
+        <SidebarHeaderIconButton label={gt("New project")} onClick={onNewProject}>
+          <FolderPlusIcon />
+        </SidebarHeaderIconButton>
       </div>
     </div>
   );

@@ -501,9 +501,9 @@ const UNTRACED_REQUEST_PATHS: ReadonlySet<string> = new Set([OTLP_TRACES_PROXY_P
 // HttpRouter.serve builds routes privately; provide the server-wide TracerDisabledWhen to the served layer.
 const layerUntracedRequests = Layer.succeed(HttpMiddleware.TracerDisabledWhen)((request) => {
   const queryIndex = request.url.indexOf("?");
-  return UNTRACED_REQUEST_PATHS.has(
-    queryIndex === -1 ? request.url : request.url.slice(0, queryIndex),
-  );
+  const path = queryIndex === -1 ? request.url : request.url.slice(0, queryIndex);
+  // Gateway credentials ride in headers and prompts in bodies; the inference service traces its own spans.
+  return UNTRACED_REQUEST_PATHS.has(path) || path.startsWith("/inference/");
 });
 
 // Signed URLs carry their bearer token in the path; spans and request logs record it as REDACTED.

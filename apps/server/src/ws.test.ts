@@ -21,6 +21,8 @@ import {
   ORCHESTRATION_PROTOCOL_VERSION,
   ORCHESTRATION_PROTOCOL_QUERY_PARAM,
   EnvironmentId,
+  InferenceServerId,
+  type InferenceServerSnapshot,
   EventId,
   GitManagerError,
   VcsProcessSpawnError,
@@ -156,6 +158,11 @@ import * as TerminalManager from "./terminal/Manager.ts";
 import * as ThreadLaunchService from "./orchestration-v2/ThreadLaunchService.ts";
 import * as ThreadSearch from "./orchestration-v2/ThreadSearch.ts";
 import * as UsageLimitSources from "./usage/UsageLimitSources.ts";
+import * as InferenceDiscovery from "./inference/InferenceDiscovery.ts";
+import * as InferenceImageChecks from "./inference/InferenceImageChecks.ts";
+import * as InferenceStops from "./inference/InferenceStops.ts";
+import * as InferenceServerRegistry from "./inference/InferenceServerRegistry.ts";
+import * as InferenceRequests from "./persistence/InferenceRequests.ts";
 import * as UsageService from "./usage/UsageService.ts";
 import * as VcsProvisioningService from "./vcs/VcsProvisioningService.ts";
 import * as VcsStatusBroadcaster from "./vcs/VcsStatusBroadcaster.ts";
@@ -855,6 +862,39 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(EnvironmentTheme.EnvironmentThemeService)({}),
   Layer.mock(GitWorkflowService.GitWorkflowService)({}),
   Layer.mock(HostResources.HostResources)({}),
+  Layer.succeed(
+    InferenceDiscovery.InferenceDiscovery,
+    InferenceDiscovery.InferenceDiscovery.of({ discover: () => Effect.die("unused") }),
+  ),
+  Layer.succeed(
+    InferenceImageChecks.InferenceImageChecks,
+    InferenceImageChecks.InferenceImageChecks.of({ check: () => Effect.die("unused") }),
+  ),
+  Layer.succeed(
+    InferenceRequests.InferenceRequestLog,
+    InferenceRequests.InferenceRequestLog.of({
+      record: () => Effect.void,
+      summarize: () => Effect.die("unused"),
+      latestForThread: () => Effect.succeed(null),
+    }),
+  ),
+  Layer.succeed(
+    InferenceServerRegistry.InferenceServerRegistry,
+    InferenceServerRegistry.InferenceServerRegistry.of({
+      current: Effect.succeed([]),
+      streamChanges: Stream.empty,
+      refresh: () => Effect.succeed([]),
+      publishGatewayQueue: () => Effect.void,
+    }),
+  ),
+  Layer.succeed(
+    InferenceStops.InferenceStops,
+    InferenceStops.InferenceStops.of({
+      record: () => Effect.void,
+      latest: () => Effect.succeed(null),
+      refusesRetry: () => Effect.succeed(false),
+    }),
+  ),
   Layer.mock(McpAppRequests.McpAppRequests)({}),
   Layer.mock(McpSignIn.McpSignIn)({}),
   Layer.mock(ModelManifest.ModelManifest)({}),
@@ -1084,6 +1124,14 @@ it.effect.each([
           streamChanges: Stream.never,
         }),
         Layer.mock(UsageLimitSources.UsageLimitSources)({ streamChanges: Stream.make([]) }),
+        Layer.mock(InferenceRequests.InferenceRequestLog)({}),
+        Layer.mock(InferenceStops.InferenceStops)({}),
+        Layer.mock(InferenceImageChecks.InferenceImageChecks)({}),
+        Layer.mock(InferenceDiscovery.InferenceDiscovery)({}),
+        Layer.mock(InferenceServerRegistry.InferenceServerRegistry)({
+          current: Effect.succeed([]),
+          streamChanges: Stream.make([]),
+        }),
         Layer.mock(RemoteOpenTargets.RemoteOpenTargets)({
           resolveTargets: () =>
             Deferred.succeed(remoteDiscoveryStarted, undefined).pipe(
@@ -1448,6 +1496,7 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
     let scansCwd = true;
     let registryProviders: ReadonlyArray<ServerProvider> = [provider];
     const providerChanges = yield* Queue.unbounded<ReadonlyArray<ServerProvider>>();
+    const inferenceChanges = yield* Queue.unbounded<ReadonlyArray<InferenceServerSnapshot>>();
     const pulled = yield* Queue.unbounded<void>();
     const responses = yield* Queue.unbounded<unknown>();
     const configRpcServices = Layer.mergeAll(
@@ -1485,6 +1534,14 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
         current: Effect.succeed([]),
         streamChanges: Stream.make([]),
         refresh: Effect.void,
+      }),
+      Layer.mock(InferenceRequests.InferenceRequestLog)({}),
+      Layer.mock(InferenceStops.InferenceStops)({}),
+      Layer.mock(InferenceImageChecks.InferenceImageChecks)({}),
+      Layer.mock(InferenceDiscovery.InferenceDiscovery)({}),
+      Layer.mock(InferenceServerRegistry.InferenceServerRegistry)({
+        current: Effect.succeed([]),
+        streamChanges: Stream.concat(Stream.make([]), Stream.fromQueue(inferenceChanges)),
       }),
       Layer.mock(RemoteOpenTargets.RemoteOpenTargets)({
         resolveTargets: () => Effect.succeed([]),
@@ -1598,6 +1655,25 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
     if (replaced.type !== "providerStatuses") return yield* Effect.die("Expected provider update");
     assert.deepEqual(replaced.payload.providers[0]?.slashCommands, provider.slashCommands);
     assert.deepEqual(replaced.payload.providers[0]?.skills, provider.skills);
+    assert.deepEqual(replaced.payload.inferenceServers, []);
+
+    // A probed inference server rides the same event, with the providers it pairs with.
+    const rtx: InferenceServerSnapshot = {
+      id: InferenceServerId.make("rtx"),
+      displayName: "rtx",
+      baseUrl: "http://rtx.test:8888/v1",
+      enabled: true,
+      status: "ready",
+      checkedAt: "2026-10-25T00:00:00.000Z",
+      models: [{ id: "GLM-5.3-Flash", servedContextWindow: 813056 }],
+    };
+    yield* server.write(0, { _tag: "Ack", requestId: configRequest });
+    yield* Queue.offer(inferenceChanges, [rtx]);
+    yield* TestClock.adjust("1 second");
+    const probed = (yield* Queue.take(responses)) as ServerConfigStreamEvent;
+    if (probed.type !== "providerStatuses") return yield* Effect.die("Expected provider update");
+    assert.deepEqual(probed.payload.inferenceServers, [rtx]);
+    assert.equal(probed.payload.providers[0]?.status, "warning");
 
     yield* server.write(0, {
       _tag: "Request",
@@ -2129,6 +2205,11 @@ it.effect("a publish whose push fails still refreshes the new remote", () =>
       Layer.mock(ExternalLauncher.ExternalLauncher)({}),
       Layer.mock(ProviderRegistry.ProviderRegistry)({}),
       Layer.mock(UsageLimitSources.UsageLimitSources)({}),
+      Layer.mock(InferenceRequests.InferenceRequestLog)({}),
+      Layer.mock(InferenceStops.InferenceStops)({}),
+      Layer.mock(InferenceImageChecks.InferenceImageChecks)({}),
+      Layer.mock(InferenceDiscovery.InferenceDiscovery)({}),
+      Layer.mock(InferenceServerRegistry.InferenceServerRegistry)({}),
       Layer.mock(RemoteOpenTargets.RemoteOpenTargets)({}),
       Layer.mock(DirectEndpoints.DirectEndpoints)({}),
       Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({ namedProjectsRoot: "/unused" }),

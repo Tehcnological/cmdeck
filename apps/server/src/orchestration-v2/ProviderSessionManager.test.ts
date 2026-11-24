@@ -18,6 +18,7 @@ import {
   type Project,
   ProjectId,
   ProviderDriverKind,
+  InferenceServerId,
   ProviderInstanceId,
   type ProviderSessionId,
   RunId,
@@ -2861,6 +2862,187 @@ it.effect(
               enableAgentBrowserAccess: false,
             }).pipe(Layer.orDie),
           }),
+        ),
+      );
+    }),
+);
+
+it.effect(
+  "ProviderSessionManagerV2 issues a gateway credential only for instances linked to an enabled inference server",
+  () =>
+    Effect.gen(function* () {
+      const openWith = (enabled: boolean) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.make(emptyState);
+          const mcpConfigs = yield* Ref.make<
+            ReadonlyArray<McpProviderSession.McpProviderSessionConfig | undefined>
+          >([]);
+          yield* Effect.gen(function* () {
+            const eventSink = yield* EventSink.EventSinkV2;
+            const idAllocator = yield* IdAllocator.IdAllocatorV2;
+            const manager = yield* ProviderSessionManager.ProviderSessionManagerV2;
+            const now = yield* DateTime.now;
+            const threadId = ThreadId.make("thread-provider-session-manager-inference");
+            const providerSessionId = yield* idAllocator.allocate.providerSession({
+              providerInstanceId: modelSelection.instanceId,
+              threadId,
+            });
+            yield* eventSink.write({
+              events: [yield* makeThreadCreatedEvent({ idAllocator, threadId, now })],
+            });
+            yield* manager.open({ threadId, providerSessionId, modelSelection, runtimePolicy });
+            yield* manager.close(providerSessionId);
+          }).pipe(
+            Effect.provide(
+              layerTest({
+                state,
+                idleTimeoutMs: 1_000,
+                mcpConfigs,
+                serverSettingsLayer: ServerSettings.layerTest({
+                  inferenceServers: {
+                    [InferenceServerId.make("rtx")]: {
+                      baseUrl: "http://localhost:8888/v1",
+                      apiKey: "",
+                      enabled,
+                    },
+                  },
+                  providerInstances: {
+                    [modelSelection.instanceId]: {
+                      driver: CODEX_DRIVER,
+                      inferenceServerId: InferenceServerId.make("rtx"),
+                    },
+                  },
+                }).pipe(Layer.orDie),
+              }),
+            ),
+          );
+          return (yield* Ref.get(mcpConfigs))[0];
+        });
+
+      const linked = yield* openWith(true);
+      assert.equal(linked?.inferenceGateway?.serverId, "rtx");
+      assert.isTrue(linked?.inferenceGateway?.baseUrl.endsWith("/inference/rtx/v1"));
+      const disabled = yield* openWith(false);
+      assert.isDefined(disabled);
+      assert.isUndefined(disabled?.inferenceGateway);
+    }),
+);
+
+it.effect(
+  "ProviderSessionManagerV2 keeps a session's gateway routing and gives new sessions the current link",
+  () =>
+    Effect.gen(function* () {
+      const state = yield* Ref.make(emptyState);
+      const mcpConfigs = yield* Ref.make<
+        ReadonlyArray<McpProviderSession.McpProviderSessionConfig | undefined>
+      >([]);
+      const rtx = InferenceServerId.make("rtx");
+      const spark = InferenceServerId.make("spark1");
+      const server = (baseUrl: string, enabled = true) => ({ baseUrl, apiKey: "", enabled });
+      const linkTo = (serverId: InferenceServerId) => ({
+        [modelSelection.instanceId]: { driver: CODEX_DRIVER, inferenceServerId: serverId },
+      });
+      const settingsLayer = ServerSettings.layerTest({
+        inferenceServers: {
+          [rtx]: server("http://rtx.test/v1"),
+          [spark]: server("http://spark.test/v1"),
+        },
+        providerInstances: linkTo(rtx),
+      }).pipe(Layer.orDie);
+      yield* Effect.gen(function* () {
+        const eventSink = yield* EventSink.EventSinkV2;
+        const idAllocator = yield* IdAllocator.IdAllocatorV2;
+        const manager = yield* ProviderSessionManager.ProviderSessionManagerV2;
+        const registry = yield* McpSessionRegistry.McpSessionRegistry;
+        const mcpSessions = yield* McpProviderSessions.McpProviderSessions;
+        const settings = yield* ServerSettings.ServerSettingsService;
+        const open = Effect.fnUntraced(function* (
+          threadId: ThreadId,
+          providerSessionId?: ProviderSessionId,
+        ) {
+          const sessionId =
+            providerSessionId ??
+            (yield* idAllocator.allocate.providerSession({
+              providerInstanceId: modelSelection.instanceId,
+              threadId,
+            }));
+          if (providerSessionId === undefined) {
+            yield* eventSink.write({
+              events: [
+                yield* makeThreadCreatedEvent({ idAllocator, threadId, now: yield* DateTime.now }),
+              ],
+            });
+          }
+          yield* manager.open({
+            threadId,
+            providerSessionId: sessionId,
+            modelSelection,
+            runtimePolicy,
+          });
+          return sessionId;
+        });
+        const routeOf = Effect.fnUntraced(function* (threadId: ThreadId) {
+          const gateway = (yield* mcpSessions.read(threadId))?.inferenceGateway;
+          if (gateway === undefined) return undefined;
+          const caller = yield* registry.resolveInference(gateway.token);
+          return { token: gateway.token, serverId: caller?.serverId, url: caller?.pinned.baseUrl };
+        });
+        const updateServer = Effect.fnUntraced(function* (
+          serverId: InferenceServerId,
+          config: ReturnType<typeof server>,
+        ) {
+          const current = yield* settings.getSettings;
+          yield* settings.updateSettings({
+            inferenceServers: { ...current.inferenceServers, [serverId]: config },
+          });
+        });
+
+        const first = ThreadId.make("thread-pinned-first");
+        const firstSession = yield* open(first);
+        const pinned = yield* routeOf(first);
+        assert.deepInclude(pinned, { serverId: rtx, url: "http://rtx.test/v1" });
+
+        yield* settings.updateSettings({ providerInstances: linkTo(spark) });
+        const second = ThreadId.make("thread-pinned-second");
+        yield* open(second);
+        assert.deepInclude(yield* routeOf(second), {
+          serverId: spark,
+          url: "http://spark.test/v1",
+        });
+        yield* open(first, firstSession);
+        assert.deepEqual(yield* routeOf(first), pinned);
+
+        yield* updateServer(spark, server("http://spark-moved.test/v1"));
+        const third = ThreadId.make("thread-pinned-third");
+        yield* open(third);
+        assert.equal((yield* routeOf(third))?.url, "http://spark-moved.test/v1");
+        assert.equal((yield* routeOf(second))?.url, "http://spark.test/v1");
+        // A thread's next session does not inherit a credential pinned to the old URL.
+        yield* open(
+          second,
+          yield* idAllocator.allocate.providerSession({
+            providerInstanceId: modelSelection.instanceId,
+            threadId: second,
+          }),
+        );
+        assert.equal((yield* routeOf(second))?.url, "http://spark-moved.test/v1");
+
+        yield* updateServer(spark, server("http://spark-moved.test/v1", false));
+        const fourth = ThreadId.make("thread-pinned-fourth");
+        yield* open(fourth);
+        assert.isUndefined(yield* routeOf(fourth));
+        assert.equal((yield* routeOf(third))?.url, "http://spark-moved.test/v1");
+      }).pipe(
+        Effect.provide(
+          Layer.merge(
+            layerTest({
+              state,
+              idleTimeoutMs: 1_000,
+              mcpConfigs,
+              serverSettingsLayer: settingsLayer,
+            }),
+            settingsLayer,
+          ),
         ),
       );
     }),

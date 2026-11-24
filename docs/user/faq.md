@@ -69,11 +69,11 @@ Yes. Add another provider instance in Settings and give it its own keys and endp
 
 ## Does T3 Code support local models?
 
-No. T3 Code is a serious developer tool. Locally runnable models are not capable of meaningful engineering work.
+Yes, and this build puts them first. Point Pi, OpenCode, Claude, or Codex at Ollama, LM Studio, llama.cpp, vLLM, SGLang, or any OpenAI- or Anthropic-compatible server, then mark the instance as running local models. Local instances lead the model picker and write your thread titles and commit messages, and background writing never falls back to the cloud on its own. [Local models](./local-models.md)
 
 ## Does my code go to T3 servers?
 
-No. Your code and prompts go from your machine to your provider (Anthropic, OpenAI, etc.), not to us. With T3 Connect, traffic rides a Cloudflare tunnel (`cloudflared` on your machine). Our relay sets up the link. It does not proxy your HTTP or WebSocket sessions. T3 Code does send basic product usage events (provider, model, token totals, that kind of thing). No prompts, no file contents. That is the same on Tailscale, LAN, or T3 Connect. Set `T3CODE_TELEMETRY_ENABLED=false` if you want it off. [Product usage data](./telemetry.md)
+No. Your code and prompts go from your machine to your provider (Anthropic, OpenAI, etc.), not to us. With T3 Connect, traffic rides a Cloudflare tunnel (`cloudflared` on your machine). Our relay sets up the link. It does not proxy your HTTP or WebSocket sessions. Product usage events (provider, model, token totals, that kind of thing; no prompts, no file contents) are off unless you opt in with `T3CODE_TELEMETRY_ENABLED=true`. That is the same on Tailscale, LAN, or T3 Connect. The same page lists the other calls T3 Code makes by default, such as model catalog and update checks. [Product usage data](./telemetry.md)
 
 ## Worktrees are eating my disk. How do I clean them up?
 

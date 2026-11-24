@@ -63,9 +63,9 @@ export function resolveCloudPublicConfig(): CloudPublicConfig {
 
 let desktopRelayTelemetry: boolean | null = null;
 
-/** Whether relay spans may be exported now; the desktop host may not know yet at startup. */
+/** Whether relay spans may be exported now. Plain browsers remain local-only. */
 export function relayTelemetryEnabled(): boolean | null {
-  if (typeof window === "undefined" || !window.desktopBridge) return true;
+  if (typeof window === "undefined" || !window.desktopBridge) return null;
   desktopRelayTelemetry ??= window.desktopBridge.getRelayTelemetryEnabled();
   return desktopRelayTelemetry;
 }
