@@ -20,13 +20,16 @@ import {
 } from "@t3tools/contracts";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Context from "effect/Context";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
+import * as TestClock from "effect/testing/TestClock";
 import * as Tracer from "effect/Tracer";
 import { McpSchema, McpServer, Tool, Toolkit } from "effect/ai";
 import {
@@ -1530,7 +1533,8 @@ it.effect("accepts remote MCP tokens only while enabled and until revoked", () =
     );
   const PingToolkit = Toolkit.make(
     Tool.make("ping", {
-      description: "Answers.",
+      description: "Waits until disconnected.",
+      parameters: Schema.Struct({ progress: Schema.Boolean }),
       success: Schema.Struct({ ok: Schema.Boolean }),
       failure: OrchestratorMcpFailure,
       failureMode: "return",
@@ -1538,8 +1542,15 @@ it.effect("accepts remote MCP tokens only while enabled and until revoked", () =
   );
   return Effect.scoped(
     Effect.gen(function* () {
-      const fullAccess = yield* RemoteMcpTokens.create({ label: "laptop", access: "full-access" });
-      const revoked = yield* RemoteMcpTokens.create({ label: "old", access: "read-only" });
+      let byte = 0;
+      const testRandom = SecureRandom.make((size) => new Uint8Array(size).fill(++byte));
+      const fullAccess = yield* RemoteMcpTokens.create({
+        label: "laptop",
+        access: "full-access",
+      }).pipe(Effect.provideService(SecureRandom.SecureRandom, testRandom));
+      const revoked = yield* RemoteMcpTokens.create({ label: "old", access: "read-only" }).pipe(
+        Effect.provideService(SecureRandom.SecureRandom, testRandom),
+      );
       yield* RemoteMcpTokens.revoke(revoked.record.id);
 
       const disabled = Context.get(
@@ -1553,13 +1564,30 @@ it.effect("accepts remote MCP tokens only while enabled and until revoked", () =
       );
       expect(yield* disabled.authenticate(request)).toBeUndefined();
 
+      const waiting = yield* Deferred.make<void>();
       yield* HttpRouter.serve(
         McpHttpServer.layerMcpTransport(
           McpHttpServer.toolkitRegistration(
             PingToolkit,
-            McpToolAccess.toLayer(PingToolkit, {
-              ping: McpToolAccess.reads(() => Effect.succeed({ ok: true })),
-            }),
+            McpToolAccess.toLayer(
+              PingToolkit,
+              Effect.gen(function* () {
+                const server = yield* McpServer.McpServer;
+                return {
+                  ping: McpToolAccess.reads(({ progress }) =>
+                    Effect.andThen(
+                      progress
+                        ? server.notifications["notifications/progress"]({
+                            progressToken: 1,
+                            progress: 1,
+                          })
+                        : Deferred.succeed(waiting, undefined),
+                      Effect.never,
+                    ),
+                  ),
+                } satisfies McpToolAccess.Handlers<typeof PingToolkit.tools>;
+              }),
+            ),
           ),
         ).pipe(
           Layer.provide(authenticatorWith({ T3CODE_REMOTE_MCP: "1" })),
@@ -1589,14 +1617,15 @@ it.effect("accepts remote MCP tokens only while enabled and until revoked", () =
       }
       const session = yield* initialize(fullAccess.token);
       expect(session.status).toBe(200);
+      const headers = {
+        accept: "application/json, text/event-stream",
+        authorization: `Bearer ${fullAccess.token}`,
+        "mcp-session-id": session.headers["mcp-session-id"]!,
+        "mcp-protocol-version": "2025-06-18",
+      };
       const listed = yield* httpClient
         .post("/mcp", {
-          headers: {
-            accept: "application/json, text/event-stream",
-            authorization: `Bearer ${fullAccess.token}`,
-            "mcp-session-id": session.headers["mcp-session-id"]!,
-            "mcp-protocol-version": "2025-06-18",
-          },
+          headers,
           body: HttpBody.text(
             `{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`,
             "application/json",
@@ -1609,7 +1638,27 @@ it.effect("accepts remote MCP tokens only while enabled and until revoked", () =
         ),
       ).toEqual(["ping"]);
 
+      const ping = (id: number, progress: boolean) =>
+        httpClient.post("/mcp", {
+          headers,
+          body: HttpBody.jsonUnsafe({
+            jsonrpc: "2.0",
+            id,
+            method: "tools/call",
+            params: { name: "ping", arguments: { progress }, _meta: { progressToken: 1 } },
+          }),
+        });
+      const pending = yield* ping(3, false).pipe(Effect.forkScoped);
+      yield* Deferred.await(waiting);
+      const streaming = yield* ping(4, true);
+      expect(streaming.status).toBe(200);
+      expect(streaming.headers["content-type"]).toContain("text/event-stream");
+      const body = yield* streaming.text.pipe(Effect.forkScoped);
+
       yield* RemoteMcpTokens.revoke(fullAccess.record.id);
+      yield* TestClock.adjust("3 seconds");
+      expect((yield* Fiber.join(pending)).status).toBe(401);
+      expect(yield* Fiber.join(body)).toContain("notifications/progress");
       expect((yield* initialize(fullAccess.token)).status).toBe(401);
     }),
   ).pipe(Effect.provide(layerStorage.pipe(Layer.provideMerge(NodeHttpServer.layerTest))));
