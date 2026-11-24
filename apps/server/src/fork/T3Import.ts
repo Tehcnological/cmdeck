@@ -11,6 +11,7 @@ import {
 } from "@t3tools/shared/appIdentity";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Clock from "effect/Clock";
+import * as DateTime from "effect/DateTime";
 import * as Config from "effect/Config";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -430,7 +431,7 @@ const make = Effect.gen(function* () {
     const sourcePaths = yield* derivePaths(source);
     const targetPaths = yield* derivePaths(target);
     const now = yield* Clock.currentTimeMillis;
-    const stamp = new Date(now).toISOString().replace(/[:.]/g, "-");
+    const stamp = DateTime.formatIso(DateTime.makeUnsafe(now)).replace(/[:.]/g, "-");
     const staging = path.join(target, `.userdata-import-${process.pid}-${stamp}`);
     const stagedWorkflows = path.join(staging, ".workflows");
 

@@ -31,6 +31,11 @@ import {
   type TrayServerStatus,
 } from "./DesktopTrayPolicy.ts";
 
+class DesktopTrayUnavailableError extends Schema.TaggedError<DesktopTrayUnavailableError>()(
+  "DesktopTrayUnavailableError",
+  { reason: Schema.String, cause: Schema.Defect() },
+) {}
+
 export class DesktopTrayLoginItemError extends Schema.TaggedError<DesktopTrayLoginItemError>()(
   "DesktopTrayLoginItemError",
   {
@@ -95,7 +100,7 @@ const hasStatusNotifierHost = Effect.tryPromise({
       bus.disconnect();
     }
   },
-  catch: (cause) => new Error("StatusNotifier probe failed", { cause }),
+  catch: (cause) => new DesktopTrayUnavailableError({ reason: "StatusNotifier probe failed", cause }),
 }).pipe(
   Effect.timeout("2 seconds"),
   Effect.orElseSucceed(() => false),
@@ -195,7 +200,7 @@ export const make = Effect.gen(function* () {
     }
     const created = yield* Effect.try({
       try: () => new Electron.Tray(icon.value),
-      catch: (cause) => new Error("Tray creation failed", { cause }),
+      catch: (cause) => new DesktopTrayUnavailableError({ reason: "Tray creation failed", cause }),
     }).pipe(
       Effect.asSome,
       Effect.catch((cause) =>
