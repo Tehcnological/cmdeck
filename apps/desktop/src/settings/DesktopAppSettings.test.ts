@@ -261,6 +261,9 @@ describe("DesktopSettings", () => {
           wslBackendEnabled: false,
           wslOnly: false,
           wslDistro: null,
+          closeToTray: true,
+          launchAtLogin: false,
+          trayHintShown: false,
         } satisfies DesktopAppSettings.DesktopSettings);
       }),
     ),
@@ -414,6 +417,9 @@ describe("DesktopSettings", () => {
           wslBackendEnabled: false,
           wslOnly: false,
           wslDistro: null,
+          closeToTray: true,
+          launchAtLogin: false,
+          trayHintShown: false,
         } satisfies DesktopAppSettings.DesktopSettings);
       }),
       { appVersion: "0.0.17-nightly.20260415.1" },
@@ -443,6 +449,9 @@ describe("DesktopSettings", () => {
           wslBackendEnabled: false,
           wslOnly: false,
           wslDistro: null,
+          closeToTray: true,
+          launchAtLogin: false,
+          trayHintShown: false,
         } satisfies DesktopAppSettings.DesktopSettings);
       }),
       { appVersion: "0.0.17-nightly.20260415.1" },

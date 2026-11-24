@@ -95,7 +95,7 @@ const hasStatusNotifierHost = Effect.tryPromise({
       bus.disconnect();
     }
   },
-  catch: (cause) => cause,
+  catch: (cause) => new Error("StatusNotifier probe failed", { cause }),
 }).pipe(
   Effect.timeout("2 seconds"),
   Effect.orElseSucceed(() => false),
@@ -111,6 +111,8 @@ export const make = Effect.gen(function* () {
   const backendPool = yield* DesktopBackendPool.DesktopBackendPool;
   const electronApp = yield* ElectronApp.ElectronApp;
   const fileSystem = yield* FileSystem.FileSystem;
+  // Electron callbacks run outside the fiber; keep this layer's services for them.
+  const runFork = Effect.runForkWith(yield* Effect.context<never>());
 
   // Unpackaged builds would register the bare Electron binary.
   const launchAtLoginSupported =
@@ -123,11 +125,11 @@ export const make = Effect.gen(function* () {
   let menuKey = "";
 
   const openWindow = () => {
-    Effect.runFork(desktopWindow.activate.pipe(Effect.ignoreCause));
+    runFork(desktopWindow.activate.pipe(Effect.ignoreCause));
   };
   // The same quit as the app menu's, so before-quit runs the full shutdown.
   const quitApp = () => {
-    Effect.runFork(electronApp.quit);
+    runFork(electronApp.quit);
   };
 
   const readStatus = Effect.gen(function* () {
@@ -193,9 +195,9 @@ export const make = Effect.gen(function* () {
     }
     const created = yield* Effect.try({
       try: () => new Electron.Tray(icon.value),
-      catch: (cause) => cause,
+      catch: (cause) => new Error("Tray creation failed", { cause }),
     }).pipe(
-      Effect.map((value) => Option.some(value)),
+      Effect.asSome,
       Effect.catch((cause) =>
         logTrayWarning("could not create the tray; closing the window will quit", {
           cause: String(cause),
@@ -310,10 +312,10 @@ export const make = Effect.gen(function* () {
           ? yield* hasStatusNotifierHost
           : environment.platform === "win32" || environment.platform === "darwin";
       yield* electronApp.on("window-all-closed", () => {
-        Effect.runFork(onAllWindowsClosed);
+        runFork(onAllWindowsClosed);
       });
       yield* electronApp.on("second-instance", () => {
-        Effect.runFork(openFromSecondLaunch);
+        runFork(openFromSecondLaunch);
       });
       yield* Effect.addFinalizer(() => Effect.sync(destroyTray));
       const current = yield* appSettings.get;

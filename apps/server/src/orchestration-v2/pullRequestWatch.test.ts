@@ -1071,7 +1071,7 @@ Review triggered.
           next: watch(),
           exhausted: false,
         },
-        logs,
+        ...(logs === undefined ? {} : { logs }),
       }).text;
     const text = message([
       { name: "passing", log: "not failing" },

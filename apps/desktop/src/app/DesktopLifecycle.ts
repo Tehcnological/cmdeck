@@ -285,7 +285,7 @@ export const make = DesktopLifecycle.of({
       // most visibly on macOS where the native updater performs the relaunch.
       quit.phase = "allowed";
       // The updater's own quit must still end the app once its windows close.
-      Effect.runSync(Ref.set(desktopState.trayActive, false));
+      Effect.runSyncWith(context)(Ref.set(desktopState.trayActive, false));
       // This event is synchronous and the updater's quit proceeds as soon as
       // the listener returns, so a forked destroyAll would race the quit
       // and windows could still be open when the process exits (visible on
