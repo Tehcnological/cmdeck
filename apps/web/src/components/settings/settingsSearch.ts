@@ -1135,7 +1135,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/providers",
     searchTerms: [
       msg(
-        "model api api key openai openrouter anthropic ollama lm studio custom endpoint base url thread titles commit messages",
+        "model api api key openai openrouter llm gateway anthropic ollama lm studio custom endpoint base url thread titles commit messages",
       ),
     ],
     providerSettingsOnly: true,

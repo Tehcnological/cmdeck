@@ -130,6 +130,7 @@ const PROPER_NOUNS = [
   "Muse Code",
   "OpenAI",
   "OpenRouter",
+  "LLM Gateway",
   "Anthropic",
   "Tailscale",
   "Simlock",

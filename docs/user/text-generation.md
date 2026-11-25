@@ -14,6 +14,9 @@ Go to **Settings → Providers → Text generators** and choose **Add generator*
 
 - **OpenAI** or **Anthropic** — enter an API key.
 - **OpenRouter** — enter an OpenRouter key to use any model it serves.
+- **LLM Gateway** — enter an [LLM Gateway](https://llmgateway.io) key to use any model it serves.
+  It is a paid hosted service at `api.llmgateway.io`, like OpenRouter; CMDeck uses it only after
+  you add a key here.
 - **Custom (OpenAI-compatible)** — enter the base URL of any other endpoint, such as Ollama at
   `http://localhost:11434/v1` or LM Studio. Local endpoints usually need no key. The environment's
   server makes the requests, so on a remote environment `localhost` means that machine, not yours.
@@ -29,6 +32,8 @@ list their models without checking it. **Show models** in the generator's menu l
 and refreshes the list after the service adds some.
 
 Each request sends the API what the task needs, such as the staged diff for a commit message.
+OpenAI, Anthropic, OpenRouter and LLM Gateway are third-party hosted services, so that text leaves
+your machine and their terms apply. A local endpoint such as Ollama keeps it on your network.
 
 Turning a generator off or removing it sends its work back to the environment's text generation
 model.
