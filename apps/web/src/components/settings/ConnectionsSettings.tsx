@@ -113,6 +113,7 @@ import { useDesktopUpdateState } from "~/state/desktopUpdate";
 import {
   type EnvironmentPresentation,
   useEnvironment,
+  useEnvironmentHttpBaseUrl,
   useEnvironments,
   usePrimaryEnvironment,
 } from "~/state/environments";
@@ -151,6 +152,8 @@ import {
   SavedBackendListRow,
 } from "./SavedEnvironmentRows";
 import { AddEnvironmentDialog } from "./AddEnvironmentDialog";
+import { CloudflareTunnelSettings, RemoteMcpSettings } from "./RemoteAccessSettings";
+import { externalBaseUrl, tunnelPairingEndpoint } from "./RemoteAccessSettings.logic";
 import {
   type ConnectDeviceRevokeRequest,
   RevokeConnectDeviceDialog,
@@ -281,6 +284,7 @@ function ConnectionsSettingsContent({
   });
   const primaryEnvironmentId = primaryEnvironment?.environmentId ?? null;
   const accessEnvironment = useEnvironment(accessEnvironmentId);
+  const accessHttpBaseUrl = useEnvironmentHttpBaseUrl(accessEnvironmentId);
   // Desktop network, Tailscale, and WSL controls change the backend this app spawned.
   const isPrimaryAccess =
     accessEnvironmentId !== null && accessEnvironmentId === primaryEnvironmentId;
@@ -859,6 +863,21 @@ function ConnectionsSettingsContent({
   const defaultDesktopAdvertisedEndpointKey = defaultDesktopAdvertisedEndpoint
     ? endpointDefaultPreferenceKey(defaultDesktopAdvertisedEndpoint)
     : null;
+  const accessSettings = accessEnvironment?.serverConfig?.settings;
+  const accessPublicBaseUrl = accessSettings?.publicBaseUrl ?? "";
+  const tunnelEndpoint = tunnelPairingEndpoint(accessPublicBaseUrl);
+  // A tunnel the user set up is where other devices pair, unless they picked another address.
+  const pairingEndpoints = tunnelEndpoint
+    ? [tunnelEndpoint, ...visibleDesktopAdvertisedEndpoints]
+    : visibleDesktopAdvertisedEndpoints;
+  const pairingEndpoint = tunnelEndpoint
+    ? selectPairingEndpoint(pairingEndpoints, defaultAdvertisedEndpointKey)
+    : defaultDesktopAdvertisedEndpoint;
+  const pairingEndpointKey = pairingEndpoint ? endpointDefaultPreferenceKey(pairingEndpoint) : null;
+  const accessExternalBaseUrl = externalBaseUrl(
+    accessPublicBaseUrl,
+    defaultDesktopAdvertisedEndpoint?.httpBaseUrl ?? accessHttpBaseUrl,
+  );
   const handleSetDefaultAdvertisedEndpoint = (endpoint: AdvertisedEndpoint) => {
     setDefaultAdvertisedEndpointKey(endpointDefaultPreferenceKey(endpoint));
   };
@@ -1180,8 +1199,8 @@ function ConnectionsSettingsContent({
     <PairingClientsList
       servedByEnvironment={isPrimaryAccess}
       endpointUrl={desktopServerExposureState?.endpointUrl}
-      endpoints={visibleDesktopAdvertisedEndpoints}
-      defaultEndpointKey={defaultDesktopAdvertisedEndpointKey}
+      endpoints={pairingEndpoints}
+      defaultEndpointKey={pairingEndpointKey}
       isLoading={isLoadingDesktopAccessManagement}
       pairingLinks={pairingLinks}
       createdPairingCredentials={createdPairingCredentials}
@@ -1508,6 +1527,23 @@ function ConnectionsSettingsContent({
               canWrite={canWriteAccess}
               requestRevoke={requestConnectRevoke}
             />
+          ) : null}
+          {(canReadAccess || canWriteAccess) &&
+          accessServerConfig?.environment.capabilities.remoteAccessSettings ? (
+            <>
+              <CloudflareTunnelSettings
+                environmentId={accessEnvironmentId}
+                publicBaseUrl={accessPublicBaseUrl}
+                canWrite={canWriteAccess}
+              />
+              <RemoteMcpSettings
+                environmentId={accessEnvironmentId}
+                serverConfig={accessServerConfig}
+                externalBaseUrl={accessExternalBaseUrl}
+                canRead={canReadAccess}
+                canWrite={canWriteAccess}
+              />
+            </>
           ) : null}
           <RevokeConnectDeviceDialog
             request={pendingConnectRevoke}
