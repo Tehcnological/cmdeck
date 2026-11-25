@@ -76,6 +76,13 @@ const providers = [
   provider("antigravity", "antigravity", "Antigravity", { slug: "hawk-review", name: "Hawk" }),
 ];
 
+// Dialog footers sit below the fold of the default phone-sized test viewport.
+async function desktopViewport(): Promise<AsyncDisposable> {
+  const { innerWidth: width, innerHeight: height } = window;
+  await page.viewport(1280, 800);
+  return { [Symbol.asyncDispose]: () => page.viewport(width, height) };
+}
+
 it("offers every provider, Antigravity included, with the last reviewer prefilled", async () => {
   __setClientSettingsForTests({
     ...DEFAULT_CLIENT_SETTINGS,
@@ -83,6 +90,7 @@ it("offers every provider, Antigravity included, with the last reviewer prefille
       [environmentId]: { instanceId: ProviderInstanceId.make("antigravity"), model: "hawk-review" },
     },
   });
+  await using _viewport = await desktopViewport();
   await using _screen = await render(
     <RegistryContext.Provider value={appAtomRegistry}>
       <ThreadReviewDialogHost />
@@ -98,7 +106,7 @@ it("offers every provider, Antigravity included, with the last reviewer prefille
 
   await trigger.click();
   await expect
-    .element(page.getByRole("button", { name: "Antigravity", exact: true }))
+    .element(page.getByRole("button", { name: /^Antigravity/ }))
     .toBeVisible();
-  await expect.element(page.getByRole("button", { name: "Claude", exact: true })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: /^Claude/ })).toBeVisible();
 });

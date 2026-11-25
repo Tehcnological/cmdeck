@@ -29,6 +29,13 @@ function Owner({ create }: { readonly create: Create }) {
   );
 }
 
+// Dialog footers sit below the fold of the default phone-sized test viewport.
+async function desktopViewport(): Promise<AsyncDisposable> {
+  const { innerWidth: width, innerHeight: height } = window;
+  await page.viewport(1280, 800);
+  return { [Symbol.asyncDispose]: () => page.viewport(width, height) };
+}
+
 const secretField = () => page.getByRole("textbox", { name: "Remote MCP token" });
 const nameField = () => page.getByPlaceholder("laptop-claude");
 
@@ -41,6 +48,7 @@ async function createToken(name: string) {
 describe("RemoteMcpTokenCreator", () => {
   it("shows a new token once and drops it when the dialog closes", async () => {
     const create = vi.fn<Create>(async (input) => created(input));
+    await using _viewport = await desktopViewport();
     await using _screen = await render(<Owner create={create} />);
 
     await createToken("  laptop  ");
@@ -59,6 +67,7 @@ describe("RemoteMcpTokenCreator", () => {
 
   it("keeps the form and shows no token when creation fails", async () => {
     const create = vi.fn<Create>(async () => null);
+    await using _viewport = await desktopViewport();
     await using _screen = await render(<Owner create={create} />);
 
     await createToken("laptop");

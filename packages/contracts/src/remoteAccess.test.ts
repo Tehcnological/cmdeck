@@ -11,6 +11,9 @@ import { PublicBaseUrl, publicBaseOrigin } from "./remoteAccess.ts";
 
 const isPublicBaseUrl = Schema.is(PublicBaseUrl);
 
+const decodeServerSettings = Schema.decodeSync(ServerSettings);
+const decodeServerSettingsPatch = Schema.decodeSync(ServerSettingsPatch);
+
 describe("PublicBaseUrl", () => {
   const accepted = [
     "",
@@ -42,11 +45,11 @@ describe("PublicBaseUrl", () => {
   });
 
   it("defaults to unset and needs access management to change", () => {
-    const settings = Schema.decodeSync(ServerSettings)({});
+    const settings = decodeServerSettings({});
     expect(settings.publicBaseUrl).toBe("");
     expect(settings.remoteMcpEnabled).toBe(false);
     expect(() =>
-      Schema.decodeSync(ServerSettingsPatch)({ publicBaseUrl: "http://plain.example" }),
+      decodeServerSettingsPatch({ publicBaseUrl: "http://plain.example" }),
     ).toThrow();
     for (const patch of [
       { publicBaseUrl: "https://cmdeck.example.com" },

@@ -206,13 +206,12 @@ const toPublic = ({ id, label, access, createdAt }: RemoteMcpToken): RemoteMcpTo
   createdAt,
 });
 
+const isStoreError = Schema.is(RemoteMcpTokenStoreError);
+const isLockError = Schema.is(RemoteMcpTokenLockError);
+
 const toServiceError = (cause: unknown) =>
   new RemoteMcpTokenError({
-    reason: Schema.is(RemoteMcpTokenStoreError)(cause)
-      ? "unreadable"
-      : Schema.is(RemoteMcpTokenLockError)(cause)
-        ? "locked"
-        : "storage",
+    reason: isStoreError(cause) ? "unreadable" : isLockError(cause) ? "locked" : "storage",
     cause,
   });
 
