@@ -1,5 +1,6 @@
 import type { EnvironmentId, InferenceServerConfig, InferenceServerId } from "@t3tools/contracts";
 import * as Result from "effect/Result";
+import { T, useGT, Var } from "gt-react";
 import { useState } from "react";
 
 import { useUpdateEnvironmentSettings } from "../../hooks/useSettings";
@@ -64,6 +65,7 @@ export function InferenceServerDialog({
   readonly initialDraft?: InferenceServerDraft;
   readonly note?: string;
 }) {
+  const gt = useGT();
   const updateSettings = useUpdateEnvironmentSettings(environmentId);
   const secretSources = useSecretSources(environmentId);
   const [draft, setDraft] = useState<InferenceServerDraft>(
@@ -101,13 +103,19 @@ export function InferenceServerDialog({
       <DialogPopup className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {existing
-              ? `Edit ${inferenceServerDisplayName(existing.id, existing.config)}`
-              : "Add an inference server"}
+            {existing ? (
+              <T>
+                Edit <Var>{inferenceServerDisplayName(existing.id, existing.config)}</Var>
+              </T>
+            ) : (
+              <T>Add an inference server</T>
+            )}
           </DialogTitle>
           <DialogDescription>
-            An OpenAI-compatible model server that {environmentLabel} can reach. localhost means{" "}
-            {environmentLabel} itself.
+            <T>
+              An OpenAI-compatible model server that <Var>{environmentLabel}</Var> can reach.
+              localhost means <Var>{environmentLabel}</Var> itself.
+            </T>
             {note === undefined ? null : ` ${note}`}
           </DialogDescription>
         </DialogHeader>
@@ -121,7 +129,9 @@ export function InferenceServerDialog({
             }}
           >
             <div className="grid gap-1.5">
-              <Label htmlFor="inference-server-url">Base URL</Label>
+              <Label htmlFor="inference-server-url">
+                <T>Base URL</T>
+              </Label>
               <Input
                 id="inference-server-url"
                 placeholder="http://localhost:11434/v1"
@@ -137,10 +147,12 @@ export function InferenceServerDialog({
               <FieldError id="inference-server-url-error" message={shown.baseUrl} />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="inference-server-name">Name (optional)</Label>
+              <Label htmlFor="inference-server-name">
+                <T>Name (optional)</T>
+              </Label>
               <Input
                 id="inference-server-name"
-                placeholder="Defaults to the host name"
+                placeholder={gt("Defaults to the host name")}
                 value={draft.name}
                 onChange={(event) => update({ name: event.target.value })}
                 maxLength={64}
@@ -152,10 +164,12 @@ export function InferenceServerDialog({
               <FieldError id="inference-server-name-error" message={shown.name} />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="inference-server-key">API key (optional)</Label>
+              <Label htmlFor="inference-server-key">
+                <T>API key (optional)</T>
+              </Label>
               <SecretSourceInput
                 id="inference-server-key"
-                aria-label="API key"
+                aria-label={gt("API key")}
                 value={draft.apiKey}
                 sources={secretSources}
                 onChange={(event) => update({ apiKey: event.target.value })}
@@ -165,12 +179,12 @@ export function InferenceServerDialog({
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="inference-server-concurrency">
-                Max concurrent requests (optional)
+                <T>Max concurrent requests (optional)</T>
               </Label>
               <Input
                 id="inference-server-concurrency"
                 inputMode="numeric"
-                placeholder="Server default"
+                placeholder={gt("Server default")}
                 value={draft.maxConcurrency}
                 onChange={(event) => update({ maxConcurrency: event.target.value })}
                 aria-invalid={shown.maxConcurrency !== undefined}
@@ -184,7 +198,9 @@ export function InferenceServerDialog({
             </div>
             {fallbackOptions.length > 0 || draft.fallbackServerId !== "" ? (
               <div className="grid gap-1.5">
-                <Label id="inference-server-fallback-label">Fallback server (optional)</Label>
+                <Label id="inference-server-fallback-label">
+                  <T>Fallback server (optional)</T>
+                </Label>
                 <Select
                   value={draft.fallbackServerId}
                   onValueChange={(value) => update({ fallbackServerId: value ?? "" })}
@@ -199,14 +215,18 @@ export function InferenceServerDialog({
                     }
                   >
                     <SelectValue>
-                      {draft.fallbackServerId === ""
-                        ? "None"
-                        : (fallbackOptions.find((option) => option.id === draft.fallbackServerId)
-                            ?.name ?? draft.fallbackServerId)}
+                      {draft.fallbackServerId === "" ? (
+                        <T context="no fallback server">None</T>
+                      ) : (
+                        fallbackOptions.find((option) => option.id === draft.fallbackServerId)
+                          ?.name ?? draft.fallbackServerId
+                      )}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectPopup>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="">
+                      <T context="no fallback server">None</T>
+                    </SelectItem>
                     {fallbackOptions.map((option) => (
                       <SelectItem key={option.id} value={option.id}>
                         {option.name}
@@ -215,8 +235,10 @@ export function InferenceServerDialog({
                   </SelectPopup>
                 </Select>
                 <p id="inference-server-fallback-hint" className="text-xs text-muted-foreground">
-                  Takes requests while this server is down or unreachable, when it serves the same
-                  model.
+                  <T>
+                    Takes requests while this server is down or unreachable, when it serves the same
+                    model.
+                  </T>
                 </p>
                 <FieldError id="inference-server-fallback-error" message={shown.fallbackServerId} />
               </div>
@@ -225,14 +247,14 @@ export function InferenceServerDialog({
         </DialogPanel>
         <DialogFooter variant="bare">
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            <T>Cancel</T>
           </Button>
           <Button
             type="submit"
             form="inference-server-form"
             disabled={!keyValid || (submitted && Result.isFailure(result))}
           >
-            {existing ? "Save changes" : "Add server"}
+            {existing ? <T>Save changes</T> : <T>Add server</T>}
           </Button>
         </DialogFooter>
       </DialogPopup>

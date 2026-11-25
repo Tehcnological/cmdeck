@@ -20,11 +20,13 @@ import { INFERENCE_SERVER_STATUS_LABELS } from "@t3tools/client-runtime/state/pr
 import { resolveServerBackgroundActivitySettings } from "@t3tools/shared/backgroundActivitySettings";
 import * as Duration from "effect/Duration";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
+import { T, useGT, useMessages } from "gt-react-native";
 import { type ReactNode, use, useState, useSyncExternalStore } from "react";
-import { RefreshControl, View } from "react-native";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText as Text } from "../../components/ui/AppText";
+import { RefreshControl } from "../../components/ui/RefreshControl";
 import { ScreenScrollView } from "../../components/ui/ScreenScrollView";
 import { cn } from "../../lib/cn";
 import { inferenceAtoms, serverEnvironment } from "../../state/server";
@@ -39,6 +41,7 @@ const NO_SNAPSHOTS: ReadonlyArray<InferenceServerSnapshot> = [];
 
 /** Read-only: servers are added, edited and linked in web or desktop Settings. */
 export function SettingsInferenceRouteScreen() {
+  const gt = useGT();
   const environmentMenu = useSettingsEnvironmentMenu();
   const { selectedTargets } = useSettingsEnvironmentFilter();
   const insets = useSafeAreaInsets();
@@ -65,7 +68,7 @@ export function SettingsInferenceRouteScreen() {
     setRefreshing(false);
   };
   return (
-    <SettingsScreen title="Inference" menus={[environmentMenu]}>
+    <SettingsScreen title={gt("Inference")} menus={[environmentMenu]}>
       <ScreenScrollView
         className="flex-1"
         contentInsetAdjustmentBehavior="automatic"
@@ -78,14 +81,16 @@ export function SettingsInferenceRouteScreen() {
         }
       >
         {selectedTargets.length === 0 ? (
-          <Text className="text-foreground-muted">Select a connected environment.</Text>
+          <Text className="text-foreground-muted">
+            <T>Select a connected environment.</T>
+          </Text>
         ) : (
           selectedTargets.map((target) => (
             <EnvironmentInferenceServers key={target.environmentId} target={target} />
           ))
         )}
         <Text textRole="footnote" className="px-2 text-foreground-muted">
-          Add, edit and link inference servers in web or desktop Settings → Inference.
+          <T>Add, edit and link inference servers in web or desktop Settings → Inference.</T>
         </Text>
       </ScreenScrollView>
     </SettingsScreen>
@@ -108,7 +113,9 @@ function EnvironmentInferenceServers({ target }: { readonly target: SettingsTarg
   return (
     <SettingsSection title={target.label}>
       {entries.length === 0 ? (
-        <Text className="p-4 text-foreground-muted">No inference servers registered.</Text>
+        <Text className="p-4 text-foreground-muted">
+          <T>No inference servers registered.</T>
+        </Text>
       ) : (
         entries.map(([id, config], index) => (
           <InferenceServerItem
@@ -138,10 +145,11 @@ function InferenceServerItem(props: {
   readonly canReadUsage: boolean;
   readonly divider: boolean;
 }) {
+  const m = useMessages();
   const { config } = props;
   const current = config.enabled && props.snapshot?.enabled ? props.snapshot : undefined;
   const load = current ? describeInferenceServerLoad(current) : null;
-  const promptCache = current ? describeInferencePromptCache(current) : null;
+  const promptCache = current ? describeInferencePromptCache(current, m) : null;
   const status = !config.enabled
     ? "Disabled"
     : current
@@ -197,11 +205,15 @@ function InferenceServerItem(props: {
             );
           })}
           {current.models.length === 0 && current.status === "ready" ? (
-            <Detail>No models reported.</Detail>
+            <Detail>
+              <T>No models reported.</T>
+            </Detail>
           ) : null}
         </>
       ) : (
-        <Detail>Not checked yet.</Detail>
+        <Detail>
+          <T>Not checked yet.</T>
+        </Detail>
       )}
     </View>
   );
@@ -224,8 +236,10 @@ function Detail(props: {
 
 /** Re-renders only when the label or staleness changes, at most once a minute. */
 function ProbeFreshness(props: { readonly checkedAt: string; readonly probeIntervalMs: number }) {
+  const gt = useGT();
+  const m = useMessages();
   const read = () =>
-    describeInferenceServerProbeFreshness(props.checkedAt, props.probeIntervalMs, Date.now());
+    describeInferenceServerProbeFreshness(props.checkedAt, props.probeIntervalMs, Date.now(), m);
   const subscribe = (onChange: () => void) => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const schedule = () => {
@@ -244,13 +258,18 @@ function ProbeFreshness(props: { readonly checkedAt: string; readonly probeInter
   const label = useSyncExternalStore(subscribe, readLabel, readLabel);
   const stale = useSyncExternalStore(subscribe, readStale, readStale);
   if (label === null) return null;
-  return stale ? <Detail warning>{`${label}, overdue`}</Detail> : <Detail>{label}</Detail>;
+  return stale ? (
+    <Detail warning>{gt("{label}, overdue", { label })}</Detail>
+  ) : (
+    <Detail>{label}</Detail>
+  );
 }
 
 function RequestHealth(props: {
   readonly environmentId: EnvironmentId;
   readonly serverId: InferenceServerId;
 }) {
+  const gt = useGT();
   const summary = AsyncResult.getOrElse(
     useAtomValue(
       inferenceAtoms.inferenceUsageAtom({
@@ -264,12 +283,22 @@ function RequestHealth(props: {
   const health = inferenceServerRequestHealth(summary, props.serverId);
   return (
     <>
-      <Detail>Reports cached tokens: {health.reportsCachedTokens ? "yes" : "unknown"}</Detail>
+      <Detail>
+        {health.reportsCachedTokens ? (
+          <T>Reports cached tokens: yes</T>
+        ) : (
+          <T>Reports cached tokens: unknown</T>
+        )}
+      </Detail>
       {health.recentFailure ? (
         <Detail>
-          {`Last request ${health.recentFailure.status} at ${new Date(
-            health.recentFailure.at,
-          ).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
+          {gt("Last request {status} at {time}", {
+            status: health.recentFailure.status,
+            time: new Date(health.recentFailure.at).toLocaleTimeString([], {
+              hour: "numeric",
+              minute: "2-digit",
+            }),
+          })}
         </Detail>
       ) : null}
     </>

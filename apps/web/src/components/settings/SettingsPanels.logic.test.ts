@@ -10,7 +10,6 @@ import {
   editAutoSettleDaysField,
   failAutoSettleDaysField,
   getChangedBrowserSettingLabels,
-  hasChangedBackgroundActivitySettings,
   syncAutoSettleDaysField,
 } from "./SettingsPanels.logic";
 

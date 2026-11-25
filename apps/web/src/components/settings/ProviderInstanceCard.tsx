@@ -961,7 +961,10 @@ export function ProviderInstanceCard({
     label: `${inferenceServerDisplayName(id, config)}${config.enabled ? "" : " (disabled)"}`,
   }));
   if (inferenceLink.kind === "missing") {
-    inferenceServerOptions.push({ id: inferenceLink.id, label: `${inferenceLink.id} (removed)` });
+    inferenceServerOptions.push({
+      id: inferenceLink.id,
+      label: gt("{id} (removed)", { id: inferenceLink.id }),
+    });
   }
   const selectedInferenceServer = instance.inferenceServerId ?? NO_INFERENCE_SERVER;
   const updateInferenceServer = (value: string) => {
@@ -1426,8 +1429,10 @@ export function ProviderInstanceCard({
         />
         {inferenceServerOptions.length > 0 ? (
           <SettingsRow
-            title="Inference server"
-            description="The registered server this instance's models run on. Manage servers in Settings, Inference."
+            title={gt("Inference server")}
+            description={gt(
+              "The registered server this instance's models run on. Manage servers in Settings, Inference.",
+            )}
             control={
               <div className="w-full @min-[32rem]/settings-row:w-48">
                 <Select
@@ -1437,15 +1442,21 @@ export function ProviderInstanceCard({
                     if (typeof value === "string") updateInferenceServer(value);
                   }}
                 >
-                  <SelectTrigger size="sm" className="w-full min-w-0" aria-label="Inference server">
+                  <SelectTrigger
+                    size="sm"
+                    className="w-full min-w-0"
+                    aria-label={gt("Inference server")}
+                  >
                     <SelectValue>
                       {inferenceServerOptions.find(
                         (option) => option.id === selectedInferenceServer,
-                      )?.label ?? "None"}
+                      )?.label ?? <T context="no inference server">None</T>}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectPopup align="end" alignItemWithTrigger={false}>
-                    <SelectItem value={NO_INFERENCE_SERVER}>None</SelectItem>
+                    <SelectItem value={NO_INFERENCE_SERVER}>
+                      <T context="no inference server">None</T>
+                    </SelectItem>
                     {inferenceServerOptions.map((option) => (
                       <SelectItem key={option.id} value={option.id}>
                         {option.label}
@@ -1462,29 +1473,37 @@ export function ProviderInstanceCard({
             title={
               <span className="flex items-center gap-1.5">
                 <AlertTriangleIcon className="size-3.5 shrink-0 text-warning" aria-hidden />
-                Inference server unavailable
+                <T>Inference server unavailable</T>
               </span>
             }
             description={
               inferenceLink.kind === "disabled"
-                ? `${inferenceLink.name} is disabled in Settings, Inference. Enable it or pick another server.`
-                : `The linked server ${inferenceLink.id} is no longer registered. Pick another server or None.`
+                ? gt(
+                    "{server} is disabled in Settings, Inference. Enable it or pick another server.",
+                    { server: inferenceLink.name },
+                  )
+                : gt(
+                    "The linked server {id} is no longer registered. Pick another server or None.",
+                    { id: inferenceLink.id },
+                  )
             }
           />
         ) : null}
         <SettingsRow
-          title="Runs local models"
+          title={gt("Runs local models")}
           description={
             inferenceLink.kind === "enabled"
-              ? `Linked to ${inferenceLink.name}`
-              : "Every model this instance can select runs on hardware you control. Local instances come first and handle background writing such as titles and commit messages."
+              ? gt("Linked to {server}", { server: inferenceLink.name })
+              : gt(
+                  "Every model this instance can select runs on hardware you control. Local instances come first and handle background writing such as titles and commit messages.",
+                )
           }
           control={
             <Switch
               checked={inferenceLink.kind === "enabled" || instance.inference === "local"}
               disabled={readOnly || inferenceLink.kind === "enabled"}
               onCheckedChange={(checked) => updateInference(Boolean(checked))}
-              aria-label="Runs local models"
+              aria-label={gt("Runs local models")}
             />
           }
         />

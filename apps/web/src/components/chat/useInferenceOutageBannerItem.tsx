@@ -6,6 +6,7 @@ import {
   inferenceServerOutage,
 } from "@t3tools/client-runtime/state/inference-presentation";
 import { useNavigate } from "@tanstack/react-router";
+import { T, useGT, useMessages } from "gt-react";
 import { CpuIcon, ImageOffIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -27,6 +28,8 @@ export function useInferenceOutageBannerItem(
   hasImages: boolean,
   onChooseModel: () => void,
 ): ComposerBannerStackItem | null {
+  const gt = useGT();
+  const m = useMessages();
   const navigate = useNavigate();
   const servers = useEnvironmentSettings(environmentId, (settings) => settings.inferenceServers);
   const snapshots = useAtomValue(serverEnvironment.inferenceServersValueAtom(environmentId));
@@ -44,11 +47,14 @@ export function useInferenceOutageBannerItem(
     readonly running: boolean;
     readonly detail?: string;
   } | null>(null);
-  const outage = inferenceServerOutage({
-    serverId: provider?.inferenceServerId,
-    servers,
-    snapshots: snapshots ?? [],
-  });
+  const outage = inferenceServerOutage(
+    {
+      serverId: provider?.inferenceServerId,
+      servers,
+      snapshots: snapshots ?? [],
+    },
+    m,
+  );
   const linked = {
     serverId: provider?.inferenceServerId,
     driver: provider?.driver,
@@ -91,14 +97,21 @@ export function useInferenceOutageBannerItem(
         icon: <ImageOffIcon />,
         title:
           imageGap.reason === "text-only"
-            ? `${imageGap.model} reads text only`
+            ? gt("{model} reads text only", { model: imageGap.model })
             : check?.running === true
-              ? `Checking whether ${imageGap.model} reads images`
-              : `Not known whether ${imageGap.model} reads images`,
+              ? gt("Checking whether {model} reads images", { model: imageGap.model })
+              : gt("Not known whether {model} reads images", { model: imageGap.model }),
         description:
           imageGap.reason === "text-only"
-            ? "It will not see the attached image. Choose a model that reads images."
-            : `${check?.detail === undefined ? "" : `${check.detail} `}The image is sent anyway; if the model cannot read it, its server will say so.`,
+            ? gt("It will not see the attached image. Choose a model that reads images.")
+            : check?.detail === undefined
+              ? gt(
+                  "The image is sent anyway; if the model cannot read it, its server will say so.",
+                )
+              : gt(
+                  "{detail} The image is sent anyway; if the model cannot read it, its server will say so.",
+                  { detail: check.detail },
+                ),
         actions: (
           <>
             {imageGap.reason === "unchecked" && canCheckImages ? (
@@ -108,11 +121,11 @@ export function useInferenceOutageBannerItem(
                 disabled={check?.running === true}
                 onClick={() => void runImageCheck(imageKey!, imageGap.id, imageGap.model)}
               >
-                {check?.running === true ? "Checking images" : "Check images"}
+                {check?.running === true ? <T>Checking images</T> : <T>Check images</T>}
               </Button>
             ) : null}
             <Button size="xs" variant="ghost" onClick={onChooseModel}>
-              Choose model
+              <T>Choose model</T>
             </Button>
           </>
         ),
@@ -124,19 +137,25 @@ export function useInferenceOutageBannerItem(
       group: "environment",
       variant: "warning",
       icon: <CpuIcon />,
-      title: `${notServed.name} no longer serves ${notServed.model}`,
-      description: `It serves ${notServed.served.join(", ")} now. Choose one of them, or check again if the model is coming back.`,
+      title: gt("{server} no longer serves {model}", {
+        server: notServed.name,
+        model: notServed.model,
+      }),
+      description: gt(
+        "It serves {models} now. Choose one of them, or check again if the model is coming back.",
+        { models: notServed.served.join(", ") },
+      ),
       actions: (
         <>
           <Button size="xs" variant="ghost" onClick={onChooseModel}>
-            Choose model
+            <T>Choose model</T>
           </Button>
           <Button
             size="xs"
             variant="ghost"
             onClick={() => void refresh({ environmentId, input: { id: notServed.id } })}
           >
-            Check again
+            <T>Check again</T>
           </Button>
         </>
       ),
@@ -147,8 +166,11 @@ export function useInferenceOutageBannerItem(
     group: "environment",
     variant: "warning",
     icon: <CpuIcon />,
-    title: `${outage.name} is not answering`,
-    description: `${outage.baseUrl}: ${outage.message} Its models are hidden until it answers again.`,
+    title: gt("{server} is not answering", { server: outage.name }),
+    description: gt("{url}: {message} Its models are hidden until it answers again.", {
+      url: outage.baseUrl,
+      message: outage.message,
+    }),
     actions: (
       <>
         <Button
@@ -156,7 +178,7 @@ export function useInferenceOutageBannerItem(
           variant="ghost"
           onClick={() => void refresh({ environmentId, input: { id: outage.id } })}
         >
-          Check again
+          <T>Check again</T>
         </Button>
         <Button
           size="xs"
@@ -168,7 +190,7 @@ export function useInferenceOutageBannerItem(
             })
           }
         >
-          Find server
+          <T>Find server</T>
         </Button>
       </>
     ),

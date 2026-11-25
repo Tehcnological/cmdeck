@@ -7,6 +7,7 @@ import {
   lastRequestObservations,
 } from "@t3tools/client-runtime/state/inference-presentation";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
+import { T } from "gt-react-native";
 import { View } from "react-native";
 
 import { AppText as Text } from "../../components/ui/AppText";
@@ -34,7 +35,7 @@ function LastRequest(props: ThreadKey) {
   return (
     <>
       <Text className="px-5 pb-2 pt-2 text-sm font-t3-medium text-foreground-muted">
-        Last request
+        <T>Last request</T>
       </Text>
       <View className="mx-4 mb-3 gap-1 rounded-2xl bg-grouped-card px-4 py-3">
         <Text className="text-sm tabular-nums text-foreground">
@@ -50,7 +51,9 @@ function LastRequest(props: ThreadKey) {
             {observation}
           </Text>
         ))}
-        <Text className="text-xs text-foreground-muted">Measured by T3&apos;s gateway</Text>
+        <Text className="text-xs text-foreground-muted">
+          <T>Measured by T3&apos;s gateway</T>
+        </Text>
       </View>
     </>
   );

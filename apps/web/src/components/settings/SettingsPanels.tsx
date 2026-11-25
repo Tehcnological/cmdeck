@@ -2334,11 +2334,13 @@ export function ThreadsSettingsPanel() {
           serverScoped
           settingKeys={["textGenerationFallback"]}
           {...setting("text-generation-fallback")}
-          description="Where background writing goes when its model cannot run. Local models only never sends it to a cloud provider you did not choose."
+          description={gt(
+            "Where background writing goes when its model cannot run. Local models only never sends it to a cloud provider you did not choose.",
+          )}
           resetAction={
             settings.textGenerationFallback !== DEFAULT_UNIFIED_SETTINGS.textGenerationFallback ? (
               <SettingResetButton
-                ariaLabel="Reset text generation fallback"
+                ariaLabel={gt("Reset text generation fallback")}
                 onClick={() =>
                   updateSettings({
                     textGenerationFallback: DEFAULT_UNIFIED_SETTINGS.textGenerationFallback,
@@ -2356,7 +2358,7 @@ export function ThreadsSettingsPanel() {
                 }
               }}
             >
-              <SelectTrigger size="sm" className="w-full sm:w-56" aria-label="Fallback">
+              <SelectTrigger size="sm" className="w-full sm:w-56" aria-label={gt("Fallback")}>
                 <SelectValue>
                   {(value: TextGenerationFallback) => TEXT_GENERATION_FALLBACK_LABELS[value]}
                 </SelectValue>

@@ -13,10 +13,12 @@ import {
 } from "@t3tools/client-runtime/state/runtime";
 import { describeInferenceModelContext } from "@t3tools/client-runtime/state/inference-presentation";
 import * as Result from "effect/Result";
+import { msg, T, useGT, Var } from "gt-react";
 import { CheckIcon, CpuIcon, SearchIcon } from "lucide-react";
 import { useContext, useEffect, useState } from "react";
 
 import { useEnvironmentSettings } from "../../hooks/useSettings";
+import { m } from "../../i18n/messages";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
@@ -65,7 +67,7 @@ type Selection = { readonly baseUrl: string; readonly modelId: string };
 
 const failureMessage = (result: Parameters<typeof squashAtomCommandFailure>[0]) => {
   const error = squashAtomCommandFailure(result);
-  return error instanceof Error ? error.message : "The request failed.";
+  return error instanceof Error ? error.message : m(msg("The request failed."));
 };
 
 const searchFromResult = (result: AtomCommandResult<InferenceDiscoveryResult, unknown>): Search =>
@@ -96,6 +98,7 @@ export function UseLocalModelDialog({
   readonly machineLabel: string;
   readonly onClose: () => void;
 }) {
+  const gt = useGT();
   const settings = useEnvironmentSettings(environmentId);
   const providers =
     useAtomValue(serverEnvironment.providersValueAtom(environmentId)) ?? NO_PROVIDERS;
@@ -185,7 +188,10 @@ export function UseLocalModelDialog({
     modelId: string,
     agentLabel: string,
   ) => {
-    setProgress({ step: "connecting", message: `Loading the models ${agentLabel} lists…` });
+    setProgress({
+      step: "connecting",
+      message: gt("Loading the models {agent} lists…", { agent: agentLabel }),
+    });
     const refreshed = await refreshProviders({
       environmentId,
       input: { instanceId, refreshModels: true },
@@ -197,8 +203,14 @@ export function UseLocalModelDialog({
     if (listed?.installed === false) {
       setProgress({
         step: "incomplete",
-        title: `${agentLabel} is not installed on ${machineLabel}`,
-        message: `${serverName} is saved and linked. Install ${agentLabel}, or pick another agent and try again.`,
+        title: gt("{agent} is not installed on {machine}", {
+          agent: agentLabel,
+          machine: machineLabel,
+        }),
+        message: gt(
+          "{server} is saved and linked. Install {agent}, or pick another agent and try again.",
+          { server: serverName, agent: agentLabel },
+        ),
         canRetry: true,
       });
       return;
@@ -207,8 +219,11 @@ export function UseLocalModelDialog({
     if (slug === undefined) {
       setProgress({
         step: "incomplete",
-        title: `${agentLabel} does not list ${modelId} yet`,
-        message: `${agentLabel} is linked to ${serverName}, but its model list has not caught up. Try again in a moment.`,
+        title: gt("{agent} does not list {model} yet", { agent: agentLabel, model: modelId }),
+        message: gt(
+          "{agent} is linked to {server}, but its model list has not caught up. Try again in a moment.",
+          { agent: agentLabel, server: serverName },
+        ),
         canRetry: true,
       });
       return;
@@ -220,7 +235,7 @@ export function UseLocalModelDialog({
     if (saved._tag === "Failure") {
       setProgress({
         step: "incomplete",
-        title: "The default model was not saved",
+        title: gt("The default model was not saved"),
         message: failureMessage(saved),
         canRetry: true,
       });
@@ -239,7 +254,7 @@ export function UseLocalModelDialog({
 
   const connect = async () => {
     if (plan === null || chosenAgent === undefined || selection === null) return;
-    setProgress({ step: "connecting", message: "Saving…" });
+    setProgress({ step: "connecting", message: gt("Saving…") });
     const patch =
       plan.serverConfig === null
         ? {}
@@ -257,14 +272,17 @@ export function UseLocalModelDialog({
       if (saved._tag === "Failure") {
         setProgress({
           step: "incomplete",
-          title: "Nothing was saved",
+          title: gt("Nothing was saved"),
           message: failureMessage(saved),
           canRetry: false,
         });
         return;
       }
     }
-    setProgress({ step: "connecting", message: `Checking ${plan.serverName}…` });
+    setProgress({
+      step: "connecting",
+      message: gt("Checking {server}…", { server: plan.serverName }),
+    });
     const checked = await refreshServers({ environmentId, input: { id: plan.serverId } });
     const snapshot =
       checked._tag === "Success"
@@ -273,8 +291,8 @@ export function UseLocalModelDialog({
     if (snapshot?.status !== "ready") {
       setProgress({
         step: "incomplete",
-        title: `${plan.serverName} is saved but not ready`,
-        message: snapshot?.message ?? "It did not answer the check. Start it and try again.",
+        title: gt("{server} is saved but not ready", { server: plan.serverName }),
+        message: snapshot?.message ?? gt("It did not answer the check. Start it and try again."),
         canRetry: true,
       });
       return;
@@ -302,10 +320,14 @@ export function UseLocalModelDialog({
     >
       <DialogPopup className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Use a local model</DialogTitle>
+          <DialogTitle>
+            <T>Use a local model</T>
+          </DialogTitle>
           <DialogDescription>
-            Find a model server on {machineLabel} (Ollama, LM Studio, llama.cpp, vLLM, SGLang,
-            TensorFold) and run new threads on it. Nothing leaves your hardware.
+            <T>
+              Find a model server on <Var>{machineLabel}</Var> (Ollama, LM Studio, llama.cpp, vLLM,
+              SGLang, TensorFold) and run new threads on it. Nothing leaves your hardware.
+            </T>
           </DialogDescription>
         </DialogHeader>
         <DialogPanel>
@@ -337,7 +359,9 @@ export function UseLocalModelDialog({
               <section className="grid gap-2" aria-labelledby="local-model-servers">
                 <div className="flex items-center justify-between gap-2">
                   <h3 id="local-model-servers" className="text-sm font-medium">
-                    Inference servers on {machineLabel}
+                    <T>
+                      Inference servers on <Var>{machineLabel}</Var>
+                    </T>
                   </h3>
                   <Button
                     size="xs"
@@ -346,7 +370,7 @@ export function UseLocalModelDialog({
                     onClick={() => void runSearch()}
                   >
                     <SearchIcon className="size-3" aria-hidden />
-                    Search again
+                    <T>Search again</T>
                   </Button>
                 </div>
                 {search.status === "searching" ? (
@@ -355,15 +379,25 @@ export function UseLocalModelDialog({
                     role="status"
                   >
                     <Spinner className="size-4" />
-                    Looking for model servers on {machineLabel}…
+                    <T>
+                      Looking for model servers on <Var>{machineLabel}</Var>…
+                    </T>
                   </p>
                 ) : search.status === "failed" ? (
                   <p className="text-sm text-destructive">{search.message}</p>
                 ) : servers.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    No model server answered on {machineLabel}
-                    {search.result.searchedListeningPorts ? "." : " at the usual ports."} Start one,
-                    or enter its address below.
+                    {search.result.searchedListeningPorts ? (
+                      <T>
+                        No model server answered on <Var>{machineLabel}</Var>. Start one, or enter
+                        its address below.
+                      </T>
+                    ) : (
+                      <T>
+                        No model server answered on <Var>{machineLabel}</Var> at the usual ports.
+                        Start one, or enter its address below.
+                      </T>
+                    )}
                   </p>
                 ) : (
                   <RadioGroup
@@ -393,7 +427,9 @@ export function UseLocalModelDialog({
                   </RadioGroup>
                 )}
                 <div className="grid gap-1.5 pt-1">
-                  <Label htmlFor="local-model-address">Or enter its address</Label>
+                  <Label htmlFor="local-model-address">
+                    <T>Or enter its address</T>
+                  </Label>
                   <div className="flex gap-2">
                     <Input
                       id="local-model-address"
@@ -410,7 +446,7 @@ export function UseLocalModelDialog({
                       disabled={address.trim() === "" || search.status === "searching"}
                       onClick={checkAddress}
                     >
-                      Check
+                      <T context="verb, checks the address">Check</T>
                     </Button>
                   </div>
                   {addressError === null ? null : (
@@ -423,7 +459,7 @@ export function UseLocalModelDialog({
               {selectedServer !== undefined ? (
                 <section className="grid gap-2" aria-labelledby="local-model-agent">
                   <h3 id="local-model-agent" className="text-sm font-medium">
-                    Agent
+                    <T>Agent</T>
                   </h3>
                   <RadioGroup
                     aria-labelledby="local-model-agent"
@@ -443,10 +479,14 @@ export function UseLocalModelDialog({
                           <span className="flex items-center gap-1.5 text-sm">
                             {choice.label}
                             {choice.recommended ? (
-                              <Badge variant="success">Recommended</Badge>
+                              <Badge variant="success">
+                                <T>Recommended</T>
+                              </Badge>
                             ) : null}
                             {choice.experimental ? (
-                              <Badge variant="outline">Experimental</Badge>
+                              <Badge variant="outline">
+                                <T>Experimental</T>
+                              </Badge>
                             ) : null}
                           </span>
                           {choice.unavailableReason !== undefined ? (
@@ -455,7 +495,10 @@ export function UseLocalModelDialog({
                             </span>
                           ) : choice.unchecked ? (
                             <span className="text-xs text-muted-foreground">
-                              Not set up on {machineLabel} yet; checked when you connect.
+                              <T>
+                                Not set up on <Var>{machineLabel}</Var> yet; checked when you
+                                connect.
+                              </T>
                             </span>
                           ) : null}
                         </span>
@@ -466,15 +509,17 @@ export function UseLocalModelDialog({
               ) : null}
               {plan !== null && selection !== null && chosenAgent !== undefined ? (
                 <p className="text-xs text-muted-foreground">
-                  On {machineLabel}:{" "}
-                  {plan.serverConfig === null
-                    ? `use the model server ${plan.serverName}`
-                    : `add the model server ${plan.serverName}`}
-                  ,{" "}
-                  {plan.instanceMutation === null
-                    ? `use ${chosenAgent.label}, already linked to it`
-                    : `link ${chosenAgent.label} to it`}
-                  , and make {selection.modelId} the default for new threads.
+                  {gt(
+                    "On {machine}: {serverAction, select, use {use the model server {server}} other {add the model server {server}}}, {agentAction, select, use {use {agent}, already linked to it} other {link {agent} to it}}, and make {model} the default for new threads.",
+                    {
+                      machine: machineLabel,
+                      serverAction: plan.serverConfig === null ? "use" : "add",
+                      server: plan.serverName,
+                      agentAction: plan.instanceMutation === null ? "use" : "link",
+                      agent: chosenAgent.label,
+                      model: selection.modelId,
+                    },
+                  )}
                 </p>
               ) : null}
             </div>
@@ -482,20 +527,24 @@ export function UseLocalModelDialog({
         </DialogPanel>
         <DialogFooter variant="bare">
           {progress.step === "done" ? (
-            <Button onClick={onClose}>Done</Button>
+            <Button onClick={onClose}>
+              <T>Done</T>
+            </Button>
           ) : (
             <>
               <Button variant="outline" disabled={busy} onClick={onClose}>
-                Cancel
+                <T>Cancel</T>
               </Button>
               <Button
                 disabled={busy || plan === null || selectedServer?.status !== "ready"}
                 onClick={() => void connect()}
               >
                 {busy ? <Spinner className="size-3.5" /> : <CpuIcon className="size-3.5" />}
-                {progress.step === "incomplete" && progress.canRetry
-                  ? "Try again"
-                  : "Use this model"}
+                {progress.step === "incomplete" && progress.canRetry ? (
+                  <T>Try again</T>
+                ) : (
+                  <T>Use this model</T>
+                )}
               </Button>
             </>
           )}
@@ -518,14 +567,22 @@ function DiscoveredServerOption({
       <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
         <span className="font-mono">{heading}</span>
         {registeredName === undefined ? null : (
-          <Badge variant="outline">Added as {registeredName}</Badge>
+          <Badge variant="outline">
+            <T>
+              Added as <Var>{registeredName}</Var>
+            </T>
+          </Badge>
         )}
-        {server.status === "needs-key" ? <Badge variant="warning">Needs an API key</Badge> : null}
+        {server.status === "needs-key" ? <Badge variant="warning">
+            <T>Needs an API key</T>
+          </Badge> : null}
       </div>
       {server.status === "needs-key" ? (
         <p className="text-xs text-muted-foreground">
-          It answered, but lists its models only with a key. Add it in Settings, Inference, with its
-          key.
+          <T>
+            It answered, but lists its models only with a key. Add it in Settings, Inference, with
+            its key.
+          </T>
         </p>
       ) : (
         server.models.map((model) => (

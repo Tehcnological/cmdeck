@@ -14,6 +14,7 @@ import {
 } from "@t3tools/client-runtime/state/inference-presentation";
 import { formatCount, formatTokens } from "@t3tools/shared/usageFormat";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
+import { T, useGT } from "gt-react-native";
 import { useState } from "react";
 import { View } from "react-native";
 
@@ -23,12 +24,6 @@ import { cn } from "../../lib/cn";
 import { inferenceAtoms, serverEnvironment } from "../../state/server";
 import { SettingsSection } from "../settings/components/SettingsSection";
 
-const WINDOW_OPTIONS = LOCAL_COMPUTE_WINDOWS.map((window) => ({
-  value: window,
-  label: window,
-  accessibilityLabel: `Past ${LOCAL_COMPUTE_WINDOW_LABELS[window]}`,
-}));
-
 /** Requests T3's gateway sent to the user's own inference servers, as on web's Usage page. */
 export function UsageLocalCompute(props: {
   readonly environments: ReadonlyArray<{
@@ -37,7 +32,13 @@ export function UsageLocalCompute(props: {
   }>;
   readonly initialWindow: InferenceUsageWindow;
 }) {
+  const gt = useGT();
   const [window, setWindow] = useState(props.initialWindow);
+  const windowOptions = LOCAL_COMPUTE_WINDOWS.map((value) => ({
+    value,
+    label: value,
+    accessibilityLabel: gt("Past {window}", { window: LOCAL_COMPUTE_WINDOW_LABELS[value] }),
+  }));
   const withServers = useAtomValue(
     inferenceAtoms.environmentsWithInferenceServersAtom(
       JSON.stringify(props.environments.map((environment) => environment.environmentId)),
@@ -51,10 +52,10 @@ export function UsageLocalCompute(props: {
     <View className="gap-3">
       <View className="flex-row items-center justify-between gap-3 px-2">
         <Text textRole="footnote" className="font-t3-medium text-foreground-muted">
-          Local compute
+          <T>Local compute</T>
         </Text>
         <SegmentedControl
-          options={WINDOW_OPTIONS}
+          options={windowOptions}
           selected={window}
           onSelect={setWindow}
           size="compact"
@@ -90,7 +91,7 @@ function EnvironmentLocalCompute(props: {
         <LocalComputeGroups environmentId={props.environmentId} window={props.window} />
       ) : (
         <Text className="p-4 text-sm text-foreground-muted">
-          This connection cannot read local compute usage.
+          <T>This connection cannot read local compute usage.</T>
         </Text>
       )}
     </SettingsSection>
@@ -101,6 +102,7 @@ function LocalComputeGroups(props: {
   readonly environmentId: EnvironmentId;
   readonly window: InferenceUsageWindow;
 }) {
+  const gt = useGT();
   const result = useAtomValue(
     inferenceAtoms.inferenceUsageAtom({
       environmentId: props.environmentId,
@@ -113,11 +115,15 @@ function LocalComputeGroups(props: {
   if (summary === null || groups.length === 0) {
     return (
       <Text className="p-4 text-center text-sm text-foreground-muted">
-        {summary !== null
-          ? `No requests through T3 in the last ${LOCAL_COMPUTE_WINDOW_LABELS[props.window]}.`
-          : result._tag === "Failure"
-            ? "This environment could not report local compute usage."
-            : "Loading…"}
+        {summary !== null ? (
+          gt("No requests through T3 in the last {window}.", {
+            window: LOCAL_COMPUTE_WINDOW_LABELS[props.window],
+          })
+        ) : result._tag === "Failure" ? (
+          <T>This environment could not report local compute usage.</T>
+        ) : (
+          <T>Loading…</T>
+        )}
       </Text>
     );
   }
@@ -151,21 +157,24 @@ function LocalComputeGroupItem(props: {
 }
 
 function Counts(props: { readonly rows: ReadonlyArray<InferenceUsageRow> }) {
+  const gt = useGT();
   const totals = sumLocalCompute(props.rows);
   return (
     <Text className="text-sm tabular-nums text-foreground-muted">
-      {`${formatCount(totals.requests)} requests `}
+      {gt("{count} requests ", { count: formatCount(totals.requests) })}
       <Text
         className={cn(
           "text-sm",
           totals.failed > 0 ? "text-warning-foreground" : "text-foreground-muted",
         )}
       >
-        {`(${formatCount(totals.failed)} failed)`}
+        {gt("({count} failed)", { count: formatCount(totals.failed) })}
       </Text>
-      {` · prompt ${formatTokens(totals.promptTokens)} · cached ${formatCachedShare(
-        localComputeCachedShare(totals),
-      )} · output ${formatTokens(totals.completionTokens)}`}
+      {gt(" · prompt {prompt} · cached {cached} · output {output}", {
+        prompt: formatTokens(totals.promptTokens),
+        cached: formatCachedShare(localComputeCachedShare(totals)),
+        output: formatTokens(totals.completionTokens),
+      })}
     </Text>
   );
 }

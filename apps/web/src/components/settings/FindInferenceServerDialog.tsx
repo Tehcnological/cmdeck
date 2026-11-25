@@ -6,8 +6,10 @@ import type {
 } from "@t3tools/contracts";
 import { RegistryContext } from "@effect/atom-react";
 import { runAtomCommand, squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
+import { msg, T, Var } from "gt-react";
 import { useContext, useEffect, useState } from "react";
 
+import { m } from "../../i18n/messages";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Badge } from "../ui/badge";
@@ -83,7 +85,7 @@ export function FindInferenceServerDialog({
         const error = squashAtomCommandFailure(result);
         setSearch({
           status: "failed",
-          message: error instanceof Error ? error.message : "The search failed.",
+          message: error instanceof Error ? error.message : m(msg("The search failed.")),
         });
         return;
       }
@@ -110,8 +112,9 @@ export function FindInferenceServerDialog({
       const error = squashAtomCommandFailure(saved);
       toastManager.add({
         type: "error",
-        title: `${name} was not moved`,
-        description: error instanceof Error ? error.message : "The settings update failed.",
+        title: m(msg("{name} was not moved", { name })),
+        description:
+          error instanceof Error ? error.message : m(msg("The settings update failed.")),
       });
       return;
     }
@@ -124,12 +127,16 @@ export function FindInferenceServerDialog({
       type: snapshot?.status === "ready" ? "success" : "warning",
       title:
         snapshot?.status === "ready"
-          ? `${name} now uses ${baseUrl}`
-          : `${name} moved to ${baseUrl}, but is not ready`,
+          ? m(msg("{name} now uses {url}", { name, url: baseUrl }))
+          : m(msg("{name} moved to {url}, but is not ready", { name, url: baseUrl })),
       description:
         snapshot?.status === "ready"
-          ? "Threads already running keep the old address until their agent session restarts."
-          : (snapshot?.message ?? "Check its address in Settings, Inference."),
+          ? m(
+              msg(
+                "Threads already running keep the old address until their agent session restarts.",
+              ),
+            )
+          : (snapshot?.message ?? m(msg("Check its address in Settings, Inference."))),
     });
     onClose();
   };
@@ -143,24 +150,52 @@ export function FindInferenceServerDialog({
     >
       <DialogPopup className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Find {name}</DialogTitle>
+          <DialogTitle>
+            <T>
+              Find <Var>{name}</Var>
+            </T>
+          </DialogTitle>
           <DialogDescription>
-            {name} does not answer at {config.baseUrl}. Looking for model servers on{" "}
-            {host ?? "its host"} that it may have moved to.
+            {host === undefined ? (
+              <T>
+                <Var>{name}</Var> does not answer at <Var>{config.baseUrl}</Var>. Looking for model
+                servers on its host that it may have moved to.
+              </T>
+            ) : (
+              <T>
+                <Var>{name}</Var> does not answer at <Var>{config.baseUrl}</Var>. Looking for model
+                servers on <Var>{host}</Var> that it may have moved to.
+              </T>
+            )}
           </DialogDescription>
         </DialogHeader>
         <DialogPanel>
           {search.status === "searching" ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
               <Spinner className="size-4" />
-              Searching {host ?? "its host"}…
+              {host === undefined ? (
+                <T>Searching its host…</T>
+              ) : (
+                <T>
+                  Searching <Var>{host}</Var>…
+                </T>
+              )}
             </p>
           ) : search.status === "failed" ? (
             <p className="text-sm text-destructive">{search.message}</p>
           ) : candidates.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Nothing else answered on {host ?? "its host"}. If you know where it moved, change its
-              address.
+              {host === undefined ? (
+                <T>
+                  Nothing else answered on its host. If you know where it moved, change its
+                  address.
+                </T>
+              ) : (
+                <T>
+                  Nothing else answered on <Var>{host}</Var>. If you know where it moved, change its
+                  address.
+                </T>
+              )}
             </p>
           ) : (
             <ul className="grid gap-2">
@@ -172,15 +207,23 @@ export function FindInferenceServerDialog({
                   <div className="grid min-w-0 gap-0.5">
                     <span className="flex flex-wrap items-center gap-1.5 font-mono text-xs">
                       {server.baseUrl}
-                      {sameModel ? <Badge variant="success">Same model</Badge> : null}
+                      {sameModel ? (
+                        <Badge variant="success">
+                          <T>Same model</T>
+                        </Badge>
+                      ) : null}
                       {server.status === "needs-key" ? (
-                        <Badge variant="outline">Uses {name}'s key</Badge>
+                        <Badge variant="outline">
+                          <T>
+                            Uses <Var>{name}</Var>'s key
+                          </T>
+                        </Badge>
                       ) : null}
                     </span>
                     <span className="truncate text-xs text-muted-foreground">
                       {[server.engine, ...server.models.map((model) => model.id)]
                         .filter(Boolean)
-                        .join(" · ") || "Lists its models only with a key"}
+                        .join(" · ") || <T>Lists its models only with a key</T>}
                     </span>
                   </div>
                   <Button
@@ -190,7 +233,7 @@ export function FindInferenceServerDialog({
                     onClick={() => void move(server.baseUrl)}
                   >
                     {moving === server.baseUrl ? <Spinner className="size-3.5" /> : null}
-                    Use this address
+                    <T>Use this address</T>
                   </Button>
                 </li>
               ))}
@@ -199,10 +242,10 @@ export function FindInferenceServerDialog({
         </DialogPanel>
         <DialogFooter variant="bare">
           <Button variant="outline" disabled={moving !== null} onClick={onChangeAddress}>
-            Change address
+            <T>Change address</T>
           </Button>
           <Button variant="ghost" disabled={moving !== null} onClick={onClose}>
-            Cancel
+            <T>Cancel</T>
           </Button>
         </DialogFooter>
       </DialogPopup>

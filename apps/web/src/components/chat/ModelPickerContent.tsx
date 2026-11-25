@@ -256,7 +256,7 @@ function ModelPickerProviderNotices({
       )}
       {offerLocalSetup ? (
         <p className="shrink-0 border-t border-border/70 px-3 py-2 text-xs leading-snug text-muted-foreground">
-          No model runs on your own hardware yet.{" "}
+          <T>No model runs on your own hardware yet.</T>{" "}
           <InlineButton
             onClick={() => {
               onRequestClose?.();
@@ -269,7 +269,7 @@ function ModelPickerProviderNotices({
               });
             }}
           >
-            Use a local model
+            <T>Use a local model</T>
           </InlineButton>
         </p>
       ) : null}

@@ -18,7 +18,7 @@ import {
 } from "@t3tools/shared/usageLimits";
 import { formatDuration, limitsNotice } from "@t3tools/shared/usageLimitsCopy";
 import { Link } from "@tanstack/react-router";
-import { msg, useGT, useLocale, useMessages } from "gt-react";
+import { msg, T, useGT, useLocale, useMessages } from "gt-react";
 import type { ReactNode } from "react";
 
 import { usePrimarySettings } from "../../hooks/useSettings";
@@ -199,19 +199,21 @@ export function ThreadDetailsLastRequest(thread: ThreadKey) {
 function LastRequestSection({ environmentId, threadId }: ThreadKey) {
   const result = useAtomValue(threadInferenceRequestAtom({ environmentId, threadId }));
   const servers = useAtomValue(serverEnvironment.inferenceServersValueAtom(environmentId));
+  const gt = useGT();
+  const m = useMessages();
   const last = AsyncResult.getOrElse(result, () => null)?.last ?? null;
   if (last === null) return null;
-  const summary = formatLastInferenceRequest(last);
+  const summary = formatLastInferenceRequest(last, m);
   const served = formatLastRequestServer(last, (id) => inferenceServerSnapshotName(servers, id));
   return (
     <ThreadDetailsSection
       headingId="thread-details-last-request-heading"
-      title="Last request"
+      title={gt("Last request")}
       showHeading={false}
     >
       <div className="grid grid-cols-[auto_minmax(3rem,1fr)_auto] gap-x-3 text-xs">
         <UsageRow
-          label="Last request"
+          label={gt("Last request")}
           fill={null}
           tone={null}
           value={formatLastRequestCompact(last)}
@@ -227,7 +229,9 @@ function LastRequestSection({ environmentId, threadId }: ThreadKey) {
                   {observation}
                 </span>
               ))}
-              <span className="text-muted-foreground">Measured by T3&apos;s gateway</span>
+              <span className="text-muted-foreground">
+                <T>Measured by T3&apos;s gateway</T>
+              </span>
             </>
           }
         />

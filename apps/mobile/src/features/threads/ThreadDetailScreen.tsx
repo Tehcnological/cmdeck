@@ -892,7 +892,10 @@ function ThreadDetailBody(
       contentPresentationKind === "ready" &&
       inferenceWait !== null
     ) {
-      return { kind: "inference-wait", label: formatThreadInferenceWait(inferenceWait) };
+      return {
+        kind: "inference-wait",
+        label: formatThreadInferenceWait(inferenceWait, messages),
+      };
     }
     if (props.selectedThread.goal !== null && contentPresentationKind === "ready") {
       const goal = presentProviderGoal(props.selectedThread.goal, false, messages);

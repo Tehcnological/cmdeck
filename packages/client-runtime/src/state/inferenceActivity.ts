@@ -1,4 +1,6 @@
 import type { InferenceServerId, InferenceServerSnapshot, ThreadId } from "@t3tools/contracts";
+import { mFallback, msg } from "gt-i18n";
+import type { MFunctionType } from "gt-i18n/types";
 
 /** A thread's request held in T3's gateway queue for a busy inference server. */
 export interface ThreadInferenceWait {
@@ -40,6 +42,14 @@ export function sameThreadInferenceWait(
 }
 
 /** "Waiting for rtx · 2 ahead"; "next" once nothing is ahead. */
-export function formatThreadInferenceWait(wait: ThreadInferenceWait): string {
-  return `Waiting for ${wait.serverName} · ${wait.ahead === 0 ? "next" : `${wait.ahead} ahead`}`;
+export function formatThreadInferenceWait(
+  wait: ThreadInferenceWait,
+  resolve: MFunctionType = mFallback,
+): string {
+  return resolve(
+    msg("Waiting for {server} · {ahead, plural, =0 {next} other {{ahead} ahead}}", {
+      server: wait.serverName,
+      ahead: wait.ahead,
+    }),
+  );
 }

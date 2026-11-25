@@ -39,6 +39,8 @@
         // e2e loads its config and the scenarios by path, and starts the app script.
         "e2e.config.ts",
         "prove-scenario.ts",
+        // release-smoke.ts runs the nightly version resolver by path.
+        "resolve-nightly-release.ts",
         "scenarios/*.ts",
         "setup-worktree.ts",
         "sign-macos.ts",
