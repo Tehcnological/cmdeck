@@ -1,5 +1,5 @@
 # Regenerates derived files the fork's developers cannot produce locally (translation catalogs,
-# formatting, brand icons) and uploads them as a patch to review and commit by hand. Runs only
+# formatting, placeholder icons) and uploads them as a patch to review and commit by hand. Runs only
 # when a pull request gets the `run-fixups` label; it never pushes, publishes or uses secrets.
 name: Fork fixups
 
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   generated:
-    name: i18n, format, Android icons
+    name: i18n, format, icons
     if: ${{ github.event.label.name == 'run-fixups' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -43,6 +43,11 @@ jobs:
       - name: Export Android icons from the SVG sources
         run: vp run icons:export:android || echo "::warning::Android icon export failed; see log"
 
+      - name: Render the placeholder mark into raster app icons
+        run: |
+          sudo apt-get install -y --no-install-recommends librsvg2-bin imagemagick >/dev/null
+          bash scripts/fork/render-placeholder-icons.sh
+
       - name: Format
         run: vp fmt
 
@@ -55,50 +60,3 @@ jobs:
         with:
           name: generated-patch
           path: generated.patch
-
-  icons:
-    name: Brand icons (Icon Composer)
-    if: ${{ github.event.label.name == 'run-fixups' }}
-    runs-on: macos-26
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
-        with:
-          sparse-checkout: |
-            /*
-            !/.repos/
-            !/apps/mobile/modules/t3-terminal/Vendor/**/*.a
-          sparse-checkout-cone-mode: false
-
-      - name: Setup Vite+
-        uses: ./.github/actions/setup-ci-deps
-        with:
-          install: "false"
-
-      - name: Install dependencies
-        run: vp install --frozen-lockfile
-
-      # The design file needs Icon Composer 2.x (Xcode 26+); pick the newest Xcode that ships it.
-      - name: Find Icon Composer
-        run: |
-          ls -d /Applications/Xcode*.app || true
-          tool=$(ls -d /Applications/Xcode*.app/Contents/Applications/Icon\ Composer.app/Contents/Executables/ictool 2>/dev/null | sort -V | tail -1)
-          echo "ictool: ${tool:-none}"
-          if [ -n "$tool" ]; then
-            echo "ICON_COMPOSER_TOOL=$tool" >> "$GITHUB_ENV"
-            echo "DEVELOPER_DIR=${tool%%.app/*}.app/Contents/Developer" >> "$GITHUB_ENV"
-          fi
-
-      - name: Export brand icons
-        run: vp run icons:export
-
-      - name: Upload patch
-        if: always()
-        run: git add -A && git diff --cached --binary > icons.patch && git diff --cached --stat | tail -40
-
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always()
-        with:
-          name: icons-patch
-          path: icons.patch

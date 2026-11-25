@@ -6,12 +6,11 @@
 > `T3Wordmark` components, `T3AppIcon`, the DMG backgrounds, the mobile widget mark and the
 > Android notification mark.
 >
-> **Still showing T3 art until regenerated** (needs `vp run icons:export` on a Mac with Icon
-> Composer, plus the manual macOS export below, then `scripts/export-android-icons.ts` for
-> Android): every PNG/ICO in `dev/`, `nightly/` and `prod/` (iOS, macOS, universal/Linux,
-> Windows `.ico`, web favicons, apple-touch and 192/512 icons), their copies in
-> `apps/web/public/`, and `apps/mobile/assets/android-*` icons and splash images. Desktop
-> `.icns`/`.ico` files are built from these at packaging time, so they follow once regenerated.
+> **Raster icons** (every PNG/ICO in `dev/`, `nightly/`, `prod/` and their copies in
+> `apps/web/public/`) are rendered from `prod/logo.svg` by `scripts/fork/render-placeholder-icons.sh`
+> (run by the label-triggered Fork fixups workflow), because `vp run icons:export` needs Icon
+> Composer 2, which CI runners don't have. Android icons come from `vp run icons:export:android`.
+> Once CMDeck has a real logo, replace the SVG sources and rerun the fixups workflow.
 
 The three Icon Composer projects are the source of truth for full application icons:
 
