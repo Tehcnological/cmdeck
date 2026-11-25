@@ -272,14 +272,15 @@ const INSTALL_HINTS = [
     login: "`origin auth login`",
   }),
   msg(
-    "Install {fj} 0.6 or later from {fjUrl} and run {fjLogin}, or install {tea} 0.16 or later from {teaUrl} and run {teaLogin} for each Forgejo or Gitea server.",
+    "Install {fj} 0.6 or later from {fjUrl} and run {fjLogin}, or install {gt} from {gtUrl} (or {tea} 0.16 or later) and run {gtLogin} for each Forgejo or Gitea server.",
     {
       fj: "`fj`",
       fjUrl: "https://codeberg.org/forgejo-contrib/forgejo-cli",
       fjLogin: "`fj --host <server-url> auth add-token`",
+      gt: "`gt`",
+      gtUrl: "https://gitea.com/gitea/cli",
       tea: "`tea`",
-      teaUrl: "https://gitea.com/gitea/tea",
-      teaLogin: "`tea login add`",
+      gtLogin: "`gt auth login`",
     },
   ),
   msg(
