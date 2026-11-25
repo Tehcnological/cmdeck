@@ -34,7 +34,7 @@ export class DesktopUninstall extends Context.Service<
   }
 >()("@t3tools/desktop/app/DesktopUninstall") {}
 
-export const make = Effect.gen(function* () {
+const make = Effect.gen(function* () {
   const environment = yield* DesktopEnvironment.DesktopEnvironment;
   const backendPool = yield* DesktopBackendPool.DesktopBackendPool;
   const shutdown = yield* DesktopShutdown.DesktopShutdown;
