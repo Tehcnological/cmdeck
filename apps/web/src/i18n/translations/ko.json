@@ -2298,7 +2298,17 @@
   "c65de112b48a66ed": "페어링 링크 추가",
   "bc8ab792af1d656f": "컴퓨터에서 실행:",
   "0ba14e4e920cfa00": "또는 데스크톱 앱 다운로드",
-  "0e79b7a6508a6286": "그다음",
+  "81eea5b8a22292d2": [
+    "CMDeck publishes no hosted builds. Install the CMDeck CLI from your own mirror of CMDeck builds, as the",
+    " ",
+    {
+      "t": "a",
+      "i": 1,
+      "c": "install guide"
+    },
+    " ",
+    "explains. Then run:"
+  ],
   "363b9991fa23d36b": [
     "이미 ",
     {
@@ -9782,14 +9792,14 @@
   "8f01f72ab87d0628": "토큰",
   "b9911856d562838b": "{count, plural, one {{count} token} other {{count} tokens}}",
   "a4adf78b7f1aa5c3": "Setup guide",
-  "cdf89f9df92ea7e5": [
+  "6e6bb515cfe255f8": [
     "Run your own Cloudflare Tunnel to this machine with ",
     {
       "t": "code",
       "i": 1,
       "c": "cloudflared"
     },
-    ", put a Cloudflare Access application in front of its hostname, then enter the hostname here. Pairing links and webhook addresses use it. CMDeck does not start the tunnel or sign in to Cloudflare."
+    ", put a Cloudflare Access application in front of its hostname, then enter the hostname here. Webhook and MCP addresses use it, and pairing links offer it when you pick it. CMDeck does not start the tunnel or sign in to Cloudflare."
   ],
   "76db9558ba4e8c8d": "Tunnel address",
   "4f113bb0bc732b3d": "Clear",
@@ -10473,6 +10483,7 @@
   "08fcdecfd4fd11ec": "스레드 제목과 기타 생성 텍스트에 사용됩니다. 소스 제어는 별도 설정이 있습니다. 제공자의 텍스트 생성기도 여기에 표시됩니다.",
   "6c72064a8b709f24": "텍스트 생성 모델 기본값으로 재설정",
   "6560b4e16da91b06": "텍스트 생성 모델이 저장되지 않았습니다",
+  "c0cbe23e3eef4089": "Where background writing goes when its model cannot run. Set to Local models only automatically, because a local model is set up; pick another to change it.",
   "f90e37b98363f617": "Where background writing goes when its model cannot run. Local models only never sends it to a cloud provider you did not choose.",
   "aa82206d3f6f721f": "Reset text generation fallback",
   "c8378abe60e1b20c": "Fallback",
