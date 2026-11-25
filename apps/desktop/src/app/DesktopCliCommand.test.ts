@@ -116,6 +116,9 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       expect(installed.launcherPath).toBe(path.join(home, ".t3", "bin", "t3"));
       expect(installed.pathSetup).toEqual({ file: "~/.zshrc", added: false });
       expect(yield* fs.readLink(link)).toBe(path.join(home, ".t3", "bin", "t3"));
+      const cmdeckLink = path.join(home, ".local", "bin", "cmdeck");
+      expect(yield* fs.readLink(cmdeckLink)).toBe(path.join(home, ".t3", "bin", "cmdeck"));
+      expect(yield* fs.readFileString(cmdeckLink)).toContain(DesktopCliShim.MARKER);
       expect((yield* command.install).installedPath).toBe(link);
 
       // Add to PATH appends one line, once, and keeps a final line with no newline intact.
@@ -134,6 +137,7 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
 
       expect((yield* command.uninstall).installedPath).toBeNull();
       expect(yield* fs.exists(link)).toBe(false);
+      expect(yield* fs.exists(cmdeckLink)).toBe(false);
       expect(yield* fs.exists(path.join(home, ".t3", "bin", "t3"))).toBe(true);
       // Removed stays removed: first launch never installs again.
       yield* command.installOnFirstLaunch;
@@ -176,11 +180,23 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       yield* fs.makeDirectory(path.join(home, "bin"), { recursive: true });
       yield* fs.symlink(path.join(home, "gone"), path.join(home, "bin", "t3"));
 
+      // No room for t3, but `cmdeck` still links.
+      const cmdeckLink = path.join(home, ".local", "bin", "cmdeck");
+      expect((yield* command.install).installedPath).toBeNull();
+      expect(yield* fs.readLink(cmdeckLink)).toBe(path.join(home, ".t3", "bin", "cmdeck"));
+      yield* command.uninstall;
+      expect(yield* fs.exists(cmdeckLink)).toBe(false);
+      expect(yield* fs.readFileString(theirs)).toBe("npm's t3\n");
+      expect(yield* fs.readLink(path.join(home, "bin", "t3"))).toBe(path.join(home, "gone"));
+      // With a `cmdeck` it did not create there too, nothing is linked.
+      yield* fs.writeFileString(cmdeckLink, "their cmdeck\n");
+      yield* fs.writeFileString(path.join(home, "bin", "cmdeck"), "their cmdeck\n");
       const error = yield* Effect.flip(command.install);
       expect(error.message).toContain("Another t3 command is already in");
       yield* command.uninstall;
-      expect(yield* fs.readFileString(theirs)).toBe("npm's t3\n");
-      expect(yield* fs.readLink(path.join(home, "bin", "t3"))).toBe(path.join(home, "gone"));
+      expect(yield* fs.readFileString(cmdeckLink)).toBe("their cmdeck\n");
+      yield* fs.remove(cmdeckLink);
+      yield* fs.remove(path.join(home, "bin", "cmdeck"));
 
       // A fresh install beside someone else's t3 (even off PATH or a dangling link) adds no second
       // t3 in ~/bin.
@@ -228,13 +244,16 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       expect((yield* after.state).pathSetup).toBeUndefined();
       yield* Effect.flip(after.addToPath);
       expect(yield* fs.exists(path.join(home, ".zshrc"))).toBe(false);
-      // Behind another t3 the install fails, and the old link still works.
+      // Behind another t3 only `cmdeck` is linked, and the old t3 link still works.
       const shadow = path.join(home, "shadow");
       yield* fs.makeDirectory(shadow);
       yield* fs.writeFileString(path.join(shadow, "t3"), "#!/bin/sh\n", { mode: 0o755 });
       env.PATH = shadow;
-      yield* Effect.flip(after.install);
+      expect((yield* after.install).installedPath).toBeNull();
       expect(yield* fs.readLink(link!)).toBe(path.join(home, "old-t3", "bin", "t3"));
+      expect(yield* fs.readLink(path.join(home, ".local", "bin", "cmdeck"))).toBe(
+        path.join(home, "new-t3", "bin", "cmdeck"),
+      );
       // Install takes it over, also with its folder first on PATH.
       env.PATH = path.dirname(link!);
       expect((yield* after.install).installedPath).toBe(link);
@@ -262,7 +281,7 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
     }),
   );
 
-  it.effect("refuses to install behind another t3 that runs first", () =>
+  it.effect("links only cmdeck behind another t3 that runs first", () =>
     Effect.gen(function* () {
       const env: NodeJS.ProcessEnv = { PATH: "", SHELL: "/bin/zsh" };
       const fs = yield* FileSystem.FileSystem;
@@ -276,8 +295,10 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       const command = yield* commandIn({ home, env });
       const theirs = path.join(shadow, "t3");
       expect((yield* command.state).shadowedBy).toBe(theirs);
-      const error = yield* Effect.flip(command.install);
-      expect(error.message).toContain(theirs);
+      expect(yield* command.install).toMatchObject({ installedPath: null, shadowedBy: theirs });
+      expect(yield* fs.readLink(path.join(home, ".local", "bin", "cmdeck"))).toBe(
+        path.join(home, ".t3", "bin", "cmdeck"),
+      );
       yield* command.installOnFirstLaunch;
       expect(yield* fs.exists(path.join(home, ".local", "bin", "t3"))).toBe(false);
       expect(yield* fs.readFileString(theirs)).toBe("#!/bin/sh\n");
@@ -335,8 +356,7 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
         const command = yield* commandIn({ home, env });
         expect((yield* command.state).shadowedBy).toBe(path.join(shadow, "t3"));
 
-        const error = yield* Effect.flip(command.install);
-        expect(error.message).toContain(path.join(shadow, "t3"));
+        expect((yield* command.install).installedPath).toBeNull();
 
         yield* fs.remove(shadow, { recursive: true });
         expect(yield* command.install).toMatchObject({
@@ -394,6 +414,10 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       ).replace(/[\\/]t3\.cmd$/, "");
       yield* command.install;
       expect(registry.path).toBe(`${userPath};${launcherDir}`);
+      // `cmdeck.cmd` sits beside `t3.cmd`, so the same PATH entry runs both.
+      expect(yield* fs.readFileString(`${launcherDir}/cmdeck.cmd`)).toContain(
+        DesktopCliShim.MARKER,
+      );
       yield* command.uninstall;
       expect(registry.path).toBe(userPath);
 

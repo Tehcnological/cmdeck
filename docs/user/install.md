@@ -86,14 +86,16 @@ app from a CMDeck checkout instead
 
 ### The `t3` command
 
-The desktop app includes the `t3` command-line tool. A new install sets it up
-on first launch; after an update, or any time, choose **Install** next to
-**t3 command** in **Settings → About**. On macOS and Linux it adds a `t3` link
-in `~/.local/bin` (or `~/bin`); on Windows it adds the app's command folder to
-your `PATH`. Open a new terminal afterwards. If the folder is not on your
-`PATH`, **Add to PATH** on the Welcome page or in **Settings → About** adds one
-line to your shell's startup file. **Remove** takes it off, and the app does not
-add it again. If you already have another `t3`, it stays as it is.
+The desktop app includes the command-line tool as both `cmdeck` and `t3`. A new
+install sets it up on first launch; after an update, or any time, choose
+**Install** next to **t3 command** in **Settings → About**. On macOS and Linux
+it adds `cmdeck` and `t3` links in `~/.local/bin` (or `~/bin`); on Windows it
+adds the app's command folder, which holds both, to your `PATH`. Open a new
+terminal afterwards. If the folder is not on your `PATH`, **Add to PATH** on the
+Welcome page or in **Settings → About** adds one line to your shell's startup
+file. **Remove** takes them off, and the app does not add them again. If you
+already have another `t3`, such as the official T3 Code's, it stays as it is and
+runs first; use `cmdeck` for CMDeck.
 
 ### Windows Subsystem for Linux
 

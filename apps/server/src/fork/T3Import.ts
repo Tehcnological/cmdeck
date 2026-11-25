@@ -239,10 +239,19 @@ const countThreads = (databasePath: string): number | undefined => {
 const snapshotDatabase = (sourcePath: string, snapshotPath: string) => {
   const db = new NodeSqlite.DatabaseSync(sourcePath, { readOnly: true, timeout: 5_000 });
   try {
-    db.exec("PRAGMA auto_vacuum = INCREMENTAL");
     db.prepare("VACUUM INTO ?").run(snapshotPath);
   } finally {
     db.close();
+  }
+  // Setting auto_vacuum on a database that already has it is a write, which the read-only source
+  // refuses (T3 Code's own database does). Convert only the copy, and only when it needs it.
+  const copy = new NodeSqlite.DatabaseSync(snapshotPath);
+  try {
+    if (Number(copy.prepare("PRAGMA auto_vacuum").get()?.auto_vacuum) !== 2) {
+      copy.exec("PRAGMA auto_vacuum = INCREMENTAL; VACUUM");
+    }
+  } finally {
+    copy.close();
   }
 };
 
@@ -568,8 +577,9 @@ export const importOfferIssues = Effect.fn("T3Import.importOfferIssues")(functio
   }
   const issue: ServerConfigIssue = {
     kind: "fork.import-available",
-    message: `CMDeck can import the threads, projects and settings T3 Code keeps in ${source}. Quit CMDeck, run the command (add --dry-run first to see what it copies), then start CMDeck again. Devices paired with T3 Code, including the T3 Code iPhone app, must pair with CMDeck again.`,
-    command: `cmdeck import-from-t3 --base-dir "${config.baseDir}"`,
+    message: `CMDeck can import the threads, projects and settings T3 Code keeps in ${source}. Quit CMDeck, run the command (add --dry-run first to see what it copies), then start CMDeck again. --force moves what CMDeck created on its first start to a backup folder. Devices paired with T3 Code, including the T3 Code iPhone app, must pair with CMDeck again.`,
+    // Starting CMDeck already wrote its data folder, so without --force the import always refuses.
+    command: `cmdeck import-from-t3 --base-dir "${config.baseDir}" --force`,
   };
   return [issue];
 });

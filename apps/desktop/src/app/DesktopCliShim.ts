@@ -137,20 +137,27 @@ export const renderCliShim = (input: {
   ].join("\n");
 };
 
-export const launcherPath = (environment: DesktopEnvironment.DesktopEnvironment["Service"]) =>
+const commandPath = (environment: DesktopEnvironment.DesktopEnvironment["Service"], name: string) =>
   environment.path.join(
     environment.baseDir,
     "bin",
-    environment.platform === "win32" ? "t3.cmd" : "t3",
+    environment.platform === "win32" ? `${name}.cmd` : name,
   );
 
-export const install = Effect.gen(function* () {
-  const environment = yield* DesktopEnvironment.DesktopEnvironment;
-  if (!environment.isPackaged) return Option.none<string>();
+export const launcherPath = (environment: DesktopEnvironment.DesktopEnvironment["Service"]) =>
+  commandPath(environment, "t3");
+
+/** `cmdeck` runs the same CLI; it cannot clash with the official T3 Code's `t3`. */
+export const cmdeckLauncherPath = (environment: DesktopEnvironment.DesktopEnvironment["Service"]) =>
+  commandPath(environment, "cmdeck");
+
+const writeLauncher = Effect.fn("DesktopCliShim.writeLauncher")(function* (
+  environment: DesktopEnvironment.DesktopEnvironment["Service"],
+  shimPath: string,
+) {
   const fs = yield* FileSystem.FileSystem;
   const path = environment.path;
   const windows = environment.platform === "win32";
-  const shimPath = launcherPath(environment);
   const entry = path.join(environment.serverRoot, SERVER_ENTRY);
   const target: CliShimTarget = windows
     ? { kind: "windows", executable: process.execPath, entry }
@@ -167,7 +174,7 @@ export const install = Effect.gen(function* () {
   return yield* Effect.gen(function* () {
     const existing = yield* fs.readFileString(shimPath).pipe(Effect.option);
     if (Option.isSome(existing) && !existing.value.includes(MARKER)) {
-      yield* logWarning("leaving a t3 launcher the app did not write", { shimPath });
+      yield* logWarning("leaving a launcher the app did not write", { shimPath });
       return Option.none<string>();
     }
     if (Option.getOrUndefined(existing) !== content) {
@@ -176,15 +183,23 @@ export const install = Effect.gen(function* () {
       const staging = `${shimPath}.${process.pid}.${yield* Random.nextIntBetween(0, 0xffffff)}.tmp`;
       yield* fs.writeFileString(staging, content, { mode: 0o755 });
       yield* fs.rename(staging, shimPath);
-      yield* logInfo("installed t3 launcher", { shimPath });
+      yield* logInfo("installed launcher", { shimPath });
     }
     return Option.some(shimPath);
   }).pipe(
     Effect.catchCause((cause) =>
-      logWarning("could not install t3 launcher", { shimPath, cause: Cause.pretty(cause) }).pipe(
+      logWarning("could not install launcher", { shimPath, cause: Cause.pretty(cause) }).pipe(
         Effect.as(Option.none<string>()),
       ),
     ),
     Effect.withSpan("desktop.cliShim.install"),
   );
+});
+
+/** Writes the `t3` and `cmdeck` launchers; returns the `t3` one, which the app's own CLI uses. */
+export const install = Effect.gen(function* () {
+  const environment = yield* DesktopEnvironment.DesktopEnvironment;
+  if (!environment.isPackaged) return Option.none<string>();
+  yield* writeLauncher(environment, cmdeckLauncherPath(environment));
+  return yield* writeLauncher(environment, launcherPath(environment));
 });
