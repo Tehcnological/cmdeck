@@ -394,7 +394,7 @@
   "071ab90b0e0f5e76": "Сжатие…",
   "2fb1845862c9a087": "Автоматически сжато до истечения кеша",
   "552d31d19f1df851": "Контекст сжат перед отправкой",
-  "543616d5412f1255": "Reach this environment over Tailscale or your own Cloudflare Tunnel to call it.",
+  "99f0bb37b724e3d2": "Add your Cloudflare Tunnel's address under Settings, Sharing & access, or reach this environment over Tailscale, to call it.",
   "00a9e41504f84e87": "Only this computer can call this address. Use your own Cloudflare Tunnel for a public URL.",
   "692e19ea08714e68": "Works wherever this environment's address is reachable, for example over Tailscale or your own Cloudflare Tunnel.",
   "3669395daf36fd33": "Больше не зарегистрирован на этом сервере",

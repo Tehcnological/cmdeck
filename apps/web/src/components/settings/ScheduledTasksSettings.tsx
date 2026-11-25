@@ -1177,11 +1177,11 @@ function WebhookEndpointField({
       </p>
     );
   }
-  const { address: url, copyable, note } = webhookAddress(
-    endpoint,
-    externalBaseUrl(publicBaseUrl, httpBaseUrl),
-    messages,
-  );
+  const {
+    address: url,
+    copyable,
+    note,
+  } = webhookAddress(endpoint, externalBaseUrl(publicBaseUrl, httpBaseUrl), messages);
   const rotateUrl = async () => {
     const confirmed =
       (await requestConfirmDialog(

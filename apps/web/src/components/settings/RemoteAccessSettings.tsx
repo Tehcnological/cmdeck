@@ -208,9 +208,7 @@ export function RemoteMcpTokenCreator({
   create,
   onDone,
 }: {
-  readonly create: (
-    input: RemoteMcpTokenCreateInput,
-  ) => Promise<RemoteMcpTokenCreateResult | null>;
+  readonly create: (input: RemoteMcpTokenCreateInput) => Promise<RemoteMcpTokenCreateResult | null>;
   readonly onDone: () => void;
 }) {
   const gt = useGT();
