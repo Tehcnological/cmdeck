@@ -54,18 +54,9 @@ jobs:
         with:
           install: "false"
 
-      # Not frozen: dependency removals in this fork refresh the lockfile here, and the
-      # refreshed lockfile is uploaded so it can be reviewed and committed.
       - name: Install dependencies
         id: install
-        run: vp install --no-frozen-lockfile
-
-      - name: Upload lockfile
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: pnpm-lock
-          path: pnpm-lock.yaml
+        run: vp install --frozen-lockfile
 
       - name: Typecheck
         run: |
