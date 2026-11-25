@@ -188,10 +188,15 @@ jobs:
               sys.stdout.write(line.encode("ascii", "backslashreplace").decode("ascii"))
           '
 
+  # Sharded: one Chromium session for all ~670 browser files crashes on stock runners.
   test-web:
-    name: Web tests
+    name: Web tests (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -218,14 +223,9 @@ jobs:
             node apps/web/node_modules/playwright/cli.js install-deps chromium
           fi
 
-      # Run on their own first so a crash elsewhere can't hide their assertion output.
-      - name: Test Sidebar and DiffPanel browser suites
-        working-directory: apps/web
-        run: vp test run --project browser src/components/Sidebar.browser.test.tsx src/components/DiffPanel.browser.test.tsx
-
       - name: Test
-        if: ${{ !cancelled() }}
-        run: vp run --filter @t3tools/web test
+        working-directory: apps/web
+        run: vp test run --passWithNoTests --project unit --project browser --shard ${{ matrix.shard }}/3
 
   test-server:
     name: Server tests (full suite)
