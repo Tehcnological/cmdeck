@@ -446,16 +446,18 @@ const make = Effect.gen(function* () {
     let upstreamHttpStatus: number | null = null;
     let failureSignal: InferenceDiagnostics.InferenceSignal = "unknown";
     let progressed = false;
-    const meter = makeUsageMeter(
-      protocol!,
-      prepared.streaming,
-      watching
-        ? (channel, text) => {
-            progressed = true;
-            pendingStop ??= watchdog.onDelta(channel, text);
-          }
-        : undefined,
-    );
+    const createMeter = () =>
+      makeUsageMeter(
+        protocol!,
+        prepared.streaming,
+        watching
+          ? (channel, text) => {
+              progressed = true;
+              pendingStop ??= watchdog.onDelta(channel, text);
+            }
+          : undefined,
+      );
+    let meter = createMeter();
     const stopSignal = yield* Deferred.make<WatchdogReason>();
     // "finished" once the reply has ended on its own, so a late idle tick cannot stop it.
     const stoppedFor = yield* Ref.make<WatchdogReason | "finished" | undefined>(undefined);
@@ -576,9 +578,9 @@ const make = Effect.gen(function* () {
     let retryBody = prepared.body;
     let retried = false;
     let bufferedReply: Uint8Array | undefined;
-    // A mutable copy: a bounded retry appends its next attempt, which this loop then reaches.
     const targets = [...plan.success];
-    for (const [index, target] of targets.entries()) {
+    for (let index = 0; index < targets.length; index += 1) {
+      const target = targets[index]!;
       const next = targets[index + 1];
       if (next !== undefined && !target.ready) continue;
       yield* Ref.set(served, { serverId: target.serverId, fallbackFrom: target.fallbackFrom });
@@ -624,7 +626,7 @@ const make = Effect.gen(function* () {
           }
           const raw = new Uint8Array(buffered.success);
           meter.push(raw);
-          meter.finish();
+          const attemptUsage = meter.finish();
           if (raw.length > 1024 * 1024) {
             bufferedReply = raw;
             break;
@@ -641,8 +643,9 @@ const make = Effect.gen(function* () {
           }
           yield* Scope.close(attempt, Exit.void);
           const completedAt = yield* Clock.currentTimeMillis;
+          const attemptRequestId = yield* random.uuidV4();
           yield* requestLog.record({
-            requestId,
+            requestId: attemptRequestId,
             serverId: target.serverId,
             model: prepared.model,
             threadId: caller.threadId ?? null,
@@ -659,10 +662,10 @@ const make = Effect.gen(function* () {
             decodeMs: null,
             durationMs: completedAt - receivedAt,
             upstreamHttpStatus,
-            ...meter.finish(),
+            ...attemptUsage,
           });
-          const nextTarget = { ...target, index: index + 1, ready: true };
-          targets.push(nextTarget);
+          targets.splice(index + 1, 0, { ...target, ready: true });
+          meter = createMeter();
           retryBody = nextBody;
           retried = true;
           continue;
@@ -690,7 +693,6 @@ const make = Effect.gen(function* () {
       yield* finish("failed");
       return errorResponse(502, "upstream_error", "The inference server answered with a redirect.");
     }
-    upstreamHttpStatus = upstream.status;
     const succeeded = upstream.status < 400;
     if (watching && succeeded) {
       yield* Ref.set(lastProgressAt, (yield* Ref.get(milestones)).dispatchedAt ?? receivedAt);
@@ -710,13 +712,12 @@ const make = Effect.gen(function* () {
       bufferedReply === undefined ? upstream.stream : Stream.make(bufferedReply);
     const body = upstreamStream.pipe(
       // Untraced per chunk: the request span already covers the stream.
-      Stream.tap((chunk) => {
-        const moved = progressed;
-        progressed = false;
-
-        return Effect.gen(function* () {
+      Stream.tap((chunk) =>
+        Effect.gen(function* () {
           if (bufferedReply !== undefined) return;
+          progressed = false;
           const first = meter.push(chunk);
+          const moved = progressed;
           const reason = pendingStop;
           if (first || moved) {
             const now = yield* Clock.currentTimeMillis;
@@ -725,8 +726,8 @@ const make = Effect.gen(function* () {
             yield* Ref.set(lastProgressAt, now);
           }
           if (reason !== undefined) yield* stopFor(reason);
-        });
-      }),
+        }),
+      ),
       (stream) =>
         watching ? stream.pipe(Stream.interruptWhen(Deferred.await(stopSignal))) : stream,
       (stream) => {
@@ -754,7 +755,7 @@ const make = Effect.gen(function* () {
         Ref.get(stoppedFor).pipe(
           Effect.flatMap((reason) =>
             reason !== undefined && reason !== "finished"
-              ? recordStop(reason).pipe(Effect.andThen(finish("failed")))
+              ? recordStop(reason).pipe(Effect.andThen(finish("failed", "watchdog", reason)))
               : finish(
                   Exit.isSuccess(exit)
                     ? succeeded

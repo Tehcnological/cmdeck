@@ -5,12 +5,22 @@ import * as Effect from "effect/Effect";
 
 import { expandHomeVariable } from "./pathExpansion.ts";
 
+const TELEMETRY_OPT_OUT_ENV: Readonly<Record<string, string>> = {
+  DO_NOT_TRACK: "1",
+  DISABLE_TELEMETRY: "1",
+  DISABLE_ERROR_REPORTING: "1",
+  OPENCODE_DISABLE_TELEMETRY: "1",
+};
+
 export const mergeProviderInstanceEnvironment = Effect.fn(function* (
   environment: ProviderInstanceEnvironment | undefined,
-  baseEnv: NodeJS.ProcessEnv = process.env,
+  baseEnv?: NodeJS.ProcessEnv,
 ) {
   // Commands the agent runs inherit this env; the AppImage mount's libraries would shadow the system's.
-  const hostEnv = stripAppImageRuntimeEnv(baseEnv);
+  // Agents run without telemetry unless the user's own environment says otherwise.
+  const hostEnv = stripAppImageRuntimeEnv(
+    baseEnv === undefined ? { ...TELEMETRY_OPT_OUT_ENV, ...process.env } : baseEnv,
+  );
   if (!environment || environment.length === 0) {
     return hostEnv;
   }
