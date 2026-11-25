@@ -257,5 +257,8 @@ jobs:
             node apps/server/node_modules/playwright-core/cli.js install-deps chromium
           fi
 
+      # Upstream's test:cached passes every test file in one env var, which exceeds Linux's
+      # argument limit (E2BIG) on stock runners.
       - name: Test
-        run: vp run test:cached -- --concurrency 2
+        working-directory: apps/server
+        run: vp test run --maxWorkers 2
