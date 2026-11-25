@@ -35,6 +35,7 @@ import {
 import { desktopUpdateChannelOf } from "@t3tools/shared/cliRelease";
 import { createModelSelection, pickModelSelection } from "@t3tools/shared/model";
 import { resolvePastedPath } from "@t3tools/shared/path";
+import { effectiveTextGenerationFallback } from "@t3tools/shared/serverSettings";
 import * as Equal from "effect/Equal";
 import * as Schema from "effect/Schema";
 import { APP_VERSION, HOSTED_APP_CHANNEL, HOSTED_APP_CHANNEL_LABEL } from "../../branding";
@@ -2334,24 +2335,27 @@ export function ThreadsSettingsPanel() {
           serverScoped
           settingKeys={["textGenerationFallback"]}
           {...setting("text-generation-fallback")}
-          description={gt(
-            "Where background writing goes when its model cannot run. Local models only never sends it to a cloud provider you did not choose.",
-          )}
+          description={
+            settings.textGenerationFallback === undefined &&
+            effectiveTextGenerationFallback(settings) === "local"
+              ? gt(
+                  "Where background writing goes when its model cannot run. Set to Local models only automatically, because a local model is set up; pick another to change it.",
+                )
+              : gt(
+                  "Where background writing goes when its model cannot run. Local models only never sends it to a cloud provider you did not choose.",
+                )
+          }
           resetAction={
-            settings.textGenerationFallback !== DEFAULT_UNIFIED_SETTINGS.textGenerationFallback ? (
+            settings.textGenerationFallback !== undefined ? (
               <SettingResetButton
                 ariaLabel={gt("Reset text generation fallback")}
-                onClick={() =>
-                  updateSettings({
-                    textGenerationFallback: DEFAULT_UNIFIED_SETTINGS.textGenerationFallback,
-                  })
-                }
+                onClick={() => updateSettings({ textGenerationFallback: null })}
               />
             ) : null
           }
           control={
             <Select
-              value={settings.textGenerationFallback}
+              value={effectiveTextGenerationFallback(settings)}
               onValueChange={(value) => {
                 if (value === "local" || value === "any" || value === "none") {
                   updateSettings({ textGenerationFallback: value });

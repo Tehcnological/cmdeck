@@ -1,5 +1,6 @@
 import {
   DEFAULT_SERVER_SETTINGS,
+  InferenceServerId,
   ProjectId,
   ProviderDriverKind,
   ProviderInstanceId,
@@ -14,7 +15,7 @@ import {
   resolveSendEnvMode,
   resolveWorktreeCleanup,
 } from "./projectSettings.ts";
-import { applyServerSettingsPatch } from "./serverSettings.ts";
+import { applyServerSettingsPatch, effectiveTextGenerationFallback } from "./serverSettings.ts";
 
 const projectId = ProjectId.make("project-a");
 const otherProjectId = ProjectId.make("project-b");
@@ -135,6 +136,36 @@ describe("resolveProjectSettings", () => {
     expect(
       resolveProjectSettings(settings, projectId).settings.textGenerationModelSelection,
     ).toEqual(settings.textGenerationModelSelection);
+  });
+
+  it("keeps text generation local by default once a model server is registered", () => {
+    const codex = ProviderInstanceId.make("codex");
+    const settings = {
+      ...DEFAULT_SERVER_SETTINGS,
+      inferenceServers: {
+        [InferenceServerId.make("rtx")]: {
+          baseUrl: "http://rtx:8080/v1",
+          apiKey: "",
+          enabled: true,
+        },
+      },
+      textGenerationModelSelection: createModelSelection(codex, "gpt-5"),
+      projectSettingsOverrides: {
+        [projectId]: { providerInstances: { [codex]: { enabled: false } } },
+      },
+    };
+    expect(effectiveTextGenerationFallback(DEFAULT_SERVER_SETTINGS)).toBe("any");
+    expect(effectiveTextGenerationFallback(settings)).toBe("local");
+    expect(
+      resolveProjectSettings(settings, projectId).settings.textGenerationModelSelection,
+    ).toEqual(settings.textGenerationModelSelection);
+
+    // A policy the user picked wins, and resetting it restores the automatic one.
+    const picked = applyServerSettingsPatch(settings, { textGenerationFallback: "any" });
+    expect(effectiveTextGenerationFallback(picked)).toBe("any");
+    const reset = applyServerSettingsPatch(picked, { textGenerationFallback: null });
+    expect("textGenerationFallback" in reset).toBe(false);
+    expect(effectiveTextGenerationFallback(reset)).toBe("local");
   });
 
   // regression: #17556 a hidden project default silently became the catalog's first model

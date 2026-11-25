@@ -16,7 +16,10 @@ import {
 } from "@t3tools/contracts";
 import { readCustomModelEntries } from "./model.ts";
 import { normalizeProjectPathForComparison } from "./path.ts";
-import { fallbackTextGenerationModelSelection } from "./serverSettings.ts";
+import {
+  effectiveTextGenerationFallback,
+  fallbackTextGenerationModelSelection,
+} from "./serverSettings.ts";
 
 export type ProjectSettingSource = "environment" | "project" | "t3.json";
 
@@ -175,7 +178,7 @@ function resolveProjectOverrides(
       {
         includeConfiguredInstances: true,
         defaultModelSelection: effective.defaultModelSelection as ModelSelection | null,
-        policy: settings.textGenerationFallback,
+        policy: effectiveTextGenerationFallback(settings),
         inferenceServers: settings.inferenceServers,
       },
     );

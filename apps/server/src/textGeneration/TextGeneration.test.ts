@@ -1,5 +1,6 @@
 import {
   DEFAULT_SERVER_SETTINGS,
+  InferenceServerId,
   ProviderDriverKind,
   ProviderInstanceId,
   type ModelSelection,
@@ -205,6 +206,22 @@ describe("TextGeneration local-first routing", () => {
         expect(error.message).toContain("No local model is ready");
         expect(fixture.calls).toEqual([]);
       }
+    });
+  });
+
+  it.effect("keeps background writing local by default once a model server is registered", () => {
+    const fixture = setup({
+      providers: [snapshot(codex, "codex", ["gpt-6-luna"])],
+      settings: {
+        inferenceServers: {
+          [InferenceServerId.make("rtx")]: { baseUrl: "http://rtx:8080/v1", enabled: true },
+        },
+      },
+    });
+    return Effect.gen(function* () {
+      const error = yield* Effect.flip(fixture.commit(builtIn));
+      expect(error.message).toContain("No local model is ready");
+      expect(fixture.calls).toEqual([]);
     });
   });
 

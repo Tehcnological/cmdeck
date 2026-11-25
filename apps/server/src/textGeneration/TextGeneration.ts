@@ -15,6 +15,7 @@ import {
 import * as DateTime from "effect/DateTime";
 import { exhaustedUsageWindow } from "@t3tools/shared/usageLimits";
 import {
+  effectiveTextGenerationFallback,
   fallbackTextGenerationModelSelection,
   isImplicitTextGenerationSelection,
   localTextGenerationModelSelection,
@@ -136,8 +137,9 @@ export const make = Effect.gen(function* () {
       isProviderTextGenerationCapable(provider) &&
       (operation !== "generateReviewGuide" || INVESTIGATING_DRIVERS.has(provider.driver)) &&
       !exhaustedUsageWindow(provider, now, model);
+    const fallbackPolicy = effectiveTextGenerationFallback(settings);
     // "Local models only" holds even before any instance is marked local.
-    const localPolicy = settings.textGenerationFallback === "local";
+    const localPolicy = fallbackPolicy === "local";
     const noLocalModel = new TextGenerationError({
       operation,
       detail:
@@ -193,13 +195,13 @@ export const make = Effect.gen(function* () {
           {
             includeConfiguredInstances: true,
             defaultModelSelection: settings.defaultModelSelection,
-            policy: settings.textGenerationFallback,
+            policy: fallbackPolicy,
             inferenceServers: settings.inferenceServers,
           },
         );
       // Local first; then another instance; the rejected instance's other models only when none qualifies.
       const fallback =
-        settings.textGenerationFallback === "none"
+        fallbackPolicy === "none"
           ? null
           : (localTextGenerationModelSelection(snapshots, (provider) =>
               usable(provider, "", false),

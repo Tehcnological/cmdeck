@@ -10,6 +10,7 @@ import {
   type ServerProvider,
   type ServerSettings,
 } from "@t3tools/contracts";
+import { effectiveTextGenerationFallback } from "@t3tools/shared/serverSettings";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
@@ -234,10 +235,11 @@ export function linkedModelSlug(
 
 /** Where background writing will go, in the words the completion summary uses. */
 export function describeBackgroundWriting(
-  settings: Pick<ServerSettings, "textGenerationFallback" | "textGenerationModelSelectionExplicit">,
+  settings: Parameters<typeof effectiveTextGenerationFallback>[0] &
+    Pick<ServerSettings, "textGenerationModelSelectionExplicit">,
 ): string {
   if (settings.textGenerationModelSelectionExplicit) return "the model you chose for it";
-  return settings.textGenerationFallback === "any"
+  return effectiveTextGenerationFallback(settings) === "any"
     ? "local models first, then any provider"
     : "local models";
 }

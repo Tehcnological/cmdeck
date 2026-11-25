@@ -64,6 +64,28 @@ const TEXT_GENERATION_FALLBACK_DRIVERS = [
   "antigravity",
 ].map((driver) => ProviderDriverKind.make(driver));
 
+/**
+ * The fallback policy background writing follows. Until the user picks one, it stays on local
+ * models once one is set up (a registered model server, or a local text generation instance), so
+ * an outage never sends titles or commit messages to a cloud provider unasked.
+ */
+export function effectiveTextGenerationFallback(
+  settings: Pick<
+    ServerSettings,
+    | "textGenerationFallback"
+    | "inferenceServers"
+    | "providerInstances"
+    | "textGenerationModelSelection"
+  >,
+): TextGenerationFallback {
+  if (settings.textGenerationFallback !== undefined) return settings.textGenerationFallback;
+  const selected = settings.providerInstances[settings.textGenerationModelSelection.instanceId];
+  return Object.keys(settings.inferenceServers).length > 0 ||
+    isLocalProviderInstance(selected, settings.inferenceServers)
+    ? "local"
+    : "any";
+}
+
 /** Configured instances come after every default instance, so they only win when no default qualifies. */
 export function fallbackTextGenerationModelSelection(
   providerInstances: ServerSettings["providerInstances"],
@@ -450,6 +472,8 @@ export function applyServerSettingsPatch(
     projectAgentBrowserAccessOverrides: _legacyBrowserAccess,
     projectAutoPullOverrides: _legacyAutoPull,
     projectScriptOverrides: _legacyScripts,
+    // `null` removes the key, which deepMerge cannot.
+    textGenerationFallback: textGenerationFallbackPatch,
     ...patchForMerge
   } = patch;
   const currentBackgroundActivity = normalizeServerBackgroundActivitySettings(current);
@@ -698,13 +722,21 @@ export function applyServerSettingsPatch(
   const resolvedBackgroundActivity = resolveBackgroundActivitySettings(
     normalizedBackgroundActivity,
   );
-  const nextWithReplacements = {
+  const { textGenerationFallback: currentFallback, ...nextWithoutFallback } = {
     ...withIdleCompaction(nextWithReplacementsBase, patchedIdleCompaction(current, patch)),
     ...deriveLegacyProjectOverrides(nextWithReplacementsBase),
     backgroundActivity: normalizedBackgroundActivity,
     automaticGitFetchInterval: resolvedBackgroundActivity.automaticGitFetchInterval,
     providerHealthRefreshInterval: resolvedBackgroundActivity.providerHealthRefreshInterval,
     backgroundActivityProfile: resolvedBackgroundActivity.profile,
+  };
+  const fallbackPolicy =
+    textGenerationFallbackPatch === undefined ? currentFallback : textGenerationFallbackPatch;
+  const nextWithReplacements = {
+    ...nextWithoutFallback,
+    ...(fallbackPolicy === null || fallbackPolicy === undefined
+      ? {}
+      : { textGenerationFallback: fallbackPolicy }),
   };
   if (!selectionPatch) {
     return nextWithReplacements;

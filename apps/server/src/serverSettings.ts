@@ -52,6 +52,7 @@ import { fromJsonStringPretty, fromLenientJson } from "@t3tools/shared/schemaJso
 import {
   applyServerSettingsPatch,
   deriveLegacyProjectOverrides,
+  effectiveTextGenerationFallback,
   fallbackTextGenerationModelSelection,
   isModelSelectionProviderEnabled,
 } from "@t3tools/shared/serverSettings";
@@ -590,7 +591,7 @@ function fallbackTextGenerationProvider(
       ),
     {
       defaultModelSelection: settings.defaultModelSelection,
-      policy: settings.textGenerationFallback,
+      policy: effectiveTextGenerationFallback(settings),
       inferenceServers: settings.inferenceServers,
     },
   );

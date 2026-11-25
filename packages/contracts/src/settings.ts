@@ -1605,9 +1605,8 @@ export const ServerSettings = Schema.Struct({
   textGenerationModelSelectionExplicit: Schema.Boolean.pipe(
     Schema.withDecodingDefault(Effect.succeed(false)),
   ),
-  textGenerationFallback: TextGenerationFallback.pipe(
-    Schema.withDecodingDefault(Effect.succeed("any" as const)),
-  ),
+  /** Absent until the user picks one; `effectiveTextGenerationFallback` resolves it then. */
+  textGenerationFallback: Schema.optionalKey(TextGenerationFallback),
   threadTitleInstructions: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
   branchNamingMode: BranchNamingMode.pipe(
     Schema.withDecodingDefault(Effect.succeed("static" as const)),
@@ -2012,7 +2011,8 @@ export const ServerSettingsPatch = Schema.Struct({
   addProjectBaseDirectory: Schema.optionalKey(TrimmedString),
   ghqCloneLayout: Schema.optionalKey(Schema.Boolean),
   textGenerationModelSelection: Schema.optionalKey(ModelSelectionPatch),
-  textGenerationFallback: Schema.optionalKey(TextGenerationFallback),
+  /** `null` drops the user's pick and restores the automatic policy. */
+  textGenerationFallback: Schema.optionalKey(Schema.NullOr(TextGenerationFallback)),
   /** Omitted with a selection means the user picked it; resets send false to restore automatic. */
   textGenerationModelSelectionExplicit: Schema.optionalKey(Schema.Boolean),
   threadTitleInstructions: Schema.optionalKey(TrimmedString),

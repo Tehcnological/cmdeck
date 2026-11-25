@@ -257,10 +257,14 @@ Marked instances:
 **Settings → Threads → Text generation fallback** decides where background writing
 goes when its model cannot run:
 
-- **Any provider** (default): local instances first, then any signed-in provider.
+- **Any provider**: local instances first, then any signed-in provider.
 - **Local models only**: another ready local instance, or an error. Your
   diffs and messages never move to a cloud provider on their own.
 - **Don't fall back**: report the error.
+
+Until you pick one, CMDeck uses **Local models only** once you register a model server
+or your text generation model is a local instance, and **Any provider** otherwise. The
+setting shows which one applies and why; reset it to go back to the automatic choice.
 
 The fallback never replaces a model you selected that is working. With **Local
 models only** and no local model set up yet, background writing pauses: threads keep
