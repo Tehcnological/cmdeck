@@ -182,7 +182,7 @@ export function isImplicitTextGenerationSelection(
   return !chosen.some((candidate) => sameSelection(candidate, selection));
 }
 
-export function defaultTextGenerationModel(driver: ProviderDriverKind): string {
+function defaultTextGenerationModel(driver: ProviderDriverKind): string {
   return (
     DEFAULT_TEXT_GENERATION_MODEL_BY_PROVIDER[driver] ??
     DEFAULT_MODEL_BY_PROVIDER[driver] ??

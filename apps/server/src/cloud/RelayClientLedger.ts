@@ -247,12 +247,3 @@ export const layer = (input: { readonly stateDir: string }) =>
       return RelayClientLedger.of({ track: ledger.track });
     }),
   );
-
-export const layerTest = Layer.succeed(
-  RelayClientLedger,
-  RelayClientLedger.of({
-    track: Effect.fn("RelayClientLedger.track")(function () {
-      return Effect.succeed(Effect.void);
-    }),
-  }),
-);

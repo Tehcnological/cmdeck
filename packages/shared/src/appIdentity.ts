@@ -15,11 +15,9 @@ export const UPSTREAM_HOME_ENV = "T3CODE_HOME";
 
 export const DESKTOP_APP_ID = "com.tehcnological.cmdeck";
 export const DESKTOP_DEV_APP_ID = "com.tehcnological.cmdeck.dev";
-export const UPSTREAM_DESKTOP_APP_ID = "com.t3tools.t3code";
 /** Electron profile folders under the OS app-data directory. */
 export const DESKTOP_USER_DATA_DIR_NAME = "cmdeck";
 export const DESKTOP_DEV_USER_DATA_DIR_NAME = "cmdeck-dev";
-export const UPSTREAM_DESKTOP_USER_DATA_DIR_NAME = "t3code-v2";
 
 /** systemd unit, Task Scheduler task and folder stem of the background service. */
 export const SERVICE_NAME = "cmdeck";
