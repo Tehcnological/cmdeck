@@ -24,22 +24,18 @@ Besides the traffic you or your tools create, these are the outbound calls CMDec
 - **Provider traffic**: your prompts, replies, and file context go to the model providers you
   configure (Anthropic, OpenAI, and so on), under their own privacy policies. In a Codex thread,
   `/feedback` uploads that conversation and Codex logs to OpenAI, only when you send it.
-- **T3 Connect**: when you link environments, traffic rides a Cloudflare tunnel (`cloudflared` on
-  your machine) through the T3 Connect relay. The relay sets up the link; it does not proxy your
-  HTTP or WebSocket sessions.
-- **Agent activity for mobile notifications**: when **Publish agent activity** is on under
-  **Settings > Sharing & access**, the host sends project and thread titles, model names, activity
-  status, and environment and thread identifiers to the T3 Connect relay for
-  [mobile notifications and live activities](./mobile-notifications.md). Turn it off there.
-- **Model catalog updates** from `raw.githubusercontent.com` (the CMDeck repository), about once
-  an hour while provider status is checked, and again after a provider update or a model cache
-  refresh. **Provider update checks** also look up newer provider CLI versions on the npm registry.
-  Turn both off with **Settings > Maintenance > Provider update checks**; new models may then not
-  appear until you update CMDeck.
+- **Model catalog updates**: `model-manifest.json` from the CMDeck repository
+  (`raw.githubusercontent.com/Tehcnological/cmdeck`), which receives T3 Code's catalog through
+  upstream merges. It is fetched about once an hour while provider status is checked, and again
+  after a provider update or a model cache refresh. **Provider update checks** also look up newer
+  provider CLI versions on the npm registry. Turn both off with **Settings > Maintenance > Provider
+  update checks**; new models may then not appear until you update CMDeck.
 - **Model prices** from LiteLLM's public price table on `raw.githubusercontent.com` (falling back
   to `api.github.com`), at most once a day, when you open **Usage**. Prices are cached on disk.
   There is no switch; if you never open Usage, it is never fetched.
-- **CMDeck release lookups** on the npm registry (or your configured npm registry) when you open
-  the dialog to switch update tracks.
-- **Desktop app updates**: packaged desktop builds with an update feed check it 15 seconds after
-  start and every 4 minutes. Set `T3CODE_DISABLE_AUTO_UPDATE=1` to turn this off.
+- **Server update checks in the mobile app**: when you check a server for updates, the mobile app
+  looks up the newest release on T3 Code's GitHub releases page (`github.com`, then
+  `api.github.com` if needed). CMDeck installs updates only from a build mirror you configure.
+
+CMDeck does not use T3 Connect or its relay, does not look up its own releases on the npm
+registry, and its desktop builds have no update feed to check.
