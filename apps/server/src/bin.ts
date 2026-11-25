@@ -6,6 +6,7 @@ import * as NodeSea from "node:sea";
 import * as NodeURL from "node:url";
 
 import { applyAppHomeEnv, ignoredOfficialHomeWarning } from "@t3tools/shared/appIdentity";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 
 import { isEntrypoint } from "./entrypoint.ts";
 
@@ -50,7 +51,7 @@ if (
   process.stderr.on("error", ignoreOutputError);
   const ignoredHome = applyAppHomeEnv(process.env, {
     homeDir: NodeOS.homedir(),
-    platform: process.platform,
+    platform: HostProcess.Platform.defaultValue(),
     resolve: (path) => NodePath.resolve(path),
   });
   if (ignoredHome !== undefined) {

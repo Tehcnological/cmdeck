@@ -6,7 +6,7 @@ for (const stream of [process.stdout, process.stderr]) {
 }
 const ignoredHome = applyAppHomeEnv(process.env, {
   homeDir: NodeOS.homedir(),
-  platform: process.platform,
+  platform: HostProcess.Platform.defaultValue(),
   resolve: (path) => NodePath.resolve(path),
 });
 if (ignoredHome !== undefined) process.stderr.write(`${ignoredOfficialHomeWarning(ignoredHome)}\n`);
