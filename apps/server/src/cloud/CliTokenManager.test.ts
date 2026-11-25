@@ -72,7 +72,11 @@ it.effect("refuses device sign-in before contacting Clerk", () => {
       assert.instanceOf(error, Config.ConfigError);
       assert.deepEqual(urls, []);
     }),
-    Effect.provide(Layer.succeed(HttpClient.HttpClient, recordingClient(urls))),
-    Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env: TEST_ENV }))),
+    Effect.provide(
+      Layer.mergeAll(
+        Layer.succeed(HttpClient.HttpClient, recordingClient(urls)),
+        ConfigProvider.layer(ConfigProvider.fromEnv({ env: TEST_ENV })),
+      ),
+    ),
   );
 });
