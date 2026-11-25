@@ -97,7 +97,8 @@ jobs:
 
   linux-x64:
     name: Linux x64 AppImage and deb
-    runs-on: ubuntu-latest
+    # Natives compiled here must stay within the build's glibc 2.39 ceiling (Ubuntu 24.04).
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - name: Checkout
