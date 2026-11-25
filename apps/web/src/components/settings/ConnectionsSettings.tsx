@@ -791,18 +791,25 @@ function ConnectionsSettingsContent({
     if (confirmed === true) await removeSavedBackend(environment);
   };
 
-  // T3 Connect devices waiting for approval have their own list.
+  // Devices waiting for approval have their own list.
   const visibleDesktopPairingLinks = desktopPairingLinks.filter(
-    (pairingLink) => pairingLink.connectDeviceRequest === undefined,
+    (pairingLink) =>
+      pairingLink.connectDeviceRequest === undefined && pairingLink.pairingRequest === undefined,
   );
   const connectDeviceRequests = desktopPairingLinks.filter(
     (pairingLink) => pairingLink.connectDeviceRequest !== undefined,
+  );
+  const pairingRequests = desktopPairingLinks.filter(
+    (pairingLink) => pairingLink.pairingRequest !== undefined,
   );
   // Older servers omit the list; they cannot hold devices for approval.
   const connectDevices =
     authAccessChanges.data?.type === "snapshot"
       ? (authAccessChanges.data.payload.connectDevices ?? null)
       : null;
+  const showDeviceApproval =
+    pairingRequests.length > 0 ||
+    (connectDevices !== null && (connectDeviceRequests.length > 0 || connectDevices.length > 0));
   const updateAccessSettings = useUpdateEnvironmentSettings(accessEnvironmentId);
   const [pendingConnectRevoke, setPendingConnectRevoke] =
     useState<ConnectDeviceRevokeRequest | null>(null);
@@ -1426,6 +1433,24 @@ function ConnectionsSettingsContent({
                 }
               />
             ) : null}
+            {accessServerConfig?.settings.requireConnectDeviceApproval === undefined ? null : (
+              <SettingsRow
+                title={searchableSetting("connect-device-approval").title}
+                description={gt(
+                  "A device that pairs with a pairing link waits until someone already connected here approves it. This machine's desktop app, sessions issued on the host, and agent app codes skip the wait.",
+                )}
+                control={
+                  <Switch
+                    checked={accessServerConfig.settings.requireConnectDeviceApproval}
+                    disabled={!canWriteAccess}
+                    aria-label={gt("Require approval for new devices")}
+                    onCheckedChange={(enabled) =>
+                      void updateAccessSettings({ requireConnectDeviceApproval: enabled })
+                    }
+                  />
+                }
+              />
+            )}
             {accessServerConfig?.environment.capabilities.previewTunnelSetting ? (
               <SettingsRow
                 title={searchableSetting("preview-tunnel").title}
@@ -1513,13 +1538,12 @@ function ConnectionsSettingsContent({
               </ScrollArea>
             </FoldedSettingsSection>
           ) : null}
-          {canReadAccess &&
-          connectDevices !== null &&
-          (connectDeviceRequests.length > 0 || connectDevices.length > 0) ? (
+          {canReadAccess && showDeviceApproval ? (
             <ConnectDeviceApprovalSettings
               environmentId={accessEnvironmentId}
               requests={connectDeviceRequests}
-              devices={connectDevices}
+              pairingRequests={pairingRequests}
+              devices={connectDevices ?? []}
               canWrite={canWriteAccess}
               requestRevoke={requestConnectRevoke}
             />

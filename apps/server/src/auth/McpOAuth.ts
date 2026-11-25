@@ -273,6 +273,10 @@ const make = Effect.gen(function* () {
     Effect.map((settings) => settings.linkedEnvironmentsEnabled),
     Effect.orElseSucceed(() => false),
   );
+  const requirePairingApproval = serverSettings.getSettings.pipe(
+    Effect.map((settings) => settings.requireConnectDeviceApproval),
+    Effect.orElseSucceed(() => true),
+  );
   const signer = yield* PayloadSigner.fromSecret(
     yield* secretStore.getOrCreateRandom(SIGNING_SECRET_NAME, 32).pipe(Effect.orDie),
   );
@@ -483,8 +487,22 @@ const make = Effect.gen(function* () {
           description: "Linking needs a plain pairing code, not an app approval code.",
         });
       }
+      const clientName = input.authorization.client.name.trim();
+      const pairingApproval = (yield* requirePairingApproval)
+        ? {
+            client: deriveAuthClientMetadata({
+              request: input.request,
+              presented: { deviceType: "bot", ...(clientName ? { label: clientName } : {}) },
+            }),
+          }
+        : undefined;
       access = yield* environmentAuth
-        .consumeMcpApprovalCode(decision.code, decision.access, input.authorization.client.peerLink)
+        .consumeMcpApprovalCode(
+          decision.code,
+          decision.access,
+          input.authorization.client.peerLink,
+          pairingApproval,
+        )
         .pipe(
           Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (cause) =>
             Effect.logError("MCP approval code check failed.", { cause }).pipe(

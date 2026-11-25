@@ -35,12 +35,30 @@ revoked. Pair those devices again over one of the routes above.
 
 ### Approve new devices
 
-**Require approval for new devices** is on by default. It holds back devices
-that arrive with a credential the host did not hand out itself, which in this
-build means none, since T3 Connect is removed. Direct pairing does not wait for a
-second approval: creating the pairing link on the host is the approval, so the
-official iPhone app pairs over Tailscale as before. Create a fresh pairing link
-for each device, keep links private, and revoke devices you no longer use.
+**Require approval for new devices** is on by default. A device that redeems a
+pairing link, by scanning its QR code, opening its URL, or entering its code on
+an outside agent's sign-in page, waits until someone approves it. Clients
+already connected with access management show the request as a notification and
+in **Settings → Sharing & access**, with the device's name, what it may do, and
+when it asked. After you approve, pair the device again with the same link
+within 10 minutes; until then the CMDeck and official T3 apps say the device is
+waiting for approval on the host. **Deny** revokes the link, and so does
+leaving a request unanswered for 10 minutes.
+
+On a host without a desktop app, answer from its shell:
+
+```bash
+t3 auth pairing list-pending
+t3 auth pairing approve <id>
+t3 auth pairing deny <id>
+```
+
+These never wait: this machine's desktop app, sessions from
+`t3 auth session issue`, the link `t3 serve` prints when it starts, app approval
+and link codes created for an outside agent or linked environment, and
+[remote MCP tokens](./remote-mcp.md). Turn the setting off to pair at once.
+Create a fresh pairing link for each device, keep links private, and revoke
+devices you no longer use.
 
 `t3 auth connect-device list` and `t3 auth connect-device revoke <code>` still
 show and revoke devices that were approved through T3 Connect earlier.

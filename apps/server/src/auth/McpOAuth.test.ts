@@ -59,6 +59,7 @@ const notLinked: EnvironmentCloudLinkStateResult = {
 const makeLayerRoutes = (
   capture: (auth: EnvironmentAuth.EnvironmentAuth["Service"]) => void,
   linkState: EnvironmentCloudLinkStateResult,
+  requireConnectDeviceApproval = false,
 ) =>
   Layer.mergeAll(
     Layer.effectDiscard(
@@ -69,7 +70,6 @@ const makeLayerRoutes = (
       Layer.provide(
         McpOAuthHttp.layer.pipe(
           Layer.provide(McpOAuth.layer),
-          Layer.provide(ServerSettings.layerTest({ linkedEnvironmentsEnabled: true })),
           Layer.provide(
             Layer.mock(CloudLink.CloudLink)({ linkState: () => Effect.succeed(linkState) }),
           ),
@@ -77,6 +77,12 @@ const makeLayerRoutes = (
       ),
       Layer.provide(AuthHttp.layerAuthenticatedAuth),
       Layer.provide(ServerHttp.layerApiBodyLimit),
+      Layer.provide(
+        ServerSettings.layerTest({
+          linkedEnvironmentsEnabled: true,
+          requireConnectDeviceApproval,
+        }),
+      ),
     ),
   ).pipe(
     Layer.provideMerge(layerEnvironmentAuth),
@@ -112,14 +118,19 @@ type Handler = (request: Request) => Effect.Effect<Response>;
 const withRoutes = <A, E>(
   use: (handler: Handler, auth: EnvironmentAuth.EnvironmentAuth["Service"]) => Effect.Effect<A, E>,
   linkState = notLinked,
+  requireConnectDeviceApproval = false,
 ) =>
   Effect.gen(function* () {
     const random = yield* SecureRandom.SecureRandom;
     const context = Context.make(SecureRandom.SecureRandom, random);
     let routerAuth: EnvironmentAuth.EnvironmentAuth["Service"] | undefined;
-    const layerRoutes = makeLayerRoutes((auth) => {
-      routerAuth = auth;
-    }, linkState);
+    const layerRoutes = makeLayerRoutes(
+      (auth) => {
+        routerAuth = auth;
+      },
+      linkState,
+      requireConnectDeviceApproval,
+    );
     return yield* Effect.acquireUseRelease(
       Effect.sync(() => HttpRouter.toWebHandler(layerRoutes, { disableLogger: true })),
       (web) =>
@@ -345,6 +356,32 @@ it.effect("registers loopback and https clients and never redirects for an unver
       expect(forgedDetails.status).toBe(400);
       expect(yield* json<Record<string, unknown>>(forgedDetails)).not.toHaveProperty("redirectTo");
     }),
+  ),
+);
+
+it.live("holds a plain pairing code until someone approves the agent's sign-in", () =>
+  withRoutes(
+    (handler, auth) =>
+      Effect.gen(function* () {
+        const clientId = yield* registeredClientId(handler);
+        const pairing = yield* auth.issuePairingCredential();
+        const params = authorizeParams(clientId);
+        const decision = { _tag: "pairing-code", access: "auto", code: pairing.credential };
+
+        const waiting = yield* decide(handler, params, decision);
+        expect(waiting.status).toBe(400);
+        expect(waiting.message).toContain("waiting for approval");
+        const links = yield* auth.listPairingLinks();
+        const request = links.find((link) => link.id === pairing.id)?.pairingRequest;
+        expect(request?.client).toMatchObject({ label: "Claude Code", deviceType: "bot" });
+
+        expect(yield* auth.approveConnectDevice(pairing.id)).toBe(true);
+        const approved = yield* decide(handler, params, decision);
+        expect(approved.status).toBe(200);
+        expect(approved.redirectTo).toContain("code=");
+      }),
+    notLinked,
+    true,
   ),
 );
 

@@ -3,10 +3,13 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
   authScopeResponse,
   AuthAdministrativeClientScopes,
+  AuthStandardClientScopes,
   connectDeviceVerificationCode,
 } from "@t3tools/contracts";
+import { encodeOAuthScope } from "@t3tools/shared/oauthScope";
 import { expect, it } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
@@ -1199,6 +1202,154 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodePlatformCrypto.layer))(
         if (replayed._tag === "ServerAuthInvalidCredentialError") {
           expect(replayed.dpopFailureReason).toBe("replay");
         }
+      }).pipe(
+        Effect.provide(layerEnvironmentAuth({ desktopBootstrapToken: "desktop-bootstrap-token" })),
+      ),
+    );
+
+    it.effect("holds a direct pairing link until approved and pairs only the asking device", () =>
+      Effect.gen(function* () {
+        const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
+        const pairing = yield* serverAuth.issuePairingCredential();
+        const phone = makeDpopKey();
+        const other = makeDpopKey();
+        const exchange = (proofKeyThumbprint: string) =>
+          serverAuth.exchangeBootstrapCredentialForAccessToken(
+            pairing.credential,
+            undefined,
+            requestMetadata,
+            { proofKeyThumbprint, requirePairingApproval: true },
+          );
+
+        for (const attempt of [phone, phone, other]) {
+          const held = yield* exchange(attempt.thumbprint).pipe(Effect.flip);
+          expect(held._tag).toBe("ServerAuthConnectApprovalPendingError");
+        }
+        const links = yield* serverAuth.listPairingLinks();
+        const waiting = links.find((link) => link.id === pairing.id);
+        // Only the first device's description sticks.
+        expect(waiting?.pairingRequest?.client).toEqual(requestMetadata);
+        expect(waiting).toMatchObject(authScopeResponse(AuthStandardClientScopes));
+
+        expect(yield* serverAuth.approveConnectDevice(pairing.id)).toBe(true);
+        const afterApproval = yield* serverAuth.listPairingLinks();
+        expect(afterApproval.map((link) => link.id)).not.toContain(pairing.id);
+        const stranger = yield* exchange(other.thumbprint).pipe(Effect.flip);
+        expect(stranger._tag).toBe("ServerAuthInvalidCredentialError");
+
+        const token = yield* exchange(phone.thumbprint);
+        expect(token.token_type).toBe("DPoP");
+        expect(token.scope).toBe(encodeOAuthScope(AuthStandardClientScopes));
+        const spent = yield* exchange(phone.thumbprint).pipe(Effect.flip);
+        expect(spent._tag).toBe("ServerAuthInvalidCredentialError");
+      }).pipe(Effect.provide(layerEnvironmentAuth())),
+    );
+
+    it.effect("revokes the link of a waiting browser that is denied", () =>
+      Effect.gen(function* () {
+        const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
+        const pairing = yield* serverAuth.issuePairingCredential();
+        const redeem = serverAuth.createBrowserSession(
+          pairing.credential,
+          requestMetadata,
+          undefined,
+          { requirePairingApproval: true },
+        );
+
+        const held = yield* redeem.pipe(Effect.flip);
+        expect(held._tag).toBe("ServerAuthConnectApprovalPendingError");
+        expect(yield* serverAuth.revokePairingLink(pairing.id)).toBe(true);
+        expect(yield* serverAuth.approveConnectDevice(pairing.id)).toBe(false);
+        const denied = yield* redeem.pipe(Effect.flip);
+        expect(denied._tag).toBe("ServerAuthInvalidCredentialError");
+      }).pipe(Effect.provide(layerEnvironmentAuth())),
+    );
+
+    it.effect("denies a request nobody answers in time, even on a long-lived link", () =>
+      Effect.gen(function* () {
+        const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
+        const pairing = yield* serverAuth.createPairingLink({ ttl: Duration.hours(1) });
+        const redeem = (requirePairingApproval: boolean) =>
+          serverAuth.exchangeBootstrapCredentialForAccessToken(
+            pairing.credential,
+            undefined,
+            requestMetadata,
+            { requirePairingApproval },
+          );
+
+        const held = yield* redeem(true).pipe(Effect.flip);
+        expect(held._tag).toBe("ServerAuthConnectApprovalPendingError");
+        yield* TestClock.adjust("11 minutes");
+        const links = yield* serverAuth.listPairingLinks();
+        expect(links.map((link) => link.id)).not.toContain(pairing.id);
+        expect(yield* serverAuth.approveConnectDevice(pairing.id)).toBe(false);
+        // Expiry denied the request, so turning approval off does not bring the link back.
+        const denied = yield* redeem(false).pipe(Effect.flip);
+        expect(denied._tag).toBe("ServerAuthInvalidCredentialError");
+        const revoked = yield* redeem(true).pipe(Effect.flip);
+        expect(revoked._tag).toBe("ServerAuthInvalidCredentialError");
+      }).pipe(Effect.provide(layerEnvironmentAuth())),
+    );
+
+    it.effect("pairs at once with approval off", () =>
+      Effect.gen(function* () {
+        const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
+        const pairing = yield* serverAuth.issuePairingCredential();
+        const session = yield* serverAuth.createBrowserSession(
+          pairing.credential,
+          requestMetadata,
+          undefined,
+          { requirePairingApproval: false },
+        );
+        expect(session.response.authenticated).toBe(true);
+      }).pipe(Effect.provide(layerEnvironmentAuth())),
+    );
+
+    it.effect("holds plain agent sign-in codes, not purpose-bound or host credentials", () =>
+      Effect.gen(function* () {
+        const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
+        const approval = { client: { deviceType: "bot" as const, label: "Claude Code" } };
+
+        const plain = yield* serverAuth.issuePairingCredential();
+        for (const peerLink of [false, true]) {
+          const held = yield* serverAuth
+            .consumeMcpApprovalCode(plain.credential, "auto", peerLink, approval)
+            .pipe(Effect.flip);
+          expect(held).toMatchObject({ reason: "approval_pending" });
+        }
+        const links = yield* serverAuth.listPairingLinks();
+        const waiting = links.find((link) => link.id === plain.id);
+        expect(waiting?.pairingRequest?.client).toEqual(approval.client);
+
+        const appCode = yield* serverAuth.issuePairingCredential({ access: "auto" });
+        expect(
+          yield* serverAuth.consumeMcpApprovalCode(appCode.credential, "auto", false, approval),
+        ).toBe("auto");
+        const peerCode = yield* serverAuth.issuePairingCredential({
+          access: "auto",
+          purpose: "peer-link",
+        });
+        expect(
+          yield* serverAuth.consumeMcpApprovalCode(peerCode.credential, "auto", true, approval),
+        ).toBe("auto");
+
+        const desktop = yield* serverAuth.exchangeBootstrapCredentialForAccessToken(
+          "desktop-bootstrap-token",
+          undefined,
+          requestMetadata,
+          { requirePairingApproval: true },
+        );
+        expect(desktop.access_token).not.toBe("");
+        const startup = yield* serverAuth.issueStartupPairingCredential();
+        const startupSession = yield* serverAuth.createBrowserSession(
+          startup.credential,
+          requestMetadata,
+          undefined,
+          { requirePairingApproval: true },
+        );
+        expect(startupSession.response.authenticated).toBe(true);
+        const issued = yield* serverAuth.issueSession();
+        expect(issued.token).not.toBe("");
       }).pipe(
         Effect.provide(layerEnvironmentAuth({ desktopBootstrapToken: "desktop-bootstrap-token" })),
       ),

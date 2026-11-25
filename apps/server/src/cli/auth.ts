@@ -22,6 +22,7 @@ import {
   formatIssuedPairingCredential,
   formatIssuedSession,
   formatPairingCredentialList,
+  formatPairingRequestList,
   formatSessionList,
 } from "../cliAuthFormat.ts";
 import * as ServerConfig from "../config.ts";
@@ -187,9 +188,89 @@ const pairingRevokeCommand = Command.make("revoke", {
   ),
 );
 
+const pairingListPendingCommand = Command.make("list-pending", {
+  ...authLocationFlags,
+  json: jsonFlag,
+}).pipe(
+  Command.withDescription("List devices waiting for approval to pair with a pairing token."),
+  Command.withHandler((flags) =>
+    runWithEnvironmentAuth(
+      flags,
+      (environmentAuth) =>
+        Effect.gen(function* () {
+          const pairingLinks = yield* environmentAuth.listPairingLinks();
+          yield* Console.log(formatPairingRequestList(pairingLinks, { json: flags.json }));
+        }),
+      { quietLogs: flags.json },
+    ),
+  ),
+);
+
+const pendingIdArgument = Argument.String("id").pipe(
+  Argument.withDescription("Pairing credential id of the waiting device, from `list-pending`."),
+  Argument.withSchema(AuthRevokePairingLinkInput.fields.id),
+);
+
+const pairingApproveCommand = Command.make("approve", {
+  ...authLocationFlags,
+  id: pendingIdArgument,
+}).pipe(
+  Command.withDescription("Let the device waiting on a pairing token pair."),
+  Command.withHandler((flags) =>
+    runWithEnvironmentAuth(flags, (environmentAuth) =>
+      Effect.gen(function* () {
+        const approved = yield* changeAccess({
+          viaServer: (client) =>
+            client.auth
+              .approveConnectDevice({ headers: {}, payload: { pairingLinkId: flags.id } })
+              .pipe(Effect.map((result) => result.approved)),
+          locally: environmentAuth.approveConnectDevice(flags.id),
+        });
+        yield* Console.log(
+          approved
+            ? `Approved ${flags.id}. The device pairs on its next try.\n`
+            : `No device is waiting for approval on ${flags.id}.\n`,
+        );
+      }),
+    ),
+  ),
+);
+
+const pairingDenyCommand = Command.make("deny", {
+  ...authLocationFlags,
+  id: pendingIdArgument,
+}).pipe(
+  Command.withDescription("Refuse the device waiting on a pairing token and revoke the token."),
+  Command.withHandler((flags) =>
+    runWithEnvironmentAuth(flags, (environmentAuth) =>
+      Effect.gen(function* () {
+        const denied = yield* changeAccess({
+          viaServer: (client) =>
+            client.auth
+              .revokePairingLink({ headers: {}, payload: { id: flags.id } })
+              .pipe(Effect.map((result) => result.revoked)),
+          locally: environmentAuth.revokePairingLink(flags.id),
+        });
+        yield* Console.log(
+          denied
+            ? `Denied ${flags.id} and revoked its pairing token.\n`
+            : `No active pairing credential found for ${flags.id}.\n`,
+        );
+      }),
+    ),
+  ),
+);
+
 const pairingCommand = Command.make("pairing").pipe(
-  Command.withDescription("Manage one-time client pairing tokens."),
-  Command.withSubcommands([pairingCreateCommand, pairingListCommand, pairingRevokeCommand]),
+  Command.withDescription("Manage one-time client pairing tokens and the devices waiting on them."),
+  Command.withSubcommands([
+    pairingCreateCommand,
+    pairingListCommand,
+    pairingRevokeCommand,
+    pairingListPendingCommand,
+    pairingApproveCommand,
+    pairingDenyCommand,
+  ]),
 );
 
 const connectDeviceListCommand = Command.make("list", {

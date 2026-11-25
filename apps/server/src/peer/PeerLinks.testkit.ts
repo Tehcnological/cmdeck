@@ -65,7 +65,12 @@ export const descriptorOf = (
 export const layerEnvironmentAuth = (prefix: string) =>
   EnvironmentAuth.layer.pipe(
     Layer.provideMerge(ManagedPolicy.layerTest()),
-    Layer.provideMerge(ServerSettings.layerTest({ linkedEnvironmentsEnabled: true })),
+    Layer.provideMerge(
+      ServerSettings.layerTest({
+        linkedEnvironmentsEnabled: true,
+        requireConnectDeviceApproval: false,
+      }),
+    ),
     Layer.provide(Sqlite.layerMemory),
     Layer.provideMerge(ServerSecretStore.layer),
     Layer.provideMerge(ServerEnvironment.layerIdentity),

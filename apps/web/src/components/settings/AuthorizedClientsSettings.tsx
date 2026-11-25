@@ -78,7 +78,7 @@ import {
 } from "./ConnectionsSettings.logic";
 import { isPickOnlyEndpointId } from "./RemoteAccessSettings.logic";
 
-function AccessScopeSummary({
+export function AccessScopeSummary({
   scopes,
   label,
 }: {

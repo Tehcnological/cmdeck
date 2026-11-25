@@ -33,6 +33,7 @@ import * as Stream from "effect/Stream";
 import * as ServerConfig from "../config.ts";
 import * as AuthConnectDevices from "../persistence/AuthConnectDevices.ts";
 import * as AuthPairingLinks from "../persistence/AuthPairingLinks.ts";
+import * as AuthPairingRequests from "../persistence/AuthPairingRequests.ts";
 
 export interface BootstrapGrant {
   readonly method: ServerAuthBootstrapMethod;
@@ -192,6 +193,18 @@ export class ConnectDevicesError extends Schema.TaggedError<ConnectDevicesError>
   }
 }
 
+export class PairingRequestError extends Schema.TaggedError<PairingRequestError>()(
+  "PairingRequestError",
+  {
+    operation: Schema.Literals(["open", "approve"]),
+    cause: Schema.Defect(),
+  },
+) {
+  override get message(): string {
+    return `Failed to ${this.operation} a pairing approval request.`;
+  }
+}
+
 export class BootstrapCredentialLookupError extends Schema.TaggedError<BootstrapCredentialLookupError>()(
   "BootstrapCredentialLookupError",
   {
@@ -212,6 +225,7 @@ export const BootstrapCredentialInternalError = Schema.Union([
   BootstrapCredentialConsumeAvailableError,
   BootstrapCredentialLookupError,
   ConnectDevicesError,
+  PairingRequestError,
 ]);
 export type BootstrapCredentialInternalError = typeof BootstrapCredentialInternalError.Type;
 export const isBootstrapCredentialInternalError = Schema.is(BootstrapCredentialInternalError);
@@ -272,6 +286,10 @@ export class PairingGrantStore extends Context.Service<
     readonly approveConnectRequest: (
       pairingLinkId: string,
     ) => Effect.Effect<boolean, BootstrapCredentialInternalError>;
+    /** Lets the device waiting on a direct pairing link redeem it. False when nothing waits. */
+    readonly approvePairingRequest: (
+      pairingLinkId: string,
+    ) => Effect.Effect<boolean, BootstrapCredentialInternalError>;
     readonly isConnectDeviceTrusted: (
       proofKeyThumbprint: string,
     ) => Effect.Effect<boolean, BootstrapCredentialInternalError>;
@@ -303,6 +321,10 @@ export class PairingGrantStore extends Context.Service<
         /** All scopes must be granted; requestedScopes only requires an overlap for OAuth. */
         readonly requiredScopes?: ReadonlyArray<AuthEnvironmentScope>;
         readonly allowedSubject?: string;
+        /** Holds a direct pairing link until someone approves the device redeeming it. */
+        readonly requirePairingApproval?: boolean;
+        /** What the waiting device says it is, shown to approvers. */
+        readonly requestMetadata?: AuthClientMetadata;
       },
     ) => Effect.Effect<BootstrapGrant, BootstrapCredentialError>;
   }
@@ -325,7 +347,10 @@ type ConsumeResult =
 
 const DEFAULT_ONE_TIME_TOKEN_TTL_MINUTES = Duration.minutes(5);
 
-const toPairingLink = (row: AuthPairingLinks.AuthPairingLinkRecord): AuthPairingLink => ({
+const toPairingLink = (
+  row: AuthPairingLinks.AuthPairingLinkRecord,
+  request?: AuthPairingRequests.AuthPairingRequestRecord,
+): AuthPairingLink => ({
   id: row.id,
   scopes: row.scopes,
   subject: row.subject,
@@ -340,7 +365,24 @@ const toPairingLink = (row: AuthPairingLinks.AuthPairingLinkRecord): AuthPairing
         },
       }
     : {}),
+  ...(request && request.approvedAt === null
+    ? {
+        pairingRequest: {
+          requestedAt: request.requestedAt,
+          expiresAt: request.expiresAt,
+          ...(request.client ? { client: request.client } : {}),
+        },
+      }
+    : {}),
 });
+const PAIRING_REQUEST_TTL = Duration.minutes(10);
+
+/** A link from Settings or `auth pairing create`; other kinds never wait for approval. */
+const isDirectPairingLink = (row: AuthPairingLinks.AuthPairingLinkRecord) =>
+  row.method === "one-time-token" &&
+  row.subject === "one-time-token" &&
+  row.requiresConnectApproval === 0 &&
+  row.proofKeyThumbprint === null;
 const DESKTOP_BOOTSTRAP_TTL_HOURS = Duration.hours(24);
 const DEV_STARTUP_TTL_HOURS = Duration.hours(24);
 const PAIRING_TOKEN_REJECTION_LIMIT =
@@ -356,6 +398,7 @@ const make = Effect.gen(function* () {
   const config = yield* ServerConfig.ServerConfig;
   const pairingLinks = yield* AuthPairingLinks.AuthPairingLinkRepository;
   const connectDevices = yield* AuthConnectDevices.AuthConnectDeviceRepository;
+  const pairingRequests = yield* AuthPairingRequests.AuthPairingRequestRepository;
   const seededGrantsRef = yield* Ref.make(new Map<string, StoredBootstrapGrant>());
   const changesPubSub = yield* PubSub.unbounded<BootstrapCredentialChange>();
   const generatePairingToken = Effect.gen(function* () {
@@ -431,10 +474,21 @@ const make = Effect.gen(function* () {
     function* () {
       const now = yield* DateTime.now;
       const rows = yield* pairingLinks.listActive({ now });
-      // An approved request only waits for its device to come back and spend it.
-      return rows
-        .filter((row) => !(row.requiresConnectApproval === 1 && row.connectApproved === 1))
-        .map(toPairingLink);
+      const requests = yield* pairingRequests.listForActiveLinks(now);
+      const requestById = new Map(requests.map((request) => [request.pairingLinkId, request]));
+      // An approved request only waits for its device to come back and spend it, and an
+      // unanswered one that expired is denied.
+      return rows.flatMap((row) => {
+        if (row.requiresConnectApproval === 1 && row.connectApproved === 1) return [];
+        const request = requestById.get(row.id);
+        if (
+          request &&
+          (request.approvedAt !== null || DateTime.isGreaterThanOrEqualTo(now, request.expiresAt))
+        ) {
+          return [];
+        }
+        return [toPairingLink(row, request)];
+      });
     },
     Effect.mapError((cause) => new ActivePairingLinksLoadError({ cause })),
   );
@@ -528,6 +582,104 @@ const make = Effect.gen(function* () {
       });
     }
     return issued;
+  });
+
+  const emitActiveLink = Effect.fn("PairingGrantStore.emitActiveLink")(function* (
+    id: string,
+    now: DateTime.Utc,
+  ) {
+    const row = yield* pairingLinks
+      .getActiveById({ id, now })
+      .pipe(Effect.mapError((cause) => new BootstrapCredentialLookupError({ cause })));
+    const request = yield* pairingRequests
+      .get(id)
+      .pipe(Effect.mapError((cause) => new BootstrapCredentialLookupError({ cause })));
+    if (Option.isSome(row)) {
+      yield* emitUpsert(toPairingLink(row.value, Option.getOrUndefined(request)));
+    }
+  });
+
+  /**
+   * A direct pairing link stays unspent until someone approves the first device that redeems it.
+   * Upstream clients already read the Connect approval error as "waiting for approval on the host"
+   * and keep the link, so the same device pairs when it tries again after approval. A request
+   * that expired unanswered stays denied even once approval is turned off.
+   */
+  const holdUntilApproved = Effect.fn("PairingGrantStore.holdUntilApproved")(function* (
+    credential: string,
+    now: DateTime.Utc,
+    input: NonNullable<Parameters<PairingGrantStore["Service"]["consume"]>[1]>,
+  ) {
+    const link = yield* pairingLinks
+      .getByCredential({ credential })
+      .pipe(Effect.mapError((cause) => new BootstrapCredentialLookupError({ cause })));
+    if (
+      Option.isNone(link) ||
+      !isDirectPairingLink(link.value) ||
+      link.value.revokedAt !== null ||
+      link.value.consumedAt !== null ||
+      DateTime.isGreaterThanOrEqualTo(now, link.value.expiresAt) ||
+      (input.requestedScopes !== undefined &&
+        !input.requestedScopes.some((scope) => link.value.scopes.includes(scope))) ||
+      (input.requiredScopes !== undefined &&
+        !input.requiredScopes.every((scope) => link.value.scopes.includes(scope)))
+    ) {
+      // Consuming reports why this link cannot be spent.
+      return;
+    }
+    const pairingLinkId = link.value.id;
+    const request = yield* pairingRequests
+      .get(pairingLinkId)
+      .pipe(Effect.mapError((cause) => new BootstrapCredentialLookupError({ cause })));
+    if (Option.isNone(request)) {
+      if (!input.requirePairingApproval) return;
+      yield* pairingRequests
+        .open({
+          pairingLinkId,
+          requestedAt: now,
+          expiresAt: DateTime.add(now, { milliseconds: Duration.toMillis(PAIRING_REQUEST_TTL) }),
+          proofKeyThumbprint: input.proofKeyThumbprint ?? null,
+          client: input.requestMetadata ?? null,
+        })
+        .pipe(Effect.mapError((cause) => new PairingRequestError({ operation: "open", cause })));
+      yield* emitActiveLink(pairingLinkId, now);
+      return yield* new BootstrapCredentialConnectApprovalPendingError({ pairingLinkId });
+    }
+    const expired = DateTime.isGreaterThanOrEqualTo(now, request.value.expiresAt);
+    if (request.value.approvedAt === null && expired) {
+      // Nobody answered in time, which denies the request.
+      yield* revoke(pairingLinkId);
+      return yield* new ExpiredBootstrapCredentialError({});
+    }
+    if (!input.requirePairingApproval) return;
+    if (request.value.approvedAt === null) {
+      return yield* new BootstrapCredentialConnectApprovalPendingError({ pairingLinkId });
+    }
+    // Approval admits the device that asked, not whoever else holds the link.
+    if (
+      request.value.proofKeyThumbprint !== null &&
+      request.value.proofKeyThumbprint !== input.proofKeyThumbprint
+    ) {
+      return yield* new BootstrapCredentialProofKeyMismatchError({});
+    }
+    if (expired) {
+      return yield* new ExpiredBootstrapCredentialError({});
+    }
+  });
+
+  const approvePairingRequest: PairingGrantStore["Service"]["approvePairingRequest"] = Effect.fn(
+    "PairingGrantStore.approvePairingRequest",
+  )(function* (pairingLinkId) {
+    const now = yield* DateTime.now;
+    const approved = yield* pairingRequests
+      .approve({
+        pairingLinkId,
+        approvedAt: now,
+        expiresAt: DateTime.add(now, { milliseconds: Duration.toMillis(PAIRING_REQUEST_TTL) }),
+      })
+      .pipe(Effect.mapError((cause) => new PairingRequestError({ operation: "approve", cause })));
+    if (approved) yield* emitRemoved(pairingLinkId);
+    return approved;
   });
 
   const consume: PairingGrantStore["Service"]["consume"] = Effect.fn("PairingGrantStore.consume")(
@@ -642,6 +794,8 @@ const make = Effect.gen(function* () {
       const pairingCredential = PAIRING_TOKEN_PATTERN.test(compactCredential)
         ? compactCredential.toUpperCase()
         : (parseMcpApprovalCode(credential)?.code ?? credential);
+
+      yield* holdUntilApproved(pairingCredential, now, input ?? {});
 
       // Check scopes in the UPDATE so rejected requests cannot spend one-time links.
       const consumed = yield* pairingLinks
@@ -860,6 +1014,7 @@ const make = Effect.gen(function* () {
     findPendingConnect,
     recordConnectRequestClient,
     approveConnectRequest,
+    approvePairingRequest,
     isConnectDeviceTrusted,
     trustConnectDevice,
     listConnectDevices,
@@ -877,4 +1032,5 @@ const make = Effect.gen(function* () {
 export const layer = Layer.effect(PairingGrantStore, make).pipe(
   Layer.provideMerge(AuthPairingLinks.layer),
   Layer.provideMerge(AuthConnectDevices.layer),
+  Layer.provideMerge(AuthPairingRequests.layer),
 );

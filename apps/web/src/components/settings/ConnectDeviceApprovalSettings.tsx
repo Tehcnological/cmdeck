@@ -14,6 +14,7 @@ import { m } from "~/i18n/messages";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { Button } from "../ui/button";
 import { stackedThreadToast, toastManager } from "../ui/toast";
+import { AccessScopeSummary } from "./AuthorizedClientsSettings";
 import {
   connectDeviceName,
   describeConnectDeviceClient,
@@ -40,12 +41,15 @@ function reportFailure(title: string, result: Parameters<typeof isAtomCommandInt
 export function ConnectDeviceApprovalSettings({
   environmentId,
   requests,
+  pairingRequests,
   devices,
   canWrite,
   requestRevoke,
 }: {
   readonly environmentId: EnvironmentId;
   readonly requests: ReadonlyArray<ServerPairingLinkRecord>;
+  /** Devices waiting on a direct pairing link. */
+  readonly pairingRequests: ReadonlyArray<ServerPairingLinkRecord>;
   readonly devices: ReadonlyArray<AuthConnectDevice>;
   readonly canWrite: boolean;
   /** Revokes now, or first asks to turn approval on when it is off. */
@@ -63,13 +67,71 @@ export function ConnectDeviceApprovalSettings({
     await action();
     setBusyId(null);
   };
+  const answerButtons = (id: string) => (
+    <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto sm:justify-end">
+      <Button
+        size="xs"
+        variant="destructive-outline"
+        disabled={!canWrite || busyId === id}
+        onClick={() =>
+          void run(id, async () =>
+            reportFailure(
+              gt("Could not deny the device"),
+              await deny({ environmentId, input: { id } }),
+            ),
+          )
+        }
+      >
+        <T>Deny</T>
+      </Button>
+      <Button
+        size="xs"
+        disabled={!canWrite || busyId === id}
+        onClick={() =>
+          void run(id, async () =>
+            reportFailure(
+              gt("Could not approve the device"),
+              await approve({ environmentId, input: { pairingLinkId: id } }),
+            ),
+          )
+        }
+      >
+        {busyId === id ? gt("Saving…") : gt("Approve")}
+      </Button>
+    </div>
+  );
 
   return (
-    <SettingsSection id="connect-devices" title={gt("T3 Connect devices")}>
+    <SettingsSection id="connect-devices" title={gt("Device approval")}>
+      {pairingRequests.map((link) => {
+        const request = link.pairingRequest;
+        if (!request) return null;
+        const device = describeConnectDeviceClient(request, resolve);
+        const askedAt = formatAccessTimestamp(DateTime.formatIso(request.requestedAt));
+        return (
+          <div key={link.id} className={ITEM_ROW_CLASSNAME}>
+            <div className={ITEM_ROW_INNER_CLASSNAME}>
+              <div className="min-w-0 flex-1 space-y-1">
+                <p className="text-sm font-medium text-foreground">
+                  <T>Waiting for approval · <Var>{device}</Var></T>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  <T>
+                    Asked at <Var>{askedAt}</Var> with a pairing link. Approve only if you are
+                    pairing this device.
+                  </T>
+                  <span aria-hidden> · </span>
+                  <AccessScopeSummary scopes={link.scopes} label={gt("Requested scopes")} />
+                </p>
+              </div>
+              {answerButtons(link.id)}
+            </div>
+          </div>
+        );
+      })}
       {requests.map((request) => {
         const connectRequest = request.connectDeviceRequest;
         if (!connectRequest) return null;
-        const busy = busyId === request.id;
         return (
           <div key={request.id} className={ITEM_ROW_CLASSNAME}>
             <div className={ITEM_ROW_INNER_CLASSNAME}>
@@ -89,37 +151,7 @@ export function ConnectDeviceApprovalSettings({
                   </T>
                 </p>
               </div>
-              <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto sm:justify-end">
-                <Button
-                  size="xs"
-                  variant="destructive-outline"
-                  disabled={!canWrite || busy}
-                  onClick={() =>
-                    void run(request.id, async () =>
-                      reportFailure(
-                        gt("Could not deny the device"),
-                        await deny({ environmentId, input: { id: request.id } }),
-                      ),
-                    )
-                  }
-                >
-                  <T>Deny</T>
-                </Button>
-                <Button
-                  size="xs"
-                  disabled={!canWrite || busy}
-                  onClick={() =>
-                    void run(request.id, async () =>
-                      reportFailure(
-                        gt("Could not approve the device"),
-                        await approve({ environmentId, input: { pairingLinkId: request.id } }),
-                      ),
-                    )
-                  }
-                >
-                  {busy ? gt("Saving…") : gt("Approve")}
-                </Button>
-              </div>
+              {answerButtons(request.id)}
             </div>
           </div>
         );
@@ -170,7 +202,7 @@ export function ConnectDeviceApprovalSettings({
           </div>
         );
       })}
-      {devices.length === 0 && requests.length === 0 ? (
+      {devices.length === 0 && requests.length === 0 && pairingRequests.length === 0 ? (
         <div className={ITEM_ROW_CLASSNAME}>
           <p className="text-xs text-muted-foreground/60">
             <T>No device has connected through T3 Connect yet.</T>

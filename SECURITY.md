@@ -30,7 +30,8 @@ revocation and ceilings hold, not what a full-scope session can do once issued.
 | Principal                                                                                        | How it gets in                                                           | What it may do                                                                                                                                                                         |
 | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Anyone who reaches the port                                                                      | Network                                                                  | Read the environment descriptor, pair with a valid one-time credential, run OAuth flows. Nothing else.                                                                                 |
-| Full-scope client (desktop, paired browser or phone, `t3 auth session issue`, T3 Connect device) | Pairing, token exchange, Connect mint                                    | Everything the server's OS user can do. This is the default grant.                                                                                                                     |
+| **CMDeck:** device waiting for approval                                                          | Redeemed a direct pairing link while device approval is on               | Nothing. It holds no session; the link stays unspent until a client with `access:write` or the host's CLI approves the request. Denial, or 10 minutes unanswered, revokes the link.    |
+| Full-scope client (desktop, paired browser or phone, `t3 auth session issue`, T3 Connect device) | Pairing (**CMDeck:** once approved), token exchange, Connect mint        | Everything the server's OS user can do. This is the default grant.                                                                                                                     |
 | Narrow client                                                                                    | Pairing link with explicit scopes                                        | Only the RPCs and routes its scopes allow. Can never widen its own grant.                                                                                                              |
 | MCP client (outside agent, subject `mcp-client`)                                                 | OAuth on `/mcp`                                                          | Only `/mcp`, within a read-only grant or a runtime-mode ceiling. Every other route rejects it.                                                                                         |
 | **CMDeck:** remote MCP token client                                                              | Bearer token on `/mcp`, while remote MCP is on                           | Only `/mcp`, within the access chosen when the token was created. No WebSocket, so it cannot reach token or access settings. Revoking the token or turning remote MCP off cuts it off. |
@@ -46,7 +47,9 @@ revocation and ceilings hold, not what a full-scope session can do once issued.
 ## A real finding crosses one of these
 
 1. **No credential → session.** Any route or socket granting access without
-   a valid credential, or a pairing credential redeemable twice.
+   a valid credential, or a pairing credential redeemable twice. **CMDeck:**
+   with device approval on, a direct pairing link that yields a session before
+   it is approved, or to a device other than the one approved.
 2. **Scope escalation.** An RPC, HTTP route, or MCP tool running without its
    declared scope; pairing or token exchange widening a grant; an
    `mcp-client` session reaching a non-`/mcp` route; a read-only MCP grant
@@ -86,6 +89,20 @@ revocation and ceilings hold, not what a full-scope session can do once issued.
 - The default grant includes `access:write`, so a full-scope session can mint
   more pairing links and sessions. They appear in Sharing & access, and "revoke
   all others" removes them.
+- **CMDeck:** device approval (`requireConnectDeviceApproval`, on by default)
+  holds only direct pairing links: those made in Settings, by
+  `t3 auth pairing create`, or by `t3 pair`, whether a client or an outside
+  agent's sign-in redeems them. Credentials created for one purpose by someone
+  who already holds the OS account or `access:write` never wait: the desktop
+  bootstrap credential, the startup link printed on the host's console,
+  `t3 auth session issue`, MCP app approval and peer-link codes, and remote MCP
+  tokens. Approving needs `access:write` but not the link's scopes, because the
+  approver receives no credential; the link's creator already delegated them.
+  Approval admits the device that asked first, bound to its DPoP key when it
+  sent one. A device that paired without a key is bound only by the link, so
+  whoever holds a leaked link and redeems it first after approval gets in;
+  approval shows the owner the request, it does not make a leaked link safe.
+  Turning the setting off lets waiting links be redeemed at once.
 - `filesystem:read` reads anything the server's OS user can read, including
   paths outside projects.
 - Plain HTTP on a LAN or tailnet is the user's choice. `t3 serve` warns when

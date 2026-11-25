@@ -110,6 +110,47 @@ export function formatPairingCredentialList(
   );
 }
 
+export function formatPairingRequestList(
+  links: ReadonlyArray<AuthPairingLink>,
+  options?: {
+    readonly json?: boolean;
+  },
+): string {
+  const waiting = links.flatMap((link) =>
+    link.pairingRequest ? [{ link, request: link.pairingRequest }] : [],
+  );
+  if (options?.json) {
+    return `${JSON.stringify(
+      waiting.map(({ link, request }) => ({
+        id: link.id,
+        ...(link.label ? { label: link.label } : {}),
+        scopes: link.permissions ?? link.scopes,
+        ...(request.client ? { client: request.client } : {}),
+        requestedAt: toIsoString(request.requestedAt),
+        expiresAt: toIsoString(request.expiresAt),
+      })),
+      null,
+      2,
+    )}${newline}`;
+  }
+  if (waiting.length === 0) {
+    return `No devices are waiting for approval.${newline}`;
+  }
+  return (
+    waiting
+      .map(({ link, request }) =>
+        [
+          `${link.id}${link.label ? ` (${link.label})` : ""}`,
+          `  device: ${request.client ? formatClientMetadata(request.client) : "unlabeled client"}`,
+          `  scopes: ${(link.permissions ?? link.scopes).join(" ")}`,
+          `  requested: ${toIsoString(request.requestedAt)}`,
+          `  expires: ${toIsoString(request.expiresAt)}`,
+        ].join(newline),
+      )
+      .join(`${newline}${newline}`) + newline
+  );
+}
+
 export function formatIssuedSession(
   session: IssuedBearerSession,
   options?: {
