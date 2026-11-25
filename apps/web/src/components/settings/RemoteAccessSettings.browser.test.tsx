@@ -3,7 +3,7 @@ import { useState } from "react";
 import { page, userEvent } from "vite-plus/test/browser";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { render } from "../../../test/render";
+import { act, render } from "../../../test/render";
 import { Button } from "../ui/button";
 import { Dialog, DialogPopup } from "../ui/dialog";
 import { RemoteMcpTokenCreator } from "./RemoteAccessSettings";
@@ -56,7 +56,8 @@ describe("RemoteMcpTokenCreator", () => {
     await expect.element(secretField()).toHaveValue(SECRET);
     await expect.element(page.getByRole("button", { name: "Copy" })).toBeInTheDocument();
 
-    await userEvent.click(page.getByRole("button", { name: "Done" }));
+    // Base UI's modal guard covers this harness's footer for Playwright's hit test.
+    await act(() => page.getByRole("button", { name: "Done" }).element().click());
     await expect.element(secretField()).not.toBeInTheDocument();
 
     await userEvent.click(page.getByRole("button", { name: "open token dialog" }));
