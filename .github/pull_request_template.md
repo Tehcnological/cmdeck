@@ -17,9 +17,9 @@ explain why those changes are needed for the same fix. Split independent fixes. 
 
 ## Scope
 
-<!-- CMDeck accepts fixes to code this fork changed or added, not features.
-Bugs in code inherited unchanged from T3 Code belong upstream. Say which
-fork change this fixes. -->
+<!-- Say which fork change this fixes, or link the issue for a feature the
+maintainer agreed to. Bugs in code inherited unchanged from T3 Code belong
+upstream. -->
 
 ## Verification
 

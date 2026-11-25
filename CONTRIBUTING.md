@@ -1,8 +1,8 @@
 # Contributing
 
 CMDeck is a personal, unofficial fork of [T3 Code](https://github.com/pingdotgg/t3code) with one
-maintainer. It is public so its code can be read and checked. It is not looking for outside
-contributors, and pull requests may be closed without review.
+maintainer. It is public so its code can be read and checked. Issues are welcome; pull requests
+may be closed without review.
 
 ## Where things go
 
@@ -11,10 +11,11 @@ contributors, and pull requests may be closed without review.
   CMDeck picks up the fix with its next upstream merge.
 - **A bug in what CMDeck changed or added** (see [what this fork adds](README.md) and
   [what it renamed](docs/operations/fork-upstream-sync.md#renamed-in-this-fork)): a focused pull
-  request here is welcome. Issues are turned off on this repository.
+  request here is welcome. You can also open an issue.
 - **A security problem:** follow the [security policy](.github/SECURITY.md). Do not open a public
   pull request for it.
-- **New features:** not accepted.
+- **A feature request:** open an issue that describes what you want and why. A feature pull
+  request without an issue the maintainer agreed to may be closed.
 
 Do not report CMDeck bugs to T3 Tools. They do not maintain this fork.
 
