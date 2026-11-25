@@ -186,9 +186,7 @@ function SidebarBrandMark({ onBackdrop }: { onBackdrop: boolean }) {
   return (
     <span className="inline-flex min-w-0 items-baseline truncate text-sm font-medium tracking-tight [text-box:trim-both_cap_alphabetic] supports-[text-box:trim-both_cap_alphabetic]:py-1">
       {"CMD"}
-      <span className={onBackdrop ? "text-white/70" : "text-muted-foreground"}>
-        {"eck"}
-      </span>
+      <span className={onBackdrop ? "text-white/70" : "text-muted-foreground"}>{"eck"}</span>
     </span>
   );
 }
