@@ -13,7 +13,7 @@ import {
   type ScopedThreadRef,
 } from "@t3tools/contracts";
 import { isMacPlatform } from "@t3tools/shared/keybindings";
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser";
 
 import { act, fakeTimers, render } from "../../test/render";
@@ -84,15 +84,15 @@ function project(id: string): Project {
 }
 
 // Drafts other browser test files persist would otherwise show up as extra sidebar rows.
-beforeEach(() => {
+const emptyDraftStore = (): Disposable => {
   const initial = useComposerDraftStore.getState();
   useComposerDraftStore.setState({
     draftsByThreadKey: {},
     draftThreadsByThreadKey: {},
     logicalProjectDraftThreadKeyByLogicalProjectKey: {},
   });
-  return () => useComposerDraftStore.setState(initial, true);
-});
+  return { [Symbol.dispose]: () => useComposerDraftStore.setState(initial, true) };
+};
 
 describe("sidebar header new thread", () => {
   it.each([
@@ -207,6 +207,7 @@ describe("sidebar project folder new thread", () => {
 // regression: #38623 unsent drafts are listed above threads but mod+1..9 skipped them
 describe("sidebar numbered jumps", () => {
   it("numbers the unsent draft at the top before the threads below it", async () => {
+    using _drafts = emptyDraftStore();
     const initial = useComposerDraftStore.getState();
     using stack = new DisposableStack();
     stack.defer(() => useComposerDraftStore.setState(initial, true));
@@ -278,6 +279,7 @@ function threadShell(projectId: ProjectId, index: number): EnvironmentThreadShel
 describe("sidebar render isolation", () => {
   // regression: #33100 Cmd+J re-rendered every sidebar row, which took hundreds of ms with many threads
   it("does not re-render thread rows when a quick Mod shortcut opens and focuses the terminal", async () => {
+    using _drafts = emptyDraftStore();
     using stack = new DisposableStack();
     const activeProject = project("active");
     const threads = Array.from({ length: 5 }, (_, index) => threadShell(activeProject.id, index));
