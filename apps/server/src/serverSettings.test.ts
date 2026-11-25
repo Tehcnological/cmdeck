@@ -16,6 +16,7 @@ import {
   SecretProviderId,
   ServerSettings,
   ServerSettingsPatch,
+  UsageLimitSourceConfig,
   UsageLimitSourceId,
   type SimlockDeviceHostConfig,
 } from "@t3tools/contracts";
@@ -43,6 +44,15 @@ import * as ServerSettingsModule from "./serverSettings.ts";
 import { SECRET_REDACTED } from "./settingsSecrets.ts";
 import * as ManagedPolicy from "./policy/ManagedPolicy.ts";
 import { resolveProviderInstanceTerminalEnvironment } from "./terminal/Manager.ts";
+
+const encodeServerSettings = Schema.encodeSync(ServerSettings);
+// Clients from before HTTP sources decode only "cliproxy" and reject the whole settings payload.
+const decodePreHttpUsageLimitSources = Schema.decodeUnknownSync(
+  Schema.Record(
+    UsageLimitSourceId,
+    Schema.Struct({ ...UsageLimitSourceConfig.fields, kind: Schema.Literal("cliproxy") }),
+  ),
+);
 
 const decodeServerSettings = Schema.decodeUnknownEffect(ServerSettings);
 const decodeServerSettingsJson = Schema.decodeUnknownEffect(Schema.fromJsonString(ServerSettings));
@@ -1841,6 +1851,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
         const openCode = ProviderInstanceId.make("opencode");
         const hub = UsageLimitSourceId.make("hub");
         const rtx = InferenceServerId.make("rtx");
+        const quota = UsageLimitSourceId.make("quota");
         const router = ProviderInstanceId.make("openrouter");
         const withUsage = yield* serverSettings.updateSettings({
           cloudSpeechCredentials: { openai: usageReference, xai: "literal-fixture" },
@@ -1860,6 +1871,12 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
               kind: "cliproxy",
               url: "https://hub.test",
               managementKey: usageReference,
+              enabled: true,
+            },
+            [quota]: {
+              kind: "http",
+              url: "https://quota.test/v1",
+              managementKey: "",
               enabled: true,
             },
           },
@@ -1908,6 +1925,19 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
         assert.equal(legacy.sourceControlHosts.bitbucket?.accessToken, SECRET_REDACTED);
         assert.equal(legacy.usageLimitSources[hub]?.managementKey, SECRET_REDACTED);
         assert.equal(legacy.inferenceServers[rtx]?.apiKey, SECRET_REDACTED);
+        assert.deepEqual(
+          Object.keys(
+            decodePreHttpUsageLimitSources(encodeServerSettings(legacy).usageLimitSources),
+          ),
+          [hub],
+        );
+        assert.equal(
+          ServerSettingsModule.redactServerSettingsForClient(withUsage, {
+            secretReferences: false,
+            httpUsageLimitSources: true,
+          }).usageLimitSources[quota]?.kind,
+          "http",
+        );
         assert.equal(legacy.textGenerators[router]?.apiKey, SECRET_REDACTED);
         assert.equal(legacy.easDeviceHosts[0]?.accessToken, SECRET_REDACTED);
         assert.equal(legacy.simlockDeviceHosts[0]?.agentToken, SECRET_REDACTED);
@@ -1932,6 +1962,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
         });
         assert.deepEqual(echoed.usageLimitSources[hub]?.managementKey, usageReference);
         assert.deepEqual(echoed.inferenceServers[rtx]?.apiKey, usageReference);
+        assert.equal(echoed.usageLimitSources[quota]?.kind, "http");
         assert.deepEqual(echoed.textGenerators[router]?.apiKey, usageReference);
         assert.deepEqual(echoed.cloudSpeechCredentials, {
           openai: usageReference,
