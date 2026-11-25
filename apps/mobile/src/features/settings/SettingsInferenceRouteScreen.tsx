@@ -21,10 +21,11 @@ import { resolveServerBackgroundActivitySettings } from "@t3tools/shared/backgro
 import * as Duration from "effect/Duration";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
 import { type ReactNode, use, useState, useSyncExternalStore } from "react";
-import { RefreshControl, View } from "react-native";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText as Text } from "../../components/ui/AppText";
+import { RefreshControl } from "../../components/ui/RefreshControl";
 import { ScreenScrollView } from "../../components/ui/ScreenScrollView";
 import { cn } from "../../lib/cn";
 import { inferenceAtoms, serverEnvironment } from "../../state/server";

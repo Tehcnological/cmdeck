@@ -173,8 +173,8 @@ const hasFiles = (at: string): boolean => {
 };
 
 // Windows needs a link's kind up front; stat reads only the target's metadata.
-const linkType = (at: string): "dir" | "file" | undefined => {
-  if (process.platform !== "win32") return undefined;
+const linkType = (at: string, platform: NodeJS.Platform): "dir" | "file" | undefined => {
+  if (platform !== "win32") return undefined;
   try {
     return NodeFS.statSync(at).isDirectory() ? "dir" : "file";
   } catch {
@@ -183,15 +183,20 @@ const linkType = (at: string): "dir" | "file" | undefined => {
 };
 
 /** Copies files and directories without following links, so a link out of the folder stays a link. */
-const copyTree = (from: string, to: string, include: (name: string) => boolean = () => true) => {
+const copyTree = (
+  from: string,
+  to: string,
+  platform: NodeJS.Platform,
+  include: (name: string) => boolean = () => true,
+) => {
   const stat = NodeFS.lstatSync(from);
   if (stat.isDirectory()) {
     NodeFS.mkdirSync(to, { recursive: true, mode: stat.mode & 0o777 });
     for (const entry of NodeFS.readdirSync(from)) {
-      if (include(entry)) copyTree(`${from}/${entry}`, `${to}/${entry}`);
+      if (include(entry)) copyTree(`${from}/${entry}`, `${to}/${entry}`, platform);
     }
   } else if (stat.isSymbolicLink()) {
-    NodeFS.symlinkSync(NodeFS.readlinkSync(from), to, linkType(from));
+    NodeFS.symlinkSync(NodeFS.readlinkSync(from), to, linkType(from, platform));
   } else if (stat.isFile()) {
     NodeFS.copyFileSync(from, to, NodeFS.constants.COPYFILE_EXCL);
     NodeFS.chmodSync(to, stat.mode & 0o777);
@@ -428,6 +433,7 @@ const make = Effect.gen(function* () {
     const sourcePaths = yield* derivePaths(source);
     const targetPaths = yield* derivePaths(target);
     const now = yield* Clock.currentTimeMillis;
+    const platform = yield* HostProcess.Platform;
     const stamp = DateTime.formatIso(DateTime.makeUnsafe(now)).replace(/[:.]/g, "-");
     const staging = path.join(target, `.userdata-import-${process.pid}-${stamp}`);
     const stagedWorkflows = path.join(staging, ".workflows");
@@ -452,7 +458,12 @@ const make = Effect.gen(function* () {
           ? path.join(staging, item.name.slice("userdata/".length))
           : stagedWorkflows;
         yield* attempt(`copy ${item.name}`, from, () =>
-          copyTree(from, to, item.name === "userdata/secrets" ? includeSecret : undefined),
+          copyTree(
+            from,
+            to,
+            platform,
+            item.name === "userdata/secrets" ? includeSecret : undefined,
+          ),
         );
       }
       return removedRows;

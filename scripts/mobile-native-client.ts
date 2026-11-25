@@ -1286,7 +1286,6 @@ const main = Command.make(
         return yield* new NativeClientError({ message: `Unsupported Android ABI ${value}.` });
       return value;
     });
-    const task = `native-client:${platform}`;
     const operations = {
       fingerprint: fingerprint(platform),
       installedBinary: installedBinary(platform, device),

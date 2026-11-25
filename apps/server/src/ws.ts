@@ -1984,7 +1984,6 @@ export const layerWsRpc = (
                   ).pipe(Effect.provide(intakeContext)),
                 )
                 .pipe(
-                  Effect.tap((result) => Effect.void),
                   Effect.map((result) => ({ sequence: result.sequence })),
                   Effect.mapError((cause) => {
                     if (cause._tag === "EnvironmentAuthorizationError") return cause;

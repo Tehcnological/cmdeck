@@ -161,7 +161,6 @@ import {
 } from "../lib/chatThreadActions";
 import {
   appendBrowsePathSegment,
-  ensureBrowseDirectoryPath,
   getBrowseDirectoryPath,
   hasTrailingPathSeparator,
   inferProjectTitleFromPath,
