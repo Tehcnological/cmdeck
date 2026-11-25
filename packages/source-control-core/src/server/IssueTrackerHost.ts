@@ -17,6 +17,10 @@ export class IssueTrackerHost extends Context.Service<
       readonly get: (
         tracker: IssueTrackerKind,
       ) => Effect.Effect<Option.Option<string>, IssueTrackerError>;
+      /** Stored instance base URL for self-hosted standalone trackers, scoped to the active account. */
+      readonly getBaseUrl?: (
+        tracker: IssueTrackerKind,
+      ) => Effect.Effect<Option.Option<string>, IssueTrackerError>;
     };
   }
 >()("@t3tools/source-control-core/server/IssueTrackerHost") {}

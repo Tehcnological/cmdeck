@@ -444,6 +444,13 @@ each can be loaded further on its own. Agents file new issues in the first team 
 connect another Linear workspace or user, add another account in the same place; each project
 reads its teams through the account you picked them under.
 
+A self-hosted [Vikunja](https://vikunja.io) server works the same way: under Settings → Source
+control & issues, enter its URL (for example `https://vikunja.example.com`) and an API token
+created in Vikunja, then pick its projects for a CMDeck project. CMDeck talks only to the server
+you entered. Task links such as `https://vikunja.example.com/tasks/42` open in CMDeck when that
+server is connected. Where a Vikunja project has a Kanban view, its buckets are the states you
+move between.
+
 Select an issue to open it beside the list: description, comments, state changes, linked pull
 requests, labels, assignees, and reactions. Linked pull requests open in the same panel. You can
 comment, edit the title and description, change labels and assignees, react, and move it to

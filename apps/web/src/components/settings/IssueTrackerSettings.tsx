@@ -23,13 +23,14 @@ import { useEnvironmentQuery } from "../../state/query";
 import { issueTrackerEnvironment } from "../../state/issueTrackers";
 import { useProjects, useServerConfigs } from "../../state/entities";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { LinearIcon } from "../Icons";
+import { LinearIcon, VikunjaIcon } from "../Icons";
 import { cn } from "~/lib/utils";
 
 import { Badge } from "../ui/badge";
 import { CheckboxMark } from "../ui/checkbox";
 import { Button, InlineButton } from "../ui/button";
 import { Collapsible, CollapsibleContent } from "../ui/collapsible";
+import { Input } from "../ui/input";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Skeleton } from "../ui/skeleton";
 import { SecretInput } from "./SecretInput";
@@ -41,6 +42,7 @@ type TrackerIcon = ElementType<{ className?: string }>;
 /** Web art per tracker kind; the server supplies everything else about a tracker. */
 const TRACKER_ICONS: Partial<Record<string, TrackerIcon>> = {
   linear: LinearIcon,
+  vikunja: VikunjaIcon,
 };
 
 /**
@@ -133,15 +135,25 @@ function TrackerRow({
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [baseUrlDraft, setBaseUrlDraft] = useState(tracker.baseUrl ?? "");
 
-  const submit = async (token: string | null, addAccount = false) => {
+  const submit = async (token: string | null, addAccount = false, baseUrlOverride?: string) => {
+    const trimmedBaseUrl = (addAccount ? (baseUrlOverride ?? "") : baseUrlDraft).trim();
+    if (token !== null && tracker.requiresBaseUrl && !trimmedBaseUrl) {
+      setFailure(gt("Enter your {tracker} server URL first.", { tracker: tracker.displayName }));
+      return false;
+    }
     setBusy(true);
     setFailure(null);
+    const baseUrlField =
+      tracker.requiresBaseUrl && token !== null && trimmedBaseUrl
+        ? { baseUrl: trimmedBaseUrl }
+        : {};
     const result = await connect({
       environmentId,
       input: addAccount
-        ? { tracker: tracker.tracker, token, addAccount }
-        : { tracker: tracker.tracker, accountId: tracker.accountId, token },
+        ? { tracker: tracker.tracker, token, addAccount, ...baseUrlField }
+        : { tracker: tracker.tracker, accountId: tracker.accountId, token, ...baseUrlField },
     });
     setBusy(false);
     if (result._tag === "Success") return true;
@@ -150,6 +162,7 @@ function TrackerRow({
     return false;
   };
 
+  const urlInputId = `issue-tracker-url-${tracker.tracker}-${tracker.accountId ?? ""}-${environmentId}`;
   const inputId = `issue-tracker-${tracker.tracker}-${tracker.accountId ?? ""}-${environmentId}`;
   const usable = tracker.connected && tracker.account !== null;
   const summary = issueTrackerSummary(tracker, bindings, messages);
@@ -201,6 +214,25 @@ function TrackerRow({
           {/* Locked while saving, so an edit made mid-request is not overwritten by the saved value. */}
           <fieldset disabled={!canEdit || busy} className="contents">
             <div className="px-3 pb-4 pt-1 sm:px-4">
+              {tracker.requiresBaseUrl ? (
+                <SettingsRow
+                  title={<label htmlFor={urlInputId}>{gt("Server URL")}</label>}
+                  description={gt("Base URL of your self-hosted {tracker} instance.", {
+                    tracker: tracker.displayName,
+                  })}
+                  control={
+                    <Input
+                      id={urlInputId}
+                      size="sm"
+                      type="url"
+                      className="w-full @min-[32rem]/settings-row:w-56"
+                      placeholder={tracker.baseUrlPlaceholder ?? "https://example.com"}
+                      value={baseUrlDraft}
+                      onChange={(event) => setBaseUrlDraft(event.target.value)}
+                    />
+                  }
+                />
+              ) : null}
               <SettingsRow
                 title={<label htmlFor={inputId}>{tracker.credential.label}</label>}
                 description={
@@ -262,7 +294,10 @@ function TrackerRow({
                 />
               ) : null}
               {canAddAccount ? (
-                <AddAccountRow tracker={tracker} onAdd={(token) => submit(token, true)} />
+                <AddAccountRow
+                  tracker={tracker}
+                  onAdd={(token, baseUrl) => submit(token, true, baseUrl)}
+                />
               ) : null}
             </div>
           </fieldset>
@@ -391,10 +426,12 @@ function AddAccountRow({
   onAdd,
 }: {
   readonly tracker: IssueTrackerConnection;
-  readonly onAdd: (token: string) => Promise<boolean>;
+  readonly onAdd: (token: string, baseUrl?: string) => Promise<boolean>;
 }) {
   const gt = useGT();
   const [adding, setAdding] = useState(false);
+  const [baseUrlDraft, setBaseUrlDraft] = useState("");
+  const urlInputId = `issue-tracker-${tracker.tracker}-add-account-url`;
   const inputId = `issue-tracker-${tracker.tracker}-add-account`;
   if (!adding) {
     return (
@@ -413,20 +450,48 @@ function AddAccountRow({
     );
   }
   return (
-    <SettingsRow
-      title={<label htmlFor={inputId}>{tracker.credential.label}</label>}
-      description={gt("For the new {tracker} account.", { tracker: tracker.displayName })}
-      control={
-        <SecretInput
-          id={inputId}
-          size="sm"
-          className="w-full min-w-0 @min-[32rem]/settings-row:w-56"
-          value=""
-          onCommit={(next) => {
-            if (next.trim()) void onAdd(next.trim()).then((added) => added && setAdding(false));
-          }}
+    <>
+      {tracker.requiresBaseUrl ? (
+        <SettingsRow
+          title={<label htmlFor={urlInputId}>{gt("Server URL")}</label>}
+          description={gt("Base URL of your self-hosted {tracker} instance.", {
+            tracker: tracker.displayName,
+          })}
+          control={
+            <Input
+              id={urlInputId}
+              size="sm"
+              type="url"
+              className="w-full @min-[32rem]/settings-row:w-56"
+              placeholder={tracker.baseUrlPlaceholder ?? "https://example.com"}
+              value={baseUrlDraft}
+              onChange={(event) => setBaseUrlDraft(event.target.value)}
+            />
+          }
         />
-      }
-    />
+      ) : null}
+      <SettingsRow
+        title={<label htmlFor={inputId}>{tracker.credential.label}</label>}
+        description={gt("For the new {tracker} account.", { tracker: tracker.displayName })}
+        control={
+          <SecretInput
+            id={inputId}
+            size="sm"
+            className="w-full min-w-0 @min-[32rem]/settings-row:w-56"
+            value=""
+            onCommit={(next) => {
+              if (next.trim()) {
+                void onAdd(next.trim(), baseUrlDraft).then((added) => {
+                  if (added) {
+                    setAdding(false);
+                    setBaseUrlDraft("");
+                  }
+                });
+              }
+            }}
+          />
+        }
+      />
+    </>
   );
 }

@@ -213,14 +213,33 @@ export interface IssueTrackerApi {
 export interface StandaloneIssueTrackerApi extends IssueTrackerApi {
   readonly standalone: StandaloneIssueTrackerDescriptor;
   /** Retains the workspace identity so canonical URLs can disambiguate repeated scope keys. */
-  readonly parseIssueUrl: (url: URL) => (IssueLink & { readonly workspace: string }) | null;
+  readonly parseIssueUrl: (
+    url: URL,
+    baseUrl?: string,
+  ) => (IssueLink & { readonly workspace: string }) | null;
+  /**
+   * Resolves the active host for a self-hosted standalone tracker from its stored base URL.
+   * Fixed-host trackers omit this and use `standalone.host`.
+   */
+  readonly resolveHost?: () => Effect.Effect<string, IssueTrackerError>;
+  /**
+   * Resolves the stored base URL for a self-hosted standalone tracker, or null if not configured.
+   */
+  readonly resolveBaseUrl?: () => Effect.Effect<string | null, IssueTrackerError>;
   /**
    * Who a credential signs in as and which scopes it reaches, asked of the tracker itself. Run on
    * a credential before it is stored, and on the stored one to report connection status.
    */
-  readonly probeCredential: (token: string) => Effect.Effect<
+  readonly probeCredential: (
+    token: string,
+    baseUrl?: string,
+  ) => Effect.Effect<
     {
       readonly account: string;
+      /** Connected instance host for self-hosted trackers, overriding `standalone.host`. */
+      readonly host?: string | undefined;
+      /** Normalized base URL for self-hosted trackers. */
+      readonly baseUrl?: string | undefined;
       /** What the tracker's issue URLs name the credential's workspace by, where they name one. */
       readonly workspace?: string | undefined;
       readonly scopes: ReadonlyArray<IssueTrackerScope>;

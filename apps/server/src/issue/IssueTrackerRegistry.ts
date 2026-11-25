@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type { IssueTrackerKind } from "@t3tools/contracts";
 import * as LinearDriver from "@t3tools/issue-tracker-linear/server/driver";
+import * as VikunjaDriver from "@t3tools/issue-tracker-vikunja/server/driver";
 import {
   isStandaloneIssueTracker,
   type IssueTrackerApi,
@@ -36,7 +37,7 @@ export function fromTrackers(
 }
 
 /** Trackers that are not a git host's own. Each signs requests with a credential from Settings. */
-const STANDALONE_TRACKERS = [LinearDriver.make];
+const STANDALONE_TRACKERS = [LinearDriver.make, VikunjaDriver.make];
 
 const make = Effect.gen(function* () {
   const drivers = yield* BuiltInDrivers.SourceControlDrivers;

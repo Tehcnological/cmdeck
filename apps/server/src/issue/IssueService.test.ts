@@ -179,6 +179,13 @@ function makeService(input: {
                     ]),
                   ),
                 ),
+              listAccounts: Effect.succeed(
+                Object.values(input.bindings ?? {}).flatMap((binding) =>
+                  binding.accountId === undefined
+                    ? []
+                    : [{ tracker: binding.tracker, accountId: binding.accountId }],
+                ),
+              ),
             }),
             Layer.succeed(
               IssueTrackerRegistry.IssueTrackerRegistry,
@@ -732,6 +739,87 @@ describe("IssueService with a standalone tracker", () => {
           "ops" as ProjectId,
         ),
       ).toMatchObject({ projectId: "eng", writable: true });
+    }),
+  );
+
+  it.effect("resolves self-hosted standalone accounts by per-account base URL", () =>
+    Effect.gen(function* () {
+      const VIKUNJA = IssueTrackerKind.make("vikunja");
+      const secondAccountId = IssueTrackerAccountId.make("home");
+      const baseUrlFor = Effect.map(IssueTrackerAccount, (accountId) =>
+        accountId === secondAccountId
+          ? "https://home.vikunja.example:8443"
+          : "https://work.vikunja.example",
+      );
+      const vikunja: StandaloneIssueTrackerApi = {
+        ...fakeTracker({
+          kind: VIKUNJA,
+          getIssue: (input) =>
+            Effect.map(baseUrlFor, (baseUrl) => ({
+              ...issue(input.key),
+              title: `task-${input.key}-at-${new URL(baseUrl).host}`,
+              url: `${baseUrl}/tasks/${input.key}`,
+            })),
+        }),
+        kind: VIKUNJA,
+        standalone: {
+          tracker: VIKUNJA,
+          displayName: "Vikunja",
+          host: "vikunja.io",
+          scopeNoun: "project",
+          requiresBaseUrl: true,
+          baseUrlPlaceholder: "https://vikunja.example.com",
+          credential: { label: "API token", helpUrl: null },
+        },
+        resolveBaseUrl: () => baseUrlFor,
+        resolveHost: () => Effect.map(baseUrlFor, (baseUrl) => new URL(baseUrl).host.toLowerCase()),
+        parseIssueUrl: (url, baseUrl) => {
+          if (!baseUrl) return null;
+          const base = new URL(baseUrl);
+          if (url.origin.toLowerCase() !== base.origin.toLowerCase()) return null;
+          const match = /^\/tasks\/([1-9]\d*)(?:\/|$)/u.exec(url.pathname);
+          if (match === null) return null;
+          return { host: base.host.toLowerCase(), workspace: baseUrl, scope: "", key: match[1]! };
+        },
+        probeCredential: () => Effect.succeed({ account: "alice", scopes: [] }),
+      };
+
+      const service = yield* makeService({
+        projects: [project({ id: "work" }), project({ id: "home" })],
+        trackers: [vikunja],
+        bindings: {
+          work: { tracker: VIKUNJA, scope: "7" },
+          home: { tracker: VIKUNJA, accountId: secondAccountId, scope: "12" },
+        },
+      });
+
+      const listed = yield* service.list({ state: "open" });
+      expect(
+        (listed.scopes ?? []).map((scope) => `${scope.projectId}:${scope.host}:${scope.scope}`),
+      ).toEqual(["work:work.vikunja.example:7", "home:home.vikunja.example:8443:12"]);
+
+      expect(
+        yield* service.resolveUrl(
+          "https://home.vikunja.example:8443/tasks/99",
+          "work" as ProjectId,
+        ),
+      ).toMatchObject({
+        projectId: "home",
+        host: "home.vikunja.example:8443",
+        scope: "12",
+        key: "99",
+        issue: { title: "task-99-at-home.vikunja.example:8443" },
+      });
+
+      expect(
+        yield* service.resolveUrl("https://work.vikunja.example/tasks/42", "home" as ProjectId),
+      ).toMatchObject({
+        projectId: "work",
+        host: "work.vikunja.example",
+        scope: "7",
+        key: "42",
+        issue: { title: "task-42-at-work.vikunja.example" },
+      });
     }),
   );
 

@@ -25,7 +25,7 @@ import type { StandaloneIssueTrackerApi } from "@t3tools/source-control-core/ser
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as IssueTrackerBindings from "../persistence/IssueTrackerBindings.ts";
 import * as IssueService from "./IssueService.ts";
-import { issueTrackerSecretName } from "./IssueTrackerHostLive.ts";
+import { issueTrackerBaseUrlSecretName, issueTrackerSecretName } from "./IssueTrackerHostLive.ts";
 import * as IssueTrackerRegistry from "./IssueTrackerRegistry.ts";
 
 const encoder = new TextEncoder();
@@ -116,14 +116,21 @@ const make = Effect.gen(function* () {
     api: StandaloneIssueTrackerApi,
     accountId: IssueTrackerAccountId | null,
     token: string,
+    baseUrl?: string,
   ) =>
-    api.probeCredential(token).pipe(
+    api.probeCredential(token, baseUrl).pipe(
       Effect.map((probe): IssueTrackerConnection => ({
         ...api.standalone,
         ...accountFields(accountId),
+        ...(probe.host === undefined ? {} : { host: probe.host }),
         connected: true,
         account: probe.account,
         detail: null,
+        ...(probe.baseUrl !== undefined
+          ? { baseUrl: probe.baseUrl }
+          : baseUrl !== undefined
+            ? { baseUrl }
+            : {}),
         ...(probe.workspace === undefined ? {} : { workspace: probe.workspace }),
         scopes: probe.scopes,
       })),
@@ -134,19 +141,31 @@ const make = Effect.gen(function* () {
           connected: true,
           account: null,
           detail: IssueService.trackerDetail(error),
+          ...(baseUrl === undefined ? {} : { baseUrl }),
           scopes: [],
         }),
       ),
     );
 
   const current = (api: StandaloneIssueTrackerApi, accountId: IssueTrackerAccountId | null) =>
-    secrets.get(issueTrackerSecretName(api.kind, accountId)).pipe(
+    Effect.all({
+      storedToken: secrets.get(issueTrackerSecretName(api.kind, accountId)),
+      storedBaseUrl: api.standalone.requiresBaseUrl
+        ? secrets.get(issueTrackerBaseUrlSecretName(api.kind, accountId))
+        : Effect.succeed(Option.none<Uint8Array>()),
+    }).pipe(
       Effect.mapError(secretFailure(api.kind, "The stored credential could not be read.")),
-      Effect.flatMap((stored) =>
-        Option.isNone(stored)
-          ? Effect.succeed(disconnected(api, accountId))
-          : status(api, accountId, new TextDecoder().decode(stored.value)),
-      ),
+      Effect.flatMap(({ storedToken, storedBaseUrl }) => {
+        const baseUrl = Option.isSome(storedBaseUrl)
+          ? new TextDecoder().decode(storedBaseUrl.value)
+          : undefined;
+        return Option.isNone(storedToken)
+          ? Effect.succeed({
+              ...disconnected(api, accountId),
+              ...(baseUrl === undefined ? {} : { baseUrl }),
+            })
+          : status(api, accountId, new TextDecoder().decode(storedToken.value), baseUrl);
+      }),
     );
 
   const list: IssueTrackerConnections["Service"]["list"] = Effect.all({
@@ -189,6 +208,11 @@ const make = Effect.gen(function* () {
     yield* secrets
       .remove(issueTrackerSecretName(api.kind, accountId))
       .pipe(Effect.mapError(secretFailure(api.kind, "The credential could not be removed.")));
+    if (api.standalone.requiresBaseUrl) {
+      yield* secrets
+        .remove(issueTrackerBaseUrlSecretName(api.kind, accountId))
+        .pipe(Effect.mapError(secretFailure(api.kind, "The server URL could not be removed.")));
+    }
     // Bindings to an account nobody is signed into would only produce errors in every listing.
     yield* bindings
       .removeAccount({ tracker: api.kind, accountId })
@@ -201,6 +225,7 @@ const make = Effect.gen(function* () {
     api: StandaloneIssueTrackerApi,
     accountId: IssueTrackerAccountId | null,
     token: string,
+    baseUrl?: string,
   ) {
     const saved = yield* bindings.listAccounts.pipe(
       Effect.mapError(secretFailure(api.kind, "The saved accounts could not be read.")),
@@ -215,7 +240,15 @@ const make = Effect.gen(function* () {
       const stored = yield* secrets
         .get(issueTrackerSecretName(api.kind, other))
         .pipe(Effect.mapError(secretFailure(api.kind, "The stored credential could not be read.")));
-      if (Option.isSome(stored) && new TextDecoder().decode(stored.value) === token) return true;
+      if (Option.isNone(stored) || new TextDecoder().decode(stored.value) !== token) continue;
+      if (!api.standalone.requiresBaseUrl) return true;
+      const storedBaseUrl = yield* secrets
+        .get(issueTrackerBaseUrlSecretName(api.kind, other))
+        .pipe(Effect.mapError(secretFailure(api.kind, "The stored server URL could not be read.")));
+      const otherBaseUrl = Option.isSome(storedBaseUrl)
+        ? new TextDecoder().decode(storedBaseUrl.value)
+        : undefined;
+      if (otherBaseUrl === baseUrl) return true;
     }
     return false;
   });
@@ -240,8 +273,17 @@ const make = Effect.gen(function* () {
         ),
       );
     }
+    let baseUrl = input.baseUrl;
+    if (api.standalone.requiresBaseUrl && baseUrl === undefined && !addAccount) {
+      const storedBaseUrl = yield* secrets
+        .get(issueTrackerBaseUrlSecretName(api.kind, input.accountId ?? null))
+        .pipe(Effect.mapError(secretFailure(api.kind, "The stored server URL could not be read.")));
+      if (Option.isSome(storedBaseUrl)) {
+        baseUrl = new TextDecoder().decode(storedBaseUrl.value);
+      }
+    }
     // The tracker is asked before the lock, so a slow probe never holds up other settings.
-    const probed = yield* api.probeCredential(token).pipe(
+    const probed = yield* api.probeCredential(token, baseUrl).pipe(
       Effect.mapError(
         (error) =>
           new IssueTrackerConnectionError({
@@ -252,6 +294,7 @@ const make = Effect.gen(function* () {
           }),
       ),
     );
+    const resolvedBaseUrl = probed.baseUrl ?? baseUrl;
     const accountId = yield* accountLock.withPermits(1)(
       Effect.gen(function* () {
         const accountId = addAccount
@@ -263,7 +306,7 @@ const make = Effect.gen(function* () {
                 ),
             )
           : yield* requireAccount(api.kind, input.accountId);
-        if (yield* heldElsewhere(api, accountId, token)) {
+        if (yield* heldElsewhere(api, accountId, token, resolvedBaseUrl)) {
           return yield* new IssueTrackerConnectionError({
             tracker: input.tracker,
             reason: "failed",
@@ -273,11 +316,33 @@ const make = Effect.gen(function* () {
         yield* secrets
           .set(issueTrackerSecretName(api.kind, accountId), encoder.encode(token))
           .pipe(Effect.mapError(secretFailure(api.kind, "The credential could not be stored.")));
+        if (api.standalone.requiresBaseUrl && resolvedBaseUrl !== undefined) {
+          yield* secrets
+            .set(
+              issueTrackerBaseUrlSecretName(api.kind, accountId),
+              encoder.encode(resolvedBaseUrl),
+            )
+            .pipe(
+              Effect.tapError(() =>
+                addAccount
+                  ? Effect.ignore(secrets.remove(issueTrackerSecretName(api.kind, accountId)))
+                  : Effect.void,
+              ),
+              Effect.mapError(secretFailure(api.kind, "The server URL could not be stored.")),
+            );
+        }
         if (addAccount && accountId !== null) {
           const createdAt = DateTime.formatIso(yield* DateTime.now);
           yield* bindings.addAccount({ tracker: api.kind, accountId, createdAt }).pipe(
             Effect.tapError(() =>
-              Effect.ignore(secrets.remove(issueTrackerSecretName(api.kind, accountId))),
+              Effect.all([
+                Effect.ignore(secrets.remove(issueTrackerSecretName(api.kind, accountId))),
+                api.standalone.requiresBaseUrl
+                  ? Effect.ignore(
+                      secrets.remove(issueTrackerBaseUrlSecretName(api.kind, accountId)),
+                    )
+                  : Effect.void,
+              ]),
             ),
             Effect.mapError(secretFailure(api.kind, "The account could not be saved.")),
           );
@@ -288,9 +353,11 @@ const make = Effect.gen(function* () {
     return {
       ...api.standalone,
       ...accountFields(accountId),
+      ...(probed.host === undefined ? {} : { host: probed.host }),
       connected: true,
       account: probed.account,
       detail: null,
+      ...(resolvedBaseUrl === undefined ? {} : { baseUrl: resolvedBaseUrl }),
       ...(probed.workspace === undefined ? {} : { workspace: probed.workspace }),
       scopes: probed.scopes,
     };

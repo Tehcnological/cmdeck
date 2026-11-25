@@ -131,6 +131,15 @@ export const LinearIcon: Icon = (props) => (
   </svg>
 );
 
+export const VikunjaIcon: Icon = (props) => (
+  <svg {...props} viewBox="0 0 100 100" fill="none">
+    <path
+      fill="currentColor"
+      d="M14 20h17l19 44 19-44h17L58 84H42L14 20Zm36 22a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z"
+    />
+  </svg>
+);
+
 export const CursorIcon: Icon = ({ className, ...props }) => (
   <svg
     {...props}
