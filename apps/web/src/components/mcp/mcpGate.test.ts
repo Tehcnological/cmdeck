@@ -91,6 +91,23 @@ describe("resolveMcpGate", () => {
     ).toBe("open");
   });
 
+  it("opens on the environment's own /mcp URL without T3 Connect", () => {
+    const direct = {
+      ...open,
+      signedIn: false,
+      canReadRelay: false,
+      linkState: null,
+      directMcpUrl: "http://127.0.0.1:3783/mcp",
+    };
+    expect(resolveMcpGate(direct)).toEqual({ kind: "open", mcpUrl: "http://127.0.0.1:3783/mcp" });
+    expect(resolveMcpGate({ ...direct, connected: false })).toEqual({
+      kind: "disconnected",
+      relay: null,
+    });
+    expect(resolveMcpGate({ ...direct, approvalCodes: undefined }).kind).toBe("checking");
+    expect(resolveMcpGate({ ...direct, approvalCodes: false }).kind).toBe("update");
+  });
+
   it.each([
     ["no T3 Connect sign-in", { ...open, signedIn: false }, "sign-in"],
     ["no permission to read T3 Connect", { ...open, canReadRelay: false }, "no-relay-read"],
