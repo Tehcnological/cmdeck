@@ -6,6 +6,7 @@ import { resolveDesktopPairingUrl, resolveHostedPairingUrl } from "./pairingUrls
 import { getPairingTokenFromUrl, setPairingTokenOnUrl } from "@t3tools/shared/remote";
 import { readHostedPairingRequest } from "../../hostedPairing";
 import { m, type MessageResolver } from "../../i18n/messages";
+import { isPickOnlyEndpointId } from "./RemoteAccessSettings.logic";
 import {
   isLoopbackHostname,
   type ServerClientSessionRecord,
@@ -145,13 +146,14 @@ export function selectQrEndpointOption<T extends QrEndpointOption>(
   selectedId: string | null,
   defaultPreferenceKey: string | null,
 ): T | null {
+  const automaticOptions = options.filter((option) => !isPickOnlyEndpointId(option.id));
   return (
     (selectedId !== null ? options.find((option) => option.id === selectedId) : undefined) ??
     (defaultPreferenceKey !== null
       ? options.find((option) => option.preferenceKey === defaultPreferenceKey)
       : undefined) ??
-    options.find((option) => option.qrShareable) ??
-    options[0] ??
+    automaticOptions.find((option) => option.qrShareable) ??
+    automaticOptions[0] ??
     null
   );
 }
@@ -393,10 +395,13 @@ export function selectPairingEndpoint(
       return selectedEndpoint;
     }
   }
+  const automaticEndpoints = availableEndpoints.filter(
+    (endpoint) => !isPickOnlyEndpointId(endpoint.id),
+  );
   return (
-    availableEndpoints.find((endpoint) => endpoint.isDefault) ??
-    availableEndpoints.find((endpoint) => endpoint.reachability !== "loopback") ??
-    availableEndpoints.find((endpoint) => endpoint.compatibility.hostedHttpsApp === "compatible") ??
+    automaticEndpoints.find((endpoint) => endpoint.isDefault) ??
+    automaticEndpoints.find((endpoint) => endpoint.reachability !== "loopback") ??
+    automaticEndpoints.find((endpoint) => endpoint.compatibility.hostedHttpsApp === "compatible") ??
     null
   );
 }

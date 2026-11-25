@@ -5,8 +5,8 @@ yourself, with Cloudflare Access in front of it. Everything here works on
 Cloudflare's free plans. CMDeck does not create, start, or manage the tunnel,
 and never signs in to Cloudflare; you run `cloudflared` and own the Cloudflare
 account. Once the tunnel runs, you tell CMDeck its address in **Settings →
-Sharing & access → Cloudflare Tunnel**, and pairing links and webhook addresses
-use it.
+Sharing & access → Cloudflare Tunnel**. Webhook and Remote MCP addresses use it,
+and pairing links offer it when you pick it.
 
 For the T3 Code mobile apps, use [Tailscale](./remote-access.md#tailscale-https)
 instead. Access signs people in with a browser cookie that the apps cannot
@@ -149,9 +149,11 @@ and says what answered:
   to the port in `config.yml`. A status code, such as 502 or 530, points at the
   [cause](#troubleshooting).
 
-While the address is set, new pairing links, the QR code, the MCP address in
-**Remote MCP**, and scheduled-task webhook addresses use it. Clear the field and
-save to stop.
+While the address is set, the MCP address in **Remote MCP** and scheduled-task
+webhook addresses use it, and pairing links list it as **Cloudflare Tunnel
+(t3.example.com)**. CMDeck only checks the address's format when you save it, so
+it never sends a pairing link there unless you pick it. Clear the field and save
+to stop.
 
 ## 8. Pair a browser
 
@@ -159,8 +161,9 @@ Access lets you reach the address; CMDeck still asks for its own pairing,
 because Access sign-in is not a CMDeck login.
 
 1. On the host, in **Settings → Sharing & access → Authorized clients**, create a
-   pairing link. With the tunnel address set, the link starts with
-   `https://t3.example.com/pair`.
+   pairing link and choose **Share**. Under **Reach this machine via**, pick
+   **Cloudflare Tunnel (t3.example.com)**; check that the host is yours. The
+   link then starts with `https://t3.example.com/pair`.
 2. Open it in your browser. Sign in to Access, then CMDeck pairs the browser.
 
 Without the app, run `t3 pair` on the host. It prints a URL such as

@@ -866,14 +866,10 @@ function ConnectionsSettingsContent({
   const accessSettings = accessEnvironment?.serverConfig?.settings;
   const accessPublicBaseUrl = accessSettings?.publicBaseUrl ?? "";
   const tunnelEndpoint = tunnelPairingEndpoint(accessPublicBaseUrl);
-  // A tunnel the user set up is where other devices pair, unless they picked another address.
+  // The tunnel address is only syntax-checked, so pairing offers it but never preselects it.
   const pairingEndpoints = tunnelEndpoint
-    ? [tunnelEndpoint, ...visibleDesktopAdvertisedEndpoints]
+    ? [...visibleDesktopAdvertisedEndpoints, tunnelEndpoint]
     : visibleDesktopAdvertisedEndpoints;
-  const pairingEndpoint = tunnelEndpoint
-    ? selectPairingEndpoint(pairingEndpoints, defaultAdvertisedEndpointKey)
-    : defaultDesktopAdvertisedEndpoint;
-  const pairingEndpointKey = pairingEndpoint ? endpointDefaultPreferenceKey(pairingEndpoint) : null;
   const accessExternalBaseUrl = externalBaseUrl(
     accessPublicBaseUrl,
     defaultDesktopAdvertisedEndpoint?.httpBaseUrl ?? accessHttpBaseUrl,
@@ -1200,7 +1196,7 @@ function ConnectionsSettingsContent({
       servedByEnvironment={isPrimaryAccess}
       endpointUrl={desktopServerExposureState?.endpointUrl}
       endpoints={pairingEndpoints}
-      defaultEndpointKey={pairingEndpointKey}
+      defaultEndpointKey={defaultDesktopAdvertisedEndpointKey}
       isLoading={isLoadingDesktopAccessManagement}
       pairingLinks={pairingLinks}
       createdPairingCredentials={createdPairingCredentials}

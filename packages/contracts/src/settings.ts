@@ -1450,7 +1450,7 @@ export const ServerSettings = Schema.Struct({
   enablePreviewTunnel: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
   /** Accepts `t3mcp_` bearer tokens on `/mcp`. `T3CODE_REMOTE_MCP`, when set, overrides it. */
   remoteMcpEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
-  /** The address of a tunnel the user runs to this machine; links for other devices use it. */
+  /** A tunnel the user runs here; webhook and MCP links use it, pairing only when picked. */
   publicBaseUrl: PublicBaseUrl.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
   cloudSpeechCredentials: CloudSpeechCredentials.pipe(
     Schema.withDecodingDefault(Effect.succeed({ openai: "", xai: "", openrouter: "" })),

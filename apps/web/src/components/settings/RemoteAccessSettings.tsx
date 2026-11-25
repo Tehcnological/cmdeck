@@ -141,8 +141,8 @@ export function CloudflareTunnelSettings({
           <T>
             Run your own Cloudflare Tunnel to this machine with <code>cloudflared</code>, put a
             Cloudflare Access application in front of its hostname, then enter the hostname here.
-            Pairing links and webhook addresses use it. CMDeck does not start the tunnel or sign in
-            to Cloudflare.
+            Webhook and MCP addresses use it, and pairing links offer it when you pick it. CMDeck
+            does not start the tunnel or sign in to Cloudflare.
           </T>{" "}
           <GuideLink href={CLOUDFLARE_TUNNEL_GUIDE_URL} />
         </p>

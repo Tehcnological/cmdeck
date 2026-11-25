@@ -14,15 +14,21 @@ export const REMOTE_MCP_GUIDE_URL =
   "https://github.com/Tehcnological/cmdeck/blob/main/docs/user/remote-mcp.md";
 
 const CLOUDFLARE_TUNNEL_LABEL = "Cloudflare Tunnel";
+const TUNNEL_ENDPOINT_ID_PREFIX = "cloudflare-tunnel:";
 
-/** The tunnel as a pairing endpoint, the default while it is set, so pairing links use it. */
+/** A mistyped or lapsed tunnel host would get pairing credentials; only a user pick uses it. */
+export function isPickOnlyEndpointId(id: string): boolean {
+  return id.startsWith(TUNNEL_ENDPOINT_ID_PREFIX);
+}
+
+/** The tunnel as a pairing endpoint labeled with its host; never preselected. */
 export function tunnelPairingEndpoint(publicBaseUrl: string): AdvertisedEndpoint | null {
   if (publicBaseUrlProblem(publicBaseUrl) !== null) return null;
   const origin = publicBaseOrigin(publicBaseUrl);
   if (origin === null) return null;
   return {
-    id: `cloudflare-tunnel:${origin}`,
-    label: CLOUDFLARE_TUNNEL_LABEL,
+    id: `${TUNNEL_ENDPOINT_ID_PREFIX}${origin}`,
+    label: `${CLOUDFLARE_TUNNEL_LABEL} (${new URL(origin).host})`,
     provider: {
       id: "cloudflare-tunnel",
       label: CLOUDFLARE_TUNNEL_LABEL,
@@ -35,7 +41,7 @@ export function tunnelPairingEndpoint(publicBaseUrl: string): AdvertisedEndpoint
     compatibility: { hostedHttpsApp: "unknown", desktopApp: "compatible" },
     source: "user",
     status: "available",
-    isDefault: true,
+    isDefault: false,
   };
 }
 

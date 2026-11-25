@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { endpointDefaultPreferenceKey, selectPairingEndpoint } from "./ConnectionsSettings.logic";
+import {
+  endpointDefaultPreferenceKey,
+  selectPairingEndpoint,
+  selectQrEndpointOption,
+} from "./ConnectionsSettings.logic";
 import { resolveDesktopPairingUrl } from "./pairingUrls";
 import {
   externalBaseUrl,
@@ -12,15 +16,30 @@ import {
 } from "./RemoteAccessSettings.logic";
 
 describe("tunnelPairingEndpoint", () => {
-  it("makes the tunnel the default pairing address while it is set", () => {
-    const tunnel = tunnelPairingEndpoint("https://cmdeck.example.com/");
-    expect(tunnel?.httpBaseUrl).toBe("https://cmdeck.example.com");
-    expect(tunnel?.wsBaseUrl).toBe("wss://cmdeck.example.com");
-    expect(selectPairingEndpoint(tunnel ? [tunnel] : [], null)).toBe(tunnel);
-    expect(resolveDesktopPairingUrl(tunnel!.httpBaseUrl, "secret")).toMatch(
+  it("offers the tunnel with its host but uses it only when picked", () => {
+    const tunnel = tunnelPairingEndpoint("https://cmdeck.example.com/")!;
+    expect(tunnel.label).toBe("Cloudflare Tunnel (cmdeck.example.com)");
+    expect(tunnel.httpBaseUrl).toBe("https://cmdeck.example.com");
+    expect(tunnel.wsBaseUrl).toBe("wss://cmdeck.example.com");
+    expect(tunnel.isDefault).toBe(false);
+    expect(resolveDesktopPairingUrl(tunnel.httpBaseUrl, "secret")).toMatch(
       /^https:\/\/cmdeck\.example\.com\/pair/u,
     );
-    expect(endpointDefaultPreferenceKey(tunnel!)).toContain("cloudflare-tunnel");
+    const tunnelKey = endpointDefaultPreferenceKey(tunnel);
+    expect(tunnelKey).toContain("cloudflare-tunnel");
+
+    expect(selectPairingEndpoint([tunnel], null)).toBeNull();
+    const lan = {
+      ...tunnel,
+      id: "desktop-lan:http://192.168.1.5:3783",
+      reachability: "lan" as const,
+    };
+    expect(selectPairingEndpoint([lan, tunnel], null)).toBe(lan);
+    expect(selectPairingEndpoint([lan, tunnel], tunnelKey)).toBe(tunnel);
+
+    const option = { id: tunnel.id, preferenceKey: tunnelKey, qrShareable: true };
+    expect(selectQrEndpointOption([option], null, null)).toBeNull();
+    expect(selectQrEndpointOption([option], tunnel.id, null)).toBe(option);
   });
 
   it("is absent while unset or invalid", () => {

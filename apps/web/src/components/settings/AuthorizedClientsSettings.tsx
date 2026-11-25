@@ -76,6 +76,7 @@ import {
   isHostedAppPairingUrl,
   endpointShareHint,
 } from "./ConnectionsSettings.logic";
+import { isPickOnlyEndpointId } from "./RemoteAccessSettings.logic";
 
 function AccessScopeSummary({
   scopes,
@@ -268,6 +269,7 @@ const PairingLinkListRow = memo(function PairingLinkListRow({
     defaultEndpointKey,
   );
   const qrPairingUrl = selectedQrOption?.url ?? shareablePairingUrl;
+  const hasPickOnlyOption = endpointCopyOptions.some((option) => isPickOnlyEndpointId(option.id));
   const canRenderQrForSelection = selectedQrOption?.qrShareable ?? true;
   if (expiresAtMs <= nowMs) {
     return null;
@@ -310,7 +312,7 @@ const PairingLinkListRow = memo(function PairingLinkListRow({
           ) : null}
         </div>
         <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto sm:justify-end">
-          {shareablePairingUrl && canCopyToClipboard ? (
+          {(shareablePairingUrl || hasPickOnlyOption) && canCopyToClipboard ? (
             <Button
               size="xs"
               variant="outline"
@@ -405,13 +407,13 @@ const PairingLinkListRow = memo(function PairingLinkListRow({
           </Button>
         </div>
       </div>
-      {isQrPanelOpen && qrPairingUrl !== null ? (
+      {isQrPanelOpen && (qrPairingUrl !== null || hasPickOnlyOption) ? (
         <div
           id={qrPanelId}
           className="mt-3 flex flex-col gap-4 border-t border-border/50 pt-3 sm:flex-row sm:items-start sm:justify-between"
         >
           <div className="min-w-0 flex-1 space-y-3">
-            {endpointCopyOptions.length > 1 ? (
+            {endpointCopyOptions.length > 1 || hasPickOnlyOption ? (
               <div
                 className="space-y-1.5"
                 role="radiogroup"
@@ -452,31 +454,33 @@ const PairingLinkListRow = memo(function PairingLinkListRow({
                 })}
               </div>
             ) : null}
-            <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5">
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <code className="min-w-0 flex-1 truncate font-mono text-2xs text-muted-foreground">
-                      {qrPairingUrl}
-                    </code>
-                  }
-                />
-                <TooltipPopup side="top">{qrPairingUrl}</TooltipPopup>
-              </Tooltip>
-              <Button
-                size="xs"
-                variant="ghost"
-                className="shrink-0"
-                onClick={() => copyPairingValue(qrPairingUrl, copyKindForUrl(qrPairingUrl))}
-              >
-                <T>Copy link</T>
-              </Button>
-            </div>
+            {qrPairingUrl === null ? null : (
+              <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5">
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <code className="min-w-0 flex-1 truncate font-mono text-2xs text-muted-foreground">
+                        {qrPairingUrl}
+                      </code>
+                    }
+                  />
+                  <TooltipPopup side="top">{qrPairingUrl}</TooltipPopup>
+                </Tooltip>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  className="shrink-0"
+                  onClick={() => copyPairingValue(qrPairingUrl, copyKindForUrl(qrPairingUrl))}
+                >
+                  <T>Copy link</T>
+                </Button>
+              </div>
+            )}
             <Button size="xs" variant="ghost" onClick={handleCopyCode}>
               <T>Copy code only</T>
             </Button>
           </div>
-          {canRenderQrForSelection ? (
+          {qrPairingUrl === null ? null : canRenderQrForSelection ? (
             <div className="w-fit shrink-0 self-center rounded-xl bg-white p-3 sm:self-start">
               <QRCodeSvg
                 value={qrPairingUrl}
