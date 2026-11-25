@@ -17,9 +17,9 @@ explain why those changes are needed for the same fix. Split independent fixes. 
 
 ## Scope
 
-<!-- We accept bug fixes, not features. Link the issue that shows the bug. For a
-small fix of an obvious bug, say why it needs no issue. If a maintainer asked for
-this PR, link the request. -->
+<!-- CMDeck accepts fixes to code this fork changed or added, not features.
+Bugs in code inherited unchanged from T3 Code belong upstream. Say which
+fork change this fixes. -->
 
 ## Verification
 

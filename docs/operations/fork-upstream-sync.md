@@ -1,4 +1,4 @@
-# Merging upstream into this private fork
+# Merging upstream into this fork
 
 This fork tracks [pingdotgg/t3code](https://github.com/pingdotgg/t3code). Nothing updates on its
 own: installers carry no release feed, servers do not fetch releases, and no workflow pulls

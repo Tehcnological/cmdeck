@@ -1,6 +1,6 @@
 # CMDeck
 
-CMDeck is a private, **unofficial** fork of [T3 Code](https://github.com/pingdotgg/t3code), the
+CMDeck is a personal, **unofficial** fork of [T3 Code](https://github.com/pingdotgg/t3code), the
 open-source GUI for coding agents. It is not affiliated with, endorsed by, or maintained by
 T3 Tools, Inc.
 

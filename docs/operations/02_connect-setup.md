@@ -1,5 +1,8 @@
 # T3 Connect setup
 
+> **CMDeck:** T3 Connect is off in this fork and these steps do not apply. For remote access, see
+> [remote access](../user/remote-access.md) and [Cloudflare Tunnel](../user/cloudflare-tunnel.md).
+
 Deployment and client configuration for T3 Connect. See [T3 Connect](../internals/06_t3-connect.md) for trust boundaries and [infra/relay/README.md](../../infra/relay/README.md#deployment) for relay provisioning.
 
 ## Public application configuration
