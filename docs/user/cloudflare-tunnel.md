@@ -2,8 +2,11 @@
 
 Reach CMDeck from a browser anywhere through a Cloudflare Tunnel you run
 yourself, with Cloudflare Access in front of it. Everything here works on
-Cloudflare's free plans. CMDeck does not create, start, or manage the tunnel;
-you run `cloudflared` and own the Cloudflare account.
+Cloudflare's free plans. CMDeck does not create, start, or manage the tunnel,
+and never signs in to Cloudflare; you run `cloudflared` and own the Cloudflare
+account. Once the tunnel runs, you tell CMDeck its address in **Settings →
+Sharing & access → Cloudflare Tunnel**, and pairing links and webhook addresses
+use it.
 
 For the T3 Code mobile apps, use [Tailscale](./remote-access.md#tailscale-https)
 instead. Access signs people in with a browser cookie that the apps cannot
@@ -128,16 +131,41 @@ On macOS, `sudo cloudflared service install` installs a launch daemon that reads
 `cloudflared service install` from an administrator terminal and see
 [Cloudflare's service guide](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/configure-tunnels/local-management/as-a-service/).
 
-## 7. Pair a browser
+## 7. Tell CMDeck the address
+
+On the host, open **Settings → Sharing & access**, enter
+`https://t3.example.com` under **Cloudflare Tunnel**, and choose **Save**. Use
+only the `https://` address, without a path.
+
+**Check** asks `https://t3.example.com/.well-known/t3/environment` from the host
+and says what answered:
+
+- **Reachable**: this environment answered through the tunnel.
+- **Reachable behind a login**: Cloudflare Access stopped the request, as it
+  should. Browsers sign in to Access first.
+- **A different CMDeck environment answered**: the hostname routes to another
+  machine. Check `config.yml`.
+- **Not reachable**: `cloudflared` is not running, or the hostname does not route
+  to the port in `config.yml`. A status code, such as 502 or 530, points at the
+  [cause](#troubleshooting).
+
+While the address is set, new pairing links, the QR code, the MCP address in
+**Remote MCP**, and scheduled-task webhook addresses use it. Clear the field and
+save to stop.
+
+## 8. Pair a browser
 
 Access lets you reach the address; CMDeck still asks for its own pairing,
 because Access sign-in is not a CMDeck login.
 
-1. On the host, run `t3 pair`. It prints a URL such as
-   `http://127.0.0.1:3783/pair#token=ABCD…`.
-2. Replace the start of that URL with your hostname:
-   `https://t3.example.com/pair#token=ABCD…`.
-3. Open it in your browser. Sign in to Access, then CMDeck pairs the browser.
+1. On the host, in **Settings → Sharing & access → Authorized clients**, create a
+   pairing link. With the tunnel address set, the link starts with
+   `https://t3.example.com/pair`.
+2. Open it in your browser. Sign in to Access, then CMDeck pairs the browser.
+
+Without the app, run `t3 pair` on the host. It prints a URL such as
+`http://127.0.0.1:3783/pair#token=ABCD…`; replace the start with your hostname,
+as in `https://t3.example.com/pair#token=ABCD…`.
 
 The pairing code works once and expires after 5 minutes (`t3 pair --ttl 15m`
 for longer). To pair from a desktop app or another CMDeck client, use
@@ -177,7 +205,8 @@ The client still needs a CMDeck credential, such as a session from
 ## Webhooks
 
 Scheduled-task webhooks are called at your server's own address, for example
-`https://t3.example.com/api/hooks/<task>/<token>`. Webhook senders such as
+`https://t3.example.com/api/hooks/<task>/<token>`. With the tunnel address set in
+Settings, the task shows that full URL to copy. Webhook senders such as
 GitHub cannot sign in to Access. To let them through, add a second Access
 application for the path `t3.example.com/api/hooks` with a single **Bypass**
 policy that includes **Everyone**. Requests there still need the secret token in

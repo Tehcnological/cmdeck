@@ -13,8 +13,11 @@ connects straight to your host. Pick one of these:
   browsers, and the official iPhone and Android apps. Traffic stays end-to-end
   encrypted inside your tailnet, and nothing is exposed to the internet.
 - **[Your own Cloudflare Tunnel](./cloudflare-tunnel.md).** A public HTTPS
-  hostname behind Cloudflare Access, for browsers anywhere. The mobile apps
-  cannot sign in to Access, so use Tailscale for phones.
+  hostname behind Cloudflare Access, for browsers anywhere. You run
+  `cloudflared`; enter its address in **Settings → Sharing & access →
+  Cloudflare Tunnel** so pairing links and webhook addresses use it, and
+  **Check** it from there. The mobile apps cannot sign in to Access, so use
+  Tailscale for phones.
 - **[The local network](#pair-over-a-lan-or-private-network)** or
   **[SSH](#desktop-managed-ssh)** when the devices can already reach each other.
 
@@ -22,7 +25,10 @@ Whichever route you use, a device gets in only by pairing: someone on the host
 creates a one-time pairing link or code, and the device redeems it. Revoke a
 device at any time in **Settings → Sharing & access** on the host.
 
-`t3 connect`, `t3 up --connect`, and the T3 Connect settings are gone. A host
+`t3 connect`, `t3 up --connect`, and the T3 Connect settings are gone; in their
+place, **Settings → Sharing & access** has **Cloudflare Tunnel** for your own
+tunnel's address and **[Remote MCP](./remote-mcp.md)** for MCP clients that use a
+token. A host
 that was linked to T3 Connect before is unlinked on its next start, its managed
 tunnel is not started again, and sessions that came through T3 Connect are
 revoked. Pair those devices again over one of the routes above.
