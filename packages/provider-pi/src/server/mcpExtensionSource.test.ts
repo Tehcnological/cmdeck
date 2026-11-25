@@ -798,6 +798,7 @@ describe("Pi T3 gateway provider registration", () => {
         on: () => undefined,
         getCommands: () => [],
         registerTool: () => undefined,
+        registerCommand: () => undefined,
         registerProvider: (name: string, config: unknown) => registered.push([name, config]),
       },
     });

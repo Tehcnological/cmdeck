@@ -17,7 +17,13 @@ vi.mock(import("~/state/environments"), async (original) => ({
 }));
 vi.mock(import("~/hooks/useSettings"), async (original) => ({
   ...(await original()),
-  useEnvironmentSettings: (() => DEFAULT_UNIFIED_SETTINGS) as never,
+  useEnvironmentSettings: (() => ({
+    ...DEFAULT_UNIFIED_SETTINGS,
+    providerInstances: {
+      "claude-work": { driver: "claudeAgent", enabled: true },
+      antigravity: { driver: "antigravity", enabled: true },
+    },
+  })) as never,
 }));
 vi.mock(import("~/state/entities"), async (original) => ({
   ...(await original()),
