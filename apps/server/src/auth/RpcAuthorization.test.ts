@@ -4,7 +4,9 @@ import {
   AuthFilesystemReadScope,
   AuthProvidersManageScope,
   AuthSettingsWriteScope,
+  AuthAccessReadScope,
   AuthAccessWriteScope,
+  AuthEnvironmentScope,
   DEFAULT_SERVER_SETTINGS,
   EnvironmentId,
   ProviderDriverKind,
@@ -25,6 +27,7 @@ import {
   RunId,
   WS_METHODS,
   WsRpcGroup,
+  mcpClientScopes,
 } from "@t3tools/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -1027,5 +1030,95 @@ it.effect("requires provider management to send /logout through chat", () =>
       "kept-attachments-edit",
       "manager",
     ]);
+  }).pipe(Effect.scoped),
+);
+
+it.effect("manages remote MCP tokens and the tunnel address only for one that manages access", () =>
+  Effect.gen(function* () {
+    const tested = [
+      WS_METHODS.remoteMcpStatus,
+      WS_METHODS.remoteMcpCreateToken,
+      WS_METHODS.remoteMcpRevokeToken,
+      WS_METHODS.serverCheckPublicAddress,
+    ] as const;
+    const group = WsRpcGroup.omit(
+      ...[...WsRpcGroup.requests.keys()].filter(
+        (tag): tag is Exclude<keyof typeof RPC_REQUIRED_SCOPES, (typeof tested)[number]> =>
+          !(tested as ReadonlyArray<string>).includes(tag),
+      ),
+    );
+    let handled = 0;
+    const handlers = Layer.mergeAll(
+      group.toLayerHandler(WS_METHODS.remoteMcpStatus, () =>
+        Effect.sync(() => {
+          handled++;
+          return { envOverride: null, tokens: [] };
+        }),
+      ),
+      group.toLayerHandler(WS_METHODS.remoteMcpCreateToken, ({ label, access }) =>
+        Effect.sync(() => {
+          handled++;
+          return {
+            token: { id: "token-1", label, access, createdAt: "2026-11-24T00:00:00.000Z" },
+            secret: "t3mcp_created",
+          };
+        }),
+      ),
+      group.toLayerHandler(WS_METHODS.remoteMcpRevokeToken, () =>
+        Effect.sync(() => {
+          handled++;
+          return { revoked: true };
+        }),
+      ),
+      group.toLayerHandler(WS_METHODS.serverCheckPublicAddress, () =>
+        Effect.sync(() => {
+          handled++;
+          return { status: "reachable" as const };
+        }),
+      ),
+    );
+    const clientWith = (scopes: Parameters<typeof RpcAuthorization.layer>[0]) =>
+      RpcTest.makeClient(group).pipe(
+        Effect.provide(Layer.merge(handlers, RpcAuthorization.layer(scopes))),
+      );
+    const url = "https://cmdeck.example.com";
+
+    // The broadest grant an agent's MCP sign-in or a peer link holds manages no access.
+    const agent = yield* clientWith(mcpClientScopes("full-access"));
+    expect(yield* agent[WS_METHODS.remoteMcpStatus]({}).pipe(Effect.flip)).toMatchObject({
+      requiredPermission: AuthAccessReadScope,
+    });
+    expect(
+      yield* agent[WS_METHODS.remoteMcpCreateToken]({ label: "x", access: "read-only" }).pipe(
+        Effect.flip,
+      ),
+    ).toMatchObject({ requiredPermission: AuthAccessWriteScope });
+    expect(
+      yield* agent[WS_METHODS.remoteMcpRevokeToken]({ id: "token-1" }).pipe(Effect.flip),
+    ).toMatchObject({ requiredPermission: AuthAccessWriteScope });
+    expect(
+      yield* agent[WS_METHODS.serverCheckPublicAddress]({ url }).pipe(Effect.flip),
+    ).toMatchObject({ requiredPermission: AuthAccessWriteScope });
+
+    // A token is a credential: managing access alone cannot mint one that runs agents.
+    const accessManager = yield* clientWith([AuthAccessReadScope, AuthAccessWriteScope]);
+    expect(
+      yield* accessManager[WS_METHODS.remoteMcpCreateToken]({ label: "x", access: "auto" }).pipe(
+        Effect.flip,
+      ),
+    ).toMatchObject({ requiredPermission: AuthOrchestrationReadScope });
+    expect(handled).toBe(0);
+
+    const owner = yield* clientWith(AuthEnvironmentScope.literals);
+    expect((yield* owner[WS_METHODS.remoteMcpStatus]({})).tokens).toEqual([]);
+    expect(
+      (yield* owner[WS_METHODS.remoteMcpCreateToken]({ label: "laptop", access: "full-access" }))
+        .secret,
+    ).toBe("t3mcp_created");
+    expect(yield* owner[WS_METHODS.remoteMcpRevokeToken]({ id: "token-1" })).toEqual({
+      revoked: true,
+    });
+    expect((yield* owner[WS_METHODS.serverCheckPublicAddress]({ url })).status).toBe("reachable");
+    expect(handled).toBe(4);
   }).pipe(Effect.scoped),
 );

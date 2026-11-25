@@ -85,6 +85,8 @@ import * as SourceControlSignIn from "./sourceControl/SourceControlSignIn.ts";
 import { BUILT_IN_SOURCE_CONTROL_DRIVER_LIST } from "./sourceControl/sourceControlDefinitions.ts";
 import * as TextGeneration from "./textGeneration/TextGeneration.ts";
 import * as SecretCheck from "./secrets/SecretCheck.ts";
+import * as RemoteMcpTokens from "./auth/RemoteMcpTokens.ts";
+import * as PublicAddressCheck from "./environment/PublicAddressCheck.ts";
 import * as SecretResolver from "./secrets/SecretResolver.ts";
 import * as ProviderInstanceRegistryHydration from "./provider/ProviderInstanceRegistryHydration.ts";
 import * as ProviderHostPathWatcher from "./provider/ProviderHostPathWatcher.ts";
@@ -785,7 +787,9 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
     Layer.provideMerge(layerTaskFolders),
     Layer.provideMerge(RuntimeLayer.layerEventInfrastructure),
     Layer.provideMerge(Layer.merge(ProjectStore.layer, ThreadSearch.layer)),
-    Layer.provideMerge(SecretCheck.layer),
+    Layer.provideMerge(
+      Layer.mergeAll(SecretCheck.layer, RemoteMcpTokens.layer, PublicAddressCheck.layer),
+    ),
     Layer.provideMerge(SecretResolver.layer),
     // Above the settings it writes when a theme is applied.
     Layer.provideMerge(EnvironmentTheme.layer),

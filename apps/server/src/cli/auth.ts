@@ -407,7 +407,7 @@ const mcpTokenCreateCommand = Command.make("create", {
   ),
 }).pipe(
   Command.withDescription(
-    "Create a bearer token for /mcp, accepted while T3CODE_REMOTE_MCP is on. The token is printed once.",
+    "Create a bearer token for /mcp, accepted while remote MCP is on (Settings or T3CODE_REMOTE_MCP). The token is printed once.",
   ),
   Command.withHandler((flags) =>
     runWithRemoteMcpTokens(

@@ -22,7 +22,9 @@ export function webhookAddress(
       address: endpoint.path,
       copyable: false,
       note: resolve(
-        msg("Reach this environment over Tailscale or your own Cloudflare Tunnel to call it."),
+        msg(
+          "Add your Cloudflare Tunnel's address under Settings, Sharing & access, or reach this environment over Tailscale, to call it.",
+        ),
       ),
     };
   }

@@ -11,8 +11,8 @@ model.
   narrow a grant, never widen it. Client labels and device metadata have no authorization role.
 - **`access:write` hands out what the session holds and revokes anything.** Every route that
   returns a credential to the caller requires `access:write` and every scope that credential
-  carries: a pairing link, an MCP sign-in approval, a link code from a linked environment, and a
-  guest link (which reads a thread). Revoking is not capped by the caller's scopes. Admitting a
+  carries: a pairing link, an MCP sign-in approval, a remote MCP token, a link code from a linked
+  environment, and a guest link (which reads a thread). Revoking is not capped by the caller's scopes. Admitting a
   T3 Connect device is not delegation; see [T3 Connect](./06_t3-connect.md).
 - **Why the default grant includes management scopes.** `terminal:operate` and
   `orchestration:operate` already grant OS-user execution (which can invoke `t3 auth session issue`),
@@ -60,9 +60,11 @@ model.
   or an administrator's ceiling below it) can start or change runs, change what workflows store, or
   read webhook paths. Narrower callers can still read runs.
 - **Remote MCP tokens are not sessions.** [`RemoteMcpTokens`](../../apps/server/src/auth/RemoteMcpTokens.ts)
-  keeps SHA-256 hashes of user-created `/mcp` bearer tokens in the secret store. The CLI can
-  revoke a token while the server is stopped. The `/mcp` authenticator checks a short-lived
-  snapshot while `T3CODE_REMOTE_MCP` is on. Open requests recheck the token grant for revocation.
+  keeps SHA-256 hashes of user-created `/mcp` bearer tokens in the secret store. Settings and the
+  CLI share that store, so the CLI can revoke a token while the server is stopped. The `/mcp`
+  authenticator checks a short-lived snapshot while the `remoteMcpEnabled` setting is on, read per
+  request; `T3CODE_REMOTE_MCP`, when set, overrides it either way. Open requests end when the
+  token is revoked or the feature turns off.
   Token clients lack a session row and cannot own webhook subscriptions.
 - **Peer-link client pairing.** Only a full-access peer link may mint a one-time client pairing on
   the linked environment (since full-access agents can already run `t3 auth pairing create`). The

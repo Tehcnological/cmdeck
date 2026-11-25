@@ -1479,6 +1479,18 @@ export const SETTINGS_SEARCH_ITEMS = [
     ],
   },
   {
+    id: "cloudflare-tunnel",
+    title: msg("Cloudflare Tunnel"),
+    to: "/settings/access",
+    searchTerms: [msg("tunnel public address hostname cloudflared access pairing webhook remote")],
+  },
+  {
+    id: "remote-mcp",
+    title: msg("Remote MCP"),
+    to: "/settings/access",
+    searchTerms: [msg("mcp bearer token agent client tailscale tunnel revoke endpoint")],
+  },
+  {
     id: "connections-environment",
     title: msg("This machine"),
     to: "/settings/access",

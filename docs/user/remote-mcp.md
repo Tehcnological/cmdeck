@@ -11,48 +11,64 @@ Cloudflare Tunnel you run. Nothing goes through T3 Connect.
 
 ## Turn it on
 
-Tokens are refused until the server starts with `T3CODE_REMOTE_MCP=1` in its
-environment:
+On the host, open **Settings → Sharing & access** and turn on **Accept remote MCP
+tokens** under **Remote MCP**. It takes effect at once, with no restart. Turning it off
+refuses every token right away and closes their open requests, without deleting the
+tokens. OAuth sign-ins keep working either way. A managed policy that does not allow
+remote clients refuses every token, and the switch shows that.
+
+On a headless server, set `T3CODE_REMOTE_MCP` where the server starts instead:
 
 ```bash
 T3CODE_REMOTE_MCP=1 t3 serve --tailscale-serve
 ```
 
-For the background service or the desktop app, set the variable where that process
-starts. Without it, every token gets `401`, and OAuth sign-ins keep working as before.
-A managed policy that does not allow remote clients also refuses every token.
+When the variable is set, it wins over the switch: `1` or `true` keeps tokens on,
+`0` or `false` keeps them off, and Settings shows the switch locked. Remove the
+variable to use the switch again. A value that is not a boolean keeps tokens off.
 
 ## Create a token
 
-On the machine that runs the environment:
+In **Remote MCP**, choose **Create token**, name the client (for example
+`laptop-claude`), and pick what it may do:
+
+- **Read only** reads projects, threads and the available models. It cannot change
+  anything.
+- The other modes also start, message, queue to and stop threads. A thread it starts or
+  steers cannot run with more permissions than this mode. Only **Full access** can start
+  or change [workflow runs](./workflows.md).
+
+The token is shown once, with a **Copy** button. Copy it into the client's config right
+away; CMDeck keeps only a hash of it and cannot show it again. Creating a token needs
+permission to manage access on that environment, plus the permissions the token itself
+grants. Agents signed in over MCP cannot create, list or revoke tokens.
+
+The list under **Tokens** shows each token's name, access and creation time, never the
+token. **Revoke** cuts a client off within a few seconds.
+
+A token does not expire. Revoke it when you stop using the client, and create one token
+per client so you can revoke them separately.
+
+### From the command line
+
+The same tokens can be managed on the host without the app, even while the server is
+stopped:
 
 ```bash
 t3 auth mcp-token create --label laptop-claude --access read-only
-```
-
-The token is printed once. Copy it into the client's config right away; CMDeck keeps
-only a hash of it and cannot show it again. `--access` is required:
-
-- `read-only` reads projects, threads and the available models. It cannot change
-  anything.
-- `approval-required`, `auto-accept-edits`, `auto` or `full-access` also start,
-  message, queue to and stop threads. A thread it starts or steers cannot run with more
-  permissions than this mode. Only `full-access` can start or change
-  [workflow runs](./workflows.md).
-
-```bash
 t3 auth mcp-token list            # ids, access, creation time, labels; never the tokens
 t3 auth mcp-token revoke <id>
 ```
 
-A token does not expire. Revoke it when you stop using the client, and create one
-token per client so you can revoke them separately. Pass `--base-dir` (or set
-`T3CODE_HOME`) if the environment does not use the default data directory.
+`--access` takes `read-only`, `approval-required`, `auto-accept-edits`, `auto` or
+`full-access`. Pass `--base-dir` (or set `T3CODE_HOME`) if the environment does not use
+the default data directory.
 
 ## Connect a client
 
-The URL is the environment's `https` address followed by `/mcp`. Every request sends
-`Authorization: Bearer <your-token>`.
+The URL is the environment's `https` address followed by `/mcp`. **Remote MCP** in
+Settings shows it, using your [Cloudflare Tunnel address](./cloudflare-tunnel.md#7-tell-cmdeck-the-address)
+when you have set one. Every request sends `Authorization: Bearer <your-token>`.
 
 ### Claude Code
 
@@ -128,13 +144,14 @@ bearer token.
 - A token with a runtime mode can make agents run commands on this machine as your OS
   user. Treat it like an SSH key: keep it out of shared config, chat and source control,
   and prefer `read-only` when that is enough.
-- Keep the feature off unless you use it. Turning off `T3CODE_REMOTE_MCP` refuses every
-  token without deleting them.
+- Keep the feature off unless you use it. Turning it off refuses every token without
+  deleting them.
 - Anyone who can reach the URL can try tokens. A token is 32 random bytes, so guessing
   is not practical, but put the endpoint behind Tailscale or Cloudflare Access rather
   than the open internet.
 - Within a few seconds of revocation, the server refuses new requests using that
   token and closes its open requests, including `t3_thread_wait` and event streams.
 - Token clients cannot register webhooks; use OAuth for bots that need webhook delivery.
-- Tokens are stored as SHA-256 hashes in the environment's secrets directory. They do
-  not appear in **Settings → Sharing & access**; use `t3 auth mcp-token list`.
+- Tokens are stored as SHA-256 hashes in the environment's secrets directory. They are
+  listed under **Remote MCP** in **Settings → Sharing & access**, not with the authorized
+  clients.
