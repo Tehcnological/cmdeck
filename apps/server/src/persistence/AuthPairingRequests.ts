@@ -169,9 +169,7 @@ const make = Effect.gen(function* () {
       Effect.mapError(sqlError("AuthPairingRequestRepository.approve")),
     );
 
-  const listForActiveLinks: AuthPairingRequestRepository["Service"]["listForActiveLinks"] = (
-    now,
-  ) =>
+  const listForActiveLinks: AuthPairingRequestRepository["Service"]["listForActiveLinks"] = (now) =>
     listRows({ now }).pipe(
       NodeSqliteClient.readOnly,
       Effect.mapError(sqlError("AuthPairingRequestRepository.listForActiveLinks")),

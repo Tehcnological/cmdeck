@@ -2027,6 +2027,7 @@
   "a10cfdb27152c757": "{count, plural, one {{count} устройство подключилось} few {{count} устройства подключились} many {{count} устройств подключились} other {{count} устройства подключились}} через {product}. Это были не вы? Проверьте.",
   "4672f332c89dbcd9": "Проверить",
   "775a3e99e2638341": "Устройство хочет подключиться к {environmentLabel}",
+  "0608dca9a6e15042": "{device} wants to pair. Approve only if you are pairing it.",
   "a8befcb9f1c61f60": "{device}. Подтверждайте, только если на нём код {code}.",
   "ac48cc297029db41": "Подтвердить",
   "c12ca3fea745def0": "Не удалось подтвердить устройство",
@@ -8152,9 +8153,28 @@
   "ee07cdc25d1562d0": "Обновить Codex",
   "c4e68ca143d1cb28": "Сменить аккаунт",
   "d356add77d113720": "Отключить",
-  "90fca700a649603e": "Устройства T3 Connect",
+  "ab60869a6aad9387": "Device approval",
+  "d507d24f3c9ba0c9": "Requested scopes",
   "2a2675972bd6818a": "Отозвать {name}?",
   "305e4fd592eb570a": "Не удалось отозвать устройство",
+  "7c5eb60743d53f71": "Отклонить",
+  "27ea081c5ba3de4c": [
+    "Waiting for approval · ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "f2e8ccb6d2a0488f": [
+    "Asked at ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " with a pairing link. Approve only if you are pairing this device."
+  ],
   "c9ae6751db0ea9cb": [
     "Ожидание подтверждения ·",
     " ",
@@ -8176,7 +8196,6 @@
     },
     ". Подтверждайте, только если устройство перед вами показывает этот код."
   ],
-  "7c5eb60743d53f71": "Отклонить",
   "0ecf3435b0434d1b": [
     "Доверенное с",
     " ",
@@ -8279,6 +8298,7 @@
   "9bfddd9a835be5de": "сервер",
   "43b545c01503eee4": "Повторить обновление",
   "2f015e6d5459dce9": "Обновить до {version}",
+  "c83d0d571b44fdcc": "A device that pairs with a pairing link waits until someone already connected here approves it. This machine's desktop app, sessions issued on the host, and agent app codes skip the wait.",
   "8ebba639f92932c3": "Позволяет другим устройствам открывать локальные серверы этого компьютера: вкладки браузера, загружаемые на устройстве, «Открыть на этом устройстве» и перенаправление портов. Выключено: вкладки браузера транслируются с этого компьютера.",
   "1c5266bf18d0ed24": "Разрешить туннель предпросмотра",
   "a0e93cca71d0417e": "Авторизованные клиенты",
@@ -12324,7 +12344,7 @@
   "92c2528040ca7442": "serve magicdns конечная точка удалённый защищённая сеть",
   "ab23b9c923cc4e80": "windows subsystem linux дистрибутив второй сервер проекты остановить бэкенд windows перезапуск только wsl",
   "814c6f3ba7c29f7c": "управляемый туннель облако другие устройства удалённые туннели лимит t3 chat",
-  "5b2b522e0edc3d32": "t3 connect устройства одобрить отклонить доверять отозвать код сопряжения безопасность аккаунт",
+  "618ac8899204d223": "devices approve deny trust revoke pairing link qr code phone security t3 connect",
   "b5cd79513a06e7c3": "Удерживать вебхуки в офлайне",
   "fadd0fcd7b9e1651": "вебхук автоматизации офлайн очередь почтовый ящик t3 connect",
   "9bebacdcfbde18d4": "мобильные push-уведомления live activities облако туннель",
@@ -13017,6 +13037,7 @@
   ],
   "8367779e149f723b": "Запрос к основному окружению не удался во время {operation} (HTTP {status}).",
   "c5cd027743a2b5a6": "Недействительный токен сопряжения. Проверьте токен и попробуйте ещё раз.",
+  "9e1614d8e2f6d307": "This device is waiting for approval. Ask someone already connected to approve it in Settings → Access, then try again.",
   "0e4b49c8203aae81": "Истекло время ожидания аутентифицированного сеанса после начальной загрузки.",
   "d7ffde2874d60d4f": "Введите токен сопряжения, чтобы продолжить.",
   "5d18537f82794deb": "Локальное окружение отключено.",

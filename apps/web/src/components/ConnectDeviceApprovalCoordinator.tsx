@@ -27,6 +27,14 @@ import { stackedThreadToast } from "./ui/toastHelpers";
  * Asks whoever can approve to look at devices waiting on an environment (T3 Connect or direct
  * pairing), and tells them about T3 Connect devices that got in without approval.
  */
+
+type PendingApproval = {
+  readonly id: string;
+  readonly device: string;
+  readonly code: string | null;
+  readonly expiresAt: DateTime.Utc;
+};
+
 export function ConnectDeviceApprovalCoordinator() {
   const { environments } = useEnvironments();
   return environments.map((environment) =>
@@ -206,7 +214,7 @@ function ConnectDeviceRequestToasts({
 
   const requests =
     access.data?.type === "snapshot"
-      ? access.data.payload.pairingLinks.flatMap((link) =>
+      ? access.data.payload.pairingLinks.flatMap((link): ReadonlyArray<PendingApproval> =>
           link.connectDeviceRequest
             ? [
                 {

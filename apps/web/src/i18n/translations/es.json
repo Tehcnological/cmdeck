@@ -2027,6 +2027,7 @@
   "a10cfdb27152c757": "{count, plural, one {{count} dispositivo se conectó} other {{count} dispositivos se conectaron}} a través de {product}. ¿No fuiste tú? Revísalos.",
   "4672f332c89dbcd9": "Revisar",
   "775a3e99e2638341": "Un dispositivo quiere conectarse a {environmentLabel}",
+  "0608dca9a6e15042": "{device} wants to pair. Approve only if you are pairing it.",
   "a8befcb9f1c61f60": "{device}. Apruébalo solo si muestra el código {code}.",
   "ac48cc297029db41": "Aprobar",
   "c12ca3fea745def0": "No se pudo aprobar el dispositivo",
@@ -8152,9 +8153,28 @@
   "ee07cdc25d1562d0": "Actualizar Codex",
   "c4e68ca143d1cb28": "Cambiar de cuenta",
   "d356add77d113720": "Desconectar",
-  "90fca700a649603e": "Dispositivos de T3 Connect",
+  "ab60869a6aad9387": "Device approval",
+  "d507d24f3c9ba0c9": "Requested scopes",
   "2a2675972bd6818a": "¿Revocar {name}?",
   "305e4fd592eb570a": "No se pudo revocar el dispositivo",
+  "7c5eb60743d53f71": "Denegar",
+  "27ea081c5ba3de4c": [
+    "Waiting for approval · ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "f2e8ccb6d2a0488f": [
+    "Asked at ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " with a pairing link. Approve only if you are pairing this device."
+  ],
   "c9ae6751db0ea9cb": [
     "Esperando aprobación ·",
     " ",
@@ -8176,7 +8196,6 @@
     },
     ". Apruébalo solo si el dispositivo que tienes delante muestra este código."
   ],
-  "7c5eb60743d53f71": "Denegar",
   "0ecf3435b0434d1b": [
     "De confianza desde",
     " ",
@@ -8279,6 +8298,7 @@
   "9bfddd9a835be5de": "servidor",
   "43b545c01503eee4": "Reintentar actualización",
   "2f015e6d5459dce9": "Actualizar a {version}",
+  "c83d0d571b44fdcc": "A device that pairs with a pairing link waits until someone already connected here approves it. This machine's desktop app, sessions issued on the host, and agent app codes skip the wait.",
   "8ebba639f92932c3": "Permite que otros dispositivos abran los servidores locales de esta máquina: pestañas del navegador cargadas en el dispositivo, Abrir en este dispositivo y reenvío de puertos. Desactivado: las pestañas del navegador se transmiten desde esta máquina.",
   "1c5266bf18d0ed24": "Permitir el túnel de vista previa",
   "a0e93cca71d0417e": "Clientes autorizados",
@@ -12318,7 +12338,7 @@
   "92c2528040ca7442": "serve magicdns endpoint remoto seguro red",
   "ab23b9c923cc4e80": "windows subsistema linux distro segundo servidor proyectos detener backend de windows reiniciar solo wsl",
   "814c6f3ba7c29f7c": "túnel gestionado nube otros dispositivos remoto túneles límite t3 chat",
-  "5b2b522e0edc3d32": "t3 connect dispositivos aprobar denegar confiar revocar código de emparejamiento seguridad cuenta",
+  "618ac8899204d223": "devices approve deny trust revoke pairing link qr code phone security t3 connect",
   "b5cd79513a06e7c3": "Retener webhooks sin conexión",
   "fadd0fcd7b9e1651": "webhook automatizaciones sin conexión cola buzón t3 connect",
   "9bebacdcfbde18d4": "móvil notificaciones push actividades en directo live activities nube túnel",
@@ -13011,6 +13031,7 @@
   ],
   "8367779e149f723b": "Falló una solicitud al entorno principal durante {operation} (HTTP {status}).",
   "c5cd027743a2b5a6": "El token de emparejamiento no es válido. Revísalo e inténtalo de nuevo.",
+  "9e1614d8e2f6d307": "This device is waiting for approval. Ask someone already connected to approve it in Settings → Access, then try again.",
   "0e4b49c8203aae81": "Se agotó el tiempo de espera de la sesión autenticada tras el arranque.",
   "d7ffde2874d60d4f": "Introduce un token de emparejamiento para continuar.",
   "5d18537f82794deb": "El entorno local está desactivado.",

@@ -2028,6 +2028,7 @@
   "a10cfdb27152c757": "{count, plural, other {{count} 台设备}}已通过 {product} 连接。不是你本人？请检查。",
   "4672f332c89dbcd9": "查看",
   "775a3e99e2638341": "有设备想要连接到 {environmentLabel}",
+  "0608dca9a6e15042": "{device} wants to pair. Approve only if you are pairing it.",
   "a8befcb9f1c61f60": "{device}。仅当设备上显示的验证码为 {code} 时才批准。",
   "ac48cc297029db41": "批准",
   "c12ca3fea745def0": "无法批准设备",
@@ -8170,9 +8171,28 @@
   "ee07cdc25d1562d0": "更新 Codex",
   "c4e68ca143d1cb28": "切换账户",
   "d356add77d113720": "断开连接",
-  "90fca700a649603e": "T3 Connect 设备",
+  "ab60869a6aad9387": "Device approval",
+  "d507d24f3c9ba0c9": "Requested scopes",
   "2a2675972bd6818a": "撤销 {name}？",
   "305e4fd592eb570a": "无法撤销设备",
+  "7c5eb60743d53f71": "拒绝",
+  "27ea081c5ba3de4c": [
+    "Waiting for approval · ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "f2e8ccb6d2a0488f": [
+    "Asked at ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " with a pairing link. Approve only if you are pairing this device."
+  ],
   "c9ae6751db0ea9cb": [
     "正在等待批准 ·",
     " ",
@@ -8194,7 +8214,6 @@
     },
     "。仅当你面前的设备显示此验证码时才批准。"
   ],
-  "7c5eb60743d53f71": "拒绝",
   "0ecf3435b0434d1b": [
     "信任自",
     " ",
@@ -8298,6 +8317,7 @@
   "9bfddd9a835be5de": "服务器",
   "43b545c01503eee4": "重试更新",
   "2f015e6d5459dce9": "更新到 {version}",
+  "c83d0d571b44fdcc": "A device that pairs with a pairing link waits until someone already connected here approves it. This machine's desktop app, sessions issued on the host, and agent app codes skip the wait.",
   "8ebba639f92932c3": "允许其他设备打开此机器的本地服务器：在设备上加载的浏览器标签页、“在此设备上打开”以及端口转发。关闭后：浏览器标签页从此机器串流。",
   "1c5266bf18d0ed24": "允许预览隧道",
   "a0e93cca71d0417e": "已授权的客户端",
@@ -12348,7 +12368,7 @@
   "92c2528040ca7442": "serve magicdns 端点 远程 安全 网络",
   "ab23b9c923cc4e80": "windows 子系统 linux 发行版 第二服务器 项目 停止 windows 后端 重启 wsl 仅",
   "814c6f3ba7c29f7c": "托管隧道 云 其他设备 远程 隧道 限制 t3 chat",
-  "5b2b522e0edc3d32": "t3 connect 设备 批准 拒绝 信任 撤销 配对码 安全 账户",
+  "618ac8899204d223": "devices approve deny trust revoke pairing link qr code phone security t3 connect",
   "b5cd79513a06e7c3": "离线时保留 webhook",
   "fadd0fcd7b9e1651": "webhook 自动化 离线 队列 邮箱 t3 connect",
   "9bebacdcfbde18d4": "移动 推送通知 实时活动 云 隧道",
@@ -13035,6 +13055,7 @@
   ],
   "8367779e149f723b": "主环境请求在 {operation} 期间失败（HTTP {status}）。",
   "c5cd027743a2b5a6": "配对 token 无效。请检查后重试。",
+  "9e1614d8e2f6d307": "This device is waiting for approval. Ask someone already connected to approve it in Settings → Access, then try again.",
   "0e4b49c8203aae81": "引导完成后等待登录状态超时。",
   "d7ffde2874d60d4f": "请输入配对 token 以继续。",
   "5d18537f82794deb": "本地环境已停用。",

@@ -2027,6 +2027,7 @@
   "a10cfdb27152c757": "{count, plural, one {{count} enhet} other {{count} enheter}} anslöt via {product}. Inte du? Granska dem.",
   "4672f332c89dbcd9": "Granska",
   "775a3e99e2638341": "En enhet vill ansluta till {environmentLabel}",
+  "0608dca9a6e15042": "{device} wants to pair. Approve only if you are pairing it.",
   "a8befcb9f1c61f60": "{device}. Godkänn bara om den visar koden {code}.",
   "ac48cc297029db41": "Godkänn",
   "c12ca3fea745def0": "Kunde inte godkänna enheten",
@@ -8158,9 +8159,28 @@
   "ee07cdc25d1562d0": "Uppdatera Codex",
   "c4e68ca143d1cb28": "Byt konto",
   "d356add77d113720": "Koppla från",
-  "90fca700a649603e": "T3 Connect-enheter",
+  "ab60869a6aad9387": "Device approval",
+  "d507d24f3c9ba0c9": "Requested scopes",
   "2a2675972bd6818a": "Återkalla {name}?",
   "305e4fd592eb570a": "Kunde inte återkalla enheten",
+  "7c5eb60743d53f71": "Neka",
+  "27ea081c5ba3de4c": [
+    "Waiting for approval · ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "f2e8ccb6d2a0488f": [
+    "Asked at ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " with a pairing link. Approve only if you are pairing this device."
+  ],
   "c9ae6751db0ea9cb": [
     "Väntar på godkännande ·",
     " ",
@@ -8182,7 +8202,6 @@
     },
     ". Godkänn bara om enheten framför dig visar den här koden."
   ],
-  "7c5eb60743d53f71": "Neka",
   "0ecf3435b0434d1b": [
     "Betrodd sedan",
     " ",
@@ -8285,6 +8304,7 @@
   "9bfddd9a835be5de": "server",
   "43b545c01503eee4": "Försök uppdatera igen",
   "2f015e6d5459dce9": "Uppdatera till {version}",
+  "c83d0d571b44fdcc": "A device that pairs with a pairing link waits until someone already connected here approves it. This machine's desktop app, sessions issued on the host, and agent app codes skip the wait.",
   "8ebba639f92932c3": "Låter andra enheter öppna den här datorns lokala servrar: webbläsarflikar som läses in på enheten, Öppna på den här enheten och portvidarebefordran. Av: webbläsarflikar strömmas från den här datorn.",
   "1c5266bf18d0ed24": "Tillåt förhandsgranskningstunneln",
   "a0e93cca71d0417e": "Auktoriserade klienter",
@@ -12331,7 +12351,7 @@
   "92c2528040ca7442": "serve magicdns slutpunkt fjärr säkert nätverk",
   "ab23b9c923cc4e80": "windows subsystem linux distro andra server projekt stoppa windows backend starta om bara wsl",
   "814c6f3ba7c29f7c": "hanterad tunnel moln andra enheter fjärr tunnlar gräns t3 chat",
-  "5b2b522e0edc3d32": "t3 connect enheter godkänn neka lita på återkalla parkopplingskod säkerhet konto",
+  "618ac8899204d223": "devices approve deny trust revoke pairing link qr code phone security t3 connect",
   "b5cd79513a06e7c3": "Håll kvar webhooks i offlineläge",
   "fadd0fcd7b9e1651": "webhook automatiseringar offline kö brevlåda t3 connect",
   "9bebacdcfbde18d4": "mobil pushaviseringar liveaktiviteter live activities moln tunnel",
@@ -13024,6 +13044,7 @@
   ],
   "8367779e149f723b": "Begäran till den primära miljön misslyckades under {operation} (HTTP {status}).",
   "c5cd027743a2b5a6": "Ogiltig parkopplingstoken. Kontrollera token och försök igen.",
+  "9e1614d8e2f6d307": "This device is waiting for approval. Ask someone already connected to approve it in Settings → Access, then try again.",
   "0e4b49c8203aae81": "Tidsgränsen överskreds i väntan på en autentiserad session efter uppstart.",
   "d7ffde2874d60d4f": "Ange en parkopplingstoken för att fortsätta.",
   "5d18537f82794deb": "Den lokala miljön är inaktiverad.",

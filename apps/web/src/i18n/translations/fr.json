@@ -2027,6 +2027,7 @@
   "a10cfdb27152c757": "{count, plural, one {{count} appareil s’est connecté} other {{count} appareils se sont connectés}} via {product}. Ce n’était pas vous ? Vérifiez-les.",
   "4672f332c89dbcd9": "Examiner",
   "775a3e99e2638341": "Un appareil veut se connecter à {environmentLabel}",
+  "0608dca9a6e15042": "{device} wants to pair. Approve only if you are pairing it.",
   "a8befcb9f1c61f60": "{device}. N’approuvez que s’il affiche le code {code}.",
   "ac48cc297029db41": "Approuver",
   "c12ca3fea745def0": "Impossible d’approuver l’appareil",
@@ -8153,9 +8154,28 @@
   "ee07cdc25d1562d0": "Mettre à jour Codex",
   "c4e68ca143d1cb28": "Changer de compte",
   "d356add77d113720": "Déconnecter",
-  "90fca700a649603e": "Appareils T3 Connect",
+  "ab60869a6aad9387": "Device approval",
+  "d507d24f3c9ba0c9": "Requested scopes",
   "2a2675972bd6818a": "Révoquer {name} ?",
   "305e4fd592eb570a": "Impossible de révoquer l’appareil",
+  "7c5eb60743d53f71": "Refuser",
+  "27ea081c5ba3de4c": [
+    "Waiting for approval · ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "f2e8ccb6d2a0488f": [
+    "Asked at ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " with a pairing link. Approve only if you are pairing this device."
+  ],
   "c9ae6751db0ea9cb": [
     "En attente d’approbation ·",
     " ",
@@ -8177,7 +8197,6 @@
     },
     ". N’approuvez que si l’appareil devant vous affiche ce code."
   ],
-  "7c5eb60743d53f71": "Refuser",
   "0ecf3435b0434d1b": [
     "Approuvé depuis",
     " ",
@@ -8280,6 +8299,7 @@
   "9bfddd9a835be5de": "serveur",
   "43b545c01503eee4": "Réessayer la mise à jour",
   "2f015e6d5459dce9": "Mettre à jour vers {version}",
+  "c83d0d571b44fdcc": "A device that pairs with a pairing link waits until someone already connected here approves it. This machine's desktop app, sessions issued on the host, and agent app codes skip the wait.",
   "8ebba639f92932c3": "Permet à d’autres appareils d’ouvrir les serveurs locaux de cette machine : onglets de navigateur chargés sur l’appareil, Ouvrir sur cet appareil et redirection de ports. Désactivé : les onglets du navigateur sont diffusés depuis cette machine.",
   "1c5266bf18d0ed24": "Autoriser le tunnel d’aperçu",
   "a0e93cca71d0417e": "Clients autorisés",
@@ -12323,7 +12343,7 @@
   "92c2528040ca7442": "serve magicdns point de terminaison distant sécurisé réseau",
   "ab23b9c923cc4e80": "windows sous-système linux distribution second serveur projets arrêter backend windows redémarrer wsl uniquement",
   "814c6f3ba7c29f7c": "tunnel géré cloud autres appareils tunnels distants limite t3 chat",
-  "5b2b522e0edc3d32": "t3 connect appareils approuver refuser confiance révoquer code d’appairage sécurité compte",
+  "618ac8899204d223": "devices approve deny trust revoke pairing link qr code phone security t3 connect",
   "b5cd79513a06e7c3": "Conserver les webhooks hors ligne",
   "fadd0fcd7b9e1651": "webhook automatisations file d’attente hors ligne boîte aux lettres t3 connect",
   "9bebacdcfbde18d4": "mobile notifications push live activities tunnel cloud",
@@ -13016,6 +13036,7 @@
   ],
   "8367779e149f723b": "La requête vers l’environnement principal a échoué pendant {operation} (HTTP {status}).",
   "c5cd027743a2b5a6": "Jeton d’appairage non valide. Vérifiez le jeton et réessayez.",
+  "9e1614d8e2f6d307": "This device is waiting for approval. Ask someone already connected to approve it in Settings → Access, then try again.",
   "0e4b49c8203aae81": "Délai dépassé en attendant la session authentifiée après l’amorçage.",
   "d7ffde2874d60d4f": "Saisissez un jeton d’appairage pour continuer.",
   "5d18537f82794deb": "L’environnement local est désactivé.",

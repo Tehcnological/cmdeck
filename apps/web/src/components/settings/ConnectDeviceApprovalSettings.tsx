@@ -113,7 +113,9 @@ export function ConnectDeviceApprovalSettings({
             <div className={ITEM_ROW_INNER_CLASSNAME}>
               <div className="min-w-0 flex-1 space-y-1">
                 <p className="text-sm font-medium text-foreground">
-                  <T>Waiting for approval · <Var>{device}</Var></T>
+                  <T>
+                    Waiting for approval · <Var>{device}</Var>
+                  </T>
                 </p>
                 <p className="text-xs text-muted-foreground">
                   <T>

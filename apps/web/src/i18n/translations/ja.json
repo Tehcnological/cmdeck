@@ -2025,6 +2025,7 @@
   "a10cfdb27152c757": "{count, plural, other {{count} 台のデバイス}}が {product} 経由で接続しました。心当たりがない場合は確認してください。",
   "4672f332c89dbcd9": "確認",
   "775a3e99e2638341": "デバイスが {environmentLabel} への接続を求めています",
+  "0608dca9a6e15042": "{device} wants to pair. Approve only if you are pairing it.",
   "a8befcb9f1c61f60": "{device}。コード {code} が表示されている場合のみ承認してください。",
   "ac48cc297029db41": "承認",
   "c12ca3fea745def0": "デバイスを承認できませんでした",
@@ -8115,9 +8116,28 @@
   "ee07cdc25d1562d0": "Codex を更新",
   "c4e68ca143d1cb28": "アカウントを変更",
   "d356add77d113720": "切断",
-  "90fca700a649603e": "T3 Connect のデバイス",
+  "ab60869a6aad9387": "Device approval",
+  "d507d24f3c9ba0c9": "Requested scopes",
   "2a2675972bd6818a": "{name} を取り消しますか？",
   "305e4fd592eb570a": "デバイスを取り消せませんでした",
+  "7c5eb60743d53f71": "拒否",
+  "27ea081c5ba3de4c": [
+    "Waiting for approval · ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "f2e8ccb6d2a0488f": [
+    "Asked at ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " with a pairing link. Approve only if you are pairing this device."
+  ],
   "c9ae6751db0ea9cb": [
     "承認待ち ·",
     " ",
@@ -8139,7 +8159,6 @@
     },
     "。目の前のデバイスにこのコードが表示されている場合のみ承認してください。"
   ],
-  "7c5eb60743d53f71": "拒否",
   "0ecf3435b0434d1b": [
     "信頼開始:",
     " ",
@@ -8242,6 +8261,7 @@
   "9bfddd9a835be5de": "サーバー",
   "43b545c01503eee4": "更新を再試行",
   "2f015e6d5459dce9": "{version} に更新",
+  "c83d0d571b44fdcc": "A device that pairs with a pairing link waits until someone already connected here approves it. This machine's desktop app, sessions issued on the host, and agent app codes skip the wait.",
   "8ebba639f92932c3": "他のデバイスがこのマシンのローカルサーバーを開けるようにします：デバイス上で読み込むブラウザタブ、「このデバイスで開く」、ポートフォワーディング。オフ：ブラウザタブはこのマシンからストリーミングされます。",
   "1c5266bf18d0ed24": "プレビュートンネルを許可",
   "a0e93cca71d0417e": "承認済みクライアント",
@@ -12274,7 +12294,7 @@
   "92c2528040ca7442": "serve MagicDNS エンドポイント リモート 安全 ネットワーク tailscale",
   "ab23b9c923cc4e80": "Windows Subsystem for Linux ディストリビューション 2 つ目のサーバー プロジェクト 停止 Windows バックエンド 再起動 WSL のみ wsl",
   "814c6f3ba7c29f7c": "マネージドトンネル クラウド 他のデバイス リモート トンネル 上限 T3 Chat tunnel",
-  "5b2b522e0edc3d32": "T3 Connect デバイス 承認 拒否 信頼 取り消し ペアリングコード セキュリティ アカウント devices",
+  "618ac8899204d223": "devices approve deny trust revoke pairing link qr code phone security t3 connect",
   "b5cd79513a06e7c3": "オフライン中の Webhook を保持",
   "fadd0fcd7b9e1651": "Webhook オートメーション オフライン キュー メールボックス T3 Connect webhook",
   "9bebacdcfbde18d4": "モバイル プッシュ通知 ライブアクティビティ クラウド トンネル push",
@@ -12959,6 +12979,7 @@
   ],
   "8367779e149f723b": "プライマリ環境へのリクエストが {operation} 中に失敗しました (HTTP {status})。",
   "c5cd027743a2b5a6": "ペアリングトークンが無効です。トークンを確認して、もう一度お試しください。",
+  "9e1614d8e2f6d307": "This device is waiting for approval. Ask someone already connected to approve it in Settings → Access, then try again.",
   "0e4b49c8203aae81": "ブートストラップ後、認証済みセッションの待機がタイムアウトしました。",
   "d7ffde2874d60d4f": "続行するにはペアリングトークンを入力してください。",
   "5d18537f82794deb": "ローカル環境は無効になっています。",

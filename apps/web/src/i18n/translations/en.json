@@ -2027,6 +2027,7 @@
   "a10cfdb27152c757": "{count, plural, one {{count} device} other {{count} devices}} connected through {product}. Not you? Review them.",
   "4672f332c89dbcd9": "Review",
   "775a3e99e2638341": "A device wants to connect to {environmentLabel}",
+  "0608dca9a6e15042": "{device} wants to pair. Approve only if you are pairing it.",
   "a8befcb9f1c61f60": "{device}. Approve only if it shows code {code}.",
   "ac48cc297029db41": "Approve",
   "c12ca3fea745def0": "Could not approve the device",
@@ -8160,9 +8161,28 @@
   "ee07cdc25d1562d0": "Update Codex",
   "c4e68ca143d1cb28": "Change account",
   "d356add77d113720": "Disconnect",
-  "90fca700a649603e": "T3 Connect devices",
+  "ab60869a6aad9387": "Device approval",
+  "d507d24f3c9ba0c9": "Requested scopes",
   "2a2675972bd6818a": "Revoke {name}?",
   "305e4fd592eb570a": "Could not revoke the device",
+  "7c5eb60743d53f71": "Deny",
+  "27ea081c5ba3de4c": [
+    "Waiting for approval · ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "f2e8ccb6d2a0488f": [
+    "Asked at ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " with a pairing link. Approve only if you are pairing this device."
+  ],
   "c9ae6751db0ea9cb": [
     "Waiting for approval ·",
     " ",
@@ -8184,7 +8204,6 @@
     },
     ". Approve only if the device in front of you shows this code."
   ],
-  "7c5eb60743d53f71": "Deny",
   "0ecf3435b0434d1b": [
     "Trusted since",
     " ",
@@ -8287,6 +8306,7 @@
   "9bfddd9a835be5de": "server",
   "43b545c01503eee4": "Retry update",
   "2f015e6d5459dce9": "Update to {version}",
+  "c83d0d571b44fdcc": "A device that pairs with a pairing link waits until someone already connected here approves it. This machine's desktop app, sessions issued on the host, and agent app codes skip the wait.",
   "8ebba639f92932c3": "Lets other devices open this machine's local servers: browser tabs loaded on the device, Open on this device, and port forwarding. Off: browser tabs stream from this machine.",
   "1c5266bf18d0ed24": "Allow the preview tunnel",
   "a0e93cca71d0417e": "Authorized clients",
@@ -12333,7 +12353,7 @@
   "92c2528040ca7442": "serve magicdns endpoint remote secure network",
   "ab23b9c923cc4e80": "windows subsystem linux distro second server projects stop windows backend restart wsl only",
   "814c6f3ba7c29f7c": "managed tunnel cloud other devices remote tunnels limit t3 chat",
-  "5b2b522e0edc3d32": "t3 connect devices approve deny trust revoke pairing code security account",
+  "618ac8899204d223": "devices approve deny trust revoke pairing link qr code phone security t3 connect",
   "b5cd79513a06e7c3": "Hold webhooks while offline",
   "fadd0fcd7b9e1651": "webhook automations offline queue mailbox t3 connect",
   "9bebacdcfbde18d4": "mobile push notifications live activities cloud tunnel",
@@ -13026,6 +13046,7 @@
   ],
   "8367779e149f723b": "Primary environment request failed during {operation} (HTTP {status}).",
   "c5cd027743a2b5a6": "Invalid pairing token. Check the token and try again.",
+  "9e1614d8e2f6d307": "This device is waiting for approval. Ask someone already connected to approve it in Settings → Access, then try again.",
   "0e4b49c8203aae81": "Timed out waiting for authenticated session after bootstrap.",
   "d7ffde2874d60d4f": "Enter a pairing token to continue.",
   "5d18537f82794deb": "The local environment is disabled.",
