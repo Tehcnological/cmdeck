@@ -113,8 +113,7 @@ export function FindInferenceServerDialog({
       toastManager.add({
         type: "error",
         title: m(msg("{name} was not moved", { name })),
-        description:
-          error instanceof Error ? error.message : m(msg("The settings update failed.")),
+        description: error instanceof Error ? error.message : m(msg("The settings update failed.")),
       });
       return;
     }
@@ -187,8 +186,7 @@ export function FindInferenceServerDialog({
             <p className="text-sm text-muted-foreground">
               {host === undefined ? (
                 <T>
-                  Nothing else answered on its host. If you know where it moved, change its
-                  address.
+                  Nothing else answered on its host. If you know where it moved, change its address.
                 </T>
               ) : (
                 <T>

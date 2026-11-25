@@ -751,6 +751,11 @@
   "f0ab079175905bbb": "Committa, pusha och skapa {shortLabel}",
   "8360d689ebc7f829": "Pusha och skapa {shortLabel} från standardgrenen?",
   "daa408bb99d21d18": "{kind, select, pr {Den här åtgärden pushar lokala commits och skapar en PR på ”{branch}”. Du kan fortsätta på den här grenen eller skapa en funktionsgren och köra samma åtgärd där.} mr {Den här åtgärden pushar lokala commits och skapar en MR på ”{branch}”. Du kan fortsätta på den här grenen eller skapa en funktionsgren och köra samma åtgärd där.} generic {Den här åtgärden pushar lokala commits och skapar en ändringsbegäran på ”{branch}”. Du kan fortsätta på den här grenen eller skapa en funktionsgren och köra samma åtgärd där.} other {Den här åtgärden pushar lokala commits och skapar {changeRequest} på ”{branch}”. Du kan fortsätta på den här grenen eller skapa en funktionsgren och köra samma åtgärd där.}}",
+  "881879b97132a454": "Waiting for {server} · {ahead, plural, =0 {next} other {{ahead} ahead}}",
+  "193a3561de6cc7eb": "It did not answer its last check.",
+  "2bd8bc98b614470a": "No prompt cache: every request reads its whole prompt",
+  "cd0f38ecbd7739d4": "Checked {ago}",
+  "b620195e2c196bd7": "Last request: {measures}",
   "8471c4c5a50ffde3": "Det går inte att bläddra bland ärenden för den här värden än.",
   "2f4a47129f89fe22": "Inte ansluten. Lägg till en personlig API-nyckel för att lista dess ärenden.",
   "024baab60525a419": "Den sparade autentiseringsuppgiften avvisades.",
@@ -1625,6 +1630,46 @@
   "a74f94bf4c3c6bfe": "Frånkopplad här, men T3 Connect listar den fortfarande. Ta bort den under Konto.",
   "4ca203c6fe28afa6": "Logga in på T3 Connect innan du aktiverar det här.",
   "895d824b027d128e": "Den här anslutningen behöver behörighet att konfigurera reläet för att konfigurera T3 Connect.",
+  "df528ee8132af276": "SSH · {target} · not connected yet",
+  "604151368cc1f8d6": "Mapp på {machine}",
+  "569696e287894def": "This connection cannot browse folders.",
+  "d7987a2d9c920c5c": [
+    "Connecting to ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "…"
+  ],
+  "5c8b3347de395b3d": [
+    "The first time, this installs CMDeck on ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    ". It can take a minute."
+  ],
+  "9db16884c1c9d324": "Tillbaka",
+  "01059eb93804de5a": "Lägg till projekt",
+  "913723d280afa021": "Where is the project?",
+  "2be83c704095d235": "This computer",
+  "9b7ddab4be025c05": "Reading SSH hosts…",
+  "a7d679ebc6286235": "SSH hosts come from ~/.ssh/config. Picking one connects it.",
+  "04add1ea3b4a901a": "Clone or create new…",
+  "c404674ac931b4cd": "Connecting…",
+  "7e56c13a8609a4bb": [
+    "Add project on ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "894168ff05b80df3": "Pick a folder. A missing folder is created.",
+  "844d0b58acce190d": "Adding…",
+  "5a0125dd9241cdec": "Läser in…",
   "e4f274ef6c9c9a6c": "Välj en mapp på den andra datorn.",
   "5aa50c97d1573919": "Kunde inte starta kloningen.",
   "1a31b5a1f4fe467f": "Den här datorn",
@@ -1633,7 +1678,6 @@
   "ed63d8d024aeca8b": "Dator att lägga till projektet på",
   "316534dddb6c7265": "Ingen dator tillgänglig",
   "0658b4f0188687c8": "Kloningsprotokoll",
-  "604151368cc1f8d6": "Mapp på {machine}",
   "133fdec09377b99e": "Mapp på den andra datorn",
   "b5e02f975b022af7": "{selected} av {total}",
   "2f61e981db24f217": "Inga",
@@ -1859,6 +1903,7 @@
   "963d099509eabcd6": "Agentsessionen startas om",
   "1d384d4fe7888a09": "Ditt nästa meddelande startar en ny session.",
   "e4b61c891fed297e": "Gå till fil",
+  "d2ccdb8cd3297212": "Lägg till projekt",
   "2e353baebd669317": "Clone repository",
   "594bcbef04093f72": "Öppna WSL-mapp",
   "04fd71efaa2c3b92": "Öppna pull requests",
@@ -1868,6 +1913,7 @@
   "a0cc19e60dd99851": "Öppna användning",
   "46694969044eee98": "Fokusera nästa område i arbetsytan",
   "0a1011328ba42eef": "Fokusera föregående område i arbetsytan",
+  "d02a0d93bc3f4630": "Use a local model",
   "90896a7348c4e7ce": "Öppna inställningar",
   "1d17dc60c59e0524": "Lossa projekt",
   "5cfaaa20c460c328": "Fäst projekt",
@@ -1941,7 +1987,6 @@
   "42df29db7df79d71": "Hamnar i {root} på {environment}",
   "640914bc91985c4c": "Repo",
   "50582c6b45965a9f": "Navigera",
-  "9db16884c1c9d324": "Tillbaka",
   "480646ceb98c7163": "Stäng",
   "32fc9124998ebc18": "Lokal",
   "1c4158d741eec5da": "{label} (lokal)",
@@ -2301,7 +2346,6 @@
   "9a7d2f935254da1f": "Lägg till ett projekt för att starta din första tråd.",
   "2f09f0b45255d8ce": "Lägg till ett projekt eller starta utan.",
   "c5b11890aa7f406f": "Vad ska vi jobba med?",
-  "01059eb93804de5a": "Lägg till projekt",
   "dd2ac2de2ccbf08b": "Starta utan projekt",
   "d95275127354650e": "Behörigheterna har ändrats för {label}",
   "c87e4484112112e3": "Den här anslutningen använder fortfarande de gamla behörigheterna, så vissa åtgärder kanske inte längre är tillgängliga. Parkoppla igen med en ny länk med de behörigheter du behöver.",
@@ -2526,7 +2570,6 @@
   "b2332fb96c0a55fb": "Den snooze-tiden har passerat. Välj en annan tid.",
   "d07ed4990bbb5323": "Trådåtgärden är inte tillgänglig",
   "82e555245a78f961": "Den här anslutningen kan inte ändra en eller flera av de valda trådarna.",
-  "d2ccdb8cd3297212": "Lägg till projekt",
   "e54720cac68f2adb": "Alla projekt",
   "ac47f86df1c31a4a": "Det gick inte att kopiera grenen",
   "4e6305459e784fea": "Det gick inte att kopiera tråd-ID",
@@ -2578,6 +2621,7 @@
   "9578dc3e84f82081": "Arbetar",
   "a202dad5b0a0aa56": "Snoozade",
   "b9b34ce02a3a5f8b": "Klara",
+  "1a35f4f3dc80031e": "Settled by you or when idle.",
   "dfcce8b35ce4fb90": "Läser in",
   "fcaffe60c85338e2": "Kunde inte läsa in äldre trådar. Försök igen",
   "43acfc82011a8fc2": "{count, plural, one {Visa {count} till} other {Visa {count} till}}",
@@ -2907,6 +2951,7 @@
   "992fa6e20cf2d8dc": "{shortcut} för att ångra",
   "33b29a0f59128a96": "Ångra",
   "18f6f0c65340bd1e": "{summary}, {label}",
+  "87f84b811a6aa0d1": "Det gick inte att avarkivera projektet",
   "2e9b1cd36715700b": "Urklipps-API:t är inte tillgängligt vid kopiering av {target}.",
   "74e12a771b744460": "Det gick inte att kopiera {target} till urklipp.",
   "a4c9ac81ae85d341": "Urklipps-API:t är inte tillgängligt vid kopiering av text.",
@@ -2922,7 +2967,6 @@
   "01c37ddc7489a372": "{error} Projektet finns i {path}.",
   "22beed0f82b431e3": "{error} Det visas i sidofältet när den här klienten har kommit ikapp.",
   "d59a7e7887e83954": "CMDeck kunde inte lägga till projektet.",
-  "87f84b811a6aa0d1": "Det gick inte att avarkivera projektet",
   "138dd2315e3b4853": "Anslut den valda miljön och försök igen.",
   "dc8fdfd5ac8c8080": "Anslut {environment} och försök igen.",
   "6c2742bb85832341": "{title} i den aktuella miljön",
@@ -3927,6 +3971,8 @@
   "aaae02e050a73bc2": "Inga favoriter än",
   "656e11e9444ed41e": "Söker projektmodeller...",
   "4a1b2d720142a885": "Inga modeller hittades",
+  "474dc8860ebfbe4e": "No model runs on your own hardware yet.",
+  "0726adcf81077bcb": "Use a local model",
   "1b4fa45dbaca4b1d": "Leverantörsinställningar",
   "b16ecc66f9dc0600": "{label}: Inaktiverad i inställningarna.",
   "a2a2f2c9350c53c9": "{label}: Inte tillgänglig. {message}",
@@ -3940,7 +3986,6 @@
   "a06eb47a82969918": "Subagent",
   "d567966a45ff32be": "Subagentarbete",
   "4740c38b2edd194d": "Endast läsning. De här subagenterna kan inte ta emot meddelanden.",
-  "5a0125dd9241cdec": "Läser in…",
   "292cccd1075abd6e": "Leverantören har ingen uppgift om vilka subagenter det här anropet startade.",
   "893bb44a7b9c9094": "Uppdatera",
   "9c1ae7fa9c9b2d0d": "Tidigare steg visas inte.",
@@ -4270,6 +4315,7 @@
   "7c1d4c58aeb9e1b3": "Kontext: {used} % använt",
   "4214d97447ddd9e9": "Kontext: {usedTokens} token använda",
   "66be4fb43249bbd2": "{used} av {max} token",
+  "abe2cf5a08501e43": "Last request",
   "ee3ae58c8b38a425": "{left} % kvar",
   "ebb26f93fb83a71b": "{label}: {left} % kvar",
   "1b16346722b65812": "{timeLeft} % av fönstret kvar",
@@ -4279,6 +4325,7 @@
   "ba03873d5356238b": "+{percent} % om {duration} · {time}",
   "78c1d280f021a28f": "Från {sources}",
   "e16b0b9b490c8bc7": "{label}: {value}",
+  "cbe60f0283e34b89": "Measured by T3's gateway",
   "ba67d0a9ff5dabf0": "Urklipps-API:t är inte tillgängligt vid kopiering av administratörsbegäran.",
   "aef4bec20e799aab": "Kunde inte kopiera administratörsbegäran till urklipp.",
   "409185e3d9bbdb2c": "Begäran kopierades",
@@ -4942,6 +4989,25 @@
   "ede15a83eedec569": "Omgången stoppades; agenten håller fortfarande på att stängas av",
   "f360accf1ccac178": "Omgången stoppades; agentprocessen fortsatte att köras",
   "5b660a378c56cc91": "{others, plural, =0 {Den delas med andra arbetande trådar. Stoppa dem för att frigöra den.} one {Den delas med {others} arbetande tråd. Stoppa den för att frigöra den.} other {Den delas med {others} arbetande trådar. Stoppa dem för att frigöra den.}}",
+  "e5db533a998fdd7b": "{model} reads text only",
+  "f54b0c15e0967f15": "Checking whether {model} reads images",
+  "0926a53d79da1bd2": "Not known whether {model} reads images",
+  "5da39fe267eb3d72": "It will not see the attached image. Choose a model that reads images.",
+  "563da22d54ac3090": "The image is sent anyway; if the model cannot read it, its server will say so.",
+  "554d521913267210": "{detail} The image is sent anyway; if the model cannot read it, its server will say so.",
+  "e243fd728b38318c": "{server} no longer serves {model}",
+  "3b44596fbccbd238": "It serves {models} now. Choose one of them, or check again if the model is coming back.",
+  "c1175443f4f7c35b": "{server} is not answering",
+  "fd66337bc88f9184": "{url}: {message} Its models are hidden until it answers again.",
+  "d84a0c22909368b5": "Checking images",
+  "7be34eba8c5f8084": "Check images",
+  "2bba8490579e4c32": "Choose model",
+  "9ec433045537acfc": "Kontrollera igen",
+  "2487bb78b4951f91": "Find server",
+  "fd63cb7f9d0c5919": "{model} on {server} kept repeating the same text, so CMDeck stopped it and freed the server.",
+  "ed4196a2a98afe5a": "{model} on {server} reasoned at length without answering, so CMDeck stopped it and freed the server.",
+  "2fede3307eace22d": "{model} on {server} stopped sending anything, so CMDeck stopped it and freed the server.",
+  "7ac4455553fe632a": "Fortsätt",
   "f5948facf9a10261": "{count, plural, one {Startade {count} tråd i bakgrunden} other {Startade {count} trådar i bakgrunden}}",
   "d2a83704191622a6": "Det gick inte att skicka meddelandena.",
   "c11072d4a6072902": "En bakgrundsprompt kunde inte skickas",
@@ -5292,7 +5358,6 @@
     ". CMDeck skickar ditt svar till den lokala SSH-processen och behåller det i minnet för att återanvända det för den här värden. CMDeck skriver det inte till disk."
   ],
   "1c26f62937f27d39": "SSH-nycklar kan ersätta ett lösenord, men servern kan fortfarande kräva en verifieringskod.",
-  "7ac4455553fe632a": "Fortsätt",
   "7f8953447668d0be": "Vikkommandot fick timeout.",
   "650a0c4c97430f03": "Kunde inte ändra vikläge.",
   "7bf0984b4aa3005b": "Vikkontroller för Android",
@@ -6092,7 +6157,6 @@
   "718a33a11c0e63a6": "Går ut {time} · en användning",
   "800f3d6ba89ed228": "Kopiera {label}",
   "402ad504ab1fe6a4": "Länkade: {environments}",
-  "9ec433045537acfc": "Kontrollera igen",
   "88f60e3d23ebcdd8": "Kontrollerar T3 Connect…",
   "5492129175e04f8d": "Ditt T3 Connect-konto har slut på tunnlar.",
   "a9ad4734570fb655": [
@@ -6265,7 +6329,6 @@
   "f77d000c0710f066": "Aktivera",
   "4ed27bf946e504db": "Konfigurera",
   "77ba79c85d052b2a": "Run models on your own hardware. Cloud agents remain available.",
-  "0726adcf81077bcb": "Use a local model",
   "7a26eaacff0607f7": [
     "Kontrollerar ",
     {
@@ -8615,11 +8678,178 @@
   "7ee376c7db73ab57": "Länkad",
   "e9f7a62ecd609a46": "Senast nådd",
   "70bae47e93a2f207": "Visa hela felet",
+  "964975d946e78ec8": "The search failed.",
+  "03a99bac40f956c9": "{name} was not moved",
+  "308670bbc3dbb4bb": "{name} now uses {url}",
+  "9ac7c9f0261a4c7e": "{name} moved to {url}, but is not ready",
+  "e774eec06d4ac93b": "Threads already running keep the old address until their agent session restarts.",
+  "3692630b105b7340": "Check its address in Settings, Inference.",
+  "10e114cbcc7799c9": [
+    "Find ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "134a7c3b983bcb2e": [
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " does not answer at ",
+    {
+      "i": 2,
+      "k": "_gt_value_2",
+      "v": "v"
+    },
+    ". Looking for model servers on its host that it may have moved to."
+  ],
+  "57214cffc22fba17": [
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " does not answer at ",
+    {
+      "i": 2,
+      "k": "_gt_value_2",
+      "v": "v"
+    },
+    ". Looking for model servers on ",
+    {
+      "i": 3,
+      "k": "_gt_value_3",
+      "v": "v"
+    },
+    " that it may have moved to."
+  ],
+  "c13764ce66760157": "Searching its host…",
+  "ba4292427a7aedf7": [
+    "Searching ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "…"
+  ],
+  "dc7d8a59b57e4f0a": "Nothing else answered on its host. If you know where it moved, change its address.",
+  "dab19580af4af4ad": [
+    "Nothing else answered on ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    ". If you know where it moved, change its address."
+  ],
+  "9a6778caa96d5b01": "Same model",
+  "95e7dbb5664a9b45": [
+    "Uses ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "'s key"
+  ],
+  "f91c0929ddc5d912": "Lists its models only with a key",
+  "d37a8a2b0d0d7e10": "Use this address",
+  "a6b134a328f33649": "Change address",
   "e4099af6d85770ff": "”{font}” är inte ett teckensnitt med fast bredd",
   "a8448493d83279e2": "Kod och terminal kräver ett teckensnitt med fast bredd, så det aktuella teckensnittet behölls.",
   "e8622c39abe68f9d": "standard",
   "5383ef2d2c09cdf7": "Sök teckensnitt…",
   "ea08337bcadd35b4": "Inga teckensnitt hittades.",
+  "0223ddf9b20e12d5": "Defaults to the host name",
+  "d0d9a8ec77ca39ca": "Server default",
+  "0b916d8ecea93b04": [
+    "Edit ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "4bd8367e137e7490": "Add an inference server",
+  "91fdc3eff686faad": [
+    "An OpenAI-compatible model server that ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " can reach. localhost means ",
+    {
+      "i": 2,
+      "k": "_gt_value_2",
+      "v": "v"
+    },
+    " itself."
+  ],
+  "c732b08a5fa8c3d7": "Bas-URL",
+  "3953d1cccd71ab7e": "Namn (valfritt)",
+  "a5d2e8fbe9bac047": "API key (optional)",
+  "d7cce385a1723070": "Max concurrent requests (optional)",
+  "16921d4bf7cb7ef7": "Fallback server (optional)",
+  "4b07342299c92647": "None",
+  "f04f5aeb00097eb0": "Takes requests while this server is down or unreachable, when it serves the same model.",
+  "27b44316eab62b46": "Add server",
+  "c63adb0a5dd0e446": "{environment} runs a CMDeck server without inference servers.",
+  "49d57330680a7b24": "Restart this app to install its own server there. It updates SSH machines each time it connects.",
+  "3afff91e049d176a": "Install this app's server on that machine to use model servers there.",
+  "239de1e5faeccb6b": "No environment connected.",
+  "7e93bee79a62edcf": "Connect an environment to register the model servers it can reach.",
+  "79ca35232b791625": "No model servers yet.",
+  "414388b193921ae1": "Use it from {target} at {url}.",
+  "f54067c4081c96ed": "Use {name}",
+  "cd7934cdd7ff6ad4": "Find servers",
+  "88466f5a03be2419": "Inställning för hela miljön. Välj en miljö för att ändra den.",
+  "7d950f10a1a83856": "Find local models",
+  "b8748b7091d641c5": "Add here",
+  "1c1ddbbd4567f2ab": "Disabled",
+  "9ea0945710fdb453": "No models reported.",
+  "4e9462c4933f7b7f": "Check images again",
+  "e3b1654ed2b55974": [
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    ", overdue"
+  ],
+  "407f9490dd8d1855": "Reports cached tokens: yes",
+  "064d1a5e48260056": "Reports cached tokens: unknown",
+  "ca6deaf3da2674d0": [
+    "Last request ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " at",
+    " ",
+    {
+      "i": 2,
+      "k": "_gt_value_2",
+      "v": "v"
+    }
+  ],
+  "111a44209dc6e701": "Ta bort",
+  "a3538ba5ca802bd7": [
+    "Ta bort ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "?"
+  ],
+  "c424d877a3162380": "Its API key is deleted from this environment. Provider instances linked to it show a warning until you link them elsewhere, and servers that fall back to it stop doing so. The server itself is untouched.",
+  "a32fc6c5a36b6a95": "Remove server",
   "d6ad43bc4b700a88": "Det finns inga webbläsarprofildata att rensa.",
   "ad8efd437b301a37": "System",
   "42e23caa6ef99cad": "Ljust",
@@ -9187,7 +9417,6 @@
   "e749b8ba2ff18f8f": "Lägg till {name} i projektet",
   "6d08f0285e2bbf34": "Lägg till mapp",
   "b7820a37d8ff1918": "Repon i den här mappen ingår i projektet så snart de finns där. Lägg till en mapp för att ta med ett från en annan plats.",
-  "111a44209dc6e701": "Ta bort",
   "daafb41c2b3c066f": "I arbetsytefilen",
   "2c5c798252f91fdc": "Lägg till",
   "7e4d1ce9725c2327": "Spåra ett repo eller en mapp var som helst på projektets dator.",
@@ -9333,6 +9562,7 @@
   "4cd59ceb5e2d6c47": "Uppdateringskommandot för {provider} kopierades",
   "7a425150e0d6f830": "Kör det i en terminal när du är redo att uppdatera.",
   "30d8752e8b862700": "Kunde inte kopiera uppdateringskommandot för {provider}",
+  "e9956d0ef06c5bd5": "{id} (removed)",
   "d2ddf02127f8abf1": "Inkompatibel",
   "d82511ccb6662fab": "Stöds inte",
   "f67e8a1dbd410fff": "Begränsat stöd",
@@ -9350,6 +9580,13 @@
   "21d0ef064eefa159": "Status",
   "f31ce60f3f118c0d": "Visningsnamn",
   "c45028de5c2f6cbb": "Instansetikett",
+  "e448708b68d29236": "Inference server",
+  "d6cf01ce371ee48d": "The registered server this instance's models run on. Manage servers in Settings, Inference.",
+  "641959b5926ce0b8": "{server} is disabled in Settings, Inference. Enable it or pick another server.",
+  "83615bcec8a3d001": "The linked server {id} is no longer registered. Pick another server or None.",
+  "2b67e86800693c97": "Runs local models",
+  "f084c9496feb0ee4": "Linked to {server}",
+  "c9fe266c9fef7b7c": "Every model this instance can select runs on hardware you control. Local instances come first and handle background writing such as titles and commit messages.",
   "cf69675106e4bf46": "Konfiguration",
   "22078dd501ba3102": "Körmiljö",
   "288c2d92df27a68c": "Modeller",
@@ -9380,6 +9617,8 @@
     },
     ", som inte finns i den här versionen. Dess konfiguration bevaras."
   ],
+  "df15f3dac52e9312": "None",
+  "9b5d3bfa0144685c": "Inference server unavailable",
   "b534d4cd528ede39": "Modellinställningar och anpassade modeller sparas i den valda miljön och delas mellan anslutna enheter.",
   "caaef21e8722857d": "Snabbläge",
   "a860db2b1bb3aa31": "Inget resonerande",
@@ -9977,16 +10216,6 @@
     " för att hantera dess hemlighetsleverantörer."
   ],
   "13d4f258e93f1dc1": "Anslut en miljö för att hantera de hemlighetsleverantörer som dess leverantörsvariabler läser från.",
-  "88466f5a03be2419": "Inställning för hela miljön. Välj en miljö för att ändra den.",
-  "a3538ba5ca802bd7": [
-    "Ta bort ",
-    {
-      "i": 1,
-      "k": "_gt_value_1",
-      "v": "v"
-    },
-    "?"
-  ],
   "0d5b3b39f92c04e4": "Ta bort leverantör",
   "c52bdbe39649742c": [
     "Inget läser från ",
@@ -10219,6 +10448,9 @@
   "08fcdecfd4fd11ec": "För trådtitlar och annan genererad text. Versionshantering har en egen inställning. Textgeneratorer från Leverantörer visas också här.",
   "6c72064a8b709f24": "Återställ modell för textgenerering till standard",
   "6560b4e16da91b06": "Modellen för textgenerering sparades inte",
+  "f90e37b98363f617": "Where background writing goes when its model cannot run. Local models only never sends it to a cloud provider you did not choose.",
+  "aa82206d3f6f721f": "Reset text generation fallback",
+  "c8378abe60e1b20c": "Fallback",
   "9aa7262bf9fbe4ad": "De valda målen använder olika strömningslägen.",
   "6d906218686b3dd9": "Återställ strömning av svar till standard",
   "e48e93f44d89ea86": "Uppdateringar",
@@ -11183,8 +11415,6 @@
     ". Allt som är inställt på att använda den här generatorn faller tillbaka på modellen för textgenerering."
   ],
   "2e487089c231536b": "Tjänst",
-  "c732b08a5fa8c3d7": "Bas-URL",
-  "3953d1cccd71ab7e": "Namn (valfritt)",
   "304d6712ac5d3a89": [
     {
       "i": 1,
@@ -11471,6 +11701,87 @@
   "4cf6a373a7535324": "{name} · Inaktiverad",
   "1d1e9cda847bd398": "Hubbens hanteringsnyckel tas bort från den här servern. Dess konton försvinner från vyn Gränser; själva hubben påverkas inte. Lägg till den igen med URL och nyckel för att få tillbaka dem.",
   "c9bee4f93481b77a": "Ta bort hubb",
+  "e8d94d3d6008aa67": "Loading the models {agent} lists…",
+  "52c2c74f2bbfb1c7": "{agent} is not installed on {machine}",
+  "5d65c56785f7d3cc": "{server} is saved and linked. Install {agent}, or pick another agent and try again.",
+  "8792a8944b05d41c": "{agent} does not list {model} yet",
+  "6beca1916047bf87": "{agent} is linked to {server}, but its model list has not caught up. Try again in a moment.",
+  "72fcc3fd9b70bc67": "The default model was not saved",
+  "4fd158b5904a0275": "Nothing was saved",
+  "382e7221823f37f7": "Checking {server}…",
+  "37fd1e28ae1d5135": "{server} is saved but not ready",
+  "a132ba94ac0bbefb": "It did not answer the check. Start it and try again.",
+  "609d4f84276e7b93": "On {machine}: {serverAction, select, use {use the model server {server}} other {add the model server {server}}}, {agentAction, select, use {use {agent}, already linked to it} other {link {agent} to it}}, and make {model} the default for new threads.",
+  "be70b7d6758722b4": [
+    "Find a model server on ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " (Ollama, LM Studio, llama.cpp, vLLM, SGLang, TensorFold) and run new threads on it. Nothing leaves your hardware."
+  ],
+  "901e41570e5206c5": [
+    "Inference servers on ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "6f19a5d56ac3f000": "Search again",
+  "995244a1785c5881": [
+    "Looking for model servers on ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "…"
+  ],
+  "fb7b85e84c6ff5b7": [
+    "No model server answered on ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    ". Start one, or enter its address below."
+  ],
+  "344547a54c0df8ba": [
+    "No model server answered on ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " at the usual ports. Start one, or enter its address below."
+  ],
+  "b66c4b0f69997b3e": "Or enter its address",
+  "e3a94bf3e9674dd6": "Check",
+  "066217798e6896ad": "Agent",
+  "25f457f910ba96b7": "Recommended",
+  "8cf42451fb30da7e": "Experimental",
+  "2efb5df48e4b24c8": [
+    "Not set up on ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " yet; checked when you connect."
+  ],
+  "5bc829813379b041": "Use this model",
+  "875fd762d6a15e9f": [
+    "Added as ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "d94a2d6e41b3ba81": "Needs an API key",
+  "24cf021b4ff4df2e": "It answered, but lists its models only with a key. Add it in Settings, Inference, with its key.",
   "0424112d5a0ecd71": "Auto",
   "3f0e1b77e45d53a9": "Tryck för att växla, håll ned för att prata",
   "45928549c050a1b4": "Håll ned",
@@ -11861,6 +12172,7 @@
   "72ca6daaac6c6741": "system tray menu bar background keep running hide window minimize quit",
   "c9b53c5e043f9ba8": "startup start automatically boot login item autostart minimized tray",
   "a8a6da6439b8333e": "genererade trådtitlar versionshantering innehåll standardleverantör",
+  "907bf183c139e405": "Text generation fallback",
   "0c5fc3b5e41e1956": "genererade trådtitlar prompt anpassad stil namngivning byt namn generera om",
   "a83570bcb45d8fa1": "om sök efter uppdateringar ladda ner installera uppgradera version",
   "d65bdf6748801734": "versionskanal stabil latest nightly förhandsversion",
@@ -11883,6 +12195,7 @@
   "dd95128501e22145": "Fångstblink",
   "9f5280c955132ee1": "Fångstanimeringar",
   "4780c6013287de5d": "agents cli local models self-hosted ollama lm studio llama.cpp vllm sglang pi codex claude cursor grok fx kiro opencode antigravity google sign in sign out install subscription instances authentication api key models configuration binary path config directory codex_home shadow home endpoint arguments environment variables display name accent color custom favorite hidden auto compact native sessions import resume",
+  "fd8e3c3a97ea4c77": "Inference servers",
   "ad371af21e5b4b01": "Användningsleverantörer",
   "9d9d31a4f3d5ff69": "användningskällor CLIProxyAPI CLI-proxy hubb kvot prenumeration gränser hanteringsnyckel lägg till ta bort",
   "d65fa0946585b245": "Textgeneratorer",

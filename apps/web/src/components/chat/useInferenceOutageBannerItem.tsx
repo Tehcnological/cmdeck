@@ -105,9 +105,7 @@ export function useInferenceOutageBannerItem(
           imageGap.reason === "text-only"
             ? gt("It will not see the attached image. Choose a model that reads images.")
             : check?.detail === undefined
-              ? gt(
-                  "The image is sent anyway; if the model cannot read it, its server will say so.",
-                )
+              ? gt("The image is sent anyway; if the model cannot read it, its server will say so.")
               : gt(
                   "{detail} The image is sent anyway; if the model cannot read it, its server will say so.",
                   { detail: check.detail },

@@ -573,9 +573,11 @@ function DiscoveredServerOption({
             </T>
           </Badge>
         )}
-        {server.status === "needs-key" ? <Badge variant="warning">
+        {server.status === "needs-key" ? (
+          <Badge variant="warning">
             <T>Needs an API key</T>
-          </Badge> : null}
+          </Badge>
+        ) : null}
       </div>
       {server.status === "needs-key" ? (
         <p className="text-xs text-muted-foreground">

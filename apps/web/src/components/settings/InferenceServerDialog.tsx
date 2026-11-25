@@ -218,8 +218,8 @@ export function InferenceServerDialog({
                       {draft.fallbackServerId === "" ? (
                         <T context="no fallback server">None</T>
                       ) : (
-                        fallbackOptions.find((option) => option.id === draft.fallbackServerId)
-                          ?.name ?? draft.fallbackServerId
+                        (fallbackOptions.find((option) => option.id === draft.fallbackServerId)
+                          ?.name ?? draft.fallbackServerId)
                       )}
                     </SelectValue>
                   </SelectTrigger>
