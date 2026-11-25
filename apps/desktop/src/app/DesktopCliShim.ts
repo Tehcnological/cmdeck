@@ -137,10 +137,7 @@ export const renderCliShim = (input: {
   ].join("\n");
 };
 
-const commandPath = (
-  environment: DesktopEnvironment.DesktopEnvironment["Service"],
-  name: string,
-) =>
+const commandPath = (environment: DesktopEnvironment.DesktopEnvironment["Service"], name: string) =>
   environment.path.join(
     environment.baseDir,
     "bin",
@@ -151,9 +148,8 @@ export const launcherPath = (environment: DesktopEnvironment.DesktopEnvironment[
   commandPath(environment, "t3");
 
 /** `cmdeck` runs the same CLI; it cannot clash with the official T3 Code's `t3`. */
-export const cmdeckLauncherPath = (
-  environment: DesktopEnvironment.DesktopEnvironment["Service"],
-) => commandPath(environment, "cmdeck");
+export const cmdeckLauncherPath = (environment: DesktopEnvironment.DesktopEnvironment["Service"]) =>
+  commandPath(environment, "cmdeck");
 
 const writeLauncher = Effect.fn("DesktopCliShim.writeLauncher")(function* (
   environment: DesktopEnvironment.DesktopEnvironment["Service"],
