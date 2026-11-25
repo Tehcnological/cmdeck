@@ -6437,7 +6437,7 @@
     "dans ce terminal."
   ],
   "9d9b9624c7bd95df": "Autres dossiers",
-  "1eb8f3d4695033fb": [
+  "a1232e43056b2752": [
     "Ajouté à ",
     {
       "i": 1,
@@ -6449,16 +6449,16 @@
     {
       "t": "code",
       "i": 2,
-      "c": "t3"
+      "c": "cmdeck"
     },
     "."
   ],
-  "ad72bb102aa39c31": [
+  "9ffe90093a3bf69b": [
     "Utilisez ",
     {
       "t": "code",
       "i": 1,
-      "c": "t3"
+      "c": "cmdeck"
     },
     " depuis n’importe quel terminal. Ajoute une ligne à",
     " ",
@@ -8048,17 +8048,17 @@
       "v": "v"
     }
   ],
-  "d0e747ae0c4f68a5": "Impossible d’installer t3",
-  "ba3ac338f36cba74": "Impossible de supprimer t3",
-  "9c942b53b58119b8": "Impossible d’ajouter t3 au PATH",
-  "e9d97f47db8e8056": "Un autre t3 situé à {path} passe en premier dans un nouveau terminal. Supprimez-le pour utiliser celui de CMDeck.",
-  "a57d97b85dc46df6": "Exécutez la CLI de CMDeck sous le nom `t3` depuis n’importe quel terminal.",
+  "2512a3eeef121ec7": "Impossible d’installer cmdeck",
+  "6c2df7ad05b2c42a": "Impossible de supprimer cmdeck",
+  "61430464d1c31a00": "Impossible d’ajouter cmdeck au PATH",
+  "70bd2d8af4b0950b": "Un autre cmdeck situé à {path} passe en premier dans un nouveau terminal. Supprimez-le pour utiliser celui de CMDeck.",
+  "26f037e2312067f6": "Exécutez la CLI de CMDeck sous le nom `cmdeck` depuis n’importe quel terminal.",
   "4f6e93011ef2da6f": "Installé dans {path}. Ouvrez un nouveau terminal pour l’utiliser.",
   "371ca438cf467125": "Installé dans {path} et ajouté au PATH dans {file}. Ouvrez un nouveau terminal pour l’utiliser.",
   "fd3eece9d1a7ea38": "Installé dans {path}, qui n’est pas encore dans votre PATH.",
-  "5fff98fa978bd008": "Installé dans {path}, qui n’est pas encore dans votre PATH. Ajoutez son dossier à votre PATH pour exécuter `t3`.",
-  "dc06294dd4078b00": "Supprimer",
-  "b707d919dbf0222a": "Installer",
+  "0330ba2b287adbee": "Installé dans {path}, qui n’est pas encore dans votre PATH. Ajoutez son dossier à votre PATH pour exécuter `cmdeck`.",
+  "1a9dc5d76867a136": "Supprimer",
+  "af3432d376001228": "Installer",
   "9a284b5893dc04a2": "Modèle OpenRouter",
   "c8361c16c47d5fb5": "Rechercher des modèles de transcription",
   "d72eccdd92d4f989": "Impossible d’enregistrer cette modification. Vérifiez votre connexion et réessayez.",
@@ -11118,7 +11118,7 @@
   "0c5fc3b5e41e1956": "titres de fils générés prompt style personnalisé nommage renommer régénérer",
   "a83570bcb45d8fa1": "à propos rechercher des mises à jour télécharger installer mettre à niveau version",
   "d65bdf6748801734": "canal de publication stable latest nightly préversion",
-  "0767c794edea8f03": "Commande t3",
+  "77910eeccec108be": "Commande cmdeck",
   "46dd4dc08c1e552f": "cli terminal shell chemin installer ligne de commande",
   "86479042bae0e2db": "App mobile",
   "dc2a999ca67ccf31": "téléphone tablette iPhone iPad iOS Android App Store Google Play QR",

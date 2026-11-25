@@ -26,6 +26,28 @@ export const DESKTOP_DEV_USER_DATA_DIR_NAME = "cmdeck-dev";
 export const SERVICE_NAME = "cmdeck";
 export const SERVICE_LAUNCHD_LABEL = "com.tehcnological.cmdeck.service";
 
+/**
+ * The only release feed CMDeck installers update from: this repository's stable GitHub releases.
+ * Release vN is app version N.0.0. Never point this at upstream.
+ */
+export const APP_RELEASE_OWNER = "Tehcnological";
+export const APP_RELEASE_REPO = "cmdeck";
+export const APP_RELEASE_REPOSITORY = `${APP_RELEASE_OWNER}/${APP_RELEASE_REPO}`;
+
+const RELEASE_VERSION = /^([1-9]\d*)\.0\.0$/u;
+
+/** Shows release N.0.0 as `vN`; any other version (dev, nightly) unchanged. */
+export const formatAppVersion = (version: string): string => {
+  const major = RELEASE_VERSION.exec(version)?.[1];
+  return major === undefined ? version : `v${major}`;
+};
+
+/** The git tag of a version's release: `vN` for N.0.0, else `v<version>`. */
+export const appReleaseTag = (version: string): string => {
+  const formatted = formatAppVersion(version);
+  return formatted === version ? `v${version}` : formatted;
+};
+
 /** Official T3 Code uses 3773; a different default keeps both servers on stable ports. */
 export const DEFAULT_SERVER_PORT = 3783;
 

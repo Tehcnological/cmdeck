@@ -39,6 +39,7 @@ import * as IpcChannels from "../ipc/channels.ts";
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
 import * as DesktopSshEnvironment from "../ssh/DesktopSshEnvironment.ts";
 import * as DesktopUpdatePolicy from "./DesktopUpdatePolicy.ts";
+import { MacBundleUpdateError } from "./macBundleUpdate.ts";
 import {
   normalizeDesktopUpdateReleaseNotes,
   releaseNotesOfOfferedVersion,
@@ -286,6 +287,11 @@ export function describeUpdateErrorCause(cause: unknown): string {
     return "UnknownError";
   }
 }
+
+// The macOS updater's own errors already say what to do; a generic prefix would bury that.
+const isMacBundleUpdateError = Schema.is(MacBundleUpdateError);
+const macUpdaterReason = (cause: unknown) =>
+  isMacBundleUpdateError(cause) ? cause.message : undefined;
 
 function parseAppUpdateYml(raw: string): Effect.Effect<Option.Option<AppUpdateYmlConfig>> {
   const entries: Record<string, string> = {};
@@ -719,7 +725,10 @@ export const make = Effect.gen(function* () {
           function* (error) {
             const cause = describeUpdateErrorCause(error.cause);
             yield* updateState((current) =>
-              reduceDesktopUpdateStateOnDownloadFailure(current, `${error.message} ${cause}`),
+              reduceDesktopUpdateStateOnDownloadFailure(
+                current,
+                macUpdaterReason(error.cause) ?? `${error.message} ${cause}`,
+              ),
             );
             yield* logUpdaterError(error.message, {
               errorTag: error._tag,
@@ -966,7 +975,7 @@ export const make = Effect.gen(function* () {
           Effect.catchTags({
             ElectronUpdaterQuitAndInstallError: Effect.fn("desktop.updates.handleInstallFailure")(
               function* (error) {
-                yield* recoverFailedInstall(error.message);
+                yield* recoverFailedInstall(macUpdaterReason(error.cause) ?? error.message);
                 yield* logUpdaterError(error.message, {
                   errorTag: error._tag,
                   cause: describeUpdateErrorCause(error.cause),

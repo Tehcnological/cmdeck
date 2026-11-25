@@ -119,8 +119,8 @@ export const make = Effect.gen(function* () {
   // PATH can reach the regular launcher directly; removal still requires isOurLink.
   const runsOurLauncher = Effect.fn("DesktopCliCommand.runsOurLauncher")(
     // Another T3 home's link is marked too, so compare where it leads, not the marker alone.
-    function* (candidate: string) {
-      const [resolved, ours] = yield* Effect.all([fs.realPath(candidate), fs.realPath(launcher)]);
+    function* (candidate: string, target: string = cmdeckLauncher) {
+      const [resolved, ours] = yield* Effect.all([fs.realPath(candidate), fs.realPath(target)]);
       if (resolved !== ours) return false;
       const info = yield* fs.stat(candidate);
       if (info.type !== "File" || Number(info.size) > 16_384) return false;
@@ -171,25 +171,30 @@ export const make = Effect.gen(function* () {
     Effect.orElseSucceed(() => false),
   );
 
-  const firstOnPath = Effect.gen(function* () {
+  const firstOnPath = Effect.fn("DesktopCliCommand.firstOnPath")(function* (name: string) {
     for (const directory of pathEntries(env.PATH, ":")) {
-      const candidate = path.join(directory, "t3");
+      const candidate = path.join(directory, name);
       if (yield* isExecutableFile(candidate)) return Option.some(candidate);
     }
     return Option.none<string>();
   });
 
-  const foreignFirstOnPath = Effect.gen(function* () {
+  const foreignFirstOnPath = Effect.fn("DesktopCliCommand.foreignFirstOnPath")(function* (
+    name: string,
+    target: string,
+  ) {
     if (windows) return Option.none<string>();
-    const first = yield* firstOnPath;
-    if (Option.isNone(first) || (yield* runsOurLauncher(first.value))) return Option.none<string>();
+    const first = yield* firstOnPath(name);
+    if (Option.isNone(first) || (yield* runsOurLauncher(first.value, target))) {
+      return Option.none<string>();
+    }
     return first;
   });
 
   /** A link to this home's launcher; another home's link is marked too. */
-  const leadsHere = (link: string) =>
+  const leadsHere = (link: string, target: string = cmdeckLauncher) =>
     fs.readLink(link).pipe(
-      Effect.map((target) => target === launcher),
+      Effect.map((linked) => linked === target),
       Effect.orElseSucceed(() => false),
     );
 
@@ -209,18 +214,21 @@ export const make = Effect.gen(function* () {
         ? Option.some(launcher)
         : Option.none<string>();
     }
-    return yield* ourLinkNamed("t3");
+    return yield* ourLinkNamed("cmdeck");
   });
 
   /**
-   * Links `cmdeck` into the first usable user bin folder. Unlike `t3`, the official T3 Code has
-   * no `cmdeck`, so it works even where another `t3` runs first.
+   * Links `name` to `target` in the first usable user bin folder. An old link of ours is updated
+   * where it is, so a command that works now keeps working; it is removed only once a new link
+   * exists elsewhere. Anything else already there makes symlink fail and stays.
    */
-  const linkCmdeck = Effect.gen(function* () {
-    const replaced = Option.getOrUndefined(yield* ourLinkNamed("cmdeck"));
-    if (replaced !== undefined) {
-      const target = yield* fs.readLink(replaced).pipe(Effect.option);
-      if (Option.getOrUndefined(target) === cmdeckLauncher) return Option.some(replaced);
+  const linkNamed = Effect.fn("DesktopCliCommand.linkNamed")(function* (
+    name: string,
+    target: string,
+  ) {
+    const replaced = Option.getOrUndefined(yield* ourLinkNamed(name));
+    if (replaced !== undefined && (yield* leadsHere(replaced, target))) {
+      return Option.some(replaced);
     }
     const onPath = pathEntries(env.PATH, ":").map((entry) => entry.replace(/\/+$/, ""));
     const candidates = userCandidates(environment.homeDirectory);
@@ -229,7 +237,7 @@ export const make = Effect.gen(function* () {
       ...candidates.filter((candidate) => onPath.includes(candidate)),
       ...candidates.filter((candidate) => !onPath.includes(candidate)),
     ])) {
-      const link = path.join(directory, "cmdeck");
+      const link = path.join(directory, name);
       const usable = (yield* exists(directory))
         ? yield* writableDirectory(directory)
         : yield* fs.makeDirectory(directory, { recursive: true }).pipe(
@@ -241,7 +249,7 @@ export const make = Effect.gen(function* () {
       const linked = yield* (
         link === replaced
           ? fs
-              .symlink(cmdeckLauncher, staging)
+              .symlink(target, staging)
               .pipe(
                 Effect.andThen(
                   fs
@@ -249,7 +257,7 @@ export const make = Effect.gen(function* () {
                     .pipe(Effect.tapError(() => fs.remove(staging).pipe(Effect.ignore))),
                 ),
               )
-          : fs.symlink(cmdeckLauncher, link)
+          : fs.symlink(target, link)
       ).pipe(
         Effect.as(true),
         Effect.orElseSucceed(() => false),
@@ -261,7 +269,24 @@ export const make = Effect.gen(function* () {
       return Option.some(link);
     }
     return Option.none<string>();
-  }).pipe(Effect.withSpan("desktop.cliCommand.linkCmdeck"));
+  });
+
+  /**
+   * `cmdeck` is the command; `t3` is a best-effort alias for older habits. It never takes a
+   * folder from another `t3` (the official T3 Code's, even a dangling link) or runs ahead of one.
+   */
+  const linkT3Alias = Effect.gen(function* () {
+    for (const directory of userCandidates(environment.homeDirectory)) {
+      const other = path.join(directory, "t3");
+      const present =
+        (yield* exists(other)) || Option.isSome(yield* fs.readLink(other).pipe(Effect.option));
+      if (present && !(yield* isOurLink(other))) return;
+    }
+    // Our own link into another home may run first; that is the one this updates.
+    const first = yield* foreignFirstOnPath("t3", launcher);
+    if (Option.isSome(first) && !(yield* isOurLink(first.value))) return;
+    yield* linkNamed("t3", launcher);
+  }).pipe(Effect.ignore, Effect.withSpan("desktop.cliCommand.linkT3Alias"));
 
   const startupLine = (installedPath: string) => {
     const setup = pathSetup({
@@ -294,23 +319,23 @@ export const make = Effect.gen(function* () {
     if (!environment.isPackaged) {
       return { supported: false, installedPath: null, onPath: false, launcherPath: null } as const;
     }
-    const launcherPath = (yield* exists(launcher)) ? launcher : null;
+    const launcherPath = (yield* exists(cmdeckLauncher)) ? cmdeckLauncher : null;
     const found = yield* installedAt;
     // Our link into another T3 home is not this app's command; Install updates it in place.
     const installed =
       windows || (Option.isSome(found) && (yield* leadsHere(found.value)))
         ? found
         : Option.none<string>();
-    const shadowedBy = (yield* foreignFirstOnPath).pipe(
+    const shadowedBy = (yield* foreignFirstOnPath("cmdeck", cmdeckLauncher)).pipe(
       Option.filter((first) => first !== Option.getOrUndefined(found)),
     );
     const shadow = Option.isSome(shadowedBy) ? { shadowedBy: shadowedBy.value } : {};
-    const first = yield* firstOnPath;
+    const first = yield* firstOnPath("cmdeck");
     const onPath = windows
       ? Option.isSome(installed)
       : Option.isSome(first) && (yield* runsOurLauncher(first.value));
-    // Only a folder missing from PATH, with no other t3 first: with one, the added folder (last
-    // on PATH) would still not run this t3.
+    // Only a folder missing from PATH, with no other cmdeck first: with one, the added folder
+    // (last on PATH) would still not run this cmdeck.
     const setup =
       onPath ||
       Option.isSome(shadowedBy) ||
@@ -340,22 +365,28 @@ export const make = Effect.gen(function* () {
   const ensureLauncher = DesktopCliShim.install.pipe(
     Effect.provideService(DesktopEnvironment.DesktopEnvironment, environment),
     Effect.provideService(FileSystem.FileSystem, fs),
-    Effect.flatMap(
-      Option.match({
-        onNone: () => Effect.fail(fail(`Could not set up the t3 launcher at ${launcher}.`)),
-        onSome: () => Effect.void,
-      }),
+    // The shim reports the `t3` launcher the backend runs; the command is the `cmdeck` one.
+    Effect.andThen(
+      fs.readFileString(cmdeckLauncher).pipe(
+        Effect.map((content) => content.includes(DesktopCliShim.MARKER)),
+        Effect.orElseSucceed(() => false),
+      ),
+    ),
+    Effect.flatMap((written) =>
+      written
+        ? Effect.void
+        : Effect.fail(fail(`Could not set up the cmdeck launcher at ${cmdeckLauncher}.`)),
     ),
   );
 
   const install: DesktopCliCommand["Service"]["install"] = Effect.gen(function* () {
-    if (!environment.isPackaged) return yield* fail("The t3 command needs an installed app.");
+    if (!environment.isPackaged) return yield* fail("The cmdeck command needs an installed app.");
     yield* ensureLauncher;
     if (windows) {
       // PATH would split the folder at the `;`, leaving two wrong entries behind.
       if (binDirectory.includes(";")) {
         return yield* fail(
-          `CMDeck cannot put ${binDirectory} on PATH because it has a ";". Run ${launcher} directly.`,
+          `CMDeck cannot put ${binDirectory} on PATH because it has a ";". Run ${cmdeckLauncher} directly.`,
         );
       }
       const entries = pathEntries(yield* readUserPath, ";");
@@ -363,70 +394,17 @@ export const make = Effect.gen(function* () {
         yield* writeUserPath([...entries, binDirectory].join(";"));
         yield* fs
           .writeFileString(ownedPathMarker, `${binDirectory}\n`)
-          .pipe(Effect.mapError(() => fail("Added t3 to your PATH but could not record it.")));
+          .pipe(Effect.mapError(() => fail("Added cmdeck to your PATH but could not record it.")));
       }
       return yield* state;
     }
-    const cmdeckLinked = Option.isSome(yield* linkCmdeck);
-    const candidates = userCandidates(environment.homeDirectory);
-    const replaced = Option.getOrUndefined(yield* installedAt);
-    if (replaced !== undefined) {
-      const target = yield* fs.readLink(replaced).pipe(Effect.option);
-      if (Option.getOrUndefined(target) === launcher) return yield* state;
-    }
-    const shadowedBy = yield* foreignFirstOnPath;
-    // Our own link into another T3 home runs first too; it is the one this install updates.
-    if (Option.isSome(shadowedBy) && shadowedBy.value !== replaced) {
-      // `cmdeck` still works; `t3` stays with the other install.
-      if (cmdeckLinked) return yield* state;
+    if (Option.isNone(yield* linkNamed("cmdeck", cmdeckLauncher))) {
       return yield* fail(
-        `Another t3 at ${shadowedBy.value} runs first in a new terminal. Remove it, or run the launcher directly at ${launcher}.`,
+        `Another cmdeck command is already in ~/.local/bin and ~/bin, or neither is writable. Run the launcher directly at ${cmdeckLauncher}.`,
       );
     }
-    // An old link of ours is updated where it is, so a t3 that works now keeps working. It is
-    // removed only once a new link exists elsewhere.
-    const onPath = pathEntries(env.PATH, ":").map((entry) => entry.replace(/\/+$/, ""));
-    for (const directory of new Set([
-      ...(replaced === undefined ? [] : [path.dirname(replaced)]),
-      ...candidates.filter((candidate) => onPath.includes(candidate)),
-      ...candidates.filter((candidate) => !onPath.includes(candidate)),
-    ])) {
-      const link = path.join(directory, "t3");
-      const created = (yield* exists(directory))
-        ? yield* writableDirectory(directory)
-        : yield* fs.makeDirectory(directory, { recursive: true }).pipe(
-            Effect.as(true),
-            Effect.orElseSucceed(() => false),
-          );
-      if (!created) continue;
-      // Our own link is swapped in place; anything else there makes symlink fail and stays.
-      const staging = `${link}.${yield* Random.nextIntBetween(0, 0xffffff)}.tmp`;
-      const linked = yield* (
-        link === replaced
-          ? fs
-              .symlink(launcher, staging)
-              .pipe(
-                Effect.andThen(
-                  fs
-                    .rename(staging, link)
-                    .pipe(Effect.tapError(() => fs.remove(staging).pipe(Effect.ignore))),
-                ),
-              )
-          : fs.symlink(launcher, link)
-      ).pipe(
-        Effect.as(true),
-        Effect.orElseSucceed(() => false),
-      );
-      if (!linked) continue;
-      if (replaced !== undefined && replaced !== link) {
-        yield* fs.remove(replaced).pipe(Effect.ignore);
-      }
-      return yield* state;
-    }
-    if (cmdeckLinked) return yield* state;
-    return yield* fail(
-      `Another t3 command is already in ~/.local/bin and ~/bin, or neither is writable. Run the launcher directly at ${launcher}.`,
-    );
+    yield* linkT3Alias;
+    return yield* state;
   }).pipe(Effect.withSpan("desktop.cliCommand.install"));
 
   const uninstall: DesktopCliCommand["Service"]["uninstall"] = Effect.gen(function* () {
@@ -457,14 +435,14 @@ export const make = Effect.gen(function* () {
   const addToPath: DesktopCliCommand["Service"]["addToPath"] = Effect.gen(function* () {
     const installed = yield* installedAt;
     if (Option.isNone(installed) || !(yield* leadsHere(installed.value))) {
-      return yield* fail("Install the t3 command first.");
+      return yield* fail("Install the cmdeck command first.");
     }
     const setup = startupLine(installed.value);
-    if (setup === undefined) return yield* fail("CMDeck cannot add t3 to this shell's PATH.");
-    const shadowedBy = yield* foreignFirstOnPath;
+    if (setup === undefined) return yield* fail("CMDeck cannot add cmdeck to this shell's PATH.");
+    const shadowedBy = yield* foreignFirstOnPath("cmdeck", cmdeckLauncher);
     if (Option.isSome(shadowedBy)) {
       return yield* fail(
-        `Another t3 at ${shadowedBy.value} runs first; CMDeck leaves it in place.`,
+        `Another cmdeck at ${shadowedBy.value} runs first; CMDeck leaves it in place.`,
       );
     }
     if (!(yield* folderOnPath(installed.value)) && !(yield* hasLine(setup))) {
@@ -472,7 +450,7 @@ export const make = Effect.gen(function* () {
         Effect.andThen(
           fs.writeFileString(setup.path, `\n# Added by CMDeck\n${setup.line}\n`, { flag: "a" }),
         ),
-        Effect.mapError(() => fail(`Could not add t3 to ${setup.file}.`)),
+        Effect.mapError(() => fail(`Could not add cmdeck to ${setup.file}.`)),
       );
     }
     return yield* state;
@@ -483,42 +461,45 @@ export const make = Effect.gen(function* () {
       if (!environment.isPackaged) return;
       // Builds before `cmdeck` linked only `t3`; add `cmdeck` beside a `t3` the user kept.
       if (!windows) {
-        const kept = yield* installedAt;
-        if (Option.isSome(kept) && (yield* leadsHere(kept.value))) {
+        const kept = yield* ourLinkNamed("t3");
+        if (Option.isSome(kept) && (yield* leadsHere(kept.value, launcher))) {
           // Startup writes the launchers concurrently; the link must not point at a missing file.
-          yield* ensureLauncher.pipe(Effect.andThen(linkCmdeck), Effect.ignore);
+          yield* ensureLauncher.pipe(
+            Effect.andThen(linkNamed("cmdeck", cmdeckLauncher)),
+            Effect.ignore,
+          );
         }
       }
       if (yield* exists(firstLaunchMarker)) return;
       // Mark first so a failed or removed install is never retried behind the user's back.
       yield* fs.writeFileString(firstLaunchMarker, "");
       if (!freshInstall) {
-        return yield* logInfo("left the t3 command to Settings on an existing install");
+        return yield* logInfo("left the cmdeck command to Settings on an existing install");
       }
       // Another T3 home's app owns the existing link; only Install in Settings may take it over.
       const existing = Option.getOrUndefined(yield* installedAt);
       if (existing !== undefined) {
         const target = yield* fs.readLink(existing).pipe(Effect.option);
-        if (Option.getOrUndefined(target) !== launcher) {
-          return yield* logInfo("left another CMDeck app's t3 command in place", {
+        if (Option.getOrUndefined(target) !== cmdeckLauncher) {
+          return yield* logInfo("left another CMDeck app's cmdeck command in place", {
             existing,
           });
         }
       }
-      // A t3 that is not ours in these folders, even off PATH, means the user has one already. On
-      // Windows the app never writes there, so any t3 there is someone else's.
+      // A command that is not ours in these folders, even off PATH, means the user has one
+      // already. On Windows the app never writes there, so any t3 there is someone else's.
       for (const directory of userCandidates(environment.homeDirectory)) {
-        for (const name of windows ? ["t3.cmd", "t3.exe"] : ["t3"]) {
+        for (const name of windows ? ["t3.cmd", "t3.exe"] : ["cmdeck"]) {
           const other = path.join(directory, name);
           const present =
             (yield* exists(other)) || Option.isSome(yield* fs.readLink(other).pipe(Effect.option));
           if (present && (windows || !(yield* isOurLink(other)))) {
-            return yield* logInfo("left the t3 command to Settings beside another t3", { other });
+            return yield* logInfo("left the command to Settings beside another one", { other });
           }
         }
       }
       const installed = yield* install;
-      yield* logInfo("installed the t3 command on first launch", {
+      yield* logInfo("installed the cmdeck command on first launch", {
         installedPath: installed.installedPath,
         onPath: installed.onPath,
       });
@@ -526,7 +507,7 @@ export const make = Effect.gen(function* () {
   ).pipe(
     // Our own messages are short and name only paths; anything else is logged as a category.
     Effect.catch((error) =>
-      logWarning("did not install the t3 command on first launch", {
+      logWarning("did not install the cmdeck command on first launch", {
         reason: error._tag === "DesktopCliCommandError" ? error.message : "state-write-failed",
       }),
     ),

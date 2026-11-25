@@ -4,6 +4,26 @@ The app you use and the server running your agents can be on different machines.
 When a server is behind your web or desktop app, the update button at the bottom
 of the sidebar and **Settings → Environments** offer to update it.
 
+## Desktop app updates
+
+The desktop app updates itself from CMDeck's releases on
+[github.com/Tehcnological/cmdeck](https://github.com/Tehcnological/cmdeck/releases), never from
+the official T3 Code. Releases are numbered v1, v2, v3, and **Settings → About** shows the version
+you run. The app checks shortly after it starts and every few hours; when a release is out, the
+update button offers it, and **Restart to update** installs it.
+
+- **Windows** runs the new installer and reopens CMDeck. The builds are unsigned, so Windows may
+  ask whether to run it.
+- **Linux** replaces the AppImage in place. The `.deb` asks for your password to install the new
+  package.
+- **macOS** downloads the new app, checks it against the release, and swaps it in when CMDeck
+  quits. CMDeck must be somewhere you can write to, such as Applications. If it cannot replace
+  itself (for example when opened from the disk image), it says so; move it to Applications or
+  install the new version from the release page.
+
+To stop update checks, start the app with `T3CODE_DISABLE_AUTO_UPDATE=1`, or turn updates off with
+a [managed policy](./managed-policy.md).
+
 ## Update everything at once
 
 The update button at the bottom of the sidebar updates every connected machine

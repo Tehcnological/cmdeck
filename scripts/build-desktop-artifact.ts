@@ -15,6 +15,7 @@ import {
   type DirectoryRecord,
 } from "@electron/asar";
 
+import { APP_RELEASE_OWNER, APP_RELEASE_REPO } from "@t3tools/shared/appIdentity";
 import { fromYaml } from "@t3tools/shared/schemaYaml";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import { clerkFrontendApiHostnameFromPublishableKey } from "@t3tools/shared/relayAuth";
@@ -2728,32 +2729,6 @@ export function resolveDesktopRuntimeDependencies(
   );
 }
 
-export const resolveGitHubPublishConfig = Effect.fn("resolveGitHubPublishConfig")(function* (
-  updateChannel: "latest" | "nightly",
-) {
-  const env = yield* Config.all({
-    updateRepository: Config.String("T3CODE_DESKTOP_UPDATE_REPOSITORY").pipe(Config.option),
-    githubRepository: Config.String("GITHUB_REPOSITORY").pipe(Config.option),
-  });
-  const rawRepo = (
-    Option.getOrUndefined(env.updateRepository)?.trim() ||
-    Option.getOrUndefined(env.githubRepository)?.trim() ||
-    ""
-  ).trim();
-  if (!rawRepo) return undefined;
-
-  const [owner, repo, ...rest] = rawRepo.split("/");
-  if (!owner || !repo || rest.length > 0) return undefined;
-
-  return {
-    provider: "github",
-    owner,
-    repo,
-    releaseType: updateChannel === "nightly" ? "prerelease" : "release",
-    ...(updateChannel === "nightly" ? { channel: "nightly" as const } : {}),
-  };
-});
-
 export function resolveDesktopUpdateChannel(version: string): "latest" | "nightly" {
   return /-nightly\.\d{8}\.\d+$/.test(version) ? "nightly" : "latest";
 }
@@ -2850,9 +2825,19 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     ],
   };
   const updateChannel = resolveDesktopUpdateChannel(version);
-  // Private fork: installers never carry a release feed, so the app cannot update itself to an
-  // upstream build. Upstream arrives through scripts/fork/sync-upstream.sh and a rebuild.
-  buildConfig.publish = null;
+  // CMDeck updates only from its own stable releases (tags vN), never from upstream; previews and
+  // nightlies carry no feed. Upstream arrives through scripts/fork/sync-upstream.sh and a release.
+  buildConfig.publish =
+    isDesktopPreviewVersion(version) || updateChannel === "nightly"
+      ? null
+      : [
+          {
+            provider: "github",
+            owner: APP_RELEASE_OWNER,
+            repo: APP_RELEASE_REPO,
+            releaseType: "release",
+          },
+        ];
   if (!isDesktopPreviewVersion(version) && mockUpdates) {
     buildConfig.publish = [
       {

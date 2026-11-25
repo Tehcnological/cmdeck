@@ -4,11 +4,12 @@ CMDeck runs coding agents on your computer and lets you control them from its
 desktop, web, or mobile app. Set up the machine where the agents will work first.
 
 > [!NOTE]
-> CMDeck is an unofficial fork of T3 Code and publishes no hosted builds. The `t3.codes`
+> CMDeck is an unofficial fork of T3 Code. Its desktop app is on
+> [CMDeck's GitHub releases](https://github.com/Tehcnological/cmdeck/releases). The `t3.codes`
 > installers, `npx t3`, the `t3` npm package, and T3 Code's GitHub releases and package-manager
-> entries all install the official T3 Code, not CMDeck. Install CMDeck from builds you host
-> yourself, as described below, or build the desktop app from source. The installer adds both a
-> `cmdeck` and a `t3` command. CMDeck keeps its data in `~/.cmdeck` (set `CMDECK_HOME` to move
+> entries all install the official T3 Code, not CMDeck. For the command line, install CMDeck from
+> builds you host yourself, as described below. The installer adds both a `cmdeck` and a `t3`
+> command. CMDeck keeps its data in `~/.cmdeck` (set `CMDECK_HOME` to move
 > it) and its server defaults to port 3783, so it can run next to the official T3 Code.
 
 ## Requirements
@@ -79,23 +80,28 @@ update it with `git pull` and a rebuild.
 
 ## Desktop app
 
-CMDeck has no desktop downloads or package-manager entries; the T3 Code releases, `winget`,
-Scoop, Homebrew, AUR, and nixpkgs packages all install the official T3 Code. Build the desktop
-app from a CMDeck checkout instead
+Download the installer for your computer from
+[CMDeck's releases](https://github.com/Tehcnological/cmdeck/releases): the `.exe` for Windows x64,
+the `.dmg` for Apple silicon Macs, or the `.AppImage` or `.deb` for Linux x64. The builds are not
+signed: Windows SmartScreen asks before running the installer, and macOS blocks the first open
+until you allow it in **System Settings → Privacy & Security**. Move CMDeck to Applications on
+macOS so it can update itself. The app then [updates itself](./updating.md#desktop-app-updates)
+from the same releases. The T3 Code releases, `winget`, Scoop, Homebrew, AUR, and nixpkgs packages
+all install the official T3 Code. You can also build the desktop app from a CMDeck checkout
 ([development setup](../operations/00_development.md#first-checkout)).
 
-### The `t3` command
+### The `cmdeck` command
 
-The desktop app includes the command-line tool as both `cmdeck` and `t3`. A new
+The desktop app includes the command-line tool as `cmdeck`, with `t3` as a second name. A new
 install sets it up on first launch; after an update, or any time, choose
-**Install** next to **t3 command** in **Settings → About**. On macOS and Linux
-it adds `cmdeck` and `t3` links in `~/.local/bin` (or `~/bin`); on Windows it
-adds the app's command folder, which holds both, to your `PATH`. Open a new
-terminal afterwards. If the folder is not on your `PATH`, **Add to PATH** on the
-Welcome page or in **Settings → About** adds one line to your shell's startup
-file. **Remove** takes them off, and the app does not add them again. If you
-already have another `t3`, such as the official T3 Code's, it stays as it is and
-runs first; use `cmdeck` for CMDeck.
+**Install** next to **cmdeck command** in **Settings → About**. On macOS and Linux
+it adds a `cmdeck` link in `~/.local/bin` (or `~/bin`), and a `t3` link beside it
+when no other `t3` is there; on Windows it adds the app's command folder, which
+holds both, to your `PATH`. Open a new terminal afterwards. If the folder is not
+on your `PATH`, **Add to PATH** on the Welcome page or in **Settings → About**
+adds one line to your shell's startup file. **Remove** takes them off, and the
+app does not add them again. Another `t3`, such as the official T3 Code's, stays
+as it is; use `cmdeck` for CMDeck.
 
 ### Windows Subsystem for Linux
 

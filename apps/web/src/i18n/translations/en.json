@@ -6439,7 +6439,7 @@
     "in this terminal."
   ],
   "9d9b9624c7bd95df": "Other folders",
-  "1eb8f3d4695033fb": [
+  "a1232e43056b2752": [
     "Added to ",
     {
       "i": 1,
@@ -6451,16 +6451,16 @@
     {
       "t": "code",
       "i": 2,
-      "c": "t3"
+      "c": "cmdeck"
     },
     "."
   ],
-  "ad72bb102aa39c31": [
+  "9ffe90093a3bf69b": [
     "Use ",
     {
       "t": "code",
       "i": 1,
-      "c": "t3"
+      "c": "cmdeck"
     },
     " from any terminal. Adds one line to",
     " ",
@@ -8055,17 +8055,17 @@
       "v": "v"
     }
   ],
-  "d0e747ae0c4f68a5": "Could not install t3",
-  "ba3ac338f36cba74": "Could not remove t3",
-  "9c942b53b58119b8": "Could not add t3 to PATH",
-  "e9d97f47db8e8056": "Another t3 at {path} runs first in a new terminal. Remove it to use CMDeck's.",
-  "a57d97b85dc46df6": "Run CMDeck's CLI as `t3` from any terminal.",
+  "2512a3eeef121ec7": "Could not install cmdeck",
+  "6c2df7ad05b2c42a": "Could not remove cmdeck",
+  "61430464d1c31a00": "Could not add cmdeck to PATH",
+  "70bd2d8af4b0950b": "Another cmdeck at {path} runs first in a new terminal. Remove it to use CMDeck's.",
+  "26f037e2312067f6": "Run CMDeck's CLI as `cmdeck` from any terminal.",
   "4f6e93011ef2da6f": "Installed at {path}. Open a new terminal to use it.",
   "371ca438cf467125": "Installed at {path} and added to PATH in {file}. Open a new terminal to use it.",
   "fd3eece9d1a7ea38": "Installed at {path}, which is not on your PATH yet.",
-  "5fff98fa978bd008": "Installed at {path}, which is not on your PATH yet. Add its folder to your PATH to run `t3`.",
-  "dc06294dd4078b00": "Remove",
-  "b707d919dbf0222a": "Install",
+  "0330ba2b287adbee": "Installed at {path}, which is not on your PATH yet. Add its folder to your PATH to run `cmdeck`.",
+  "1a9dc5d76867a136": "Remove",
+  "af3432d376001228": "Install",
   "9a284b5893dc04a2": "OpenRouter model",
   "c8361c16c47d5fb5": "Search transcription models",
   "d72eccdd92d4f989": "Couldn’t save this change. Check your connection and try again.",
@@ -11128,7 +11128,7 @@
   "0c5fc3b5e41e1956": "generated thread titles prompt custom style naming rename regenerate",
   "a83570bcb45d8fa1": "about check for updates download install upgrade release",
   "d65bdf6748801734": "release channel stable latest nightly prerelease",
-  "0767c794edea8f03": "t3 command",
+  "77910eeccec108be": "cmdeck command",
   "46dd4dc08c1e552f": "cli terminal shell path install command line",
   "86479042bae0e2db": "Mobile app",
   "dc2a999ca67ccf31": "phone tablet iPhone iPad iOS Android App Store Google Play QR",

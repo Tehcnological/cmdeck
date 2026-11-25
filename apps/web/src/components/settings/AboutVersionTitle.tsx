@@ -1,3 +1,4 @@
+import { formatAppVersion } from "@t3tools/shared/appIdentity";
 import { msg, T, useGT } from "gt-react";
 
 import { APP_VERSION } from "../../branding";
@@ -8,6 +9,7 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
 export function AboutVersionTitle() {
   const gt = useGT();
+  const version = formatAppVersion(APP_VERSION);
   const { copyToClipboard } = useCopyToClipboard<void>({
     target: {
       target: "version",
@@ -36,10 +38,10 @@ export function AboutVersionTitle() {
             render={
               <InlineButton
                 tone="muted"
-                aria-label={gt("Copy version {version}", { version: APP_VERSION })}
-                onClick={() => copyToClipboard(APP_VERSION, undefined)}
+                aria-label={gt("Copy version {version}", { version })}
+                onClick={() => copyToClipboard(version, undefined)}
               >
-                {APP_VERSION}
+                {version}
               </InlineButton>
             }
           />

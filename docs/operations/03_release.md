@@ -1,5 +1,28 @@
 # Release Runbook
 
+## CMDeck releases (this fork)
+
+CMDeck ships desktop installers from this repository's GitHub releases, and installed apps update
+from them (stable only; no nightly or preview feed). Release `vN` is app version `N.0.0`; the app
+shows it as `vN`.
+
+1. On a branch, set `version` to `N.0.0` in `apps/desktop`, `apps/server`, `apps/web` and
+   `packages/contracts` `package.json`, merge to `main`.
+2. Tag the merge commit and push the tag: `git tag vN && git push origin vN`.
+3. `.github/workflows/fork-release.yml` checks that the tag matches the version, builds unsigned
+   Windows x64, macOS arm64 and Linux x64 installers, then publishes release `vN` with the
+   installers, `latest*.yml`, blockmaps, the macOS zip and `SHA256SUMS.txt`. To rebuild an existing
+   tag, run the workflow by hand with that tag.
+4. Install the previous release on each platform and check that it offers and installs `vN`.
+
+The release stays a draft until every file is uploaded, because installed apps read the newest
+published release. `scripts/fork/guard.sh` fails if the build points its feed anywhere but
+`Tehcnological/cmdeck`. macOS builds are ad-hoc signed, so the app installs its own updates there
+(`apps/desktop/src/updates/MacBundleUpdater.ts`) instead of Squirrel.Mac.
+
+The rest of this runbook describes upstream T3 Code's release pipeline, which this fork does not
+run.
+
 Unified release workflow: `.github/workflows/release.yml`. Beta is a product label, not a release channel—channels remain `stable` and `nightly` (plus `preview` for maintainer test builds).
 
 ## Channels and triggers
