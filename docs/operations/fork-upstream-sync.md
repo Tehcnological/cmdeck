@@ -64,7 +64,7 @@ without either one touching the other's state:
 
 | What                   | CMDeck                                                                              | Official T3 Code                                           |
 | ---------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Data directory         | `~/.cmdeck` (`CMDECK_HOME`, else `T3CODE_HOME`)                                     | `~/.t3` (`T3CODE_HOME`)                                    |
+| Data directory         | `~/.cmdeck` (`CMDECK_HOME`, else `T3CODE_HOME` unless it is `~/.t3`)                | `~/.t3` (`T3CODE_HOME`)                                    |
 | Desktop app ID         | `com.tehcnological.cmdeck`                                                          | `com.t3tools.t3code`                                       |
 | Electron profile       | `<app data>/cmdeck` (dev: `cmdeck-dev`)                                             | `<app data>/t3code-v2`                                     |
 | Windows install folder | `%LOCALAPPDATA%\Programs\cmdeck`                                                    | `%LOCALAPPDATA%\Programs\t3code`                           |
@@ -85,7 +85,7 @@ upstream before importing from a newer official release. When upstream adds iden
 Still enforced or reported. Alerts are logged and shown in the web and desktop app as a warning
 toast (`fork.shared-data` server config issues, which the official clients ignore):
 
-- **Database newer than CMDeck.** An imported database (or one under a shared `T3CODE_HOME`) that a
+- **Database newer than CMDeck.** An imported database (or one under a shared `CMDECK_HOME`) that a
   newer T3 Code migrated still starts, and alerts until you run `scripts/fork/sync-upstream.sh` and
   rebuild. Upgrade-time preflight still refuses to switch to a build older than the database.
 - **Runtimes.** Every runtime CMDeck stages in `runtime/versions/<version>` (installs, updates,

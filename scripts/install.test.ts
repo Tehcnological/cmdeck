@@ -221,6 +221,25 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("install.sh t3 
     }
   });
 
+  it("ignores a T3CODE_HOME that names the official T3 Code home", async () => {
+    const root = await NodeFSP.realpath(
+      await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-install-t3-home-")),
+    );
+    try {
+      const result = await installOver({
+        script: "install.sh",
+        home: NodePath.join(root, ".cmdeck"),
+        binDir: NodePath.join(root, "bin"),
+        env: { HOME: root, CMDECK_HOME: undefined, T3CODE_HOME: NodePath.join(root, ".t3") },
+      });
+      expect(result.code, result.output).toBe(0);
+      expect(result.output).toContain("ignoring T3CODE_HOME=");
+      expect(await NodeFSP.readdir(root)).not.toContain(".t3");
+    } finally {
+      await NodeFSP.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("replaces only this home's own launchers and prints a PATH command", async () => {
     const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-install-link-"));
     try {

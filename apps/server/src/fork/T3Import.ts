@@ -345,9 +345,14 @@ const make = Effect.gen(function* () {
       ];
     });
 
+    const officialHome = path.join(yield* HostProcess.HomeDirectory, UPSTREAM_HOME_DIR_NAME);
     if (path.resolve(source) === path.resolve(target)) {
       blockers.push(
         `The T3 Code folder and the CMDeck folder are the same (${source}). Pass --from with the official T3 Code data folder.`,
+      );
+    } else if (path.resolve(target) === path.resolve(officialHome)) {
+      blockers.push(
+        `The CMDeck folder is the official T3 Code data folder (${target}), which CMDeck never writes to. Pass --base-dir with CMDeck's own data folder.`,
       );
     }
 

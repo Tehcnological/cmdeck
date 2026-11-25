@@ -5,6 +5,7 @@ import * as NodePath from "node:path";
 import * as NodeSqlite from "node:sqlite";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -309,6 +310,18 @@ it.layer(T3Import.layer.pipe(Layer.provideMerge(NodeServices.layer)))("T3Import"
       makeSource(source).close();
       const plan = yield* (yield* T3Import.T3Import).plan({ source, target: source });
       assert.include(plan.blockers.join(" "), "are the same");
+    }),
+  );
+
+  it.effect("refuses to import into the official T3 Code folder", () =>
+    Effect.gen(function* () {
+      const root = yield* tempRoot;
+      const source = NodePath.join(root, "elsewhere");
+      makeSource(source).close();
+      const plan = yield* (yield* T3Import.T3Import)
+        .plan({ source, target: NodePath.join(root, ".t3") })
+        .pipe(Effect.provideService(HostProcess.HomeDirectory, root));
+      assert.include(plan.blockers.join(" "), "CMDeck never writes to");
     }),
   );
 

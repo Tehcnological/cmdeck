@@ -14,13 +14,28 @@ const SUPPORTED = ["darwin-arm64", "linux-arm64", "linux-x64", "win32-arm64", "w
 // Well inside launchd's 20 s ExitTimeOut, which SIGKILLs only the launcher and orphans the runtime.
 const TERMINATE_GRACE_MS = 5_000;
 
-// Mirrors @t3tools/shared/appIdentity: CMDECK_HOME wins, then T3CODE_HOME, then ~/.cmdeck.
-function t3Home() {
-  const raw = (process.env.CMDECK_HOME || process.env.T3CODE_HOME || "").trim();
-  if (raw === "") return path.join(os.homedir(), ".cmdeck");
+function resolveHome(raw) {
   if (raw === "~") return os.homedir();
   if (raw.startsWith("~/") || raw.startsWith("~\\")) return path.join(os.homedir(), raw.slice(2));
   return path.resolve(raw);
+}
+
+// Mirrors @t3tools/shared/appIdentity: CMDECK_HOME wins, then T3CODE_HOME unless it names the
+// official T3 Code home (~/.t3), which CMDeck never uses, then ~/.cmdeck.
+function t3Home() {
+  const cmdeckHome = (process.env.CMDECK_HOME || "").trim();
+  if (cmdeckHome !== "") return resolveHome(cmdeckHome);
+  const upstreamHome = (process.env.T3CODE_HOME || "").trim();
+  if (upstreamHome === "") return path.join(os.homedir(), ".cmdeck");
+  const comparable = (dir) =>
+    process.platform === "win32" || process.platform === "darwin" ? dir.toLowerCase() : dir;
+  if (comparable(resolveHome(upstreamHome)) !== comparable(path.join(os.homedir(), ".t3"))) {
+    return resolveHome(upstreamHome);
+  }
+  process.stderr.write(
+    `t3: ignoring T3CODE_HOME=${upstreamHome}, the official T3 Code data directory. Set CMDECK_HOME to choose CMDeck's.\n`,
+  );
+  return path.join(os.homedir(), ".cmdeck");
 }
 
 const isTransient = (status) => status === 408 || status === 429 || status >= 500;

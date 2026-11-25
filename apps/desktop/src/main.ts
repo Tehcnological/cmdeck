@@ -4,7 +4,12 @@ import { handleStdioError } from "./app/stdioErrors.ts";
 for (const stream of [process.stdout, process.stderr]) {
   stream.on("error", handleStdioError);
 }
-applyAppHomeEnv(process.env);
+const ignoredHome = applyAppHomeEnv(process.env, {
+  homeDir: NodeOS.homedir(),
+  platform: process.platform,
+  resolve: (path) => NodePath.resolve(path),
+});
+if (ignoredHome !== undefined) process.stderr.write(`${ignoredOfficialHomeWarning(ignoredHome)}\n`);
 
 import * as NodeHttpClient from "@effect/platform-node/NodeHttpClient";
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
@@ -13,6 +18,8 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 // @effect-diagnostics-next-line nodeBuiltinImport:off - Version output must flush before Electron exits, without acquiring the runtime.
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
+// @effect-diagnostics-next-line nodeBuiltinImport:off - Settles the data directory before any runtime.
+import * as NodePath from "node:path";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -20,7 +27,7 @@ import * as Layer from "effect/Layer";
 
 import * as Electron from "electron";
 
-import { applyAppHomeEnv } from "@t3tools/shared/appIdentity";
+import { applyAppHomeEnv, ignoredOfficialHomeWarning } from "@t3tools/shared/appIdentity";
 import * as NetService from "@t3tools/shared/Net";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 

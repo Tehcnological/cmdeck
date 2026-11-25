@@ -19,6 +19,11 @@ $ErrorActionPreference = "Stop"
 
 $baseUrl = if ($env:T3CODE_RELEASE_BASE_URL) { $env:T3CODE_RELEASE_BASE_URL.TrimEnd("/") } else { $null }
 $t3Home = if ($env:CMDECK_HOME) { $env:CMDECK_HOME } elseif ($env:T3CODE_HOME) { $env:T3CODE_HOME } else { Join-Path $HOME ".cmdeck" }
+# CMDeck never uses the official T3 Code home, even when T3CODE_HOME names it.
+if (-not $env:CMDECK_HOME -and $env:T3CODE_HOME -and [IO.Path]::GetFullPath($env:T3CODE_HOME).TrimEnd("\", "/") -eq (Join-Path $HOME ".t3")) {
+  Write-Warning "Ignoring T3CODE_HOME=$($env:T3CODE_HOME), the official T3 Code data directory. Set CMDECK_HOME to choose another."
+  $t3Home = Join-Path $HOME ".cmdeck"
+}
 $binDir = if ($env:T3CODE_INSTALL_BIN_DIR) { $env:T3CODE_INSTALL_BIN_DIR } else { Join-Path $HOME ".local\bin" }
 # Absolute, so PATH never gets a folder that changes with the working directory.
 $binDir = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($binDir)

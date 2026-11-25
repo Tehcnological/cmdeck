@@ -31,6 +31,11 @@ bin_dir="${T3CODE_INSTALL_BIN_DIR:-$HOME/.local/bin}"
 # Trailing slashes would put `//` in the paths the t3 command guard compares.
 while [ "${t3_home%/}" != "$t3_home" ] && [ "$t3_home" != / ]; do t3_home="${t3_home%/}"; done
 while [ "${bin_dir%/}" != "$bin_dir" ] && [ "$bin_dir" != / ]; do bin_dir="${bin_dir%/}"; done
+# CMDeck never uses the official T3 Code home, even when T3CODE_HOME names it.
+if [ -z "${CMDECK_HOME:-}" ] && [ "$t3_home" = "${HOME%/}/.t3" ]; then
+  printf 't3 install: ignoring T3CODE_HOME=%s, the official T3 Code data directory. Set CMDECK_HOME to choose another.\n' "${T3CODE_HOME:-}" >&2
+  t3_home="${HOME%/}/.cmdeck"
+fi
 # Absolute, so the PATH hint never adds a folder that changes with the working directory.
 case "$bin_dir" in /*) ;; *) bin_dir="$PWD/$bin_dir" ;; esac
 

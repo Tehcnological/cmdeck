@@ -9,7 +9,10 @@ export const APP_CLI_NAME = "cmdeck";
 export const APP_HOME_DIR_NAME = ".cmdeck";
 export const UPSTREAM_HOME_DIR_NAME = ".t3";
 
-/** Wins over `T3CODE_HOME`, which every reader still uses (kept for merges with upstream). */
+/**
+ * Wins over `T3CODE_HOME`, which every reader still uses (kept for merges with upstream). A
+ * `T3CODE_HOME` naming the official home is ignored; see `applyAppHomeEnv`.
+ */
 export const APP_HOME_ENV = "CMDECK_HOME";
 export const UPSTREAM_HOME_ENV = "T3CODE_HOME";
 
@@ -26,8 +29,42 @@ export const SERVICE_LAUNCHD_LABEL = "com.tehcnological.cmdeck.service";
 /** Official T3 Code uses 3773; a different default keeps both servers on stable ports. */
 export const DEFAULT_SERVER_PORT = 3783;
 
-/** Copies `CMDECK_HOME` into `T3CODE_HOME` so it wins and child processes inherit it. */
-export function applyAppHomeEnv(env: Record<string, string | undefined>): void {
-  const home = env[APP_HOME_ENV]?.trim();
-  if (home) env[UPSTREAM_HOME_ENV] = home;
+/** How this host spells paths; `resolve` makes a path absolute, as `node:path` does. */
+export interface HomePathHost {
+  readonly homeDir: string;
+  readonly platform: string;
+  readonly resolve: (path: string) => string;
 }
+
+function comparableHome(value: string, host: HomePathHost): string {
+  const expanded = value === "~" || /^~[/\\]/u.test(value) ? host.homeDir + value.slice(1) : value;
+  const absolute = host.resolve(expanded);
+  // Windows and macOS file systems ignore case by default.
+  const foldCase = host.platform === "win32" || host.platform === "darwin";
+  return foldCase ? absolute.toLowerCase() : absolute;
+}
+
+/**
+ * Copies `CMDECK_HOME` into `T3CODE_HOME` so it wins and child processes inherit it. Without it, a
+ * `T3CODE_HOME` set for the official T3 Code (`~/.t3`) is removed, so CMDeck never opens that
+ * database or its signing keys; other values, such as a test's temporary folder, still apply.
+ * Returns the removed value so the caller can warn.
+ */
+export function applyAppHomeEnv(
+  env: Record<string, string | undefined>,
+  host: HomePathHost,
+): string | undefined {
+  const home = env[APP_HOME_ENV]?.trim();
+  if (home) {
+    env[UPSTREAM_HOME_ENV] = home;
+    return undefined;
+  }
+  const upstream = env[UPSTREAM_HOME_ENV]?.trim();
+  const official = comparableHome(`~/${UPSTREAM_HOME_DIR_NAME}`, host);
+  if (!upstream || comparableHome(upstream, host) !== official) return undefined;
+  Reflect.deleteProperty(env, UPSTREAM_HOME_ENV);
+  return upstream;
+}
+
+export const ignoredOfficialHomeWarning = (value: string): string =>
+  `Ignoring ${UPSTREAM_HOME_ENV}=${value}: it is the official T3 Code data directory, which CMDeck never uses. Set ${APP_HOME_ENV} to choose CMDeck's data directory.`;
