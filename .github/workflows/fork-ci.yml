@@ -223,9 +223,18 @@ jobs:
             node apps/web/node_modules/playwright/cli.js install-deps chromium
           fi
 
+      # Headless Chromium sometimes drops its connection mid-shard on stock runners (a different
+      # file each time); only that error earns one rerun, real failures fail the first time.
       - name: Test
         working-directory: apps/web
-        run: vp test run --passWithNoTests --project unit --project browser --shard ${{ matrix.shard }}/3
+        run: |
+          set -o pipefail
+          for attempt in 1 2; do
+            vp test run --passWithNoTests --project unit --project browser --shard ${{ matrix.shard }}/3 2>&1 | tee test.log && exit 0
+            grep -q VITEST_BROWSER_CONNECTION_CLOSED test.log || exit 1
+            echo "::warning::Chromium dropped the test connection (attempt $attempt)"
+          done
+          exit 1
 
   test-server:
     name: Server tests (full suite)
