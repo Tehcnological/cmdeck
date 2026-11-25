@@ -1095,7 +1095,7 @@ it.layer(layerGitManagerTest)("GitManager", (it) => {
         ),
       ).toEqual([]);
 
-      // A remote added outside T3 Code shows on the next read.
+      // A remote added outside CMDeck shows on the next read.
       yield* runGit(repoDir, [
         "remote",
         "add",
@@ -3846,6 +3846,8 @@ it.layer(layerGitManagerTest)("GitManager", (it) => {
 
       const { manager } = yield* makeManager({
         serverSettings: {
+          // Moving off a turned-off writer to another provider is the "Any provider" policy.
+          textGenerationFallback: "any",
           projectSettingsOverrides: {
             [projectId]: {
               providerInstances: { [disabledInstanceId]: { enabled: false } },

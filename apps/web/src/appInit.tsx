@@ -19,6 +19,8 @@ import { startBackgroundThreadAnnouncements } from "./components/BackgroundThrea
 import { startSshPasswordPromptQueue } from "./components/desktop/SshPasswordPromptDialog";
 import { startHostFreezeToasts } from "./components/HostFreezeToastCoordinator";
 import { startKeybindingsUpdateToasts } from "./components/KeybindingsUpdateToast";
+import { startForkImportOfferToast } from "./components/ForkImportOfferToast";
+import { startForkSharedDataToasts } from "./components/ForkSharedDataToast";
 import { startLegacyThreadMigrationToast } from "./components/LegacyThreadMigrationToast";
 import { startPermissionUpdateNotices } from "./components/PermissionUpdateNotice";
 import { startAgentOpenedPreviews } from "./components/preview/agentOpenedPreviews";
@@ -86,6 +88,11 @@ function startClientAppearance(): void {
     appliedSeparateFonts = separateFonts;
     if (previous?.diffColorScheme !== settings.diffColorScheme) {
       root.dataset.diffColorScheme = settings.diffColorScheme;
+    }
+    if (previous?.darkStyle !== settings.darkStyle) {
+      root.dataset.darkStyle = settings.darkStyle;
+      // The window and theme-color meta copy the painted background, so repaint them too.
+      if (previous !== null) syncBrowserChromeTheme();
     }
     if (previous?.chatWidth !== settings.chatWidth) {
       root.dataset.chatWidth = settings.chatWidth;
@@ -310,6 +317,8 @@ export function startAppServices(): AppRouter {
   startSshPasswordPromptQueue();
 
   startKeybindingsUpdateToasts();
+  startForkSharedDataToasts();
+  startForkImportOfferToast();
   startSlowRpcRequestToasts();
   startHostFreezeToasts();
   startLegacyThreadMigrationToast();

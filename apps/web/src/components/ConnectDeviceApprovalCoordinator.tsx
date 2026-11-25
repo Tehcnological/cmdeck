@@ -24,9 +24,17 @@ import { toastManager } from "./ui/toast";
 import { stackedThreadToast } from "./ui/toastHelpers";
 
 /**
- * Asks whoever can approve to look at T3 Connect devices waiting on an environment, and tells
- * them about devices that got in without approval.
+ * Asks whoever can approve to look at devices waiting on an environment (T3 Connect or direct
+ * pairing), and tells them about T3 Connect devices that got in without approval.
  */
+
+type PendingApproval = {
+  readonly id: string;
+  readonly device: string;
+  readonly code: string | null;
+  readonly expiresAt: DateTime.Utc;
+};
+
 export function ConnectDeviceApprovalCoordinator() {
   const { environments } = useEnvironments();
   return environments.map((environment) =>
@@ -206,10 +214,26 @@ function ConnectDeviceRequestToasts({
 
   const requests =
     access.data?.type === "snapshot"
-      ? access.data.payload.pairingLinks.flatMap((link) =>
+      ? access.data.payload.pairingLinks.flatMap((link): ReadonlyArray<PendingApproval> =>
           link.connectDeviceRequest
-            ? [{ id: link.id, request: link.connectDeviceRequest, expiresAt: link.expiresAt }]
-            : [],
+            ? [
+                {
+                  id: link.id,
+                  device: describeConnectDeviceClient(link.connectDeviceRequest),
+                  code: link.connectDeviceRequest.verificationCode,
+                  expiresAt: link.expiresAt,
+                },
+              ]
+            : link.pairingRequest
+              ? [
+                  {
+                    id: link.id,
+                    device: describeConnectDeviceClient(link.pairingRequest),
+                    code: null,
+                    expiresAt: link.pairingRequest.expiresAt,
+                  },
+                ]
+              : [],
         )
       : null;
 
@@ -228,9 +252,8 @@ function ConnectDeviceRequestToasts({
       toastManager.close(tracked.toastId);
       toasts.current.delete(id);
     }
-    for (const { id, request, remainingMs } of live) {
-      const device = describeConnectDeviceClient(request);
-      const renderedKey = `${request.verificationCode}:${device}`;
+    for (const { id, device, code, remainingMs } of live) {
+      const renderedKey = `${code ?? ""}:${device}`;
       const tracked = toasts.current.get(id);
       if (tracked?.renderedKey === renderedKey) continue;
       const close = () => {
@@ -240,12 +263,10 @@ function ConnectDeviceRequestToasts({
       const options = stackedThreadToast({
         type: "info",
         title: m(msg("A device wants to connect to {environmentLabel}", { environmentLabel })),
-        description: m(
-          msg("{device}. Approve only if it shows code {code}.", {
-            device,
-            code: request.verificationCode,
-          }),
-        ),
+        description:
+          code === null
+            ? m(msg("{device} wants to pair. Approve only if you are pairing it.", { device }))
+            : m(msg("{device}. Approve only if it shows code {code}.", { device, code })),
         timeout: remainingMs,
         actionProps: {
           children: m(msg("Approve")),

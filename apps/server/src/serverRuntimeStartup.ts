@@ -45,8 +45,6 @@ import * as AgentAwarenessRelay from "./relay/AgentAwarenessRelay.ts";
 import * as ServerLifecycleEvents from "./serverLifecycleEvents.ts";
 import * as ServerSettings from "./serverSettings.ts";
 import { forkParked, forkParkedFiber } from "./serverActivation.ts";
-import * as AnalyticsService from "./telemetry/AnalyticsService.ts";
-import { getServerOwners } from "./telemetry/Identify.ts";
 import * as ServerEnvironment from "./environment/ServerEnvironment.ts";
 import * as EnvironmentAuth from "./auth/EnvironmentAuth.ts";
 import {
@@ -144,38 +142,6 @@ export const makeCommandGate = Effect.gen(function* () {
     }),
     enqueueCommand,
   } satisfies CommandGate;
-});
-
-const recordStartupHeartbeat = Effect.gen(function* () {
-  const analytics = yield* AnalyticsService.AnalyticsService;
-  const projects = yield* ProjectService.ProjectService;
-  const threads = yield* ThreadManagement.ThreadManagementService;
-
-  const { threadCount, projectCount } = yield* Effect.all({
-    projects: projects.snapshot,
-    threadCount: threads.countThreads(),
-  }).pipe(
-    Effect.map(({ projects: projectSnapshot, threadCount }) => ({
-      projectCount: projectSnapshot.projects.length,
-      threadCount,
-    })),
-    Effect.catch((cause) =>
-      Effect.logWarning("failed to gather V2 startup counts for telemetry", {
-        cause,
-      }).pipe(
-        Effect.as({
-          threadCount: 0,
-          projectCount: 0,
-        }),
-      ),
-    ),
-  );
-
-  yield* analytics.record("server.boot.heartbeat", {
-    threadCount,
-    projectCount,
-  });
-  yield* analytics.recordOwners(yield* getServerOwners, "server");
 });
 
 const getAutoBootstrapThreadModelSelection = (): ModelSelection => ({
@@ -355,17 +321,17 @@ const resolveStartupBrowserTarget = Effect.gen(function* () {
 });
 
 /** Prints the one-time admin pairing URL to stdout only; logger records reach trace files and collectors. */
-export const announceStartupPairingUrl = (pairingUrl: string) =>
-  Effect.logInfo("Authentication required. Open T3 Code using the pairing URL.").pipe(
+const announceStartupPairingUrl = (pairingUrl: string) =>
+  Effect.logInfo("Authentication required. Open CMDeck using the pairing URL.").pipe(
     Effect.andThen(Console.log(`  pairingUrl: ${pairingUrl}`)),
   );
 
 // Pairing tokens belong only in announceStartupPairingUrl's stdout output.
-export const logBrowserAutoOpenUnavailable = Effect.logInfo("browser auto-open unavailable", {
+const logBrowserAutoOpenUnavailable = Effect.logInfo("browser auto-open unavailable", {
   hint: "Open the pairing URL above in your browser.",
 });
 
-export const maybeOpenBrowser = Effect.fn("serverRuntimeStartup.maybeOpenBrowser")(function* (
+const maybeOpenBrowser = Effect.fn("serverRuntimeStartup.maybeOpenBrowser")(function* (
   target: string,
 ) {
   const serverConfig = yield* ServerConfig.ServerConfig;
@@ -618,13 +584,6 @@ const make = Effect.fn("serverRuntimeStartup.make")(function* (options?: Startup
 
     yield* forkParked(
       Effect.gen(function* () {
-        yield* Effect.logDebug("startup phase: recording startup heartbeat");
-        yield* recordStartupHeartbeat.pipe(
-          Effect.withSpan("server.startup.heartbeat.record", {
-            attributes: { "startup.phase": "heartbeat.record" },
-          }),
-          Effect.ignoreCause({ log: true }),
-        );
         if (serverConfig.startupPresentation === "headless") {
           yield* Effect.logDebug("startup phase: headless access info");
           const accessInfo = yield* issueHeadlessServeAccessInfo();

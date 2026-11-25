@@ -92,6 +92,7 @@ import { readEnvironmentScope } from "~/state/session";
 import { useSettingsScope } from "./SettingsScopeContext";
 import { EnvironmentRow, useEnvironmentTransportLabel } from "./EnvironmentRow";
 import { SettingsGroup } from "./SettingsGroup";
+import { externalBaseUrl } from "./RemoteAccessSettings.logic";
 import { settingsScopeEnvironmentLabel, settingsScopeEnvironmentLabels } from "./settingsScopeAxis";
 import {
   WEBHOOK_SIGNATURE_DEFAULTS,
@@ -1155,6 +1156,8 @@ function WebhookEndpointField({
     serverEnvironment.rotateScheduledTaskWebhookToken.permissionAtom(environmentId),
   );
   const httpBaseUrl = useEnvironmentHttpBaseUrl(environmentId);
+  const environmentSettings = useEnvironment(environmentId)?.serverConfig?.settings;
+  const publicBaseUrl = environmentSettings?.publicBaseUrl ?? "";
   const { copyToClipboard, isCopied } = useCopyToClipboard({
     target: {
       target: "webhook URL",
@@ -1174,7 +1177,11 @@ function WebhookEndpointField({
       </p>
     );
   }
-  const { address: url, copyable, note } = webhookAddress(endpoint, httpBaseUrl, messages);
+  const {
+    address: url,
+    copyable,
+    note,
+  } = webhookAddress(endpoint, externalBaseUrl(publicBaseUrl, httpBaseUrl), messages);
   const rotateUrl = async () => {
     const confirmed =
       (await requestConfirmDialog(
@@ -1647,7 +1654,7 @@ function ScheduledTaskEditorForm({
       reportFailure(
         gt("Once is not available here"),
         gt(
-          "This environment runs an older T3 Code. Update it to schedule a one-time task, or pick another schedule.",
+          "This environment runs an older CMDeck. Update it to schedule a one-time task, or pick another schedule.",
         ),
       );
       return;

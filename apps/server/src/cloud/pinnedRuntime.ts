@@ -27,6 +27,11 @@ import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as ProcessRunner from "../processRunner.ts";
 import { windowsPowerShellPath } from "@t3tools/shared/windowsSystem";
 import { isExactServiceVersion, parseServiceState, SERVICE_STATE_FILE } from "./serviceProtocol.ts";
+import {
+  FORK_RUNTIME_MARKER_CONTENTS,
+  FORK_RUNTIME_MARKER_FILE,
+  unmarkedRuntimeReason,
+} from "../fork/forkRuntimeMarker.ts";
 
 const PINNED_RUNTIME_DIR = "runtime";
 const PINNED_RUNTIME_INSTALL_TIMEOUT = Duration.minutes(10);
@@ -385,6 +390,19 @@ const installPinnedRuntime = Effect.fn("cloud.pinned_runtime.ensure_installed")(
   const alreadyPinned =
     entryExists && Option.isSome(sentinel) && sentinel.value.trim() === input.version;
   if (alreadyPinned) {
+    const forkInstalled = yield* fs
+      .exists(input.path.join(paths.versionDir, FORK_RUNTIME_MARKER_FILE))
+      .pipe(
+        Effect.mapError(
+          (cause) => new PinnedRuntimeInstallError({ step: "checking the pinned runtime", cause }),
+        ),
+      );
+    if (!forkInstalled) {
+      return yield* new PinnedRuntimePreflightBlockedError({
+        version: input.version,
+        reason: unmarkedRuntimeReason(paths.versionDir),
+      });
+    }
     if (input.requirePublishedRelease === true) {
       const platformKey = cliArchivePlatformKey(input.platform, input.arch);
       if (platformKey === undefined) {
@@ -449,8 +467,12 @@ const installPinnedRuntime = Effect.fn("cloud.pinned_runtime.ensure_installed")(
     input.onProgress?.({ stage: "validate" });
     yield* input.validate(stagingPaths);
     yield* fs
-      .writeFileString(stagingPaths.sentinelPath, `${input.version}\n`)
+      .writeFileString(
+        input.path.join(stagingDir, FORK_RUNTIME_MARKER_FILE),
+        FORK_RUNTIME_MARKER_CONTENTS,
+      )
       .pipe(
+        Effect.andThen(fs.writeFileString(stagingPaths.sentinelPath, `${input.version}\n`)),
         Effect.mapError(
           (cause) =>
             new PinnedRuntimeInstallError({ step: "recording the completed install", cause }),

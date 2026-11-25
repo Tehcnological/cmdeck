@@ -28,7 +28,6 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
-import * as Metrics from "../observability/Metrics.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 
 const SECRET_REF_PREFIX = "secret-ref:";
@@ -271,14 +270,7 @@ const make = Effect.gen(function* () {
   // Serialize get/remove so concurrent consumers cannot read the same one-use ref.
   const consumeLock = yield* Semaphore.make(1);
   const consume: SecretRequests["Service"]["consume"] = (input) =>
-    consumeRef(input).pipe(
-      consumeLock.withPermits(1),
-      Effect.tap(() => Metrics.increment(Metrics.secretRefsConsumedTotal, { result: "used" })),
-      Effect.tapError(() =>
-        Metrics.increment(Metrics.secretRefsConsumedTotal, { result: "rejected" }),
-      ),
-      Effect.withSpan("SecretRequests.consume"),
-    );
+    consumeRef(input).pipe(consumeLock.withPermits(1), Effect.withSpan("SecretRequests.consume"));
 
   /** A live ref's value, left in the store. */
   const readRef = Effect.fn("SecretRequests.readRef")(function* (input: {

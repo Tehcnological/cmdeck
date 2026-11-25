@@ -6,6 +6,7 @@ import {
   CommandId,
   PROVIDER_SEND_TURN_MAX_INPUT_CHARS,
   latestProviderTurnForAttempt,
+  type ModelSelection,
   withMessageSenderNote,
   type OrchestrationV2DomainEvent,
   type OrchestrationV2ContextHandoff,
@@ -45,13 +46,13 @@ import * as ProjectService from "../project/ProjectService.ts";
 import * as ProjectSetupScriptRunner from "../project/ProjectSetupScriptRunner.ts";
 import * as ProviderAuthService from "../provider/ProviderAuthService.ts";
 import * as ServerSettings from "../serverSettings.ts";
+import * as InferenceServerRegistry from "../inference/InferenceServerRegistry.ts";
 import {
   makeRestoreMissingWorktree,
   ThreadWorktreeRestore,
 } from "../workspace/restoreMissingWorktree.ts";
 import type * as TaskFolders from "../workspace/TaskFolders.ts";
 import * as EventSink from "./EventSink.ts";
-import * as ProviderUsageAnalytics from "../telemetry/ProviderUsageAnalytics.ts";
 import * as ContextHandoffService from "./ContextHandoffService.ts";
 import { canForkBusySourceNatively, isActiveRun } from "./CommandPolicy.ts";
 import { contextBoundaryOrdinal, isScheduledFreshRun } from "./contextBoundary.ts";
@@ -251,7 +252,7 @@ export const isProviderTurnStartRunStateMissingError = Schema.is(
 const RESUME_PROMPT = "Continue where you left off.";
 
 const START_GAVE_UP_MESSAGE =
-  "T3 Code could not start this turn. Send the message again; if it keeps failing, check the server logs.";
+  "CMDeck could not start this turn. Send the message again; if it keeps failing, check the server logs.";
 
 const startFailureMessage = (error: Error): string => {
   const nestedCause = "cause" in error ? error.cause : undefined;
@@ -309,7 +310,6 @@ export const layer: Layer.Layer<
   ProviderTurnStartServiceV2,
   Effect.gen(function* () {
     const eventSink = yield* EventSink.EventSinkV2;
-    const turnAnalytics = yield* ProviderUsageAnalytics.ProviderTurnAnalytics;
     const contextHandoffService = yield* ContextHandoffService.ContextHandoffServiceV2;
     const idAllocator = yield* IdAllocator.IdAllocatorV2;
     const fileSystem = yield* FileSystem.FileSystem;
@@ -321,6 +321,33 @@ export const layer: Layer.Layer<
     const providerSessions = yield* ProviderSessionManager.ProviderSessionManagerV2;
     const runExecution = yield* RunExecutionService.RunExecutionServiceV2;
     const runtimePolicy = yield* RuntimePolicy.RuntimePolicyV2;
+    const serverSettings = yield* ServerSettings.ServerSettingsService;
+    // Optional so orchestration test runtimes need no probe layer; the server always provides it.
+    const inferenceServers = yield* Effect.serviceOption(
+      InferenceServerRegistry.InferenceServerRegistry,
+    );
+
+    const linkedServerModelWindow = Effect.fn("ProviderTurnStartService.linkedServerModelWindow")(
+      function* (selection: ModelSelection) {
+        if (inferenceServers._tag === "None") return undefined;
+        const settings = yield* serverSettings.getSettings.pipe(Effect.option);
+        if (settings._tag === "None") return undefined;
+        const { window, unmatched } = InferenceServerRegistry.servedContextWindowForModel({
+          instance: settings.value.providerInstances[selection.instanceId],
+          inferenceServers: settings.value.inferenceServers,
+          snapshots: yield* inferenceServers.value.current,
+          model: selection.model,
+        });
+        if (unmatched !== undefined) {
+          yield* Effect.logWarning("linked inference server does not list the turn's model", {
+            instanceId: selection.instanceId,
+            inferenceServerId: unmatched,
+          });
+        }
+        return window;
+      },
+    );
+
     const restoreMissingWorktree = yield* makeRestoreMissingWorktree;
     const worktreeRestore = yield* ThreadWorktreeRestore;
     const turnItemPositions = yield* TurnItemPositionStore.TurnItemPositionStoreV2;
@@ -539,22 +566,13 @@ export const layer: Layer.Layer<
             } satisfies OrchestrationV2DomainEvent;
           }),
         );
-        const written = yield* eventSink.writeIfRunCurrent({
+        yield* eventSink.writeIfRunCurrent({
           threadId: run.threadId,
           runId,
           activeAttemptId: attempt.id,
           expectedStatus: "starting",
           events,
         });
-        // A steering restart that cannot start still ends a run whose earlier turns counted.
-        if (written.committed) {
-          yield* turnAnalytics.runSettled({
-            runId,
-            status,
-            completedAt: now,
-            childrenRunning: false,
-          });
-        }
       },
     );
 
@@ -1152,6 +1170,7 @@ export const layer: Layer.Layer<
       const tokenCap = yield* handoffTokenCapConfig.pipe(
         Effect.orElseSucceed(() => DEFAULT_HANDOFF_TOKEN_CAP),
       );
+      const servedModelWindow = yield* linkedServerModelWindow(run.modelSelection);
       const handoffContextForThread = (loadedProviderThread: OrchestrationV2ProviderThread) => {
         const measuredContext = latestNativeContextUsage(projection, providerThread);
         const previousSelection =
@@ -1176,10 +1195,15 @@ export const layer: Layer.Layer<
           sameSelection ||
           (previousSelection !== undefined &&
             session.canReuseContextUsage?.(previousSelection, run.modelSelection) === true);
-        const knownModelWindow = session.getModelContextWindow?.(
+        const harnessModelWindow = session.getModelContextWindow?.(
           run.modelSelection,
           resolvedRuntimePolicy.cwd,
         );
+        // The server enforces its served window, so a harness that claims more cannot raise it.
+        const knownModelWindow =
+          servedModelWindow === undefined
+            ? harnessModelWindow
+            : Math.min(servedModelWindow, harnessModelWindow ?? servedModelWindow);
         const handoffUsage = contextUsageForHandoff({
           sameNativeThread,
           sameSelection,

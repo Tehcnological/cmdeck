@@ -262,7 +262,7 @@ describe("CodexAdapterV2 runtime policy", () => {
       });
       assert.deepEqual((yield* build("approval-required")).sandboxPolicy, { type: "readOnly" });
       assert.deepEqual((yield* build("full-access")).sandboxPolicy, { type: "dangerFullAccess" });
-      // The folder list reaches the model without T3 Code's MCP tools.
+      // The folder list reaches the model without CMDeck's MCP tools.
       assert.deepEqual(Object.keys(autoAcceptEdits.additionalContext ?? {}), ["t3_code_workspace"]);
       assert.include(
         autoAcceptEdits.additionalContext?.["t3_code_workspace"]?.value,
@@ -729,7 +729,7 @@ function codexReplayPreamble(input: {
       frame: {
         id: 1,
         result: {
-          userAgent: "T3 Code/0.156.1",
+          userAgent: "CMDeck/0.156.1",
           codexHome: "/tmp/codex-home",
           platformFamily: "unix",
           platformOs: "macos",
@@ -1172,6 +1172,101 @@ describe("CodexAdapterV2 process exit", () => {
   });
 });
 
+describe("CodexAdapterV2 sessions", () => {
+  it.effect(
+    "a linked instance opens one session per thread, so each keeps its gateway routing",
+    () =>
+      Effect.gen(function* () {
+        const sharesSessions = (linkedToInferenceServer: boolean) =>
+          Effect.gen(function* () {
+            const adapter = yield* CodexAdapterV2.makeCodexAdapterV2({
+              instanceId: CodexAdapterV2.CODEX_DEFAULT_INSTANCE_ID,
+              settings: DEFAULT_CODEX_SETTINGS,
+              environment: {},
+              linkedToInferenceServer,
+              clientFactory: { open: () => Effect.die("unused") },
+              digest: yield* Digest.Digest,
+              fileSystem: yield* FileSystem.FileSystem,
+              idAllocator: yield* IdAllocator.IdAllocatorV2,
+              serverConfig: yield* ProviderReplayHarness.makeReplayServerConfig("linked").pipe(
+                Effect.orDie,
+              ),
+            });
+            const capabilities = yield* adapter.getCapabilities();
+            return capabilities.sessions.supportsMultipleProviderThreadsPerSession;
+          });
+        assert.isTrue(yield* sharesSessions(false));
+        assert.isFalse(yield* sharesSessions(true));
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(
+          Layer.mergeAll(
+            IdAllocator.layer,
+            McpProviderSessions.layer,
+            NodeServices.layer,
+            NodeCrypto.layer,
+          ),
+        ),
+      ),
+  );
+
+  it.effect(
+    "a local instance whose server is down refuses to open instead of using the cloud",
+    () =>
+      Effect.gen(function* () {
+        let opened = 0;
+        const adapter = yield* CodexAdapterV2.makeCodexAdapterV2({
+          instanceId: CodexAdapterV2.CODEX_DEFAULT_INSTANCE_ID,
+          settings: DEFAULT_CODEX_SETTINGS,
+          environment: {},
+          linkedToInferenceServer: true,
+          gateway: {
+            resolution: Effect.succeed({
+              managed: false,
+              reason: "Inference server rtx is not ready.",
+              local: true,
+            }),
+            forSession: () => Effect.undefined,
+            forBackground: Effect.undefined,
+            withoutGateway: Effect.succeed("Inference server rtx is not ready."),
+          },
+          clientFactory: {
+            open: () =>
+              Effect.sync(() => {
+                opened++;
+              }).pipe(Effect.andThen(Effect.die("a cloud session opened"))),
+          },
+          digest: yield* Digest.Digest,
+          fileSystem: yield* FileSystem.FileSystem,
+          idAllocator: yield* IdAllocator.IdAllocatorV2,
+          serverConfig: yield* ProviderReplayHarness.makeReplayServerConfig("local-down").pipe(
+            Effect.orDie,
+          ),
+        });
+        const error = yield* Effect.flip(
+          adapter.openSession({
+            threadId: ThreadId.make("thread-local-down"),
+            providerSessionId: ProviderSessionId.make("session-local-down"),
+            modelSelection: CODEX_TEST_MODEL_SELECTION,
+            runtimePolicy: CODEX_TEST_RUNTIME_POLICY,
+          }),
+        );
+        assert.equal(error._tag, "ProviderAdapterOpenSessionError");
+        assert.equal(opened, 0);
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(
+          Layer.mergeAll(
+            IdAllocator.layer,
+            McpProviderSessions.layer,
+            NodeServices.layer,
+            NodeCrypto.layer,
+          ),
+        ),
+      ),
+  );
+});
+
 describe("CodexAdapterV2 session initialize", () => {
   const openReplaySession = (
     transcript: CodexReplay.CodexAppServerReplayTranscript,
@@ -1361,7 +1456,7 @@ describe("CodexAdapterV2 session initialize", () => {
               frame: {
                 id: 1,
                 result: {
-                  userAgent: "T3 Code/0.144.3 (Mac OS 15.5.0; x86_64) unknown (T3 Code; 0.1.5)",
+                  userAgent: "CMDeck/0.144.3 (Mac OS 15.5.0; x86_64) unknown (CMDeck; 0.1.5)",
                   codexHome: "/tmp/codex-home",
                   platformFamily: "unix",
                   platformOs: "macos",
@@ -1385,7 +1480,7 @@ describe("CodexAdapterV2 session initialize", () => {
       assert.instanceOf(failure.cause, ProviderSetupError);
       assert.equal(
         failure.cause.message,
-        "Codex 0.144.3 does not work with this T3 Code release. Update Codex to >=0.159.0, then retry.",
+        "Codex 0.144.3 does not work with this CMDeck release. Update Codex to >=0.159.0, then retry.",
       );
     }).pipe(
       Effect.scoped,
@@ -4680,7 +4775,7 @@ describe("CodexAdapterV2 post-settle continuation", () => {
                   item: {
                     type: itemType,
                     id,
-                    ...(itemType === "webSearch" ? { query: "T3 Code", action: null } : {}),
+                    ...(itemType === "webSearch" ? { query: "CMDeck", action: null } : {}),
                   },
                   ...timestamps,
                 },
@@ -4767,7 +4862,7 @@ describe("CodexAdapterV2 post-settle continuation", () => {
         assert.equal(unfinished[0]?.id, unfinished[1]?.id);
         assert.deepEqual(unfinished[1]?.startedAt, DateTime.makeUnsafe(1782622443000));
         if (unfinished[1]?.type === "web_search") {
-          assert.deepEqual(unfinished[1].patterns, ["T3 Code"]);
+          assert.deepEqual(unfinished[1].patterns, ["CMDeck"]);
           assert.deepEqual(
             harness.events.flatMap((event) =>
               event.type === "node.updated" &&

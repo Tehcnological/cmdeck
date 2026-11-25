@@ -162,7 +162,7 @@ function needsPinnedRelayClient(executable: RelayClient.RelayClientStatus): bool
   );
 }
 
-export function classifyRelayClientOutput(
+function classifyRelayClientOutput(
   line: string,
 ): "connected" | "unregistered" | "warning" | "debug" {
   if (/\bRegistered tunnel connection\b/iu.test(line)) {
@@ -184,7 +184,7 @@ export function classifyRelayClientOutput(
 }
 
 /** Edge rejection wording varies; any Unauthorized registration error counts. */
-export function isRejectedRelayClientTunnelOutput(line: string): boolean {
+function isRejectedRelayClientTunnelOutput(line: string): boolean {
   return (
     /\bRegister tunnel error from server side\b/iu.test(line) &&
     /error="(?:Unauthorized:[^"]*|Failed to get tunnel|Tunnel not found|Record for tunnel not found|Invalid tunnel secret)"/iu.test(

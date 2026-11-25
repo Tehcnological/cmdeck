@@ -28,6 +28,7 @@ export type SettingsPath =
   | "/settings/keybindings"
   | "/settings/snap-shot"
   | "/settings/providers"
+  | "/settings/inference"
   | "/settings/threads"
   | "/settings/browser"
   | "/settings/devices"
@@ -106,6 +107,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/keybindings": msg("Keybindings"),
   "/settings/snap-shot": msg("SnapShots"),
   "/settings/providers": msg("Providers"),
+  "/settings/inference": msg("Inference"),
   "/settings/threads": msg("Threads"),
   "/settings/browser": msg("Browser"),
   "/settings/devices": msg("Devices"),
@@ -156,6 +158,7 @@ const ALL_SETTINGS_NAV_GROUPS: ReadonlyArray<SettingsNavGroup> = [
     heading: msg("Agents"),
     paths: [
       "/settings/providers",
+      "/settings/inference",
       "/settings/threads",
       "/settings/browser",
       "/settings/devices",
@@ -947,11 +950,32 @@ export const SETTINGS_SEARCH_ITEMS = [
     desktopOnly: true,
   },
   {
+    id: "close-to-tray",
+    title: msg("Close to tray"),
+    to: "/settings/general",
+    searchTerms: [msg("system tray menu bar background keep running hide window minimize quit")],
+    desktopOnly: true,
+  },
+  {
+    id: "launch-at-login",
+    title: msg("Launch at login"),
+    to: "/settings/general",
+    searchTerms: [msg("startup start automatically boot login item autostart minimized tray")],
+    desktopOnly: true,
+  },
+  {
     id: "text-generation-model",
     title: msg("Text generation model"),
     to: "/settings/threads",
     scope: "project-defaults",
     searchTerms: [msg("generated thread titles source control content default provider")],
+  },
+  {
+    id: "text-generation-fallback",
+    title: msg("Text generation fallback"),
+    to: "/settings/threads",
+    scope: "environment",
+    searchTerms: ["local models only cloud privacy background writing titles commit messages"],
   },
   {
     id: "thread-title-instructions",
@@ -998,14 +1022,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: msg("Privacy policy"),
     to: "/settings/about",
     searchTerms: [msg("telemetry analytics usage data tracking legal opt out")],
-  },
-  {
-    id: "telemetry-export",
-    title: msg("OpenTelemetry export"),
-    to: "/settings/diagnostics",
-    targetId: "telemetry-export",
-    scope: "environment",
-    searchTerms: [msg("OTel OTLP telemetry export endpoints logs traces metrics Grafana")],
   },
   {
     id: "diagnostics",
@@ -1080,9 +1096,18 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/providers",
     searchTerms: [
       msg(
-        "agents cli codex claude cursor grok fx kiro opencode antigravity google sign in sign out install subscription instances authentication api key models configuration binary path config directory codex_home shadow home endpoint arguments environment variables display name accent color custom favorite hidden auto compact native sessions import resume",
+        "agents cli local models self-hosted ollama lm studio llama.cpp vllm sglang pi codex claude cursor grok fx kiro opencode antigravity google sign in sign out install subscription instances authentication api key models configuration binary path config directory codex_home shadow home endpoint arguments environment variables display name accent color custom favorite hidden auto compact native sessions import resume",
       ),
     ],
+  },
+  {
+    id: "inference-servers",
+    title: msg("Inference servers"),
+    to: "/settings/inference",
+    searchTerms: [
+      "local models self-hosted model server gpu ollama lm studio llama.cpp vllm sglang openai compatible base url api key context window concurrency load queue",
+    ],
+    providerSettingsOnly: true,
   },
   {
     id: "usage-providers",
@@ -1220,7 +1245,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "pull-request-links-open-in-app",
-    title: msg("Open pull requests in T3 Code"),
+    title: msg("Open pull requests in CMDeck"),
     to: "/settings/diffs",
     searchTerms: [
       `pr commit links ${SOURCE_CONTROL_HOST_LABELS} browser external click default pull request view panel`,
@@ -1420,10 +1445,8 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/access",
     targetId: "connections-environment",
     searchTerms: [
-      msg("t3 connect devices approve deny trust revoke pairing code security account"),
+      msg("devices approve deny trust revoke pairing link qr code phone security t3 connect"),
     ],
-    cloudOnly: true,
-    managedTunnelOnly: true,
   },
   {
     id: "hold-webhooks-while-offline",
@@ -1452,6 +1475,18 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: [
       msg("localhost loopback port forwarding open on this device browser tabs stream security"),
     ],
+  },
+  {
+    id: "cloudflare-tunnel",
+    title: msg("Cloudflare Tunnel"),
+    to: "/settings/access",
+    searchTerms: [msg("tunnel public address hostname cloudflared access pairing webhook remote")],
+  },
+  {
+    id: "remote-mcp",
+    title: msg("Remote MCP"),
+    to: "/settings/access",
+    searchTerms: [msg("mcp bearer token agent client tailscale tunnel revoke endpoint")],
   },
   {
     id: "connections-environment",
@@ -1533,6 +1568,7 @@ const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScop
   "/settings/snap-shot": null,
   "/settings/keybindings": null,
   "/settings/providers": null,
+  "/settings/inference": null,
   "/settings/threads": null,
   "/settings/browser": null,
   "/settings/devices": null,

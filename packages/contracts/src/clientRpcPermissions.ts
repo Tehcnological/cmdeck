@@ -14,6 +14,7 @@ import {
   mcpClientScopes,
 } from "./auth.ts";
 import { PeerLinkLinkPairingInput } from "./peerLink.ts";
+import { RemoteMcpTokenCreateInput } from "./remoteAccess.ts";
 import { ORCHESTRATION_V2_WS_METHODS } from "./orchestrationV2.ts";
 import { WS_METHODS } from "./rpc.ts";
 
@@ -29,11 +30,17 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.serverRunStorageCleanup]: AuthSettingsWriteScope,
   // Restarts the server, as an update does.
   [WS_METHODS.serverReclaimDatabaseSpace]: AuthEnvironmentMaintainScope,
-  [WS_METHODS.serverCheckOtlpEndpoint]: AuthSettingsWriteScope,
   [WS_METHODS.serverCheckSecretSource]: AuthSettingsWriteScope,
   // Listing models spends the stored API key, so only those who can choose a model may.
   [WS_METHODS.serverListTextGeneratorModels]: AuthSettingsWriteScope,
   [WS_METHODS.serverRefreshProviders]: AuthOrchestrationReadScope,
+  [WS_METHODS.serverRefreshInferenceServers]: AuthOrchestrationReadScope,
+  // It probes ports on the environment's machine, and only ends in a settings write.
+  [WS_METHODS.serverDiscoverInferenceServers]: AuthSettingsWriteScope,
+  [WS_METHODS.serverCheckInferenceModelImages]: AuthSettingsWriteScope,
+  [WS_METHODS.serverGetInferenceUsage]: AuthOrchestrationReadScope,
+  [WS_METHODS.serverGetThreadInferenceRequest]: AuthOrchestrationReadScope,
+  [WS_METHODS.serverGetThreadInferenceStop]: AuthOrchestrationReadScope,
   [WS_METHODS.pullRequestsRunAction]: AuthSourceControlWriteScope,
   [WS_METHODS.pullRequestsUpdate]: AuthSourceControlWriteScope,
   [WS_METHODS.pullRequestsComment]: AuthSourceControlWriteScope,
@@ -88,6 +95,8 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.workflowsAnswer]: AuthOrchestrationOperateScope,
   [WS_METHODS.workflowsResume]: AuthOrchestrationOperateScope,
   [WS_METHODS.workflowsCancel]: AuthOrchestrationOperateScope,
+  // Starts an agent on this environment's providers, as sending a message does.
+  [WS_METHODS.threadReviewStart]: AuthOrchestrationOperateScope,
   // The server runs this file: saving it is running code there, as a terminal does.
   [WS_METHODS.workflowsSaveDefinition]: AuthTerminalOperateScope,
   [WS_METHODS.workflowsDeleteDefinition]: AuthTerminalOperateScope,
@@ -101,6 +110,11 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.peerLinksAnswerRequest]: AuthAccessWriteScope,
   [WS_METHODS.peerLinksPairClient]: AuthAccessWriteScope,
   [WS_METHODS.peerLinksPairLink]: AuthAccessWriteScope,
+  // A remote MCP token is a credential for this environment, like a pairing link.
+  [WS_METHODS.remoteMcpCreateToken]: AuthAccessWriteScope,
+  [WS_METHODS.remoteMcpRevokeToken]: AuthAccessWriteScope,
+  // The tunnel address decides where other devices are sent to pair, an access setting.
+  [WS_METHODS.serverCheckPublicAddress]: AuthAccessWriteScope,
   // Send stores and sends a report from a thread's turn: the bar of running that thread.
   [WS_METHODS.agentFeedbackAnswerRequest]: AuthOrchestrationOperateScope,
 } as const;
@@ -109,6 +123,7 @@ export type ClientGuardedRpcTag = keyof typeof CLIENT_GUARDED_RPC_SCOPES;
 const decodePrepareThread = Schema.decodeUnknownSync(GitPreparePullRequestThreadInput);
 const decodeStackedAction = Schema.decodeUnknownSync(GitRunStackedActionInput);
 const decodeLinkPairing = Schema.decodeUnknownSync(PeerLinkLinkPairingInput);
+const decodeRemoteMcpTokenCreate = Schema.decodeUnknownSync(RemoteMcpTokenCreateInput);
 
 export function clientRpcRequiredScopes(
   method: string,
@@ -130,6 +145,10 @@ export function clientRpcRequiredScopes(
   // Handing out access takes holding it: the caller gets back a credential it can spend itself.
   if (method === WS_METHODS.peerLinksPairLink && input !== undefined) {
     const held = mcpClientScopes(decodeLinkPairing(input).access);
+    return [AuthAccessWriteScope, ...held];
+  }
+  if (method === WS_METHODS.remoteMcpCreateToken && input !== undefined) {
+    const held = mcpClientScopes(decodeRemoteMcpTokenCreate(input).access);
     return [AuthAccessWriteScope, ...held];
   }
   if (method === WS_METHODS.guestShareCreate) {

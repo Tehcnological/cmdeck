@@ -26,7 +26,12 @@ import { EditorId, FileManagerRevealKind, RemoteOpenTarget } from "./editor.ts";
 import { ManagedPolicySummary } from "./managedPolicy.ts";
 import { ModelCapabilities, ProviderOptionDescriptor } from "./model.ts";
 import { RuntimeMode } from "./providerPolicy.ts";
-import { ProviderDriverKind, ProviderInstanceId } from "./providerInstance.ts";
+import { InferenceServerId, InferenceServerSnapshot } from "./inference.ts";
+import {
+  ProviderDriverKind,
+  ProviderInstanceId,
+  ProviderInstanceInference,
+} from "./providerInstance.ts";
 import { ServerProviderUsageLimits, UsageLimitSourceSnapshots } from "./providerUsageLimits.ts";
 import { ServerSettings } from "./settings.ts";
 import { DesktopUpdateChannelSchema } from "./ipc.ts";
@@ -42,9 +47,24 @@ const KeybindingsInvalidEntryIssue = Schema.Struct({
   index: Schema.Number,
 });
 
+/** Fork-only: data-folder alerts (see apps/server/src/fork). Upstream clients drop unknown kinds. */
+const ForkSharedDataIssue = Schema.Struct({
+  kind: Schema.Literal("fork.shared-data"),
+  message: TrimmedNonEmptyString,
+});
+
+/** Fork-only: an official T3 Code data folder this server can import with `command`. */
+const ForkImportAvailableIssue = Schema.Struct({
+  kind: Schema.Literal("fork.import-available"),
+  message: TrimmedNonEmptyString,
+  command: TrimmedNonEmptyString,
+});
+
 export const ServerConfigIssue = Schema.Union([
   KeybindingsMalformedConfigIssue,
   KeybindingsInvalidEntryIssue,
+  ForkSharedDataIssue,
+  ForkImportAvailableIssue,
 ]);
 export type ServerConfigIssue = typeof ServerConfigIssue.Type;
 
@@ -233,6 +253,8 @@ export const ServerProvider = Schema.Struct({
   driver: ProviderDriverKind,
   displayName: Schema.optional(TrimmedNonEmptyString),
   accentColor: Schema.optional(TrimmedNonEmptyString),
+  inference: Schema.optionalKey(ProviderInstanceInference),
+  inferenceServerId: Schema.optionalKey(InferenceServerId),
   // Validate driver-supplied remote icons against the driver's trusted origin.
   iconUrl: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(2_048))),
   badgeLabel: Schema.optional(TrimmedNonEmptyString),
@@ -365,42 +387,18 @@ export const isProviderAvailable = (snapshot: ServerProvider): boolean =>
 export const isProviderTextGenerationCapable = (snapshot: ServerProvider): boolean =>
   snapshot.supportsTextGeneration !== false;
 
-export const OtlpEndpointSource = Schema.Literals(["environment", "bootstrap", "settings"]);
-export type OtlpEndpointSource = typeof OtlpEndpointSource.Type;
-
+/**
+ * Compatibility field: clients built from upstream contracts require it. Nothing is exported or
+ * traced, so the server always sends every signal off.
+ */
 export const ServerObservability = Schema.Struct({
   logsDirectoryPath: TrimmedNonEmptyString,
   localTracingEnabled: Schema.Boolean,
-  otlpTracesUrl: Schema.optional(TrimmedNonEmptyString),
-  otlpTracesSource: Schema.optional(OtlpEndpointSource),
-  otlpTracesVariable: Schema.optional(TrimmedNonEmptyString),
   otlpTracesEnabled: Schema.Boolean,
-  otlpMetricsUrl: Schema.optional(TrimmedNonEmptyString),
-  otlpMetricsSource: Schema.optional(OtlpEndpointSource),
-  otlpMetricsVariable: Schema.optional(TrimmedNonEmptyString),
   otlpMetricsEnabled: Schema.Boolean,
-  otlpLogsUrl: Schema.optional(TrimmedNonEmptyString),
-  otlpLogsSource: Schema.optional(OtlpEndpointSource),
-  otlpLogsVariable: Schema.optional(TrimmedNonEmptyString),
   otlpLogsEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
 });
 export type ServerObservability = typeof ServerObservability.Type;
-
-export const OtlpSignal = Schema.Literals(["traces", "metrics", "logs"]);
-export type OtlpSignal = typeof OtlpSignal.Type;
-
-export const OtlpEndpointCheckInput = Schema.Struct({
-  signal: OtlpSignal,
-  url: TrimmedNonEmptyString.check(Schema.isPattern(/^https?:\/\/./i)),
-});
-export type OtlpEndpointCheckInput = typeof OtlpEndpointCheckInput.Type;
-
-export const OtlpEndpointCheckResult = Schema.Union([
-  Schema.TaggedStruct("Accepted", { latencyMs: Schema.Number }),
-  Schema.TaggedStruct("Rejected", { status: Schema.Number }),
-  Schema.TaggedStruct("Unreachable", { timedOut: Schema.Boolean }),
-]);
-export type OtlpEndpointCheckResult = typeof OtlpEndpointCheckResult.Type;
 
 /** The client tells the server what it is, so the triage context can name it. */
 export const ServerPrepareTriageInput = Schema.Struct({
@@ -428,89 +426,6 @@ export class ServerPrepareTriageError extends Schema.TaggedError<ServerPrepareTr
     return "Could not write the triage session files.";
   }
 }
-
-export const ServerTraceDiagnosticsErrorKind = Schema.Literals([
-  "trace-file-not-found",
-  "trace-file-read-failed",
-]);
-export type ServerTraceDiagnosticsErrorKind = typeof ServerTraceDiagnosticsErrorKind.Type;
-
-export const ServerTraceDiagnosticsSpanSummary = Schema.Struct({
-  name: TrimmedNonEmptyString,
-  count: NonNegativeInt,
-  failureCount: NonNegativeInt,
-  totalDurationMs: Schema.Number,
-  averageDurationMs: Schema.Number,
-  maxDurationMs: Schema.Number,
-});
-export type ServerTraceDiagnosticsSpanSummary = typeof ServerTraceDiagnosticsSpanSummary.Type;
-
-export const ServerTraceDiagnosticsFailureSummary = Schema.Struct({
-  name: TrimmedNonEmptyString,
-  cause: TrimmedNonEmptyString,
-  count: NonNegativeInt,
-  lastSeenAt: Schema.DateTimeUtc,
-  traceId: TrimmedNonEmptyString,
-  spanId: TrimmedNonEmptyString,
-});
-export type ServerTraceDiagnosticsFailureSummary = typeof ServerTraceDiagnosticsFailureSummary.Type;
-
-export const ServerTraceDiagnosticsRecentFailure = Schema.Struct({
-  name: TrimmedNonEmptyString,
-  cause: TrimmedNonEmptyString,
-  durationMs: Schema.Number,
-  endedAt: Schema.DateTimeUtc,
-  traceId: TrimmedNonEmptyString,
-  spanId: TrimmedNonEmptyString,
-});
-export type ServerTraceDiagnosticsRecentFailure = typeof ServerTraceDiagnosticsRecentFailure.Type;
-
-export const ServerTraceDiagnosticsSpanOccurrence = Schema.Struct({
-  name: TrimmedNonEmptyString,
-  durationMs: Schema.Number,
-  endedAt: Schema.DateTimeUtc,
-  traceId: TrimmedNonEmptyString,
-  spanId: TrimmedNonEmptyString,
-});
-export type ServerTraceDiagnosticsSpanOccurrence = typeof ServerTraceDiagnosticsSpanOccurrence.Type;
-
-export const ServerTraceDiagnosticsLogEvent = Schema.Struct({
-  spanName: TrimmedNonEmptyString,
-  level: TrimmedNonEmptyString,
-  message: TrimmedNonEmptyString,
-  seenAt: Schema.DateTimeUtc,
-  traceId: TrimmedNonEmptyString,
-  spanId: TrimmedNonEmptyString,
-});
-export type ServerTraceDiagnosticsLogEvent = typeof ServerTraceDiagnosticsLogEvent.Type;
-
-export const ServerTraceDiagnosticsResult = Schema.Struct({
-  traceFilePath: TrimmedNonEmptyString,
-  scannedFilePaths: Schema.Array(TrimmedNonEmptyString),
-  readAt: Schema.DateTimeUtc,
-  recordCount: NonNegativeInt,
-  parseErrorCount: NonNegativeInt,
-  firstSpanAt: Schema.Option(Schema.DateTimeUtc),
-  lastSpanAt: Schema.Option(Schema.DateTimeUtc),
-  failureCount: NonNegativeInt,
-  interruptionCount: NonNegativeInt,
-  slowSpanThresholdMs: NonNegativeInt,
-  slowSpanCount: NonNegativeInt,
-  logLevelCounts: Schema.Record(TrimmedNonEmptyString, NonNegativeInt),
-  topSpansByCount: Schema.Array(ServerTraceDiagnosticsSpanSummary),
-  slowestSpans: Schema.Array(ServerTraceDiagnosticsSpanOccurrence),
-  commonFailures: Schema.Array(ServerTraceDiagnosticsFailureSummary),
-  latestFailures: Schema.Array(ServerTraceDiagnosticsRecentFailure),
-  latestWarningAndErrorLogs: Schema.Array(ServerTraceDiagnosticsLogEvent),
-  partialFailure: Schema.Option(Schema.Boolean),
-  error: Schema.Option(
-    Schema.Struct({
-      kind: ServerTraceDiagnosticsErrorKind,
-      message: TrimmedNonEmptyString,
-    }),
-  ),
-});
-export type ServerTraceDiagnosticsResult = typeof ServerTraceDiagnosticsResult.Type;
 
 export const ServerProcessSignal = Schema.Literals(["SIGINT", "SIGKILL"]);
 export type ServerProcessSignal = typeof ServerProcessSignal.Type;
@@ -717,6 +632,7 @@ export const ServerConfig = Schema.Struct({
   keybindings: ResolvedKeybindingsConfig,
   issues: ServerConfigIssues,
   providers: ServerProviders,
+  inferenceServers: Schema.optional(Schema.Array(InferenceServerSnapshot)),
   availableEditors: ForwardCompatibleArray(EditorId),
   remoteOpenTargets: Schema.optionalKey(ForwardCompatibleArray(RemoteOpenTarget)),
   /** Hints only; verify each address answers as this environment. */
@@ -827,6 +743,7 @@ export type ServerConfigKeybindingsUpdatedPayload =
 
 export const ServerConfigProviderStatusesPayload = Schema.Struct({
   providers: ServerProviders,
+  inferenceServers: Schema.optional(Schema.Array(InferenceServerSnapshot)),
 });
 export type ServerConfigProviderStatusesPayload = typeof ServerConfigProviderStatusesPayload.Type;
 

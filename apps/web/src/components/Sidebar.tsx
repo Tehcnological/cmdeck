@@ -107,6 +107,7 @@ import { isModelPickerOpen } from "../modelPickerVisibility";
 import { isMacPlatform } from "~/lib/utils";
 import { readLocalApi } from "../localApi";
 import { configuredHostedAppUrl } from "../hostedPairing";
+import { shortProjectNames } from "./sidebar/projectShortNames";
 import { useSidebarPendingFileDropStore } from "../sidebarPendingFileDropStore";
 import { SidebarFolderDrop } from "./sidebar/SidebarFolderDrop";
 import {
@@ -135,6 +136,7 @@ import { useOrderWhileOpen } from "../hooks/useOrderWhileOpen";
 import { useProjectPin } from "../hooks/useProjectGroupUpdate";
 import { useSidebarProjectGroups } from "../hooks/useSidebarProjectGroups";
 import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
+import { openAddProjectDialog } from "./AddProjectDialog";
 import { registerSettleAndAdvance } from "../settleAndAdvance";
 import { resolveThreadActionProjectRef, startNewThreadFromContext } from "../lib/chatThreadActions";
 import { useClientSettings } from "../hooks/useSettings";
@@ -342,9 +344,9 @@ const EMPTY_PROVIDER_ENTRIES: ReadonlyMap<string, SidebarProviderEntry> = new Ma
 const EMPTY_THREADS: readonly EnvironmentThreadShell[] = [];
 const EMPTY_DRAFT_IDS: readonly DraftId[] = [];
 
-const SETTLED_TAIL_INITIAL_COUNT = 10;
+const SETTLED_TAIL_INITIAL_COUNT = 5;
 const SETTLED_TAIL_PAGE_COUNT = 25;
-const SETTLED_SHELF_EXPANDED_KEY = "t3code:sidebar:settled-expanded";
+const SETTLED_SHELF_EXPANDED_KEY = "t3code:sidebar:done-expanded";
 const SNOOZED_SHELF_EXPANDED_KEY = "t3code:sidebar:snoozed-expanded";
 const WORKING_SHELF_EXPANDED_KEY = "t3code:sidebar:working-expanded";
 
@@ -844,6 +846,17 @@ function useSidebarLookups() {
       ),
     ),
   );
+  const shortNames = shortProjectNames(projectGroups.map((group) => group.displayName));
+  const projectShortNameByKey = new Map(
+    projectGroups.flatMap((group) => {
+      const short = shortNames.get(group.displayName);
+      return short === undefined
+        ? []
+        : group.memberProjects.map(
+            (project) => [`${project.environmentId}:${project.id}`, short] as const,
+          );
+    }),
+  );
   const projectGroupByScopeKey = new Map(
     projectGroups.map((project) => [project.projectKey, project] as const),
   );
@@ -863,6 +876,7 @@ function useSidebarLookups() {
     providerEntriesByEnvironment,
     projectByKey,
     projectDisplayNameByKey,
+    projectShortNameByKey,
     projectGroupByScopeKey,
     projectScopeItems,
   };
@@ -932,6 +946,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     providerEntriesByEnvironment,
     projectByKey,
     projectDisplayNameByKey,
+    projectShortNameByKey,
     projectGroupByScopeKey,
     projectScopeItems: lookupProjectScopeItems,
   } = useSidebarLookups();
@@ -1383,6 +1398,16 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     keepEmptyFolders: (group) =>
       scopedProjectGroups.length > 0 || (group.pinned && !group.archived),
   });
+  // One agent behind every card says nothing per row; it shows once threads use different ones.
+  const cardProviderInstances = new Set(
+    [...pinnedKeys, ...activeKeys, ...visibleWorkingThreads.map(threadShellKey)].flatMap((key) => {
+      const thread = threadByKey.get(key);
+      return thread === undefined
+        ? []
+        : [thread.runtime?.providerInstanceId ?? thread.modelSelection.instanceId];
+    }),
+  );
+  const showCardProviderIcons = cardProviderInstances.size > 1;
 
   // Ranked across environments as the palette ranks them, so one
   // environment's list does not sit above another's better matches; rows
@@ -3300,6 +3325,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                   </ComboboxPopup>
                 </Combobox>
               }
+              onNewProject={openAddProjectDialog}
               onNewThread={handleNewThreadClick}
               newThreadDisabled={projects.length === 0}
               newThreadShortcutLabel={newThreadShortcutLabel}
@@ -3590,6 +3616,12 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                                 `${thread.environmentId}:${thread.projectId}`,
                               ) ?? null
                             }
+                            projectShortName={
+                              projectShortNameByKey.get(
+                                `${thread.environmentId}:${thread.projectId}`,
+                              ) ?? null
+                            }
+                            showProviderIcon={showCardProviderIcons}
                             providerEntryByInstanceId={
                               providerEntriesByEnvironment.get(thread.environmentId) ??
                               EMPTY_PROVIDER_ENTRIES
@@ -3743,6 +3775,11 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                                 )}
                                 label={gt("Settled", { $context: "sidebar section" })}
                                 count={settledCount}
+                                description={
+                                  settledShelfExpanded && settledCount > 0
+                                    ? gt("Settled by you or when idle.")
+                                    : undefined
+                                }
                                 dragging={from !== null}
                                 isDropTarget={dragTargetSection === "settled"}
                                 toggle={{
@@ -3807,6 +3844,37 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                 </SortableContext>
               </DndContext>
             </TooltipProvider>
+          ) : null}
+          {!isSearchingThreads &&
+          !hasProjectFolders &&
+          visibleDraftSessionCount === 0 &&
+          pinnedThreads.length +
+            activeThreads.length +
+            workingThreads.length +
+            snoozedThreads.length +
+            settledCount ===
+            0 ? (
+            <div className="flex flex-col items-center gap-2 px-2 py-6 text-center text-xs text-muted-foreground/60">
+              {projects.length === 0 ? (
+                <>
+                  <span>{gt("No projects yet")}</span>
+                  <button
+                    type="button"
+                    onClick={openAddProjectDialog}
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-sidebar-border px-2.5 py-1 text-2xs font-medium text-sidebar-muted-foreground transition-colors hover:bg-sidebar-row-hover hover:text-sidebar-foreground"
+                  >
+                    <PlusIcon className="-mx-0.5 size-3" />
+                    {gt("Add project")}
+                  </button>
+                </>
+              ) : scopedProjectGroups.length > 1 ? (
+                gt("No threads in these projects yet")
+              ) : scopedProjectGroups[0] ? (
+                gt("No threads in {project} yet", { project: scopedProjectGroups[0].displayName })
+              ) : (
+                gt("No threads yet")
+              )}
+            </div>
           ) : null}
         </SidebarGroup>
       </SidebarContent>

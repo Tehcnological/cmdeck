@@ -5,7 +5,7 @@ import { MCP_APPS, mcpHandoffAction } from "./mcpApps";
 const MCP_URL = "https://prod-a1.t3coderelay.com/mcp?x=1&y=two words";
 
 describe("MCP app links", () => {
-  it("fill in T3 Code and the encoded URL", () => {
+  it("fill in the MCP server name and the encoded URL", () => {
     const opened = (id: string) => {
       const app = MCP_APPS.find((candidate) => candidate.id === id)!;
       return new URL(mcpHandoffAction(app, MCP_URL)!.link);

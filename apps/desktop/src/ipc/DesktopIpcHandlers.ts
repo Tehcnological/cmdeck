@@ -43,7 +43,6 @@ import {
   getAppBranding,
   getLocalEnvironmentBootstraps,
   getLocalEnvironmentBearerToken,
-  installRelayTelemetryEnabled,
   getSystemLocale,
   getPreferredSystemLanguages,
   getPrimaryPasteEnabled,
@@ -86,6 +85,7 @@ import {
   takeLegacyLocalStorage,
 } from "./methods/legacyLocalStorage.ts";
 import { getWslState, setWslBackendEnabled, setWslDistro, setWslOnly } from "./methods/wsl.ts";
+import { getTraySettings, setTraySettings } from "./methods/tray.ts";
 import {
   getCliCommandState,
   installCliCommand,
@@ -105,7 +105,6 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   yield* ipc.handleSync(takeLegacyLocalStorage);
   yield* ipc.handle(completeLegacyLocalStorage);
   yield* ipc.handleSync(getAppBranding);
-  yield* installRelayTelemetryEnabled();
   yield* ipc.handleSync(getSystemLocale);
   yield* ipc.handleSync(getPreferredSystemLanguages);
   yield* ipc.handleSync(getPrimaryPasteEnabled);
@@ -153,6 +152,8 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   yield* ipc.handle(setWslBackendEnabled);
   yield* ipc.handle(setWslDistro);
   yield* ipc.handle(setWslOnly);
+  yield* ipc.handle(getTraySettings);
+  yield* ipc.handle(setTraySettings);
 
   yield* ipc.handle(pickFolder);
   yield* ipc.handle(toLocalBackendPath);

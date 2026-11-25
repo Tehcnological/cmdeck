@@ -41,6 +41,7 @@ import * as Exit from "effect/Exit";
 import { TestClock } from "effect/testing";
 
 import type * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
+import * as InferenceGateway from "@t3tools/provider-core/server/inferenceGateway";
 import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
 import { buildRuntimeInstructions } from "@t3tools/provider-core/server/runtimeInstructions";
 import { htmlRenderFromToolItem, sentMessageFromToolItem } from "@t3tools/shared/toolOutput";
@@ -3112,6 +3113,42 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
     }),
   );
 
+  it.effect("names a session's thread for gateway attribution while the thread is loaded", () =>
+    Effect.gen(function* () {
+      let threadOf: ((sessionId: string) => ThreadId | undefined) | undefined;
+      const scope = yield* Scope.make();
+      const { runtime, thread } = yield* resumed([]).pipe(
+        Effect.provideService(
+          InferenceGateway.InferenceGatewayAccess,
+          InferenceGateway.InferenceGatewayAccess.of({
+            resolve: () => Effect.die("unused"),
+            managedServer: () => Effect.die("unused"),
+            backgroundCredential: () => Effect.die("unused"),
+            instanceCredential: () => Effect.die("unused"),
+            attributeSessions: (id, lookup) =>
+              Effect.acquireRelease(
+                Effect.sync(() => {
+                  assert.equal(id, instanceId);
+                  threadOf = lookup;
+                }),
+                () =>
+                  Effect.sync(() => {
+                    threadOf = undefined;
+                  }),
+              ),
+          }),
+        ),
+        Scope.provide(scope),
+      );
+      assert.equal(threadOf?.(SESSION), threadId);
+      assert.equal(threadOf?.("ses_other"), undefined);
+      yield* runtime.unloadThread!({ providerThread: thread });
+      assert.equal(threadOf?.(SESSION), undefined);
+      yield* Scope.close(scope, Exit.void);
+      assert.equal(threadOf, undefined);
+    }),
+  );
+
   it.effect("stops the requests a session still waits on when a restarted T3 loads it", () =>
     Effect.gen(function* () {
       const runtime = yield* openCode2ReplayRuntimeWithInstructions(
@@ -3187,7 +3224,7 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
       assert.equal(ended?.status, "failed");
       assert.equal(
         ended?.status === "failed" ? ended.failure.message : undefined,
-        "OpenCode is waiting on a request T3 Code couldn't answer.",
+        "OpenCode is waiting on a request CMDeck couldn't answer.",
       );
     }),
   );
@@ -5941,7 +5978,7 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
     }),
   );
 
-  // regression: #16142 OpenCode 2 threads were missing T3 Code's MCP tools
+  // regression: #16142 OpenCode 2 threads were missing CMDeck's MCP tools
   it.effect("names each thread's MCP server within OpenCode's limits, one name per thread", () =>
     Effect.gen(function* () {
       const project = "thread:project:ce04e4e2-6c29-4ff0-a1d7-b089dd63e258";

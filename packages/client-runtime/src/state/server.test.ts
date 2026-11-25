@@ -565,7 +565,7 @@ describe("server state projection", () => {
             const changed = yield* h.send(
               snapshotEvent({
                 ...CONFIG,
-                observability: { ...observability, otlpTracesUrl: "https://traces.example.test" },
+                observability: { ...observability, localTracingEnabled: true },
               }),
             );
             yield* TestClock.adjust("10 seconds");

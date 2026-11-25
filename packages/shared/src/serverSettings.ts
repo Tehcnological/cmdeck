@@ -1,11 +1,13 @@
 import type { ModelPreferences } from "@t3tools/contracts/settings";
 import {
   DEFAULT_MODEL_BY_PROVIDER,
+  DEFAULT_SERVER_SETTINGS,
   DEFAULT_TEXT_GENERATION_MODEL,
   DEFAULT_TEXT_GENERATION_MODEL_BY_PROVIDER,
   defaultInstanceIdForDriver,
   globalIdleCompaction,
   type IdleCompactionMode,
+  isLocalProviderInstance,
   isProviderAvailable,
   isUnconfiguredDefaultInstanceEnabled,
   resolveProjectProviderInstanceEnabled,
@@ -22,13 +24,11 @@ import {
   type ServerProvider,
   ServerSettings,
   type ServerSettingsPatch,
+  type TextGenerationFallback,
   withIdleCompaction,
 } from "@t3tools/contracts";
-import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
-import * as Schema from "effect/Schema";
 import { deepMerge } from "./Struct.ts";
-import { fromLenientJson } from "./schemaJson.ts";
 import { createModelSelection, readCustomModelEntries } from "./model.ts";
 import {
   getBackgroundActivityBaseProfile,
@@ -36,14 +36,6 @@ import {
   normalizeServerBackgroundActivitySettings,
   resolveBackgroundActivitySettings,
 } from "./backgroundActivitySettings.ts";
-
-// Only observability: a value the server migrates on load elsewhere in the file must not drop it.
-const ServerObservabilitySettingsJson = fromLenientJson(
-  Schema.Struct({ observability: ServerSettings.fields.observability }),
-);
-const decodeServerObservabilitySettingsJson = Schema.decodeUnknownOption(
-  ServerObservabilitySettingsJson,
-);
 
 export function isModelSelectionProviderEnabled(
   settings: ServerSettings,
@@ -62,22 +54,53 @@ export function isModelSelectionProviderEnabled(
 }
 
 const TEXT_GENERATION_FALLBACK_DRIVERS = [
+  "pi",
+  "opencode",
   "codex",
   "claudeAgent",
   "cursor",
   "grok",
   "muse",
-  "pi",
-  "opencode",
   "antigravity",
 ].map((driver) => ProviderDriverKind.make(driver));
+
+/**
+ * The fallback policy background writing follows. Until the user picks one, it stays on local
+ * models once one is set up (a registered model server, or a local text generation instance), so
+ * an outage never sends titles or commit messages to a cloud provider unasked.
+ */
+export function effectiveTextGenerationFallback(
+  settings: Pick<
+    ServerSettings,
+    | "textGenerationFallback"
+    | "inferenceServers"
+    | "providerInstances"
+    | "textGenerationModelSelection"
+  >,
+): TextGenerationFallback {
+  if (settings.textGenerationFallback !== undefined) return settings.textGenerationFallback;
+  const selected = settings.providerInstances[settings.textGenerationModelSelection.instanceId];
+  return Object.keys(settings.inferenceServers).length > 0 ||
+    isLocalProviderInstance(selected, settings.inferenceServers)
+    ? "local"
+    : "any";
+}
 
 /** Configured instances come after every default instance, so they only win when no default qualifies. */
 export function fallbackTextGenerationModelSelection(
   providerInstances: ServerSettings["providerInstances"],
   isEnabled: (instanceId: ProviderInstanceId, driver: ProviderDriverKind, model: string) => boolean,
-  options?: { readonly defaultModelSelection?: ModelSelection | null },
+  options?: {
+    readonly includeConfiguredInstances?: boolean;
+    readonly defaultModelSelection?: ModelSelection | null;
+    readonly policy?: TextGenerationFallback;
+    readonly inferenceServers?: ServerSettings["inferenceServers"];
+  },
 ): ModelSelection | null {
+  const policy = options?.policy ?? "any";
+  if (policy === "none") return null;
+  const isLocal = (instanceId: ProviderInstanceId) =>
+    isLocalProviderInstance(providerInstances[instanceId], options?.inferenceServers);
   const threadDefault = options?.defaultModelSelection;
   // The thread default's custom model wins on its instance; the driver default still serves when that model is unusable.
   const selectionsFor = (instanceId: ProviderInstanceId, driver: ProviderDriverKind) => {
@@ -90,22 +113,95 @@ export function fallbackTextGenerationModelSelection(
       ? [threadDefault, driverDefault]
       : [driverDefault];
   };
-  const candidates = [
+  const allCandidates = [
     ...TEXT_GENERATION_FALLBACK_DRIVERS.map(
       (driver) => [defaultInstanceIdForDriver(driver), driver] as const,
     ),
-    ...Object.entries(providerInstances).flatMap(([instanceId, instance]) =>
-      TEXT_GENERATION_FALLBACK_DRIVERS.includes(instance.driver)
-        ? [[ProviderInstanceId.make(instanceId), instance.driver] as const]
-        : [],
-    ),
+    ...(options?.includeConfiguredInstances === false
+      ? []
+      : Object.entries(providerInstances).flatMap(([instanceId, instance]) =>
+          TEXT_GENERATION_FALLBACK_DRIVERS.includes(instance.driver)
+            ? [[ProviderInstanceId.make(instanceId), instance.driver] as const]
+            : [],
+        )),
   ];
+  const localCandidates = allCandidates.filter(([instanceId]) => isLocal(instanceId));
+  const candidates =
+    policy === "local"
+      ? localCandidates
+      : [...localCandidates, ...allCandidates.filter(([instanceId]) => !isLocal(instanceId))];
   for (const [instanceId, driver] of candidates) {
     for (const selection of selectionsFor(instanceId, driver)) {
       if (isEnabled(instanceId, driver, selection.model)) return selection;
     }
   }
   return null;
+}
+
+// "default" asks the harness for its own choice, which may not be the local model.
+const isConcreteLocalModel = (model: ServerProvider["models"][number]) =>
+  model.isLegacy !== true && model.slug !== "default";
+
+/** The first usable local-marked instance, with a model id the endpoint actually serves. */
+export function localTextGenerationModelSelection(
+  providers: ReadonlyArray<ServerProvider>,
+  isUsable: (provider: ServerProvider) => boolean,
+): ModelSelection | null {
+  for (const provider of providers) {
+    if (provider.inference !== "local" || !isUsable(provider)) continue;
+    const models = provider.models.filter(isConcreteLocalModel);
+    const model = models.find((candidate) => candidate.isDefault === true) ?? models[0];
+    if (model) return { instanceId: provider.instanceId, model: model.slug };
+  }
+  return null;
+}
+
+// Each driver names its reasoning control; ACP agents mark theirs with the reasoning role.
+const REASONING_OPTION_IDS = new Set(["thinking", "effort", "reasoningEffort"]);
+
+/** Background writing needs little reasoning: asks for "low" where the selected model offers it. */
+export function withLowReasoningOption(
+  selection: ModelSelection,
+  provider: ServerProvider | undefined,
+): ModelSelection {
+  const model = provider?.models.find((candidate) => candidate.slug === selection.model);
+  const descriptor = model?.capabilities?.optionDescriptors?.find(
+    (candidate) =>
+      candidate.type === "select" &&
+      (candidate.role === "reasoning" || REASONING_OPTION_IDS.has(candidate.id)) &&
+      candidate.options.some((option) => option.id === "low"),
+  );
+  if (descriptor === undefined) return selection;
+  return {
+    ...selection,
+    options: [
+      ...(selection.options ?? []).filter((option) => option.id !== descriptor.id),
+      { id: descriptor.id, value: "low" },
+    ],
+  };
+}
+
+const sameSelection = (left: ModelSelection | null | undefined, right: ModelSelection) =>
+  left?.instanceId === right.instanceId && left.model === right.model;
+
+/** True only for the shipped default that no setting, at machine or project scope, chose. */
+export function isImplicitTextGenerationSelection(
+  settings: ServerSettings,
+  selection: ModelSelection,
+): boolean {
+  if (settings.textGenerationModelSelectionExplicit) return false;
+  if (!sameSelection(selection, DEFAULT_SERVER_SETTINGS.textGenerationModelSelection)) return false;
+  const chosen = [
+    settings.sourceControlWriterModelSelection,
+    settings.reviewGuideModelSelection,
+    settings.speechPostProcessingModelSelection,
+    ...Object.values(settings.projectSettingsOverrides).flatMap((overrides) => [
+      overrides?.textGenerationModelSelection,
+      overrides?.sourceControlWriterModelSelection,
+      overrides?.reviewGuideModelSelection,
+    ]),
+  ];
+  return !chosen.some((candidate) => sameSelection(candidate, selection));
 }
 
 function defaultTextGenerationModel(driver: ProviderDriverKind): string {
@@ -172,43 +268,6 @@ export function resolveSpeechPostProcessingModelSelection(
     isTextGenerationTargetUsable(settings, providers, selection.instanceId)
     ? selection
     : settings.textGenerationModelSelection;
-}
-
-export interface PersistedServerObservabilitySettings {
-  readonly otlpTracesUrl: string | undefined;
-  readonly otlpMetricsUrl: string | undefined;
-  readonly otlpLogsUrl: string | undefined;
-}
-
-function normalizePersistedServerSettingString(
-  value: string | null | undefined,
-): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : undefined;
-}
-
-function extractPersistedServerObservabilitySettings(input: {
-  readonly observability?: {
-    readonly otlpTracesUrl?: string;
-    readonly otlpMetricsUrl?: string;
-    readonly otlpLogsUrl?: string;
-  };
-}): PersistedServerObservabilitySettings {
-  return {
-    otlpTracesUrl: normalizePersistedServerSettingString(input.observability?.otlpTracesUrl),
-    otlpMetricsUrl: normalizePersistedServerSettingString(input.observability?.otlpMetricsUrl),
-    otlpLogsUrl: normalizePersistedServerSettingString(input.observability?.otlpLogsUrl),
-  };
-}
-
-export function parsePersistedServerObservabilitySettings(
-  raw: string,
-): PersistedServerObservabilitySettings {
-  const decoded = decodeServerObservabilitySettingsJson(raw);
-  if (Option.isSome(decoded)) {
-    return extractPersistedServerObservabilitySettings(decoded.value);
-  }
-  return { otlpTracesUrl: undefined, otlpMetricsUrl: undefined, otlpLogsUrl: undefined };
 }
 
 function shouldReplaceTextGenerationModelSelection(
@@ -402,6 +461,7 @@ export function applyServerSettingsPatch(
     worktreeCleanup: worktreeCleanupPatch,
     // Merged per entry below; its `null` removals must not reach deepMerge.
     usageLimitSources: usageLimitSourcesPatch,
+    inferenceServers: inferenceServersPatch,
     textGenerators: textGeneratorsPatch,
     secretProviders: secretProvidersPatch,
     sourceControlHosts: sourceControlHostsPatch,
@@ -412,6 +472,8 @@ export function applyServerSettingsPatch(
     projectAgentBrowserAccessOverrides: _legacyBrowserAccess,
     projectAutoPullOverrides: _legacyAutoPull,
     projectScriptOverrides: _legacyScripts,
+    // `null` removes the key, which deepMerge cannot.
+    textGenerationFallback: textGenerationFallbackPatch,
     ...patchForMerge
   } = patch;
   const currentBackgroundActivity = normalizeServerBackgroundActivitySettings(current);
@@ -620,6 +682,9 @@ export function applyServerSettingsPatch(
           ),
         }
       : {}),
+    ...(inferenceServersPatch !== undefined
+      ? { inferenceServers: mergeSettingsEntries(current.inferenceServers, inferenceServersPatch) }
+      : {}),
     ...(textGeneratorsPatch !== undefined
       ? { textGenerators: mergeSettingsEntries(current.textGenerators, textGeneratorsPatch) }
       : {}),
@@ -657,7 +722,7 @@ export function applyServerSettingsPatch(
   const resolvedBackgroundActivity = resolveBackgroundActivitySettings(
     normalizedBackgroundActivity,
   );
-  const nextWithReplacements = {
+  const { textGenerationFallback: currentFallback, ...nextWithoutFallback } = {
     ...withIdleCompaction(nextWithReplacementsBase, patchedIdleCompaction(current, patch)),
     ...deriveLegacyProjectOverrides(nextWithReplacementsBase),
     backgroundActivity: normalizedBackgroundActivity,
@@ -665,9 +730,18 @@ export function applyServerSettingsPatch(
     providerHealthRefreshInterval: resolvedBackgroundActivity.providerHealthRefreshInterval,
     backgroundActivityProfile: resolvedBackgroundActivity.profile,
   };
+  const fallbackPolicy =
+    textGenerationFallbackPatch === undefined ? currentFallback : textGenerationFallbackPatch;
+  const nextWithReplacements = {
+    ...nextWithoutFallback,
+    ...(fallbackPolicy === null || fallbackPolicy === undefined
+      ? {}
+      : { textGenerationFallback: fallbackPolicy }),
+  };
   if (!selectionPatch) {
     return nextWithReplacements;
   }
+  const explicit = patch.textGenerationModelSelectionExplicit ?? true;
 
   const instanceId = selectionPatch.instanceId ?? current.textGenerationModelSelection.instanceId;
   const model = selectionPatch.model ?? current.textGenerationModelSelection.model;
@@ -681,6 +755,7 @@ export function applyServerSettingsPatch(
   return {
     ...nextWithReplacements,
     textGenerationModelSelection: createModelSelection(instanceId, model, options),
+    textGenerationModelSelectionExplicit: explicit,
   };
 }
 

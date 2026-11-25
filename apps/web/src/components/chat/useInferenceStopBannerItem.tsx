@@ -1,0 +1,87 @@
+import type { EnvironmentId, InferenceStopReason, ThreadId } from "@t3tools/contracts";
+import type { ThreadRunSummary } from "@t3tools/client-runtime/state/models";
+import { useAtomValue } from "@effect/atom-react";
+import * as AsyncResult from "effect/reactivity/AsyncResult";
+import { Atom } from "effect/reactivity";
+import { T, useGT } from "gt-react";
+import { OctagonPauseIcon } from "lucide-react";
+
+import { threadInferenceStopAtom } from "../../state/inference";
+import { Button } from "../ui/button";
+import type { ComposerBannerStackItem } from "./ComposerBannerStack";
+
+const NO_STOP = Atom.make(AsyncResult.initial<{ readonly stop: null }>());
+
+const TITLES: Record<InferenceStopReason, string> = {
+  loop: "Stopped a looping reply",
+  "reasoning-limit": "Stopped a reply that only reasoned",
+  idle: "Stopped a reply that went silent",
+};
+
+// A run that is still going may yet recover; the notice waits for it to end.
+const SETTLED_RUN: ReadonlySet<ThreadRunSummary["status"]> = new Set([
+  "completed",
+  "interrupted",
+  "failed",
+  "cancelled",
+]);
+
+/** After T3's gateway stopped a runaway reply in the thread's latest run: why, and what next. */
+export function useInferenceStopBannerItem(
+  environmentId: EnvironmentId,
+  threadId: ThreadId | undefined,
+  latestRun: ThreadRunSummary | null | undefined,
+  onContinue: () => void,
+  onChooseModel: () => void,
+): ComposerBannerStackItem | null {
+  const gt = useGT();
+  const runKey = latestRun ? `${latestRun.runId}:${latestRun.status}` : "none";
+  const result = useAtomValue(
+    threadId === undefined || latestRun == null
+      ? NO_STOP
+      : threadInferenceStopAtom({ environmentId, threadId, runKey }),
+  );
+  const stop = AsyncResult.getOrElse(result, () => null)?.stop ?? null;
+  if (
+    stop === null ||
+    latestRun == null ||
+    latestRun.startedAt === null ||
+    !SETTLED_RUN.has(latestRun.status) ||
+    Date.parse(stop.at) < Date.parse(latestRun.startedAt)
+  ) {
+    return null;
+  }
+  const vars = { model: stop.model, server: stop.serverId };
+  return {
+    id: `inference-stop:${latestRun.runId}`,
+    group: "attention",
+    variant: "warning",
+    icon: <OctagonPauseIcon />,
+    title: TITLES[stop.reason],
+    description:
+      stop.reason === "loop"
+        ? gt(
+            "{model} on {server} kept repeating the same text, so CMDeck stopped it and freed the server.",
+            vars,
+          )
+        : stop.reason === "reasoning-limit"
+          ? gt(
+              "{model} on {server} reasoned at length without answering, so CMDeck stopped it and freed the server.",
+              vars,
+            )
+          : gt(
+              "{model} on {server} stopped sending anything, so CMDeck stopped it and freed the server.",
+              vars,
+            ),
+    actions: (
+      <>
+        <Button size="xs" variant="ghost" onClick={onContinue}>
+          <T>Continue</T>
+        </Button>
+        <Button size="xs" variant="ghost" onClick={onChooseModel}>
+          <T>Choose model</T>
+        </Button>
+      </>
+    ),
+  };
+}

@@ -483,6 +483,11 @@ export function createThreadEnvironmentAtoms<R, E>(
       onSuccess: ({ environmentId, input }, registry, result) =>
         Effect.sync(() => markMcpSignedIn(registry, environmentId, input, result.signedInAt)),
     }),
+    // Outside the thread's queue: the reviewer runs in a side chat, not in this thread.
+    startReview: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:commands:thread:start-review",
+      tag: WS_METHODS.threadReviewStart,
+    }),
   };
   const commands = {
     ...sent,

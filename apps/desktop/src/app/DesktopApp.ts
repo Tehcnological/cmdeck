@@ -19,6 +19,7 @@ import * as DesktopClerk from "./DesktopClerk.ts";
 import * as DesktopCliShim from "./DesktopCliShim.ts";
 import * as DesktopCliCommand from "./DesktopCliCommand.ts";
 import * as DesktopApplicationMenu from "../window/DesktopApplicationMenu.ts";
+import * as DesktopTray from "../window/DesktopTray.ts";
 import * as DesktopWindow from "../window/DesktopWindow.ts";
 import * as PreviewPasskeys from "../preview/Passkeys.ts";
 import * as DesktopBackendManager from "../backend/DesktopBackendManager.ts";
@@ -42,11 +43,12 @@ import * as DesktopUpdates from "../updates/DesktopUpdates.ts";
 import * as DesktopSnapShot from "../snapShot/DesktopSnapShot.ts";
 import * as DesktopWslBackend from "../wsl/DesktopWslBackend.ts";
 import * as DesktopRendererHistory from "../telemetry/DesktopRendererHistory.ts";
+import { DEFAULT_SERVER_PORT } from "@t3tools/shared/appIdentity";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import { msg } from "gt-i18n";
 import { m } from "../i18n/messages.ts";
 
-const DEFAULT_DESKTOP_BACKEND_PORT = 3773;
+const DEFAULT_DESKTOP_BACKEND_PORT = DEFAULT_SERVER_PORT;
 const MAX_TCP_PORT = 65_535;
 const DESKTOP_BACKEND_PORT_PROBE_HOSTS = ["127.0.0.1", "0.0.0.0", "::"] as const;
 
@@ -150,7 +152,7 @@ const handleFatalStartupError = Effect.fn("desktop.startup.handleFatalStartupErr
   const wasQuitting = yield* Ref.getAndSet(state.quitting, true);
   if (!wasQuitting) {
     yield* electronDialog.showErrorBox(
-      m(msg("T3 Code failed to start")),
+      m(msg("CMDeck failed to start")),
       `Stage: ${stage}\n${message}${detail}`,
     );
   }
@@ -305,7 +307,10 @@ const startLocalBackend = Effect.gen(function* () {
   return true;
 }).pipe(Effect.withSpan("desktop.startLocalBackend"));
 
-const bootstrap = Effect.fn("desktop.bootstrap")(function* (backendStarted: boolean) {
+const bootstrap = Effect.fn("desktop.bootstrap")(function* (
+  backendStarted: boolean,
+  startHidden: boolean,
+) {
   const state = yield* DesktopState.DesktopState;
   const environment = yield* DesktopEnvironment.DesktopEnvironment;
   const desktopSettings = yield* DesktopAppSettings.DesktopAppSettings;
@@ -338,7 +343,7 @@ const bootstrap = Effect.fn("desktop.bootstrap")(function* (backendStarted: bool
   if (!settings.localEnvironmentEnabled) {
     // The backend config refreshes the launcher when the local environment runs; an update may move the app.
     yield* DesktopCliShim.install;
-    if (!(yield* Ref.get(state.quitting))) {
+    if (!startHidden && !(yield* Ref.get(state.quitting))) {
       yield* desktopWindow.createMainIfBackendReady;
     }
     // `t3 <dir>` still reaches the renderer, which opens it on this machine's connected service.
@@ -349,6 +354,7 @@ const bootstrap = Effect.fn("desktop.bootstrap")(function* (backendStarted: bool
   const primaryBackend = yield* (yield* DesktopBackendPool.DesktopBackendPool).primary;
   const config = yield* primaryBackend.currentConfig;
   if (
+    !startHidden &&
     !environment.isDevelopment &&
     Option.isSome(config) &&
     Option.isNone(config.value.preflightFailure)
@@ -433,6 +439,8 @@ const startup = Effect.gen(function* () {
   yield* updates.configure;
   yield* DesktopRemoteUpdates.listen;
   yield* DesktopStartupRecovery.listen;
+  // Before the backend and first window, so a login launch can stay in the tray.
+  const startHidden = yield* (yield* DesktopTray.DesktopTray).start;
   const backendStarted = yield* startLocalBackend.pipe(
     Effect.catchCause((cause) => fatalStartupCause("bootstrap", cause)),
   );
@@ -440,7 +448,7 @@ const startup = Effect.gen(function* () {
   yield* applicationMenu.configure;
   // Portal identity is prepared pre-ready; MIME helpers must not gate the backend or window.
   yield* linuxUrlHandler.register.pipe(Effect.forkScoped);
-  yield* bootstrap(backendStarted).pipe(
+  yield* bootstrap(backendStarted, startHidden).pipe(
     Effect.catchCause((cause) => fatalStartupCause("bootstrap", cause)),
   );
 }).pipe(Effect.withSpan("desktop.startup"));

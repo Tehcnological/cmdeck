@@ -23,8 +23,7 @@ import {
 } from "@t3tools/contracts";
 import type { AuthEnvironmentScope, DpopFailureReason } from "@t3tools/contracts";
 import { parseOAuthScope } from "@t3tools/shared/oauthScope";
-import { causeErrorTag } from "@t3tools/shared/observability";
-import * as Clock from "effect/Clock";
+import { causeErrorTag } from "@t3tools/shared/errorTag";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -37,7 +36,7 @@ import * as HttpApiBuilder from "effect/http-api/HttpApiBuilder";
 
 import * as EnvironmentAuth from "./EnvironmentAuth.ts";
 import * as SessionStore from "./SessionStore.ts";
-import { traceAuthenticatedRelayRequest, traceRelayRequest } from "../cloud/traceRelayRequest.ts";
+import * as ServerSettings from "../serverSettings.ts";
 import { deriveAuthClientMetadata } from "./utils.ts";
 import { checkRequestDpopProof } from "./dpop.ts";
 import { requestUrl } from "../requestUrl.ts";
@@ -124,7 +123,7 @@ export function failEnvironmentInvalidRequest(reason: EnvironmentRequestInvalidR
   );
 }
 
-export function failEnvironmentScopeRequired(requiredScope: AuthEnvironmentScope) {
+function failEnvironmentScopeRequired(requiredScope: AuthEnvironmentScope) {
   return currentEnvironmentTraceId.pipe(
     Effect.flatMap((traceId) =>
       Effect.fail(
@@ -257,7 +256,6 @@ export const layerAuthenticatedAuth = Layer.effect(
     return (httpEffect) =>
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest;
-        const startTime = yield* Clock.currentTimeNanos;
         const session = yield* serverAuth.authenticateHttpRequest(request).pipe(
           Effect.catchIf(EnvironmentAuth.isServerAuthCredentialError, (error) =>
             failEnvironmentAuthInvalid(
@@ -269,16 +267,13 @@ export const layerAuthenticatedAuth = Layer.effect(
             failEnvironmentInternal("internal_error", error),
           ),
         );
-        const endTime = yield* Clock.currentTimeNanos;
         const handler = httpEffect.pipe(
           Effect.provideService(EnvironmentAuthenticatedPrincipal, {
             ...session,
             scopes: new Set(session.scopes),
           }),
         );
-        return yield* session.subject === EnvironmentAuth.CLOUD_CONNECT_SUBJECT
-          ? traceAuthenticatedRelayRequest(handler, { startTime, endTime })
-          : handler;
+        return yield* handler;
       }).pipe(Effect.catchTags({ EnvironmentAuthInvalidError: appendDpopChallengeOnUnauthorized }));
   }),
 );
@@ -289,6 +284,22 @@ export const layer = HttpApiBuilder.group(
   Effect.fnUntraced(function* (handlers) {
     const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
     const sessions = yield* SessionStore.SessionStore;
+    const serverSettings = yield* ServerSettings.ServerSettingsService;
+    // Fails closed: a settings read error still holds direct pairing for approval.
+    const requirePairingApproval = serverSettings.getSettings.pipe(
+      Effect.map((settings) => settings.requireConnectDeviceApproval),
+      Effect.orElseSucceed(() => true),
+    );
+    const failApprovalPending = currentEnvironmentTraceId.pipe(
+      Effect.flatMap((traceId) =>
+        Effect.fail(
+          new EnvironmentConnectApprovalPendingError({
+            code: "connect_approval_pending",
+            traceId,
+          }),
+        ),
+      ),
+    );
 
     return handlers
       .handle(
@@ -342,6 +353,7 @@ export const layer = HttpApiBuilder.group(
                 EnvironmentAuth.isBrowserCookieCredential(previousCredential.source)
                 ? previousCredential.token
                 : undefined,
+              { requirePairingApproval: yield* requirePairingApproval },
             );
             const cookieName = result.cookieName ?? sessions.cookieName;
             const selectedCookie = yield* Effect.fromResult(
@@ -372,6 +384,7 @@ export const layer = HttpApiBuilder.group(
               EnvironmentAuth.serverAuthDpopFailureReason(error),
             ),
           ),
+          Effect.catchTags({ ServerAuthConnectApprovalPendingError: () => failApprovalPending }),
           Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (error) =>
             failEnvironmentInternal("browser_session_issuance_failed", error),
           ),
@@ -436,29 +449,19 @@ export const layer = HttpApiBuilder.group(
                   ...(args.payload.client_os ? { os: args.payload.client_os } : {}),
                 },
               }),
-              proof ? { proofKeyThumbprint: proof.thumbprint } : undefined,
+              {
+                ...(proof ? { proofKeyThumbprint: proof.thumbprint } : {}),
+                requirePairingApproval: yield* requirePairingApproval,
+              },
             );
           },
-          traceRelayRequest,
           Effect.catchIf(EnvironmentAuth.isServerAuthCredentialError, (error) =>
             failEnvironmentAuthInvalid(
               EnvironmentAuth.serverAuthCredentialReason(error),
               EnvironmentAuth.serverAuthDpopFailureReason(error),
             ),
           ),
-          Effect.catchTags({
-            ServerAuthConnectApprovalPendingError: () =>
-              currentEnvironmentTraceId.pipe(
-                Effect.flatMap((traceId) =>
-                  Effect.fail(
-                    new EnvironmentConnectApprovalPendingError({
-                      code: "connect_approval_pending",
-                      traceId,
-                    }),
-                  ),
-                ),
-              ),
-          }),
+          Effect.catchTags({ ServerAuthConnectApprovalPendingError: () => failApprovalPending }),
           Effect.catchIf(EnvironmentAuth.isServerAuthInvalidRequestError, (error) =>
             failEnvironmentInvalidRequest(EnvironmentAuth.serverAuthInvalidRequestReason(error)),
           ),

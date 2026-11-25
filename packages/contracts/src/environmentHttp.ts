@@ -215,7 +215,7 @@ export class EnvironmentScopeRequiredError extends Schema.TaggedError<Environmen
   }
 }
 
-/** The host requires approval for this T3 Connect device and nobody has given it yet. */
+/** The host holds this device (T3 Connect or direct pairing) until someone approves it. */
 export class EnvironmentConnectApprovalPendingError extends Schema.TaggedError<EnvironmentConnectApprovalPendingError>()(
   "EnvironmentConnectApprovalPendingError",
   {
@@ -386,6 +386,7 @@ export class EnvironmentCloudEndpointUnavailableError extends Schema.TaggedError
 }
 const EnvironmentSessionCreationErrors = [
   EnvironmentAuthInvalidError,
+  EnvironmentConnectApprovalPendingError,
   EnvironmentInternalError,
 ] as const;
 const EnvironmentTokenExchangeErrors = [

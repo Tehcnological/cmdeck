@@ -1,7 +1,12 @@
 // @effect-diagnostics nodeBuiltinImport:off -- The service launcher starts before the CLI runtime.
 import * as NodeModule from "node:module";
+import * as NodeOS from "node:os";
+import * as NodePath from "node:path";
 import * as NodeSea from "node:sea";
 import * as NodeURL from "node:url";
+
+import { applyAppHomeEnv, ignoredOfficialHomeWarning } from "@t3tools/shared/appIdentity";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 
 import { isEntrypoint } from "./entrypoint.ts";
 
@@ -44,6 +49,14 @@ if (
   // and skips shutdown, so drop the line instead.
   process.stdout.on("error", ignoreOutputError);
   process.stderr.on("error", ignoreOutputError);
+  const ignoredHome = applyAppHomeEnv(process.env, {
+    homeDir: NodeOS.homedir(),
+    platform: HostProcess.Platform.defaultValue(),
+    resolve: (path) => NodePath.resolve(path),
+  });
+  if (ignoredHome !== undefined) {
+    process.stderr.write(`${ignoredOfficialHomeWarning(ignoredHome)}\n`);
+  }
 
   // The launcher owns shutdown until its child exits, so it bypasses the Effect CLI runtime.
   // A service unit passes nothing, or on Windows the launcher's own flags; help and anything

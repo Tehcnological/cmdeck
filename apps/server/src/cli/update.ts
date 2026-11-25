@@ -1,3 +1,4 @@
+import { SERVICE_NAME } from "@t3tools/shared/appIdentity";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import {
   CLI_RELEASE_BASE_URL_ENV,
@@ -217,16 +218,19 @@ export const findWindowsShim = Effect.fn("cli.update.find_windows_shim")(functio
     ...(environment["PATH"] ?? environment["Path"] ?? "").split(";"),
   ]
     .filter((entry) => entry.trim().length > 0)
-    .map((directory) => ({
-      shimPath: path.join(directory, "t3.cmd"),
-      parseTarget: windowsShimTarget,
-    }));
+    .flatMap((directory) =>
+      ["t3.cmd", "cmdeck.cmd"].map((name) => ({
+        shimPath: path.join(directory, name),
+        parseTarget: windowsShimTarget,
+      })),
+    );
   if (versionsDir !== undefined) {
     const recorded = yield* fs
       .readFileString(path.join(path.dirname(versionsDir), "launchers"))
       .pipe(Effect.orElseSucceed(() => ""));
     for (const shimPath of recorded.split(/\r?\n/)) {
-      if (path.isAbsolute(shimPath) && path.basename(shimPath).toLowerCase() === "t3.cmd") {
+      const name = path.basename(shimPath).toLowerCase();
+      if (path.isAbsolute(shimPath) && (name === "t3.cmd" || name === "cmdeck.cmd")) {
         candidates.push({ shimPath, parseTarget: generatedWindowsShimTarget });
       }
     }
@@ -284,6 +288,18 @@ export const updateCommand = Command.make("update", {
     Effect.gen(function* () {
       const logLevel = yield* GlobalFlag.LogLevel;
       const config = yield* resolveCliAuthConfig(flags, logLevel);
+      // Private fork: published releases are upstream builds. Only an admin-configured mirror
+      // (which serves this fork's own builds) may be installed from.
+      const hasMirror = yield* Effect.gen(function* () {
+        const policy = yield* ManagedPolicy.ManagedPolicy;
+        return managedUpdateMirror(policy.document) !== undefined;
+      }).pipe(Effect.provide(ManagedPolicy.layer));
+      if (!hasMirror) {
+        return yield* new CliUpdateError({
+          reason:
+            "This private fork does not install published t3 releases. Merge upstream with scripts/fork/sync-upstream.sh and rebuild, or configure a managed update mirror that serves this fork's builds.",
+        });
+      }
       return yield* runUpdate({
         baseDir: config.baseDir,
         logsDir: config.logsDir,
@@ -327,7 +343,7 @@ const belongsToBootService = Effect.fn("cli.update.belongs_to_boot_service")(fun
   const runner = yield* ProcessRunner.ProcessRunner;
   if (platform === "linux") {
     const cgroup = yield* fs.readFileString(`/proc/${pid}/cgroup`).pipe(Effect.option);
-    return Option.isSome(cgroup) && cgroup.value.includes("/t3code.service");
+    return Option.isSome(cgroup) && cgroup.value.includes(`/${SERVICE_NAME}.service`);
   }
   if (platform === "darwin") {
     const parent = yield* runner
@@ -468,8 +484,8 @@ export const runUpdate = Effect.fn("cli.update.run")(function* (input: {
       : executableCurrent
         ? `Updating the background service ${serviceVersion ?? "(unknown version)"} -> ${targetVersion} (${targetChannel}).`
         : alreadyOnDisk
-          ? "Switching T3 Code"
-          : "Updating T3 Code",
+          ? "Switching CMDeck"
+          : "Updating CMDeck",
     executableCurrent
       ? ""
       : `${currentVersion} → ${targetVersion}${targetChannel === "stable" ? "" : ` (${targetChannel})`}`,
@@ -599,7 +615,7 @@ export const runUpdate = Effect.fn("cli.update.run")(function* (input: {
     });
   }
 
-  progress.success(`Installed T3 Code ${targetVersion}`);
+  progress.success(`Installed CMDeck ${targetVersion}`);
   if (Option.isSome(repointed)) {
     yield* Console.log("  Run t3 to get started.\n");
   } else {

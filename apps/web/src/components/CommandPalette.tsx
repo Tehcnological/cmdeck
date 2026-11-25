@@ -75,7 +75,9 @@ import {
   MessageSquareIcon,
   PaletteIcon,
   RotateCcwIcon,
+  ScanSearchIcon,
   SettingsIcon,
+  CpuIcon,
   MonitorIcon,
   PinIcon,
   PinOffIcon,
@@ -121,14 +123,12 @@ import { readLocalApi } from "../localApi";
 import { configuredHostedAppUrl } from "../hostedPairing";
 import { desktopLocalBackendId } from "../connection/desktopLocal";
 import { filesystemEnvironment, useFilesystemReadAccess } from "../state/filesystem";
-import { projectEnvironment } from "../state/projects";
 import { useEnvironmentQuery } from "../state/query";
 import { serverEnvironment } from "../state/server";
 import { threadEnvironment } from "../state/threads";
 import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
 import { sourceControlEnvironment } from "../state/sourceControl";
 import { useAtomCommand } from "../state/use-atom-command";
-import { useOrchestrationCommand } from "../state/use-orchestration-command";
 import { useAtomQueryRunner } from "../state/use-atom-query-runner";
 import { useScratchProject } from "../hooks/useScratchProject";
 import { useWorkflowEnvironmentIds } from "./workflows/useWorkflowEnvironmentIds";
@@ -136,7 +136,8 @@ import { useStartTriage } from "../hooks/useStartTriage";
 import { pickTriageEnvironment } from "../lib/triageTarget";
 import { useNewProject } from "../hooks/useNewProject";
 import { useOrderWhileOpen } from "../hooks/useOrderWhileOpen";
-import { reportProjectFailure, useProjectPin } from "../hooks/useProjectGroupUpdate";
+import { useProjectPin } from "../hooks/useProjectGroupUpdate";
+import { type AddProjectAtPathInput, useAddProjectAtPath } from "../hooks/useAddProjectAtPath";
 import {
   useEnvironmentProviders,
   useEnvironments,
@@ -160,7 +161,6 @@ import {
 } from "../lib/chatThreadActions";
 import {
   appendBrowsePathSegment,
-  findProjectByPath,
   getBrowseDirectoryPath,
   hasTrailingPathSeparator,
   inferProjectTitleFromPath,
@@ -269,8 +269,10 @@ import { EnvironmentMachineIcon } from "./EnvironmentMachineIcon";
 import { Checkbox } from "./ui/checkbox";
 import { ProjectFilePicker } from "./files/ProjectFilePicker";
 import { openLinkPullRequestDialog } from "./pullRequest/LinkPullRequestDialog";
+import { openAddProjectDialog } from "./AddProjectDialog";
 import { canShareWithGuestAtom } from "./chat/guestShareAvailability";
 import { openGuestShareDialog } from "./chat/guestShareDialogState";
+import { openThreadReviewDialog } from "./chat/threadReviewDialogState";
 import { openUseInAnotherApp } from "./mcp/UseInAnotherAppDialog";
 import { ProjectContentSearchDialog } from "./search/ProjectContentSearchDialog";
 import { settingsForThisPlatform, SETTINGS_SECTION_LABELS } from "./settings/settingsSearch";
@@ -479,12 +481,7 @@ function OpenCommandPaletteDialog(props: {
     setHighlightedItemValue(null);
   }
   const clientSettings = useClientSettings(selectCommandPaletteClientSettings);
-  const createProject = useAtomCommand(projectEnvironment.create, {
-    reportFailure: false,
-  });
-  const updateProject = useOrchestrationCommand(projectEnvironment.update, {
-    label: "project unarchive",
-  });
+  const addProjectAtPath = useAddProjectAtPath();
   const { scratchEnvironmentId, scratchWorkspaceRootFor, startScratchThread } = useScratchProject();
   const startTriage = useStartTriage();
   const lookupRepository = useAtomQueryRunner(sourceControlEnvironment.repository, {
@@ -526,6 +523,11 @@ function OpenCommandPaletteDialog(props: {
   );
   const canShareActiveThreadWithGuest = useAtomValue(
     canShareWithGuestAtom(activeThread?.environmentId ?? ("" as EnvironmentId)),
+  );
+  const canReviewActiveThread = useAtomValue(
+    threadEnvironment.startReview.permissionAtom(
+      activeThread?.environmentId ?? ("" as EnvironmentId),
+    ),
   );
   const activeThreadReferenceCopyTarget =
     referenceThreadRef === null || (pathname === "/pull-requests" && !openPanelPullRequestUrl)
@@ -1407,7 +1409,7 @@ function OpenCommandPaletteDialog(props: {
       value: "action:triage",
       searchTerms: ["triage", "bug", "issue", "report", "broken", "debug", "help", "support"],
       title: gt("Triage an issue"),
-      description: gt("An agent investigates a T3 Code problem and helps file an issue"),
+      description: gt("An agent investigates a CMDeck problem and helps file an issue"),
       icon: <BugIcon className={ITEM_ICON_CLASS} />,
       run: () => startTriage(triageEnvironmentId),
     });
@@ -1556,6 +1558,20 @@ function OpenCommandPaletteDialog(props: {
     });
   }
 
+  if (activeThread !== null && canReviewActiveThread) {
+    const threadRef = scopeThreadRef(activeThread.environmentId, activeThread.id);
+    actionItems.push({
+      kind: "action",
+      value: "action:review-thread",
+      searchTerms: ["review", "second opinion", "another model", "check", "diff", "findings"],
+      title: gt("Review with another model"),
+      icon: <ScanSearchIcon className={ITEM_ICON_CLASS} />,
+      run: async () => {
+        openThreadReviewDialog(threadRef);
+      },
+    });
+  }
+
   if (activeThread !== null) {
     const thread = activeThread;
     actionItems.push({
@@ -1638,11 +1654,26 @@ function OpenCommandPaletteDialog(props: {
     value: "action:add-project",
     searchTerms: [
       "add project",
+      "open",
       "folder",
       "directory",
       "browse",
-      "clone",
+      "ssh",
       "remote",
+      "machine",
+    ],
+    title: gt("Add project"),
+    icon: <FolderPlusIcon className={ITEM_ICON_CLASS} />,
+    run: async () => {
+      openAddProjectDialog();
+    },
+  };
+  const cloneProjectAction: CommandPaletteActionItem = {
+    kind: "action",
+    value: "action:clone-project",
+    searchTerms: [
+      "add project",
+      "clone",
       "repository",
       "repo",
       "git",
@@ -1655,14 +1686,14 @@ function OpenCommandPaletteDialog(props: {
       "url",
       "environment",
     ],
-    title: gt("Add project"),
-    icon: <FolderPlusIcon className={ITEM_ICON_CLASS} />,
+    title: gt("Clone repository"),
+    icon: <FolderGit2Icon className={ITEM_ICON_CLASS} />,
     keepOpen: true,
     run: async () => {
       openAddProjectFlow();
     },
   };
-  actionItems.push(addProjectAction);
+  actionItems.push(addProjectAction, cloneProjectAction);
 
   if (wslAddProjectEnvironmentOption) {
     actionItems.push({
@@ -1745,7 +1776,7 @@ function OpenCommandPaletteDialog(props: {
       "openclaw",
       "hermes",
     ],
-    title: gt("Use T3 Code in another app (MCP)"),
+    title: gt("Use CMDeck in another app (MCP)"),
     icon: <PlugIcon className={ITEM_ICON_CLASS} />,
     run: async () => {
       openUseInAnotherApp(
@@ -1797,6 +1828,29 @@ function OpenCommandPaletteDialog(props: {
       },
     });
   }
+
+  actionItems.push({
+    kind: "action",
+    value: "action:use-local-model",
+    searchTerms: [
+      "local",
+      "model",
+      "gpu",
+      "inference",
+      "ollama",
+      "lm studio",
+      "llama.cpp",
+      "vllm",
+      "sglang",
+      "server",
+      "offline",
+    ],
+    title: gt("Use a local model"),
+    icon: <CpuIcon className={ITEM_ICON_CLASS} />,
+    run: async () => {
+      await navigate({ to: "/settings/inference", search: { setup: "local" } });
+    },
+  });
 
   actionItems.push({
     kind: "action",
@@ -1985,148 +2039,8 @@ function OpenCommandPaletteDialog(props: {
     return { ...group, items: group.items.map((item) => jumpItems.get(item.value) ?? item) };
   });
 
-  const handleAddProjectForEnvironment = async (input: {
-    readonly environmentId: EnvironmentId;
-    readonly rawCwd: string;
-    readonly platform: string;
-    readonly currentProjectCwd: string | null;
-  }) => {
-    const environment = environments.find(
-      (candidate) => candidate.environmentId === input.environmentId,
-    );
-    if (!canCreateProjectInEnvironment(environment?.connection.phase)) {
-      toastManager.add(
-        stackedThreadToast({
-          type: "error",
-          title: gt("Environment unavailable"),
-          description: environment
-            ? gt("{environment} is not connected.", { environment: environment.label })
-            : gt("The selected environment is not connected."),
-        }),
-      );
-      return;
-    }
-    const rawCwd = input.rawCwd;
-
-    if (isUnsupportedWindowsProjectPath(rawCwd.trim(), input.platform)) {
-      toastManager.add(
-        stackedThreadToast({
-          type: "error",
-          title: gt("Failed to add project"),
-          description: gt("Windows-style paths are only supported on Windows."),
-        }),
-      );
-      return;
-    }
-
-    if (isExplicitRelativeProjectPath(rawCwd.trim()) && !input.currentProjectCwd) {
-      toastManager.add(
-        stackedThreadToast({
-          type: "error",
-          title: gt("Failed to add project"),
-          description: gt("Relative paths require an active project."),
-        }),
-      );
-      return;
-    }
-
-    const cwd = resolveProjectPathForDispatch(rawCwd, input.currentProjectCwd);
-    if (cwd.length === 0) return;
-
-    const existing = findProjectByPath(
-      projects.filter((project) => project.environmentId === input.environmentId),
-      cwd,
-    );
-    if (existing) {
-      // Adding an archived project's folder again brings the project back.
-      if (existing.archivedAt != null) {
-        void updateProject({
-          environmentId: existing.environmentId,
-          input: { projectId: existing.id, archived: false },
-        }).then((result) => reportProjectFailure(gt("Failed to unarchive project"), result));
-      }
-      const latestThread = getLatestThreadForProject(
-        threads.filter((thread) => thread.environmentId === existing.environmentId),
-        existing.id,
-        clientSettings.sidebarThreadSortOrder,
-      );
-      if (latestThread && latestThread.settledOverride !== "settled") {
-        await navigate({
-          to: "/$environmentId/$threadId",
-          params: buildThreadRouteParams(
-            scopeThreadRef(latestThread.environmentId, latestThread.id),
-          ),
-        });
-      } else {
-        const navigationResult = await settlePromise(() =>
-          handleNewThread(scopeProjectRef(existing.environmentId, existing.id)),
-        );
-        if (navigationResult._tag === "Failure") {
-          const error = squashAtomCommandFailure(navigationResult);
-          toastManager.add(
-            stackedThreadToast({
-              type: "error",
-              title: gt("Failed to open project"),
-              description: thrownErrorMessage(error, m) ?? gt("An error occurred."),
-            }),
-          );
-          return;
-        }
-      }
-      setOpen(false);
-      return;
-    }
-
-    if (!readEnvironmentScope(input.environmentId, AuthOrchestrationOperateScope)) {
-      toastManager.add(
-        stackedThreadToast({
-          type: "error",
-          title: gt("Cannot add project"),
-          description: gt("This connection cannot add projects."),
-        }),
-      );
-      return;
-    }
-    const projectId = newProjectId();
-    const createResult = await createProject({
-      environmentId: input.environmentId,
-      input: {
-        projectId,
-        title: inferProjectTitleFromPath(cwd),
-        workspaceRoot: cwd,
-        createWorkspaceRootIfMissing: true,
-        defaultModelSelection: null,
-      },
-    });
-    if (createResult._tag === "Failure") {
-      if (!isAtomCommandInterrupted(createResult)) {
-        const error = squashAtomCommandFailure(createResult);
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: gt("Failed to add project"),
-            description: thrownErrorMessage(error, m) ?? gt("An error occurred."),
-          }),
-        );
-      }
-      return;
-    }
-
-    const navigationResult = await settlePromise(() =>
-      handleNewThread(scopeProjectRef(input.environmentId, projectId)),
-    );
-    if (navigationResult._tag === "Failure") {
-      const error = squashAtomCommandFailure(navigationResult);
-      toastManager.add(
-        stackedThreadToast({
-          type: "error",
-          title: gt("Failed to add project"),
-          description: thrownErrorMessage(error, m) ?? gt("An error occurred."),
-        }),
-      );
-      return;
-    }
-    setOpen(false);
+  const handleAddProjectForEnvironment = async (input: AddProjectAtPathInput) => {
+    if (await addProjectAtPath(input)) setOpen(false);
   };
 
   const handleAddProject = async (rawCwd: string) => {

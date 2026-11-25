@@ -252,7 +252,7 @@ export class CloudCliAuthorizationTimeoutError extends Schema.TaggedError<CloudC
   }
 }
 
-export class CloudCliAuthorizationDeniedError extends Schema.TaggedError<CloudCliAuthorizationDeniedError>()(
+class CloudCliAuthorizationDeniedError extends Schema.TaggedError<CloudCliAuthorizationDeniedError>()(
   "CloudCliAuthorizationDeniedError",
   {},
 ) {

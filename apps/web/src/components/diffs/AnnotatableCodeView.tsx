@@ -24,6 +24,7 @@ import { StyledDiffCodeView, type StyledDiffCodeViewOptions } from "./StyledDiff
 
 interface DiffCommentAnnotationEntry {
   id: string;
+  fileKey: string;
   kind: "draft" | "comment";
   range: SelectedLineRange;
   rangeLabel: string;
@@ -158,11 +159,13 @@ export function AnnotatableCodeView({
     setDraftText("");
     setSelectedLines(null);
   }
+  const draftEntryId = draft?.annotation.metadata.entries[0]?.id;
   const items: CodeViewDiffItem<DiffCommentAnnotationGroup>[] = files.map(
     ({ fileDiff, filePath, fileKey, fileVersion, collapsed }) => {
       const persisted = reviewComments
         .filter(
           (comment) =>
+            comment.id !== draftEntryId &&
             comment.sectionId === sectionId &&
             comment.filePath === filePath &&
             (comment.fenceLanguage ?? "diff") === "diff",
@@ -172,6 +175,7 @@ export function AnnotatableCodeView({
           if (!range) return annotations;
           return appendAnnotationEntry(annotations, range, {
             id: comment.id,
+            fileKey,
             kind: "comment",
             range,
             rangeLabel: comment.rangeLabel,
@@ -227,35 +231,52 @@ export function AnnotatableCodeView({
     setDraftText("");
   };
 
-  const beginComment = (range: SelectedLineRange | null, context: DiffSelectionContext) => {
-    if (!range) return;
-    const item = context.item;
-    if (item.type !== "diff") return;
-    const id = nextFileCommentId();
-    const filePath = resolveFileDiffPath(item.fileDiff);
+  const openDraft = (
+    fileKey: string,
+    fileDiff: FileDiffMetadata,
+    range: SelectedLineRange,
+    id: string,
+    text: string,
+  ) => {
+    const filePath = resolveFileDiffPath(fileDiff);
     const comment = buildDiffReviewComment({
       id,
       sectionId,
       sectionTitle,
       filePath,
-      fileDiff: item.fileDiff,
+      fileDiff,
       range,
-      text: "",
+      text,
     });
     if (!comment) return;
-    setDraftText("");
+    setDraftText(text);
     setDraft({
-      fileKey: item.id,
+      fileKey,
       filePath,
-      previousFilePath: resolveFileDiffPreviousPath(item.fileDiff),
+      previousFilePath: resolveFileDiffPreviousPath(fileDiff),
       annotation: {
         side: annotationSide(range),
         lineNumber: range.end,
         metadata: {
-          entries: [{ id, kind: "draft", range, rangeLabel: comment.rangeLabel, text: "" }],
+          entries: [{ id, fileKey, kind: "draft", range, rangeLabel: comment.rangeLabel, text }],
         },
       },
     });
+  };
+
+  const beginComment = (range: SelectedLineRange | null, context: DiffSelectionContext) => {
+    if (!range) return;
+    const item = context.item;
+    if (item.type !== "diff") return;
+    openDraft(item.id, item.fileDiff, range, nextFileCommentId(), "");
+  };
+
+  // Submitting under the same id replaces the comment in the composer draft without a second chip.
+  const editEntry = (entry: DiffCommentAnnotationEntry) => {
+    const file = filesByKey.get(entry.fileKey);
+    if (!file) return;
+    setSelectedLines(null);
+    openDraft(entry.fileKey, file.fileDiff, entry.range, entry.id, entry.text);
   };
 
   return (
@@ -315,6 +336,7 @@ export function AnnotatableCodeView({
                 onCancel={() => removeEntry(entry.id)}
                 onComment={(text) => submitEntry(entry.id, text)}
                 onDelete={() => removeEntry(entry.id)}
+                {...(draft === null ? { onEdit: () => editEntry(entry) } : {})}
               />
             ))}
           </div>

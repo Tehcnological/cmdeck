@@ -367,6 +367,16 @@ export const AuthConnectDeviceRequest = Schema.Struct({
 });
 export type AuthConnectDeviceRequest = typeof AuthConnectDeviceRequest.Type;
 
+/** A device that redeemed a direct pairing link and waits for someone here to approve it. */
+export const AuthPairingRequest = Schema.Struct({
+  /** What the device said about itself. It can say anything. */
+  client: Schema.optionalKey(AuthClientMetadata),
+  requestedAt: Schema.DateTimeUtc,
+  /** The request is denied, and its link revoked, if nobody answers by then. */
+  expiresAt: Schema.DateTimeUtc,
+});
+export type AuthPairingRequest = typeof AuthPairingRequest.Type;
+
 export const AuthPairingLink = Schema.Struct({
   id: TrimmedNonEmptyString,
   ...authScopeResponseFields,
@@ -376,6 +386,8 @@ export const AuthPairingLink = Schema.Struct({
   expiresAt: Schema.DateTimeUtc,
   /** Set while a T3 Connect device waits for approval. Older servers never send it. */
   connectDeviceRequest: Schema.optionalKey(AuthConnectDeviceRequest),
+  /** Set while a device that paired directly waits for approval. Upstream servers never send it. */
+  pairingRequest: Schema.optionalKey(AuthPairingRequest),
 });
 export type AuthPairingLink = typeof AuthPairingLink.Type;
 
@@ -566,7 +578,7 @@ export const AuthMcpAuthorizationServerMetadata = Schema.Struct({
 export type AuthMcpAuthorizationServerMetadata = typeof AuthMcpAuthorizationServerMetadata.Type;
 
 /**
- * The `software_id` another T3 Code environment registers with when it links
+ * The `software_id` another CMDeck environment registers with when it links
  * to this one. Its session is then a peer link: the work it starts here stays
  * within that link. Claiming it only ever adds limits.
  */

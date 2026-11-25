@@ -6,7 +6,7 @@ import {
   type ServerProviderModel,
 } from "@t3tools/contracts";
 import type { PiSettings } from "../settings.ts";
-import { causeErrorTag } from "@t3tools/shared/observability";
+import { causeErrorTag } from "@t3tools/shared/errorTag";
 import { resolveSpawnCommand } from "@t3tools/shared/shell";
 import {
   brokenVersionDetail,
@@ -27,6 +27,11 @@ import * as ChildProcess from "effect/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
 import { buildPiRpcLaunch, resolvePiLaunchArgs } from "./mcpInjection.ts";
+import {
+  type PiBackgroundGateway,
+  type PiGatewaySource,
+  unmanagedPiGatewaySource,
+} from "./gateway.ts";
 import {
   makePiRpcConnection,
   PiRpcError,
@@ -146,6 +151,7 @@ const makePiDiscoveryConnection = Effect.fnUntraced(function* (
   launchArgs: ReadonlyArray<string>,
   cwd?: string,
   textGenerationLaunch = false,
+  gateway?: PiBackgroundGateway,
 ) {
   const launch = buildPiRpcLaunch({
     launchArgs,
@@ -156,6 +162,8 @@ const makePiDiscoveryConnection = Effect.fnUntraced(function* (
     disableExtensions: textGenerationLaunch,
     disableTools: textGenerationLaunch,
     shortLived: true,
+    gateway,
+    gatewayExtensionPath: gateway?.extensionPath,
   });
   const connection = yield* makePiRpcConnection({
     command: piSettings.binaryPath || "pi",
@@ -191,8 +199,16 @@ const readPiInventory = Effect.fn("PiProviderStatus.readPiInventory")(function* 
   launchArgs: ReadonlyArray<string>,
   timeoutMs: number,
   cwd?: string,
+  gateway?: PiBackgroundGateway,
 ) {
-  const connection = yield* makePiDiscoveryConnection(piSettings, environment, launchArgs, cwd);
+  const connection = yield* makePiDiscoveryConnection(
+    piSettings,
+    environment,
+    launchArgs,
+    cwd,
+    false,
+    gateway,
+  );
   const stateData = yield* connection.request({ type: "get_state" }, timeoutMs);
   const modelsData = yield* connection.request({ type: "get_available_models" }, timeoutMs);
   const commandsData = yield* connection
@@ -201,8 +217,8 @@ const readPiInventory = Effect.fn("PiProviderStatus.readPiInventory")(function* 
   return { stateData, modelsData, commandsData };
 }, Effect.scoped);
 
-// Text generation runs Pi with --no-extensions, so it cannot load models that an
-// extension or package registers. Listing models with that launch tells them apart.
+// Text generation disables user extensions, so it cannot load models those extensions register.
+// T3 still injects its gateway extension; listing models with that launch tells them apart.
 const discoverPiTextGenerationModelSlugs = Effect.fn(
   "PiProviderStatus.discoverPiTextGenerationModelSlugs",
 )(function* (
@@ -210,6 +226,7 @@ const discoverPiTextGenerationModelSlugs = Effect.fn(
   environment: NodeJS.ProcessEnv,
   launchArgs: ReadonlyArray<string>,
   cwd?: string,
+  gateway?: PiBackgroundGateway,
 ) {
   const connection = yield* makePiDiscoveryConnection(
     piSettings,
@@ -217,6 +234,7 @@ const discoverPiTextGenerationModelSlugs = Effect.fn(
     launchArgs,
     cwd,
     true,
+    gateway,
   );
   const modelsData = yield* connection.request({ type: "get_available_models" });
   const models = yield* Effect.fromResult(parseDiscoveredModels(modelsData, undefined));
@@ -227,9 +245,12 @@ const discoverPiViaRpc = Effect.fn("PiProviderStatus.discoverPiViaRpc")(function
   piSettings: PiSettings,
   environment: NodeJS.ProcessEnv,
   launchArgs: ReadonlyArray<string>,
-  cwd?: string,
+  cwd: string | undefined,
+  gatewaySource: PiGatewaySource,
 ) {
   const timeoutMs = resolveProviderProbeTimeoutMs("pi", PI_RPC_DISCOVERY_TIMEOUT_MS, environment);
+  // Models of a managed server are listed only while Pi holds a credential for its provider.
+  const gateway = yield* gatewaySource.forBackground;
   // This optional probe must finish before the normal discovery deadline so
   // it cannot discard an otherwise usable catalog and authentication state.
   const textGenerationModelSlugsFiber = yield* discoverPiTextGenerationModelSlugs(
@@ -237,6 +258,7 @@ const discoverPiViaRpc = Effect.fn("PiProviderStatus.discoverPiViaRpc")(function
     environment,
     launchArgs,
     cwd,
+    gateway,
   ).pipe(
     // Pi exits before answering when launch args name a provider only an extension registers.
     Effect.catchIf(
@@ -257,6 +279,7 @@ const discoverPiViaRpc = Effect.fn("PiProviderStatus.discoverPiViaRpc")(function
     launchArgs,
     timeoutMs,
     cwd,
+    gateway,
   ).pipe(
     // Pi's RPC mode reads stdin only after session_start, so a startup dialog (an MCP adapter asking
     // to approve a project server) can never be answered and Pi exits. Retry declining project trust
@@ -267,7 +290,14 @@ const discoverPiViaRpc = Effect.fn("PiProviderStatus.discoverPiViaRpc")(function
         (error.operation === "read" || error.operation === "exit") &&
         !launchArgs.some((arg) => PI_PROJECT_TRUST_ARGUMENTS.has(arg)),
       () =>
-        readPiInventory(piSettings, environment, [...launchArgs, "--no-approve"], timeoutMs, cwd),
+        readPiInventory(
+          piSettings,
+          environment,
+          [...launchArgs, "--no-approve"],
+          timeoutMs,
+          cwd,
+          gateway,
+        ),
     ),
   );
   const discoveredModels = yield* Effect.fromResult(parseDiscoveredModels(modelsData, stateData));
@@ -413,7 +443,7 @@ export const buildInitialPiProviderSnapshot = Effect.fn(
         version: null,
         status: "warning",
         auth: { status: "unknown" },
-        message: "Pi is disabled in T3 Code settings.",
+        message: "Pi is disabled in CMDeck settings.",
       },
     });
   }
@@ -436,6 +466,7 @@ export const checkPiProviderStatus = Effect.fn("checkPiProviderStatus")(function
   piSettings: PiSettings,
   environment: NodeJS.ProcessEnv = process.env,
   cwd?: string,
+  gatewaySource: PiGatewaySource = unmanagedPiGatewaySource,
   compatibility: ProviderCompatibilityLookup = noCompatibilityPolicy,
 ): Effect.fn.Return<ServerProviderDraft, never, ChildProcessSpawner.ChildProcessSpawner> {
   const checkedAt = DateTime.formatIso(yield* DateTime.now);
@@ -452,7 +483,7 @@ export const checkPiProviderStatus = Effect.fn("checkPiProviderStatus")(function
         version: null,
         status: "warning",
         auth: { status: "unknown" },
-        message: "Pi is disabled in T3 Code settings.",
+        message: "Pi is disabled in CMDeck settings.",
       },
     });
   }
@@ -530,7 +561,7 @@ export const checkPiProviderStatus = Effect.fn("checkPiProviderStatus")(function
         version: null,
         status: "error",
         auth: { status: "unknown" },
-        message: "T3 Code could not determine the Pi version. Update Pi, then refresh its status.",
+        message: "CMDeck could not determine the Pi version. Update Pi, then refresh its status.",
       },
     });
   }
@@ -580,6 +611,7 @@ export const checkPiProviderStatus = Effect.fn("checkPiProviderStatus")(function
     probeEnvironment,
     resolvedLaunchArgs.args,
     cwd,
+    gatewaySource,
   ).pipe(
     Effect.timeoutOption(
       resolveProviderProbeTimeoutMs("pi", PI_RPC_DISCOVERY_TIMEOUT_MS, environment),
@@ -605,7 +637,7 @@ export const checkPiProviderStatus = Effect.fn("checkPiProviderStatus")(function
         status: "ready",
         auth: { status: "unknown" },
         message:
-          "Pi is available, but T3 Code could not refresh its models and commands. The live session will retry startup.",
+          "Pi is available, but CMDeck could not refresh its models and commands. The live session will retry startup.",
       },
     });
   }

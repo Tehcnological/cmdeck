@@ -207,11 +207,16 @@ function ModelPickerProviderNotices({
   setupEntries,
   updateRequiredNotices,
   emptyLabel,
+  offerLocalSetup,
+  environmentId,
   onRequestClose,
   onOpenProviderSetup,
 }: {
   setupEntries: ReadonlyArray<ProviderInstanceEntry>;
   emptyLabel: string;
+  offerLocalSetup: boolean;
+  /** Setup runs on the environment this picker chooses for, not the settings default. */
+  environmentId: EnvironmentId | null;
   updateRequiredNotices: ReadonlyArray<{
     instanceId: ProviderInstanceId;
     notice: string;
@@ -249,6 +254,25 @@ function ModelPickerProviderNotices({
       ) : (
         <ComboboxEmpty className="empty:h-0">{emptyLabel}</ComboboxEmpty>
       )}
+      {offerLocalSetup ? (
+        <p className="shrink-0 border-t border-border/70 px-3 py-2 text-xs leading-snug text-muted-foreground">
+          <T>No model runs on your own hardware yet.</T>{" "}
+          <InlineButton
+            onClick={() => {
+              onRequestClose?.();
+              void navigate({
+                to: "/settings/inference",
+                search: {
+                  setup: "local",
+                  ...(environmentId === null ? {} : { machine: environmentId }),
+                },
+              });
+            }}
+          >
+            <T>Use a local model</T>
+          </InlineButton>
+        </p>
+      ) : null}
       {updateRequiredNotices.map(({ instanceId, notice, canUpdateInSettings }) => (
         <p
           key={instanceId}
@@ -982,6 +1006,7 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
             onSelectInstance={handleSelectInstance}
             onFocusSearch={focusSearchInput}
             instanceEntries={sidebarInstanceEntries}
+            environmentId={props.environmentId}
             showFavorites
             {...(selectableUnavailableInstanceIds ? { selectableUnavailableInstanceIds } : {})}
             {...(lockedDisabledInstanceIds
@@ -1242,6 +1267,10 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
             />
             <ModelPickerProviderNotices
               setupEntries={providerSetupEntries}
+              offerLocalSetup={
+                !props.instanceEntries.some((entry) => entry.snapshot.inference === "local")
+              }
+              environmentId={props.environmentId}
               updateRequiredNotices={updateRequiredNotices}
               emptyLabel={
                 selectedInstanceId === "favorites" && !isSearching

@@ -147,6 +147,32 @@ describe("DesktopSettings", () => {
       ),
   );
 
+  it.effect("persists tray settings and turning them back off restores the defaults", () =>
+    withSettings(
+      Effect.gen(function* () {
+        const environment = yield* DesktopEnvironment.DesktopEnvironment;
+        const fileSystem = yield* FileSystem.FileSystem;
+        const settings = yield* DesktopAppSettings.DesktopAppSettings;
+        const before = yield* settings.get;
+        assert.isTrue(before.closeToTray);
+        assert.isFalse(before.launchAtLogin);
+        assert.isFalse(before.trayHintShown);
+
+        const change = { closeToTray: false, launchAtLogin: true, trayHintShown: true };
+        assert.isTrue((yield* settings.setTraySettings(change)).changed);
+        assert.isFalse((yield* settings.setTraySettings({ launchAtLogin: true })).changed);
+        assert.deepEqual(yield* settings.load, { ...before, ...change });
+
+        yield* settings.setTraySettings({ closeToTray: true, launchAtLogin: false });
+        const restored = yield* settings.load;
+        assert.deepEqual(restored, { ...before, trayHintShown: true });
+        const persisted = yield* fileSystem.readFileString(environment.desktopSettingsPath);
+        assert.notInclude(persisted, "closeToTray");
+        assert.notInclude(persisted, "launchAtLogin");
+      }),
+    ),
+  );
+
   it.effect("falls back to defaults when the settings file is malformed", () =>
     withSettings(
       Effect.gen(function* () {
@@ -235,6 +261,9 @@ describe("DesktopSettings", () => {
           wslBackendEnabled: false,
           wslOnly: false,
           wslDistro: null,
+          closeToTray: true,
+          launchAtLogin: false,
+          trayHintShown: false,
         } satisfies DesktopAppSettings.DesktopSettings);
       }),
     ),
@@ -388,6 +417,9 @@ describe("DesktopSettings", () => {
           wslBackendEnabled: false,
           wslOnly: false,
           wslDistro: null,
+          closeToTray: true,
+          launchAtLogin: false,
+          trayHintShown: false,
         } satisfies DesktopAppSettings.DesktopSettings);
       }),
       { appVersion: "0.0.17-nightly.20260415.1" },
@@ -417,6 +449,9 @@ describe("DesktopSettings", () => {
           wslBackendEnabled: false,
           wslOnly: false,
           wslDistro: null,
+          closeToTray: true,
+          launchAtLogin: false,
+          trayHintShown: false,
         } satisfies DesktopAppSettings.DesktopSettings);
       }),
       { appVersion: "0.0.17-nightly.20260415.1" },

@@ -45,6 +45,8 @@ variable to the same directory. Pi includes recorded tool and summary costs unde
 Muse Code reads native session history, including child sessions, from the home reported by the
 configured Muse CLI. Its environment settings, including `XDG_DATA_HOME`, apply. Models without
 known prices still contribute tokens and appear as unpriced; set custom prices to estimate their cost.
+[Local models](./local-models.md) are never priced from the public list and stay out of the
+cost total; a custom price shows only as an estimate on their row.
 Use absolute paths or `~/` paths in the account's environment settings; relative environment paths
 depend on each project's working directory and cannot be reliably discovered by Usage. Accounts
 sharing a history directory count once.
@@ -63,6 +65,12 @@ saved totals first, then updates them when Cursor's API responds.
 
 If recent work is missing or a new model shows no cost, refresh to rescan session history and
 update model pricing.
+
+## Local compute
+
+Below Cost and Tokens, **Local compute** shows the requests CMDeck's gateway sent to your
+registered inference servers in the past 24 hours or 7 days. See
+[Local models](./local-models.md#see-what-your-hardware-did).
 
 ## Set custom model prices
 
@@ -94,7 +102,7 @@ the dialog.
 ## Show only some models
 
 To count only some models, or to leave some out, add `usageModelFilter` to the server's
-`settings.json` in its `userdata` directory, such as `~/.t3/userdata/settings.json`:
+`settings.json` in its `userdata` directory, such as `~/.cmdeck/userdata/settings.json`:
 
 ```json
 {
@@ -175,6 +183,8 @@ or endpoint configurations do not report subscription limits.
 Muse Code reports its session and weekly windows and its tier once the Muse CLI has run in a thread.
 Until then it shows no limits. Readings are not kept across a server restart.
 
+Antigravity shows no limits: T3 runs Google's CLI unchanged and does not query Google for quota.
+
 API-key accounts may not report subscription limits. This also applies to Claude connections
 using a proxy through `ANTHROPIC_AUTH_TOKEN`.
 
@@ -183,8 +193,8 @@ using a proxy through `ANTHROPIC_AUTH_TOKEN`.
 To see pooled accounts, open **Settings → Providers → Usage providers → Add hub**. Choose the
 environment that will connect to the hub and enter its URL and management key.
 
-The hub's Codex, Claude, xAI (shown as Grok) and Antigravity accounts appear under **Usage → Limits**;
-accounts for other providers are not read. Codex accounts show banked reset credits; select an
+The hub's Codex, Claude, and xAI (shown as Grok) accounts appear under **Usage → Limits**;
+accounts for other providers, including Antigravity, are not read. Codex accounts show banked reset credits; select an
 account and choose **Use reset** to redeem one. No hub plugin is required.
 
 This connection supplies usage information; configure

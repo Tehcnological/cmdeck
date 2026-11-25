@@ -26,6 +26,7 @@ import {
   readPosixLauncherTarget,
   resolveLauncherPath,
 } from "../cloud/pinnedRuntime.ts";
+import { FORK_RUNTIME_MARKER_FILE } from "../fork/forkRuntimeMarker.ts";
 import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
 import * as ProcessRunner from "../processRunner.ts";
 import {
@@ -158,7 +159,7 @@ it.layer(NodeServices.layer)("t3 update under a managed policy", (it) => {
   it.effect("refuses to update when updates are off", () =>
     Effect.gen(function* () {
       const error = yield* runWithPolicy({ mode: "off" });
-      assert.equal(error.message, "Example Corp manages T3 Code updates.");
+      assert.equal(error.message, "Example Corp manages CMDeck updates.");
     }),
   );
 
@@ -175,7 +176,7 @@ it.layer(NodeServices.layer)("t3 update under a managed policy", (it) => {
       for (const error of [byChannel, byVersion]) {
         assert.equal(
           error.message,
-          "Example Corp manages T3 Code updates. Only stable releases can be installed.",
+          "Example Corp manages CMDeck updates. Only stable releases can be installed.",
         );
       }
     }),
@@ -574,7 +575,8 @@ it.layer(NodeServices.layer)("t3 update with a background service", (it) => {
       yield* fs.makeDirectory(runtime.versionDir, { recursive: true });
       yield* fs.writeFileString(runtime.entryPath, "");
       yield* fs.writeFileString(runtime.sentinelPath, `${version}\n`);
-      const unitPath = path.join(baseDir, "t3code.service");
+      yield* fs.writeFileString(path.join(runtime.versionDir, FORK_RUNTIME_MARKER_FILE), "");
+      const unitPath = path.join(baseDir, "cmdeck.service");
       const logPath = path.join(baseDir, "boot-service.log");
       // An earlier `t3 update` pointed the service at this version without restarting it.
       const service = Layer.mock(BootService.BootService, {
@@ -708,12 +710,13 @@ it.layer(NodeServices.layer)("t3 update checks the database before switching", (
       yield* fs.makeDirectory(runtime.versionDir, { recursive: true });
       yield* fs.writeFileString(runtime.entryPath, "");
       yield* fs.writeFileString(runtime.sentinelPath, `${targetVersion}\n`);
+      yield* fs.writeFileString(path.join(runtime.versionDir, FORK_RUNTIME_MARKER_FILE), "");
       const service = Layer.mock(BootService.BootService, {
         status: Effect.succeed<BootService.BootServiceStatus>({
           supported: true,
           installed: false,
           current: false,
-          unitPath: path.join(baseDir, "t3code.service"),
+          unitPath: path.join(baseDir, "cmdeck.service"),
           logPath: path.join(baseDir, "boot-service.log"),
         }),
       });

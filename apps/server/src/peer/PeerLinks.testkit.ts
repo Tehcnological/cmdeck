@@ -64,8 +64,13 @@ export const descriptorOf = (
 /** An environment's own sessions and pairing links, on a database and secret store of its own. */
 export const layerEnvironmentAuth = (prefix: string) =>
   EnvironmentAuth.layer.pipe(
-    Layer.provide(ManagedPolicy.layerTest()),
-    Layer.provideMerge(ServerSettings.layerTest({ linkedEnvironmentsEnabled: true })),
+    Layer.provideMerge(ManagedPolicy.layerTest()),
+    Layer.provideMerge(
+      ServerSettings.layerTest({
+        linkedEnvironmentsEnabled: true,
+        requireConnectDeviceApproval: false,
+      }),
+    ),
     Layer.provide(Sqlite.layerMemory),
     Layer.provideMerge(ServerSecretStore.layer),
     Layer.provideMerge(ServerEnvironment.layerIdentity),
@@ -186,7 +191,7 @@ export const servePeer = <E, R, E2 = never, R2 = never>(
         .listSessions()
         .pipe(
           Effect.map((sessions) =>
-            sessions.filter((session) => session.client.label?.startsWith("T3 Code · ")),
+            sessions.filter((session) => session.client.label?.startsWith("CMDeck · ")),
           ),
         ),
     };

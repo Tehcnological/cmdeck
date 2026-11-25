@@ -18,7 +18,6 @@ import {
   parseMcpApprovalCode,
   type RuntimeMode,
 } from "@t3tools/contracts";
-import { DEFAULT_HOSTED_APP_URL } from "@t3tools/shared/connectAuth";
 import { encodeOAuthScope } from "@t3tools/shared/oauthScope";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
@@ -29,10 +28,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Redacted from "effect/Redacted";
 import * as Ref from "effect/Ref";
+import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import { HttpServerRequest } from "effect/http";
 
-import { hostedAppUrlConfig } from "../cloud/publicConfig.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as McpHttpServer from "../mcp/McpHttpServer.ts";
@@ -40,6 +39,9 @@ import type * as McpInvocationContext from "../mcp/McpInvocationContext.ts";
 import * as PayloadSigner from "./PayloadSigner.ts";
 import * as EnvironmentAuth from "./EnvironmentAuth.ts";
 import * as ServerSecretStore from "./ServerSecretStore.ts";
+import * as RemoteMcpTokens from "./RemoteMcpTokens.ts";
+import * as ManagedLimits from "../policy/managedLimits.ts";
+import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
 import {
   base64UrlDecodeUtf8,
   base64UrlEncode,
@@ -149,7 +151,7 @@ const ClientIdPayload = Schema.Struct({
   v: Schema.Literal(1),
   n: Schema.String,
   r: Schema.Array(Schema.String),
-  /** Registered as another T3 Code environment's peer link. */
+  /** Registered as another CMDeck environment's peer link. */
   p: Schema.optionalKey(Schema.Literal(1)),
 });
 const decodeClientIdPayload = Schema.decodeUnknownOption(Schema.fromJsonString(ClientIdPayload));
@@ -271,6 +273,10 @@ const make = Effect.gen(function* () {
     Effect.map((settings) => settings.linkedEnvironmentsEnabled),
     Effect.orElseSucceed(() => false),
   );
+  const requirePairingApproval = serverSettings.getSettings.pipe(
+    Effect.map((settings) => settings.requireConnectDeviceApproval),
+    Effect.orElseSucceed(() => true),
+  );
   const signer = yield* PayloadSigner.fromSecret(
     yield* secretStore.getOrCreateRandom(SIGNING_SECRET_NAME, 32).pipe(Effect.orDie),
   );
@@ -353,7 +359,7 @@ const make = Effect.gen(function* () {
         return yield* new AuthMcpRegistrationError({
           error: "invalid_client_metadata",
           error_description:
-            'Linked environments is off on that machine. Turn it on in its Settings → Labs, or without a desktop, set "linkedEnvironmentsEnabled": true in userdata/settings.json in its T3 home (~/.t3 by default).',
+            'Linked environments is off on that machine. Turn it on in its Settings → Labs, or without a desktop, set "linkedEnvironmentsEnabled": true in userdata/settings.json in its T3 home (~/.cmdeck by default).',
         });
       }
       const clientId = yield* signClientId(name, redirectUris, peerLink);
@@ -481,8 +487,22 @@ const make = Effect.gen(function* () {
           description: "Linking needs a plain pairing code, not an app approval code.",
         });
       }
+      const clientName = input.authorization.client.name.trim();
+      const pairingApproval = (yield* requirePairingApproval)
+        ? {
+            client: deriveAuthClientMetadata({
+              request: input.request,
+              presented: { deviceType: "bot", ...(clientName ? { label: clientName } : {}) },
+            }),
+          }
+        : undefined;
       access = yield* environmentAuth
-        .consumeMcpApprovalCode(decision.code, decision.access, input.authorization.client.peerLink)
+        .consumeMcpApprovalCode(
+          decision.code,
+          decision.access,
+          input.authorization.client.peerLink,
+          pairingApproval,
+        )
         .pipe(
           Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (cause) =>
             Effect.logError("MCP approval code check failed.", { cause }).pipe(
@@ -619,39 +639,79 @@ export const layerMcpClientAuthenticator = Layer.effect(
     const environmentAuth = yield* EnvironmentAuth.EnvironmentAuth;
     const environment = yield* ServerEnvironment.ServerEnvironment;
     const environmentId = yield* environment.getEnvironmentId;
-    const hostedAppUrl = yield* hostedAppUrlConfig.pipe(
-      Effect.catch((cause) =>
-        Effect.logWarning("Outside MCP clients get app.t3.codes thread links", { cause }).pipe(
-          Effect.as(DEFAULT_HOSTED_APP_URL),
-        ),
-      ),
+    const envOverride = yield* RemoteMcpTokens.readEnvOverride;
+    const serverSettings = yield* ServerSettings.ServerSettingsService;
+    // Read per request, so the Settings switch applies without a restart.
+    const remoteTokensEnabled = serverSettings.getSettings.pipe(
+      Effect.map((settings) => RemoteMcpTokens.isEnabled(envOverride, settings.remoteMcpEnabled)),
+      Effect.orElseSucceed(() => false),
     );
+    const remoteTokensTurnedOff = remoteTokensEnabled.pipe(
+      Effect.repeat({ schedule: Schedule.spaced("1 second"), while: (enabled) => enabled }),
+      Effect.asVoid,
+    );
+    const policy = yield* ManagedPolicy.ManagedPolicy;
+    const remoteTokens = yield* RemoteMcpTokens.makeVerifier;
+    const toScope = (client: McpInvocationContext.McpClientCaller) =>
+      Clock.currentTimeMillis.pipe(
+        Effect.map((issuedAt): McpInvocationContext.McpInvocationScope => ({
+          environmentId,
+          requestNamespace: `client:${client.sessionId}`,
+          thread: undefined,
+          client,
+          capabilities: new Set<McpInvocationContext.McpCapability>([
+            "orchestration",
+            "worktree",
+            "pull-requests",
+          ]),
+          issuedAt,
+        })),
+      );
+    // A remote token is refused, never passed on to OAuth, while the feature or the policy is off.
+    // Turning the feature off also ends a token's open requests, as revoking it does.
+    const authenticateRemoteToken = (
+      token: string,
+    ): Effect.Effect<McpInvocationContext.McpInvocationScope | undefined> =>
+      !ManagedLimits.allowsRemoteClients(policy)
+        ? Effect.undefined
+        : remoteTokensEnabled.pipe(
+            Effect.flatMap((enabled) => (enabled ? remoteTokens.verify(token) : Effect.undefined)),
+            Effect.flatMap(
+              (record): Effect.Effect<McpInvocationContext.McpInvocationScope | undefined> =>
+                record === undefined
+                  ? Effect.undefined
+                  : toScope({
+                      sessionId: `remote-mcp-token:${record.id}`,
+                      label: record.label,
+                      access: record.access,
+                      tokenRevoked: Effect.raceFirst(
+                        remoteTokens.awaitRevocation(record.id),
+                        remoteTokensTurnedOff,
+                      ),
+                    }),
+            ),
+            Effect.catch((error) =>
+              Effect.logWarning("Remote MCP token check failed.", { cause: error }).pipe(
+                Effect.as(undefined),
+              ),
+            ),
+          );
     return McpHttpServer.McpClientAuthenticator.of({
       authenticate: Effect.fn("McpHttpServer.McpClientAuthenticator.authenticate")(
         function (request) {
+          const token = EnvironmentAuth.parseBearerToken(request);
+          if (token !== null && token.startsWith(RemoteMcpTokens.TOKEN_PREFIX)) {
+            return authenticateRemoteToken(token);
+          }
           return environmentAuth.authenticateMcpClient(request).pipe(
             Effect.flatMap((client) =>
-              Clock.currentTimeMillis.pipe(
-                Effect.map((issuedAt): McpInvocationContext.McpInvocationScope => ({
-                  environmentId,
-                  requestNamespace: `client:${client.sessionId}`,
-                  thread: undefined,
-                  client: {
-                    sessionId: client.sessionId,
-                    label: client.label,
-                    access: client.access,
-                    linked: client.peerLink,
-                    linkExpiresAt: client.linkExpiresAt,
-                    ...(client.peerLink ? {} : { hostedAppUrl }),
-                  },
-                  capabilities: new Set<McpInvocationContext.McpCapability>([
-                    "orchestration",
-                    "worktree",
-                    "pull-requests",
-                  ]),
-                  issuedAt,
-                })),
-              ),
+              toScope({
+                sessionId: client.sessionId,
+                label: client.label,
+                access: client.access,
+                linked: client.peerLink,
+                linkExpiresAt: client.linkExpiresAt,
+              }),
             ),
             Effect.catch((error) =>
               (EnvironmentAuth.isServerAuthCredentialError(error)

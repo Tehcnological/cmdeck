@@ -149,9 +149,9 @@ describe.skipIf(posixShellRunner === null)("WSL runtime install script (executed
       archivePath,
       archiveSha,
       runtimeId,
-      runtimeParent: `${work}/home/.t3/wsl-runtime`,
-      runtimeRoot: `${work}/home/.t3/wsl-runtime/${runtimeId}`,
-      serverEntry: `${work}/home/.t3/wsl-runtime/${runtimeId}/t3`,
+      runtimeParent: `${work}/home/.cmdeck/wsl-runtime`,
+      runtimeRoot: `${work}/home/.cmdeck/wsl-runtime/${runtimeId}`,
+      serverEntry: `${work}/home/.cmdeck/wsl-runtime/${runtimeId}/t3`,
       installScript,
       install: (archive?: string, sha?: string, t3Home?: string | null) =>
         runShell(installScript(archive, sha, t3Home)),
@@ -206,7 +206,7 @@ describe.skipIf(posixShellRunner === null)("WSL runtime install script (executed
     const install = fixture.install(undefined, undefined, t3Home);
     expect(install.status, install.stderr).toBe(0);
     expect(parseWslRuntimeRoot(install.stdout)).toBe(`${t3Home}/wsl-runtime/${fixture.runtimeId}`);
-    expect(runShell(`test ! -e ${sh(`${fixture.work}/home/.t3`)}`).status).toBe(0);
+    expect(runShell(`test ! -e ${sh(`${fixture.work}/home/.cmdeck`)}`).status).toBe(0);
 
     const probe = runShell(
       [

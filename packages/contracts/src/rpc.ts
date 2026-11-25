@@ -1,4 +1,16 @@
 import {
+  InferenceDiscoveryInput,
+  InferenceDiscoveryResult,
+  InferenceImageCheckInput,
+  InferenceImageCheckResult,
+  InferenceServerId,
+  InferenceServerSnapshot,
+  InferenceThreadLastRequest,
+  InferenceThreadStop,
+  InferenceUsageSummary,
+  InferenceUsageWindow,
+} from "./inference.ts";
+import {
   OrchestrationV2SearchThreadError,
   OrchestrationV2SearchThreadInput,
   OrchestrationV2SearchThreadResult,
@@ -45,8 +57,18 @@ import * as Schema from "effect/Schema";
 import * as Rpc from "effect/rpc/Rpc";
 import * as RpcGroup from "effect/rpc/RpcGroup";
 import * as RpcMiddleware from "effect/rpc/RpcMiddleware";
-import { IsoDateTime, NonNegativeInt, TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { IsoDateTime, NonNegativeInt, ThreadId, TrimmedNonEmptyString } from "./baseSchemas.ts";
 import { SecretSourceCheckResult } from "./settingsSecretValue.ts";
+import {
+  PublicAddressCheckInput,
+  PublicAddressCheckResult,
+  RemoteMcpStatus,
+  RemoteMcpTokenCreateInput,
+  RemoteMcpTokenCreateResult,
+  RemoteMcpTokenError,
+  RemoteMcpTokenRevokeInput,
+  RemoteMcpTokenRevokeResult,
+} from "./remoteAccess.ts";
 import { SecretReference } from "./secretReference.ts";
 import {
   ProviderAuthCancelInput,
@@ -139,6 +161,11 @@ import {
   OrchestrationGetFullThreadDiffError,
   OrchestrationGetTurnDiffError,
 } from "./checkpointDiff.ts";
+import {
+  ThreadReviewError,
+  ThreadReviewStartInput,
+  ThreadReviewStartResult,
+} from "./threadReview.ts";
 import {
   WorktreeSetupCancelInput,
   WorktreeSetupCancelResult,
@@ -368,11 +395,9 @@ import {
 import {
   ServerConfigStreamEvent,
   DesktopUpdateCommitInput,
-  OtlpEndpointCheckInput,
   ServerPrepareTriageError,
   ServerPrepareTriageInput,
   ServerPrepareTriageResult,
-  OtlpEndpointCheckResult,
   ServerConfig,
   ServerProviderUpdateError,
   ServerProviderUpdateInput,
@@ -387,7 +412,6 @@ import {
   ServerSelfUpdateInput,
   ServerSelfUpdateProgressEvent,
   ServerSelfUpdateResult,
-  ServerTraceDiagnosticsResult,
   ServerProcessDiagnosticsResult,
   ServerProcessResourceHistoryInput,
   ServerProcessResourceHistoryResult,
@@ -584,6 +608,12 @@ export const WS_METHODS = {
   serverGetConfig: "server.getConfig",
   serverGetNpmRelease: "server.getNpmRelease",
   serverRefreshProviders: "server.refreshProviders",
+  serverRefreshInferenceServers: "server.refreshInferenceServers",
+  serverDiscoverInferenceServers: "server.discoverInferenceServers",
+  serverGetInferenceUsage: "server.getInferenceUsage",
+  serverGetThreadInferenceRequest: "server.getThreadInferenceRequest",
+  serverGetThreadInferenceStop: "server.getThreadInferenceStop",
+  serverCheckInferenceModelImages: "server.checkInferenceModelImages",
   serverUpdateProvider: "server.updateProvider",
   serverUpdateServer: "server.updateServer",
   serverUpdateServerWithProgress: "server.updateServerWithProgress",
@@ -608,6 +638,10 @@ export const WS_METHODS = {
   serverUpdateSettings: "server.updateSettings",
   serverDiscoverSourceControl: "server.discoverSourceControl",
   serverCheckSecretSource: "server.checkSecretSource",
+  serverCheckPublicAddress: "server.checkPublicAddress",
+  remoteMcpStatus: "remoteMcp.status",
+  remoteMcpCreateToken: "remoteMcp.createToken",
+  remoteMcpRevokeToken: "remoteMcp.revokeToken",
   serverSearchAcpRegistry: "server.searchAcpRegistry",
   serverPrepareAcpRegistryAgent: "server.prepareAcpRegistryAgent",
   serverUninstallAcpRegistryManagedBinary: "server.uninstallAcpRegistryManagedBinary",
@@ -619,13 +653,11 @@ export const WS_METHODS = {
   serverSetAcpRegistryProvider: "server.setAcpRegistryProvider",
   serverDisableAcpRegistryProvider: "server.disableAcpRegistryProvider",
   serverLogoutAcpRegistry: "server.logoutAcpRegistry",
-  serverGetTraceDiagnostics: "server.getTraceDiagnostics",
   serverGetProcessDiagnostics: "server.getProcessDiagnostics",
   serverGetHostResources: "server.getHostResources",
   serverGetProcessResourceHistory: "server.getProcessResourceHistory",
   serverGetResourceTelemetryHistory: "server.getResourceTelemetryHistory",
   serverRetryResourceTelemetry: "server.retryResourceTelemetry",
-  serverCheckOtlpEndpoint: "server.checkOtlpEndpoint",
   serverListTextGeneratorModels: "server.listTextGeneratorModels",
   serverPrepareTriage: "server.prepareTriage",
   serverSignalProcess: "server.signalProcess",
@@ -642,6 +674,8 @@ export const WS_METHODS = {
   workflowsGetDefinition: "workflows.getDefinition",
   workflowsSaveDefinition: "workflows.saveDefinition",
   workflowsDeleteDefinition: "workflows.deleteDefinition",
+
+  threadReviewStart: "threadReview.start",
 
   scheduledTasksSubscribe: "scheduledTasks.subscribe",
   scheduledTasksUpsert: "scheduledTasks.upsert",
@@ -763,6 +797,42 @@ const WsServerGetConfigRpc = Rpc.make(WS_METHODS.serverGetConfig, {
   payload: Schema.Struct({}),
   success: ServerConfig,
   error: Schema.Union([KeybindingsConfigError, ServerSettingsError, EnvironmentAuthorizationError]),
+});
+
+const WsServerGetInferenceUsageRpc = Rpc.make(WS_METHODS.serverGetInferenceUsage, {
+  payload: Schema.Struct({ window: InferenceUsageWindow }),
+  success: InferenceUsageSummary,
+  error: Schema.Union([EnvironmentAuthorizationError]),
+});
+
+const WsServerGetThreadInferenceRequestRpc = Rpc.make(WS_METHODS.serverGetThreadInferenceRequest, {
+  payload: Schema.Struct({ threadId: ThreadId }),
+  success: Schema.Struct({ last: Schema.NullOr(InferenceThreadLastRequest) }),
+  error: Schema.Union([EnvironmentAuthorizationError]),
+});
+
+const WsServerGetThreadInferenceStopRpc = Rpc.make(WS_METHODS.serverGetThreadInferenceStop, {
+  payload: Schema.Struct({ threadId: ThreadId }),
+  success: Schema.Struct({ stop: Schema.NullOr(InferenceThreadStop) }),
+  error: Schema.Union([EnvironmentAuthorizationError]),
+});
+
+const WsServerRefreshInferenceServersRpc = Rpc.make(WS_METHODS.serverRefreshInferenceServers, {
+  payload: Schema.Struct({ id: Schema.optional(InferenceServerId) }),
+  success: Schema.Struct({ inferenceServers: Schema.Array(InferenceServerSnapshot) }),
+  error: Schema.Union([ServerSettingsError, EnvironmentAuthorizationError]),
+});
+
+const WsServerCheckInferenceModelImagesRpc = Rpc.make(WS_METHODS.serverCheckInferenceModelImages, {
+  payload: InferenceImageCheckInput,
+  success: InferenceImageCheckResult,
+  error: Schema.Union([EnvironmentAuthorizationError]),
+});
+
+const WsServerDiscoverInferenceServersRpc = Rpc.make(WS_METHODS.serverDiscoverInferenceServers, {
+  payload: InferenceDiscoveryInput,
+  success: InferenceDiscoveryResult,
+  error: Schema.Union([EnvironmentAuthorizationError]),
 });
 
 export const WsServerRefreshProvidersRpc = Rpc.make(WS_METHODS.serverRefreshProviders, {
@@ -1042,6 +1112,31 @@ const WsServerCheckSecretSourceRpc = Rpc.make(WS_METHODS.serverCheckSecretSource
   error: EnvironmentAuthorizationError,
 });
 
+/** Asks the tunnel address, from this server, whether it reaches this environment. */
+const WsServerCheckPublicAddressRpc = Rpc.make(WS_METHODS.serverCheckPublicAddress, {
+  payload: PublicAddressCheckInput,
+  success: PublicAddressCheckResult,
+  error: EnvironmentAuthorizationError,
+});
+
+const WsRemoteMcpStatusRpc = Rpc.make(WS_METHODS.remoteMcpStatus, {
+  payload: Schema.Struct({}),
+  success: RemoteMcpStatus,
+  error: Schema.Union([RemoteMcpTokenError, EnvironmentAuthorizationError]),
+});
+
+const WsRemoteMcpCreateTokenRpc = Rpc.make(WS_METHODS.remoteMcpCreateToken, {
+  payload: RemoteMcpTokenCreateInput,
+  success: RemoteMcpTokenCreateResult,
+  error: Schema.Union([RemoteMcpTokenError, EnvironmentAuthorizationError]),
+});
+
+const WsRemoteMcpRevokeTokenRpc = Rpc.make(WS_METHODS.remoteMcpRevokeToken, {
+  payload: RemoteMcpTokenRevokeInput,
+  success: RemoteMcpTokenRevokeResult,
+  error: Schema.Union([RemoteMcpTokenError, EnvironmentAuthorizationError]),
+});
+
 const WsServerSearchAcpRegistryRpc = Rpc.make(WS_METHODS.serverSearchAcpRegistry, {
   payload: AcpRegistrySearchInput,
   success: AcpRegistrySearchResult,
@@ -1114,12 +1209,6 @@ const WsServerLogoutAcpRegistryRpc = Rpc.make(WS_METHODS.serverLogoutAcpRegistry
   error: Schema.Union([AcpRegistryOperationError, EnvironmentAuthorizationError]),
 });
 
-const WsServerGetTraceDiagnosticsRpc = Rpc.make(WS_METHODS.serverGetTraceDiagnostics, {
-  payload: Schema.Struct({}),
-  success: ServerTraceDiagnosticsResult,
-  error: EnvironmentAuthorizationError,
-});
-
 const WsServerGetProcessDiagnosticsRpc = Rpc.make(WS_METHODS.serverGetProcessDiagnostics, {
   payload: Schema.Struct({}),
   success: ServerProcessDiagnosticsResult,
@@ -1150,12 +1239,6 @@ const WsServerGetResourceTelemetryHistoryRpc = Rpc.make(
 const WsServerRetryResourceTelemetryRpc = Rpc.make(WS_METHODS.serverRetryResourceTelemetry, {
   payload: Schema.Struct({}),
   success: ResourceTelemetryRetryResult,
-  error: EnvironmentAuthorizationError,
-});
-
-const WsServerCheckOtlpEndpointRpc = Rpc.make(WS_METHODS.serverCheckOtlpEndpoint, {
-  payload: OtlpEndpointCheckInput,
-  success: OtlpEndpointCheckResult,
   error: EnvironmentAuthorizationError,
 });
 
@@ -2347,6 +2430,12 @@ const WsWorkflowsCancelRpc = Rpc.make(WS_METHODS.workflowsCancel, {
   error: Schema.Union([WorkflowRequestError, EnvironmentAuthorizationError]),
 });
 
+const WsThreadReviewStartRpc = Rpc.make(WS_METHODS.threadReviewStart, {
+  payload: ThreadReviewStartInput,
+  success: ThreadReviewStartResult,
+  error: Schema.Union([ThreadReviewError, EnvironmentAuthorizationError]),
+});
+
 const WsWorkflowsGetDefinitionRpc = Rpc.make(WS_METHODS.workflowsGetDefinition, {
   payload: WorkflowDefinitionGetInput,
   success: WorkflowDefinitionFiles,
@@ -2477,6 +2566,12 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerProbeRpc,
   WsServerGetConfigRpc,
   WsServerRefreshProvidersRpc,
+  WsServerRefreshInferenceServersRpc,
+  WsServerDiscoverInferenceServersRpc,
+  WsServerGetInferenceUsageRpc,
+  WsServerGetThreadInferenceRequestRpc,
+  WsServerGetThreadInferenceStopRpc,
+  WsServerCheckInferenceModelImagesRpc,
   WsServerUpdateProviderRpc,
   WsProviderConsumeResetCreditRpc,
   WsProviderAuthStartRpc,
@@ -2517,6 +2612,10 @@ export const WsRpcGroup = RpcGroup.make(
   WsPeerLinksPairLinkRpc,
   WsServerDiscoverSourceControlRpc,
   WsServerCheckSecretSourceRpc,
+  WsServerCheckPublicAddressRpc,
+  WsRemoteMcpStatusRpc,
+  WsRemoteMcpCreateTokenRpc,
+  WsRemoteMcpRevokeTokenRpc,
   WsServerSearchAcpRegistryRpc,
   WsServerPrepareAcpRegistryAgentRpc,
   WsServerUninstallAcpRegistryManagedBinaryRpc,
@@ -2528,13 +2627,11 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerSetAcpRegistryProviderRpc,
   WsServerDisableAcpRegistryProviderRpc,
   WsServerLogoutAcpRegistryRpc,
-  WsServerGetTraceDiagnosticsRpc,
   WsServerGetProcessDiagnosticsRpc,
   WsServerGetHostResourcesRpc,
   WsServerGetProcessResourceHistoryRpc,
   WsServerGetResourceTelemetryHistoryRpc,
   WsServerRetryResourceTelemetryRpc,
-  WsServerCheckOtlpEndpointRpc,
   WsServerListTextGeneratorModelsRpc,
   WsServerPrepareTriageRpc,
   WsServerGetUsageSummaryRpc,
@@ -2546,6 +2643,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsWorkflowsAnswerRpc,
   WsWorkflowsResumeRpc,
   WsWorkflowsCancelRpc,
+  WsThreadReviewStartRpc,
   WsWorkflowsGetDefinitionRpc,
   WsWorkflowsSaveDefinitionRpc,
   WsWorkflowsDeleteDefinitionRpc,

@@ -584,6 +584,21 @@ export const DesktopWslStateSchema = Schema.Struct({
   preflightError: Schema.NullOr(Schema.String),
 });
 
+export const DesktopTraySettingsSchema = Schema.Struct({
+  closeToTray: Schema.Boolean,
+  launchAtLogin: Schema.Boolean,
+  /** False where this desktop session has no tray, so closing the window still quits. */
+  trayAvailable: Schema.Boolean,
+  launchAtLoginSupported: Schema.Boolean,
+});
+export type DesktopTraySettings = typeof DesktopTraySettingsSchema.Type;
+
+export const DesktopTraySettingsUpdateSchema = Schema.Struct({
+  closeToTray: Schema.optionalKey(Schema.Boolean),
+  launchAtLogin: Schema.optionalKey(Schema.Boolean),
+});
+export type DesktopTraySettingsUpdate = typeof DesktopTraySettingsUpdateSchema.Type;
+
 export type DesktopPreviewNavStatus =
   | { kind: "Idle" }
   | { kind: "Loading"; url: string; title: string }
@@ -1110,8 +1125,6 @@ export type SystemSettingsPane = typeof SystemSettingsPaneSchema.Type;
 
 export interface DesktopBridge {
   getAppBranding: () => DesktopAppBranding | null;
-  /** `null` until the desktop host has read the login shell's environment; ask again later. */
-  getRelayTelemetryEnabled: () => boolean | null;
   getPathForFile: (file: File) => string;
   getClientPlatform: () => string;
   restartAudioService?: () => Promise<boolean>;
@@ -1191,6 +1204,9 @@ export interface DesktopBridge {
   setWslBackendEnabled: (enabled: boolean) => Promise<DesktopWslState>;
   setWslDistro: (distro: string | null) => Promise<DesktopWslState>;
   setWslOnly: (enabled: boolean) => Promise<DesktopWslState>;
+  /** Close-to-tray and launch-at-login; absent in desktop builds without a tray. */
+  getTraySettings?: () => Promise<DesktopTraySettings>;
+  setTraySettings?: (update: DesktopTraySettingsUpdate) => Promise<DesktopTraySettings>;
   pickFolder: (options?: PickFolderOptions) => Promise<string | null>;
   /** Maps a Windows path to the one a local backend (`primary` or `wsl:…`) sees; null when it cannot. */
   toLocalBackendPath: (backendId: string, windowsPath: string) => Promise<string | null>;

@@ -66,7 +66,7 @@ export const FeedbackAwaitingApproval = Schema.Struct({
 export type FeedbackAwaitingApproval = typeof FeedbackAwaitingApproval.Type;
 
 export const FEEDBACK_OFF_MESSAGE =
-  "Agent feedback is off. Turn it on in T3 Code under Settings > Labs, then try again.";
+  "Agent feedback is off. Turn it on in CMDeck under Settings > Labs, then try again.";
 
 export class FeedbackOffError extends Schema.TaggedError<FeedbackOffError>()(
   "FeedbackOffError",
@@ -135,9 +135,16 @@ export const T3_CLI_COMMANDS: ReadonlyArray<string> = [
   "t3 auth connect-device approve",
   "t3 auth connect-device list",
   "t3 auth connect-device revoke",
+  "t3 auth mcp-token",
+  "t3 auth mcp-token create",
+  "t3 auth mcp-token list",
+  "t3 auth mcp-token revoke",
   "t3 auth pairing",
+  "t3 auth pairing approve",
   "t3 auth pairing create",
+  "t3 auth pairing deny",
   "t3 auth pairing list",
+  "t3 auth pairing list-pending",
   "t3 auth pairing revoke",
   "t3 auth session",
   "t3 auth session issue",
@@ -188,8 +195,6 @@ export const T3_CLI_COMMANDS: ReadonlyArray<string> = [
   "t3 theme set",
   "t3 theme clear",
   "t3 theme show",
-  "t3 trace",
-  "t3 trace summary",
   "t3 doctor",
   "t3 policy",
   "t3 policy show",
@@ -197,6 +202,7 @@ export const T3_CLI_COMMANDS: ReadonlyArray<string> = [
   "t3 policy templates",
   "t3 policy settings",
   "t3 triage",
+  "t3 import-from-t3",
   "t3 connect",
   "t3 connect link",
   "t3 connect login",

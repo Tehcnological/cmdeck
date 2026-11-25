@@ -104,6 +104,11 @@ const collectUsageLimitSecretReferences = (
     isSecretReference(managementKey) ? [managementKey] : [],
   );
 
+const collectInferenceServerSecretReferences = (
+  servers: ServerSettings["inferenceServers"],
+): ReadonlyArray<SecretReference> =>
+  Object.values(servers).flatMap(({ apiKey }) => (isSecretReference(apiKey) ? [apiKey] : []));
+
 const collectDeviceHostSecretReferences = (
   settings: Pick<ServerSettings, "easDeviceHosts" | "simlockDeviceHosts">,
 ): ReadonlyArray<SecretReference> =>
@@ -120,6 +125,7 @@ export const invalidateSettingsSecrets = Effect.fn("SettingsSecrets.invalidate")
       ServerSettings,
       | "sourceControlHosts"
       | "usageLimitSources"
+      | "inferenceServers"
       | "textGenerators"
       | "easDeviceHosts"
       | "simlockDeviceHosts"
@@ -132,6 +138,7 @@ export const invalidateSettingsSecrets = Effect.fn("SettingsSecrets.invalidate")
     Effect.map((current) => [
       ...collectSourceControlHostSecretReferences(current.sourceControlHosts),
       ...collectUsageLimitSecretReferences(current.usageLimitSources),
+      ...collectInferenceServerSecretReferences(current.inferenceServers),
       ...Object.values(current.textGenerators).flatMap(({ apiKey }) =>
         isSecretReference(apiKey) ? [apiKey] : [],
       ),

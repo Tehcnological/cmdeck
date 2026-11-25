@@ -14,12 +14,28 @@ const SUPPORTED = ["darwin-arm64", "linux-arm64", "linux-x64", "win32-arm64", "w
 // Well inside launchd's 20 s ExitTimeOut, which SIGKILLs only the launcher and orphans the runtime.
 const TERMINATE_GRACE_MS = 5_000;
 
-function t3Home() {
-  const raw = (process.env.T3CODE_HOME || "").trim();
-  if (raw === "") return path.join(os.homedir(), ".t3");
+function resolveHome(raw) {
   if (raw === "~") return os.homedir();
   if (raw.startsWith("~/") || raw.startsWith("~\\")) return path.join(os.homedir(), raw.slice(2));
   return path.resolve(raw);
+}
+
+// Mirrors @t3tools/shared/appIdentity: CMDECK_HOME wins, then T3CODE_HOME unless it names the
+// official T3 Code home (~/.t3), which CMDeck never uses, then ~/.cmdeck.
+function t3Home() {
+  const cmdeckHome = (process.env.CMDECK_HOME || "").trim();
+  if (cmdeckHome !== "") return resolveHome(cmdeckHome);
+  const upstreamHome = (process.env.T3CODE_HOME || "").trim();
+  if (upstreamHome === "") return path.join(os.homedir(), ".cmdeck");
+  const comparable = (dir) =>
+    process.platform === "win32" || process.platform === "darwin" ? dir.toLowerCase() : dir;
+  if (comparable(resolveHome(upstreamHome)) !== comparable(path.join(os.homedir(), ".t3"))) {
+    return resolveHome(upstreamHome);
+  }
+  process.stderr.write(
+    `t3: ignoring T3CODE_HOME=${upstreamHome}, the official T3 Code data directory. Set CMDECK_HOME to choose CMDeck's.\n`,
+  );
+  return path.join(os.homedir(), ".cmdeck");
 }
 
 const isTransient = (status) => status === 408 || status === 429 || status >= 500;
@@ -64,7 +80,7 @@ async function download(url, file) {
         shown = step;
         const percent = total ? ` ${step}%` : "";
         process.stderr.write(
-          `\r\x1b[2Kt3: downloading T3 Code ${version}${percent} (${(received / 1048576).toFixed(1)} MB)`,
+          `\r\x1b[2Kt3: downloading CMDeck ${version}${percent} (${(received / 1048576).toFixed(1)} MB)`,
         );
       }
     }
@@ -77,9 +93,12 @@ async function download(url, file) {
 
 async function install(dir, key) {
   const archive = `t3-${version}-${key}.${process.platform === "win32" ? "zip" : "tar.gz"}`;
-  const base = (
-    process.env.T3CODE_RELEASE_BASE_URL || "https://github.com/pingdotgg/t3code/releases/download"
-  ).replace(/\/+$/, "");
+  const base = (process.env.T3CODE_RELEASE_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (base === "") {
+    throw new Error(
+      "CMDeck publishes no hosted builds. Set T3CODE_RELEASE_BASE_URL to your own mirror of CMDeck builds.",
+    );
+  }
   const sums = await (await get(`${base}/v${version}/SHA256SUMS`)).text();
   const expected = /^([0-9a-f]{64})\s+\*?(.+)$/im;
   const line = sums
@@ -178,8 +197,7 @@ async function main() {
   const key = `${process.platform}-${process.arch}`;
   if (!SUPPORTED.includes(key)) {
     throw new Error(
-      `no T3 Code CLI build is available for ${key} (supported: ${SUPPORTED.join(", ")}).\n` +
-        "The desktop app is at https://github.com/pingdotgg/t3code/releases",
+      `no CMDeck CLI build is available for ${key} (supported: ${SUPPORTED.join(", ")}).`,
     );
   }
   const dir = path.join(t3Home(), "runtime", "versions", version);
@@ -240,7 +258,7 @@ function killTree(child) {
 
 function executableError(key, detail) {
   return new Error(
-    `could not run T3 Code ${version} for ${key}: ${detail}` +
+    `could not run CMDeck ${version} for ${key}: ${detail}` +
       (process.platform === "linux"
         ? "\nThe Linux release requires glibc; musl-based systems such as Alpine are not supported. Use a glibc-based Linux environment."
         : ""),

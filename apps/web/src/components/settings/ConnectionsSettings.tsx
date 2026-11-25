@@ -113,6 +113,7 @@ import { useDesktopUpdateState } from "~/state/desktopUpdate";
 import {
   type EnvironmentPresentation,
   useEnvironment,
+  useEnvironmentHttpBaseUrl,
   useEnvironments,
   usePrimaryEnvironment,
 } from "~/state/environments";
@@ -151,6 +152,8 @@ import {
   SavedBackendListRow,
 } from "./SavedEnvironmentRows";
 import { AddEnvironmentDialog } from "./AddEnvironmentDialog";
+import { CloudflareTunnelSettings, RemoteMcpSettings } from "./RemoteAccessSettings";
+import { externalBaseUrl, tunnelPairingEndpoint } from "./RemoteAccessSettings.logic";
 import {
   type ConnectDeviceRevokeRequest,
   RevokeConnectDeviceDialog,
@@ -281,6 +284,7 @@ function ConnectionsSettingsContent({
   });
   const primaryEnvironmentId = primaryEnvironment?.environmentId ?? null;
   const accessEnvironment = useEnvironment(accessEnvironmentId);
+  const accessHttpBaseUrl = useEnvironmentHttpBaseUrl(accessEnvironmentId);
   // Desktop network, Tailscale, and WSL controls change the backend this app spawned.
   const isPrimaryAccess =
     accessEnvironmentId !== null && accessEnvironmentId === primaryEnvironmentId;
@@ -787,18 +791,25 @@ function ConnectionsSettingsContent({
     if (confirmed === true) await removeSavedBackend(environment);
   };
 
-  // T3 Connect devices waiting for approval have their own list.
+  // Devices waiting for approval have their own list.
   const visibleDesktopPairingLinks = desktopPairingLinks.filter(
-    (pairingLink) => pairingLink.connectDeviceRequest === undefined,
+    (pairingLink) =>
+      pairingLink.connectDeviceRequest === undefined && pairingLink.pairingRequest === undefined,
   );
   const connectDeviceRequests = desktopPairingLinks.filter(
     (pairingLink) => pairingLink.connectDeviceRequest !== undefined,
+  );
+  const pairingRequests = desktopPairingLinks.filter(
+    (pairingLink) => pairingLink.pairingRequest !== undefined,
   );
   // Older servers omit the list; they cannot hold devices for approval.
   const connectDevices =
     authAccessChanges.data?.type === "snapshot"
       ? (authAccessChanges.data.payload.connectDevices ?? null)
       : null;
+  const showDeviceApproval =
+    pairingRequests.length > 0 ||
+    (connectDevices !== null && (connectDeviceRequests.length > 0 || connectDevices.length > 0));
   const updateAccessSettings = useUpdateEnvironmentSettings(accessEnvironmentId);
   const [pendingConnectRevoke, setPendingConnectRevoke] =
     useState<ConnectDeviceRevokeRequest | null>(null);
@@ -859,6 +870,17 @@ function ConnectionsSettingsContent({
   const defaultDesktopAdvertisedEndpointKey = defaultDesktopAdvertisedEndpoint
     ? endpointDefaultPreferenceKey(defaultDesktopAdvertisedEndpoint)
     : null;
+  const accessSettings = accessEnvironment?.serverConfig?.settings;
+  const accessPublicBaseUrl = accessSettings?.publicBaseUrl ?? "";
+  const tunnelEndpoint = tunnelPairingEndpoint(accessPublicBaseUrl);
+  // The tunnel address is only syntax-checked, so pairing offers it but never preselects it.
+  const pairingEndpoints = tunnelEndpoint
+    ? [...visibleDesktopAdvertisedEndpoints, tunnelEndpoint]
+    : visibleDesktopAdvertisedEndpoints;
+  const accessExternalBaseUrl = externalBaseUrl(
+    accessPublicBaseUrl,
+    defaultDesktopAdvertisedEndpoint?.httpBaseUrl ?? accessHttpBaseUrl,
+  );
   const handleSetDefaultAdvertisedEndpoint = (endpoint: AdvertisedEndpoint) => {
     setDefaultAdvertisedEndpointKey(endpointDefaultPreferenceKey(endpoint));
   };
@@ -1125,7 +1147,7 @@ function ConnectionsSettingsContent({
         {desktopWslState.enabled ? (
           <SettingsRow
             title={gt("WSL only")}
-            description={gt("Run only the WSL backend. T3 Code restarts when this changes.")}
+            description={gt("Run only the WSL backend. CMDeck restarts when this changes.")}
             className="bg-muted/20 pl-7 sm:pl-8"
             control={
               <Switch
@@ -1180,7 +1202,7 @@ function ConnectionsSettingsContent({
     <PairingClientsList
       servedByEnvironment={isPrimaryAccess}
       endpointUrl={desktopServerExposureState?.endpointUrl}
-      endpoints={visibleDesktopAdvertisedEndpoints}
+      endpoints={pairingEndpoints}
       defaultEndpointKey={defaultDesktopAdvertisedEndpointKey}
       isLoading={isLoadingDesktopAccessManagement}
       pairingLinks={pairingLinks}
@@ -1411,6 +1433,24 @@ function ConnectionsSettingsContent({
                 }
               />
             ) : null}
+            {accessServerConfig?.settings.requireConnectDeviceApproval === undefined ? null : (
+              <SettingsRow
+                title={searchableSetting("connect-device-approval").title}
+                description={gt(
+                  "A device that pairs with a pairing link waits until someone already connected here approves it. This machine's desktop app, sessions issued on the host, and agent app codes skip the wait.",
+                )}
+                control={
+                  <Switch
+                    checked={accessServerConfig.settings.requireConnectDeviceApproval}
+                    disabled={!canWriteAccess}
+                    aria-label={gt("Require approval for new devices")}
+                    onCheckedChange={(enabled) =>
+                      void updateAccessSettings({ requireConnectDeviceApproval: enabled })
+                    }
+                  />
+                }
+              />
+            )}
             {accessServerConfig?.environment.capabilities.previewTunnelSetting ? (
               <SettingsRow
                 title={searchableSetting("preview-tunnel").title}
@@ -1498,16 +1538,32 @@ function ConnectionsSettingsContent({
               </ScrollArea>
             </FoldedSettingsSection>
           ) : null}
-          {canReadAccess &&
-          connectDevices !== null &&
-          (connectDeviceRequests.length > 0 || connectDevices.length > 0) ? (
+          {canReadAccess && showDeviceApproval ? (
             <ConnectDeviceApprovalSettings
               environmentId={accessEnvironmentId}
               requests={connectDeviceRequests}
-              devices={connectDevices}
+              pairingRequests={pairingRequests}
+              devices={connectDevices ?? []}
               canWrite={canWriteAccess}
               requestRevoke={requestConnectRevoke}
             />
+          ) : null}
+          {(canReadAccess || canWriteAccess) &&
+          accessServerConfig?.environment.capabilities.remoteAccessSettings ? (
+            <>
+              <CloudflareTunnelSettings
+                environmentId={accessEnvironmentId}
+                publicBaseUrl={accessPublicBaseUrl}
+                canWrite={canWriteAccess}
+              />
+              <RemoteMcpSettings
+                environmentId={accessEnvironmentId}
+                serverConfig={accessServerConfig}
+                externalBaseUrl={accessExternalBaseUrl}
+                canRead={canReadAccess}
+                canWrite={canWriteAccess}
+              />
+            </>
           ) : null}
           <RevokeConnectDeviceDialog
             request={pendingConnectRevoke}
@@ -1531,10 +1587,10 @@ function ConnectionsSettingsContent({
                 <AlertDialogDescription>
                   {pendingDesktopServerExposureMode === "network-accessible"
                     ? gt(
-                        "Let your other devices connect to T3 Code over the network. Pair devices to give them access. T3 Code will restart.",
+                        "Let your other devices connect to CMDeck over the network. Pair devices to give them access. CMDeck will restart.",
                       )
                     : gt(
-                        "Devices connected over your local network will disconnect. Existing tunnels, such as T3 Connect or Tailscale HTTPS, keep working. T3 Code will restart.",
+                        "Devices connected over your local network will disconnect. Existing tunnels, such as T3 Connect or Tailscale HTTPS, keep working. CMDeck will restart.",
                       )}
                 </AlertDialogDescription>
               </AlertDialogHeader>
@@ -1594,14 +1650,14 @@ function ConnectionsSettingsContent({
                   {pendingWslChange?.kind === "disable"
                     ? pendingWslChange.wasWslOnly
                       ? gt(
-                          "T3 Code will restart on the Windows backend. Threads and projects opened against WSL stay safe inside the distro and become available again when you re-enable WSL.",
+                          "CMDeck will restart on the Windows backend. Threads and projects opened against WSL stay safe inside the distro and become available again when you re-enable WSL.",
                         )
                       : gt(
-                          "The WSL backend will stop. Threads and projects opened against WSL stay safe inside the distro, but they'll be unavailable in T3 Code until you re-enable WSL.",
+                          "The WSL backend will stop. Threads and projects opened against WSL stay safe inside the distro, but they'll be unavailable in CMDeck until you re-enable WSL.",
                         )
                     : pendingWslChange?.kind === "distro"
                       ? gt(
-                          "T3 Code will restart the WSL backend on the new distro. Sessions still running on the current distro will be interrupted.",
+                          "CMDeck will restart the WSL backend on the new distro. Sessions still running on the current distro will be interrupted.",
                         )
                       : pendingWslChange?.kind === "enable"
                         ? gt(
@@ -1609,10 +1665,10 @@ function ConnectionsSettingsContent({
                           )
                         : pendingWslChange?.nextValue
                           ? gt(
-                              "T3 Code will restart and start only the WSL backend. Your Windows-side projects won't be accessible until you turn this off again.",
+                              "CMDeck will restart and start only the WSL backend. Your Windows-side projects won't be accessible until you turn this off again.",
                             )
                           : gt(
-                              "T3 Code will restart and bring the Windows backend back up alongside WSL.",
+                              "CMDeck will restart and bring the Windows backend back up alongside WSL.",
                             )}
                 </AlertDialogDescription>
               </AlertDialogHeader>
@@ -1701,7 +1757,7 @@ function ConnectionsSettingsContent({
                   <T>Disable Tailscale HTTPS?</T>
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  <T>T3 Code will restart the local backend without Tailscale Serve.</T>
+                  <T>CMDeck will restart the local backend without Tailscale Serve.</T>
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -1742,7 +1798,7 @@ function ConnectionsSettingsContent({
                 </DialogTitle>
                 <DialogDescription>
                   <T>
-                    T3 Code will restart the local backend with Tailscale Serve enabled and ask
+                    CMDeck will restart the local backend with Tailscale Serve enabled and ask
                     Tailscale to proxy HTTPS traffic to this backend.
                   </T>
                 </DialogDescription>

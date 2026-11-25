@@ -1,0 +1,251 @@
+# Private fork CI. Upstream's workflows (Blacksmith runners, releases, relay deploys, EAS, AUR)
+# are removed: nothing here publishes, deploys, or uses secrets.
+name: Fork CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    name: Fork guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
+          sparse-checkout: |
+            /*
+            !/.repos/
+            !/apps/mobile/modules/t3-terminal/Vendor/**/*.a
+          sparse-checkout-cone-mode: false
+
+      - name: Fetch upstream
+        run: git fetch --no-tags https://github.com/pingdotgg/t3code.git main:refs/remotes/upstream/main
+
+      - name: Fork guard
+        run: bash scripts/fork/guard.sh upstream/main
+
+  check:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          sparse-checkout: |
+            /*
+            !/.repos/
+            !/apps/mobile/modules/t3-terminal/Vendor/**/*.a
+          sparse-checkout-cone-mode: false
+
+      - name: Setup Vite+
+        uses: ./.github/actions/setup-ci-deps
+        with:
+          install: "false"
+
+      - name: Install dependencies
+        id: install
+        run: vp install --frozen-lockfile
+
+      - name: Typecheck
+        run: |
+          code=0
+          vp run --filter './apps/*' --filter './packages/*' --filter './scripts' --filter './infra/*' --concurrency-limit 1 typecheck > typecheck.log 2>&1 || code=$?
+          tail -5 typecheck.log
+          grep -E 'error TS|: error|✗|exit code' typecheck.log | grep -v 'suggestion TS' | head -200 || true
+          if [ "$code" -ne 0 ]; then
+            # vp truncates per-package output; list every error in the app packages.
+            for dir in apps/server apps/web apps/desktop apps/mobile packages/client-runtime; do
+              echo "::group::$dir"
+              (cd "$dir" && { vp exec effect-tsgo tsrs --noEmit > ../../tsc-direct.log 2>&1; echo "tsgo exit: $?"; } ; grep -vE 'suggestion TS|^\s*$|^ *~+ *$|^[0-9]+ ' ../../tsc-direct.log | tail -40) || true
+              echo "::endgroup::"
+            done
+          fi
+          exit $code
+
+      - name: Upload typecheck log
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: typecheck-log
+          path: typecheck.log
+
+      - name: Typecheck evals
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        working-directory: evals
+        run: |
+          code=0; vp exec effect-tsgo tsrs --noEmit > tsc.log 2>&1 || code=$?
+          grep -v 'suggestion TS' tsc.log | grep -v '^\s*$' | tail -80 || true
+          exit $code
+
+  lint:
+    name: Lint, unused code, i18n, format
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          sparse-checkout: |
+            /*
+            !/.repos/
+            !/apps/mobile/modules/t3-terminal/Vendor/**/*.a
+          sparse-checkout-cone-mode: false
+
+      - name: Setup Vite+
+        uses: ./.github/actions/setup-ci-deps
+        with:
+          install: "false"
+
+      - name: Install dependencies
+        run: vp install --frozen-lockfile
+
+      - name: Ensure Electron runtime is installed
+        run: vp run --filter @t3tools/desktop ensure:electron
+
+      - name: Check unused code
+        if: ${{ !cancelled() }}
+        run: vp run knip:check
+
+      - name: Check i18n catalogs
+        if: ${{ !cancelled() }}
+        run: vp run i18n:check
+
+      - name: Check format and lint
+        if: ${{ !cancelled() }}
+        run: vp check
+
+  test-packages:
+    name: Package, desktop and mobile tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          sparse-checkout: |
+            /*
+            !/.repos/
+            !/apps/mobile/modules/t3-terminal/Vendor/**/*.a
+          sparse-checkout-cone-mode: false
+
+      - name: Setup Vite+
+        uses: ./.github/actions/setup-ci-deps
+        with:
+          install: "false"
+
+      - name: Install dependencies
+        run: vp install --frozen-lockfile
+
+      - name: Ensure Electron runtime is installed
+        run: vp run --filter @t3tools/desktop ensure:electron
+
+      # The desktop tests compile the browser secret helper.
+      - name: Install browser secret helper build libraries
+        run: sudo apt-get update -o Acquire::Languages=none && sudo apt-get install -y libsecret-1-dev pkg-config
+
+      # Mirrors upstream's shared Test job: every package except the server and web suites.
+      - name: Test
+        run: |
+          set -o pipefail
+          vp run --parallel --concurrency-limit 2 --filter '!t3' --filter '!@t3tools/monorepo' --filter '!@t3tools/web' test 2>&1 | python3 -u -c '
+          import sys
+          for line in sys.stdin:
+              sys.stdout.write(line.encode("ascii", "backslashreplace").decode("ascii"))
+          '
+
+  # Sharded small: on private-repo runners one Chromium session for ~220 files can run out of
+  # memory and drop its connection.
+  test-web:
+    name: Web tests (${{ matrix.shard }}/6)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          sparse-checkout: |
+            /*
+            !/.repos/
+            !/apps/mobile/modules/t3-terminal/Vendor/**/*.a
+          sparse-checkout-cone-mode: false
+
+      - name: Setup Vite+
+        uses: ./.github/actions/setup-ci-deps
+        with:
+          install: "false"
+
+      - name: Install dependencies
+        run: vp install --frozen-lockfile
+
+      - name: Install Chromium for web browser tests
+        run: |
+          node apps/web/node_modules/playwright/cli.js install --only-shell chromium
+          browser=$(find "$HOME/.cache/ms-playwright" -name chrome-headless-shell -type f -print -quit)
+          if ! ldd "$browser" >/dev/null 2>&1 || ldd "$browser" | grep -q 'not found'; then
+            node apps/web/node_modules/playwright/cli.js install-deps chromium
+          fi
+
+      # Headless Chromium sometimes drops its connection mid-shard on stock runners (a different
+      # file each time); only that error earns one rerun, real failures fail the first time.
+      - name: Test
+        working-directory: apps/web
+        run: |
+          set -o pipefail
+          for attempt in 1 2; do
+            vp test run --passWithNoTests --project unit --project browser --shard ${{ matrix.shard }}/6 2>&1 | tee test.log && exit 0
+            grep -q VITEST_BROWSER_CONNECTION_CLOSED test.log || exit 1
+            echo "::warning::Chromium dropped the test connection (attempt $attempt)"
+          done
+          exit 1
+
+  test-server:
+    name: Server tests (full suite)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          sparse-checkout: |
+            /*
+            !/.repos/
+            !/apps/mobile/modules/t3-terminal/Vendor/**/*.a
+          sparse-checkout-cone-mode: false
+
+      - name: Setup Vite+
+        uses: ./.github/actions/setup-ci-deps
+        with:
+          install: "false"
+
+      - name: Install dependencies
+        run: vp install --frozen-lockfile
+
+      - name: Install Chromium for server browser integration tests
+        run: |
+          node apps/server/node_modules/playwright-core/cli.js install --only-shell chromium
+          browser=$(find "$HOME/.cache/ms-playwright" -name chrome-headless-shell -type f -print -quit)
+          if ldd "$browser" | grep '=> not found'; then
+            node apps/server/node_modules/playwright-core/cli.js install-deps chromium
+          fi
+
+      # Upstream's test:cached passes every test file in one env var, which exceeds Linux's
+      # argument limit (E2BIG) on stock runners.
+      - name: Test
+        working-directory: apps/server
+        run: vp test run --maxWorkers 2

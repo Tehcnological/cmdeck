@@ -56,29 +56,6 @@ export function rememberEnabledProjectGroupingMode(mode: SidebarProjectGroupingM
   } catch {}
 }
 
-export function hasChangedBackgroundActivitySettings(
-  settings: Pick<
-    UnifiedSettings,
-    | "backgroundActivity"
-    | "backgroundActivityProfile"
-    | "automaticGitFetchInterval"
-    | "providerHealthRefreshInterval"
-  >,
-): boolean {
-  return (
-    !Equal.equals(settings.backgroundActivity, DEFAULT_UNIFIED_SETTINGS.backgroundActivity) ||
-    settings.backgroundActivityProfile !== DEFAULT_UNIFIED_SETTINGS.backgroundActivityProfile ||
-    !Equal.equals(
-      settings.automaticGitFetchInterval,
-      DEFAULT_UNIFIED_SETTINGS.automaticGitFetchInterval,
-    ) ||
-    !Equal.equals(
-      settings.providerHealthRefreshInterval,
-      DEFAULT_UNIFIED_SETTINGS.providerHealthRefreshInterval,
-    )
-  );
-}
-
 type TypographySettings = Pick<
   UnifiedSettings,
   | "fontFamilySans"
@@ -176,7 +153,7 @@ export function getChangedBrowserSettingLabels(
       ? [resolve(msg("Floating preview"))]
       : []),
     ...(settings.pullRequestLinksOpenInApp !== DEFAULT_UNIFIED_SETTINGS.pullRequestLinksOpenInApp
-      ? [resolve(msg("Open pull requests in T3 Code"))]
+      ? [resolve(msg("Open pull requests in CMDeck"))]
       : []),
   ];
 }
@@ -216,8 +193,17 @@ export function backgroundActivitySharedPolicySettings(
   };
 }
 
+export function hasChangedBackgroundActivitySettings(settings: ServerSettings): boolean {
+  const current = normalizeServerBackgroundActivitySettings(settings);
+  const defaults = normalizeServerBackgroundActivitySettings(DEFAULT_UNIFIED_SETTINGS);
+  return !Equal.equals(current, defaults);
+}
+
 export function buildProviderInstanceUpdatePatch(input: {
-  readonly settings: Pick<ServerSettings, "providerInstances">;
+  readonly settings: Pick<
+    ServerSettings,
+    "providerInstances" | "textGenerationModelSelectionExplicit"
+  >;
   readonly instanceId: ProviderInstanceId;
   readonly instance: ProviderInstanceConfig;
   readonly textGenerationModelSelection?:
@@ -229,8 +215,12 @@ export function buildProviderInstanceUpdatePatch(input: {
       ...input.settings.providerInstances,
       [input.instanceId]: input.instance,
     },
+    // A repair after an instance change is not the user choosing a model.
     ...(input.textGenerationModelSelection !== undefined
-      ? { textGenerationModelSelection: input.textGenerationModelSelection }
+      ? {
+          textGenerationModelSelection: input.textGenerationModelSelection,
+          textGenerationModelSelectionExplicit: input.settings.textGenerationModelSelectionExplicit,
+        }
       : {}),
   };
 }

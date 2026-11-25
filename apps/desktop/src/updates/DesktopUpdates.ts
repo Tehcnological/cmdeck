@@ -9,7 +9,7 @@ import {
   type DesktopUpdateCheckResult,
   type DesktopUpdateState,
 } from "@t3tools/contracts";
-import { errorTag } from "@t3tools/shared/observability";
+import { errorTag } from "@t3tools/shared/errorTag";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
@@ -1411,7 +1411,7 @@ export const make = Effect.gen(function* () {
       if (Option.isSome(channelBlockedReason(nextChannel))) {
         return yield* new DesktopUpdateChannelManagedError({
           channel: nextChannel,
-          policyMessage: policy.message ?? "Your administrator manages T3 Code updates.",
+          policyMessage: policy.message ?? "Your administrator manages CMDeck updates.",
         });
       }
       // A background check holds the updater only briefly, so wait it out instead of refusing.

@@ -1,5 +1,6 @@
 import {
   AuthAccessWriteScope,
+  AuthMcpClientAccess,
   AuthRevokePairingLinkInput,
   AuthSessionId,
   AuthStandardClientScopes,
@@ -13,12 +14,15 @@ import * as Schema from "effect/Schema";
 import { Argument, Command, Flag, GlobalFlag } from "effect/cli";
 
 import * as EnvironmentAuth from "../auth/EnvironmentAuth.ts";
+import * as RemoteMcpTokens from "../auth/RemoteMcpTokens.ts";
+import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 
 import {
   formatConnectDeviceList,
   formatIssuedPairingCredential,
   formatIssuedSession,
   formatPairingCredentialList,
+  formatPairingRequestList,
   formatSessionList,
 } from "../cliAuthFormat.ts";
 import * as ServerConfig from "../config.ts";
@@ -184,9 +188,89 @@ const pairingRevokeCommand = Command.make("revoke", {
   ),
 );
 
+const pairingListPendingCommand = Command.make("list-pending", {
+  ...authLocationFlags,
+  json: jsonFlag,
+}).pipe(
+  Command.withDescription("List devices waiting for approval to pair with a pairing token."),
+  Command.withHandler((flags) =>
+    runWithEnvironmentAuth(
+      flags,
+      (environmentAuth) =>
+        Effect.gen(function* () {
+          const pairingLinks = yield* environmentAuth.listPairingLinks();
+          yield* Console.log(formatPairingRequestList(pairingLinks, { json: flags.json }));
+        }),
+      { quietLogs: flags.json },
+    ),
+  ),
+);
+
+const pendingIdArgument = Argument.String("id").pipe(
+  Argument.withDescription("Pairing credential id of the waiting device, from `list-pending`."),
+  Argument.withSchema(AuthRevokePairingLinkInput.fields.id),
+);
+
+const pairingApproveCommand = Command.make("approve", {
+  ...authLocationFlags,
+  id: pendingIdArgument,
+}).pipe(
+  Command.withDescription("Let the device waiting on a pairing token pair."),
+  Command.withHandler((flags) =>
+    runWithEnvironmentAuth(flags, (environmentAuth) =>
+      Effect.gen(function* () {
+        const approved = yield* changeAccess({
+          viaServer: (client) =>
+            client.auth
+              .approveConnectDevice({ headers: {}, payload: { pairingLinkId: flags.id } })
+              .pipe(Effect.map((result) => result.approved)),
+          locally: environmentAuth.approveConnectDevice(flags.id),
+        });
+        yield* Console.log(
+          approved
+            ? `Approved ${flags.id}. The device pairs on its next try.\n`
+            : `No device is waiting for approval on ${flags.id}.\n`,
+        );
+      }),
+    ),
+  ),
+);
+
+const pairingDenyCommand = Command.make("deny", {
+  ...authLocationFlags,
+  id: pendingIdArgument,
+}).pipe(
+  Command.withDescription("Refuse the device waiting on a pairing token and revoke the token."),
+  Command.withHandler((flags) =>
+    runWithEnvironmentAuth(flags, (environmentAuth) =>
+      Effect.gen(function* () {
+        const denied = yield* changeAccess({
+          viaServer: (client) =>
+            client.auth
+              .revokePairingLink({ headers: {}, payload: { id: flags.id } })
+              .pipe(Effect.map((result) => result.revoked)),
+          locally: environmentAuth.revokePairingLink(flags.id),
+        });
+        yield* Console.log(
+          denied
+            ? `Denied ${flags.id} and revoked its pairing token.\n`
+            : `No active pairing credential found for ${flags.id}.\n`,
+        );
+      }),
+    ),
+  ),
+);
+
 const pairingCommand = Command.make("pairing").pipe(
-  Command.withDescription("Manage one-time client pairing tokens."),
-  Command.withSubcommands([pairingCreateCommand, pairingListCommand, pairingRevokeCommand]),
+  Command.withDescription("Manage one-time client pairing tokens and the devices waiting on them."),
+  Command.withSubcommands([
+    pairingCreateCommand,
+    pairingListCommand,
+    pairingRevokeCommand,
+    pairingListPendingCommand,
+    pairingApproveCommand,
+    pairingDenyCommand,
+  ]),
 );
 
 const connectDeviceListCommand = Command.make("list", {
@@ -380,7 +464,96 @@ const sessionCommand = Command.make("session").pipe(
   Command.withSubcommands([sessionIssueCommand, sessionListCommand, sessionRevokeCommand]),
 );
 
+/** These commands update the local secret store even when the server is stopped. */
+const runWithRemoteMcpTokens = Effect.fn("auth.runWithRemoteMcpTokens")(function* <A, E, R>(
+  flags: CliAuthLocationFlags,
+  run: Effect.Effect<A, E, R>,
+) {
+  const logLevel = yield* GlobalFlag.LogLevel;
+  const config = yield* resolveCliAuthConfig(flags, logLevel, { quietLogs: true });
+  return yield* run.pipe(
+    Effect.provide(ServerSecretStore.layer.pipe(Layer.provide(ServerConfig.layer(config)))),
+  );
+});
+
+const mcpTokenCreateCommand = Command.make("create", {
+  ...authLocationFlags,
+  label: Flag.String("label").pipe(
+    Flag.withDescription("Name of the client that will use the token, such as `laptop-claude`."),
+  ),
+  access: Flag.Literals("access", AuthMcpClientAccess.literals).pipe(
+    Flag.withDescription(
+      "What the token may do: `read-only`, or the broadest runtime mode threads it starts or steers may use.",
+    ),
+  ),
+}).pipe(
+  Command.withDescription(
+    "Create a bearer token for /mcp, accepted while remote MCP is on (Settings or T3CODE_REMOTE_MCP). The token is printed once.",
+  ),
+  Command.withHandler((flags) =>
+    runWithRemoteMcpTokens(
+      flags,
+      Effect.gen(function* () {
+        const { record, token } = yield* RemoteMcpTokens.create({
+          label: flags.label,
+          access: flags.access,
+        });
+        yield* Console.log(
+          `Created remote MCP token ${record.id} (${record.label}, ${record.access}).\n` +
+            "Copy it now: it is not shown again, and CMDeck keeps only a hash of it.\n\n" +
+            `${token}\n`,
+        );
+      }),
+    ),
+  ),
+);
+
+const mcpTokenListCommand = Command.make("list", authLocationFlags).pipe(
+  Command.withDescription("List remote MCP tokens without revealing them."),
+  Command.withHandler((flags) =>
+    runWithRemoteMcpTokens(
+      flags,
+      Effect.gen(function* () {
+        const tokens = yield* RemoteMcpTokens.list();
+        const rows = tokens.map(({ id, access, createdAt, label }) =>
+          [id, access, createdAt, label].join("  "),
+        );
+        yield* Console.log(rows.length === 0 ? "No remote MCP tokens.\n" : `${rows.join("\n")}\n`);
+      }),
+    ),
+  ),
+);
+
+const mcpTokenRevokeCommand = Command.make("revoke", {
+  ...authLocationFlags,
+  id: Argument.String("id").pipe(Argument.withDescription("Token id from `list`.")),
+}).pipe(
+  Command.withDescription(
+    "Revoke a remote MCP token and close its open requests within a few seconds.",
+  ),
+  Command.withHandler((flags) =>
+    runWithRemoteMcpTokens(
+      flags,
+      Effect.gen(function* () {
+        const revoked = yield* RemoteMcpTokens.revoke(flags.id);
+        yield* Console.log(
+          revoked
+            ? `Revoked remote MCP token ${flags.id}.\n`
+            : `No remote MCP token found for ${flags.id}.\n`,
+        );
+      }),
+    ),
+  ),
+);
+
+const mcpTokenCommand = Command.make("mcp-token").pipe(
+  Command.withDescription(
+    "Manage bearer tokens for MCP clients that reach /mcp over Tailscale or your own tunnel.",
+  ),
+  Command.withSubcommands([mcpTokenCreateCommand, mcpTokenListCommand, mcpTokenRevokeCommand]),
+);
+
 export const authCommand = Command.make("auth").pipe(
   Command.withDescription("Manage the local auth control plane for headless deployments."),
-  Command.withSubcommands([pairingCommand, sessionCommand, connectDeviceCommand]),
+  Command.withSubcommands([pairingCommand, sessionCommand, connectDeviceCommand, mcpTokenCommand]),
 );

@@ -17,9 +17,9 @@ explain why those changes are needed for the same fix. Split independent fixes. 
 
 ## Scope
 
-<!-- We accept bug fixes, not features. Link the issue that shows the bug. For a
-small fix of an obvious bug, say why it needs no issue. If a maintainer asked for
-this PR, link the request. -->
+<!-- Say which fork change this fixes, or link the issue for a feature the
+maintainer agreed to. Bugs in code inherited unchanged from T3 Code belong
+upstream. -->
 
 ## Verification
 

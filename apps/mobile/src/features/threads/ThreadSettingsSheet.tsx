@@ -98,6 +98,7 @@ import { useSelectedThreadWorktree } from "../../state/use-selected-thread-workt
 import { providerWorkspaceSnapshotRefresh } from "../../state/provider-workspace-snapshot-refresh";
 import { threadAllowsProviderSwitch } from "../../state/thread-provider-switching";
 import { environmentServerConfigsAtom, serverEnvironment } from "../../state/server";
+import { ThreadLastInferenceRequest } from "./ThreadLastInferenceRequest";
 import { mobilePreferencesAtom } from "../../state/preferences";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useNewTaskFlow } from "./new-task-flow-provider";
@@ -287,6 +288,8 @@ type ThreadSettingsSubmenuPage =
 
 type ThreadSettingsSessionProps = {
   readonly environmentId: EnvironmentId | null;
+  /** Set for an existing thread, whose last gateway request the sheet shows. */
+  readonly threadId?: ThreadId;
   readonly projectId: ProjectId | null;
   readonly cwd: string | null;
   readonly providerInstanceId?: ProviderInstanceId;
@@ -313,6 +316,7 @@ export type ExistingThreadSettingsRouteParams = {
 
 type ThreadSettingsSessionValue = {
   readonly environmentId: EnvironmentId | null;
+  readonly threadId: ThreadId | null;
   readonly providerInstanceId?: ProviderInstanceId;
   readonly providerGroups: ReadonlyArray<ProviderGroup>;
   readonly favoriteKeys: ReadonlySet<string>;
@@ -638,6 +642,7 @@ function ThreadSettingsSessionProvider(
 
   const value = {
     environmentId,
+    threadId: props.threadId ?? null,
     providerInstanceId: props.providerInstanceId,
     providerGroups,
     manageHidden,
@@ -976,6 +981,12 @@ function ThreadSettingsOptionsItem(props: {
   return (
     <View style={{ paddingBottom: insets.bottom + props.bottomInset + 12 }}>
       <ChatGptSharingStatus provider={selectedProvider} />
+      {session.environmentId && session.threadId ? (
+        <ThreadLastInferenceRequest
+          environmentId={session.environmentId}
+          threadId={session.threadId}
+        />
+      ) : null}
       <Text className="px-5 pb-2 pt-2 text-sm font-t3-medium text-foreground-muted">
         <T>Options</T>
       </Text>
@@ -1542,6 +1553,7 @@ export function ExistingThreadSettingsRouteScreen({
   return (
     <ThreadSettingsPickerScreen
       environmentId={selectedThread.environmentId}
+      threadId={selectedThread.id}
       projectId={selectedThread.projectId}
       cwd={selectedThreadCwd}
       providerInstanceId={modelSelection.instanceId}

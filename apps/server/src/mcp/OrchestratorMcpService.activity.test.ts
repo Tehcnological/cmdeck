@@ -20,7 +20,6 @@ import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
-import * as Metric from "effect/Metric";
 import * as TestClock from "effect/testing/TestClock";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import { expect, it } from "vite-plus/test";
@@ -468,7 +467,7 @@ it("readThread pages cut-off text without splitting an emoji across pages", asyn
   }).pipe(Effect.provide(layer), Effect.runPromise);
 });
 
-it("readThread does not attribute the /compact T3 Code sends before a stale send to the user", async () => {
+it("readThread does not attribute the /compact CMDeck sends before a stale send to the user", async () => {
   const compactRunId = RunId.make("run-mcp-compact-on-return");
   const sendRunId = RunId.make("run-mcp-held-send");
   const compactMessageId = MessageId.make("message-mcp-compact-on-return");
@@ -692,7 +691,7 @@ it("readThread returns the newest items that fit the response budget", async () 
         thread: undefined,
         client: {
           sessionId: "laptop",
-          label: "T3 Code · laptop",
+          label: "CMDeck · laptop",
           access: "auto",
           linked: true,
         },
@@ -1282,20 +1281,8 @@ it("requestSecret saves a pasted value to a file without opening a card", async 
       ),
     ),
   );
-  const counted = Metric.snapshot.pipe(
-    Effect.map((snapshots) => {
-      const found = snapshots.find(
-        (snapshot) =>
-          snapshot.id === "t3_secret_requests_total" &&
-          snapshot.attributes?.status === "saved_pasted",
-      );
-      return found?.type === "Counter" ? Number(found.state.count) : 0;
-    }),
-  );
-
   await Effect.gen(function* () {
     const service = yield* OrchestratorMcpService.OrchestratorMcpService;
-    const before = yield* counted;
     const result = yield* service.requestSecret(makeScope(), {
       label: "Pixel PIN",
       reason: "Unlocks the test phone.",
@@ -1312,7 +1299,6 @@ it("requestSecret saves a pasted value to a file without opening a card", async 
       },
     ]);
     expect(dispatched).toEqual([]);
-    expect((yield* counted) - before).toBe(1);
 
     const asRef = yield* service
       .requestSecret(makeScope(), {

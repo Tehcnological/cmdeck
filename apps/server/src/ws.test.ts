@@ -21,6 +21,8 @@ import {
   ORCHESTRATION_PROTOCOL_VERSION,
   ORCHESTRATION_PROTOCOL_QUERY_PARAM,
   EnvironmentId,
+  InferenceServerId,
+  type InferenceServerSnapshot,
   EventId,
   GitManagerError,
   VcsProcessSpawnError,
@@ -82,7 +84,6 @@ import * as AcpRegistryRuntimeCoordinator from "@t3tools/provider-acp-registry/s
 import * as AcpRegistrySupport from "@t3tools/provider-acp-registry/server/AcpRegistrySupport";
 import * as AgentSessionImporter from "./project/AgentSessionImporter.ts";
 import * as AgentSessionScanner from "./project/AgentSessionScanner.ts";
-import * as AnalyticsService from "./telemetry/AnalyticsService.ts";
 import * as AntigravityInstallation from "./provider/AntigravityInstallation.ts";
 import * as ProviderInstallation from "./provider/providerInstallation.ts";
 import * as BackgroundPolicy from "./background/BackgroundPolicy.ts";
@@ -104,7 +105,6 @@ import * as McpAppRequests from "./mcpApps/McpAppRequests.ts";
 import * as McpSignIn from "./mcpApps/McpSignIn.ts";
 import * as ModelManifest from "./provider/ModelManifest.ts";
 import * as Orchestrator from "./orchestration-v2/Orchestrator.ts";
-import * as OtlpEndpointCheck from "./observability/OtlpEndpointCheck.ts";
 import * as PairingGrantStore from "./auth/PairingGrantStore.ts";
 import * as RpcAuthorization from "./auth/RpcAuthorization.ts";
 import * as PeerLinkRequests from "./peer/PeerLinkRequests.ts";
@@ -135,6 +135,7 @@ import * as RemoteOpenTargets from "./environment/RemoteOpenTargets.ts";
 import * as RepositoryIdentityResolver from "./project/RepositoryIdentityResolver.ts";
 import * as ResourceTelemetry from "./resourceTelemetry/ResourceTelemetry.ts";
 import * as ReviewService from "./review/ReviewService.ts";
+import * as ThreadReview from "./review/ThreadReview.ts";
 import * as ScheduledTasks from "./scheduledTasks/ScheduledTaskService.ts";
 import * as Workflows from "./workflows/Workflows.ts";
 import * as WorkflowRuntime from "./workflows/WorkflowRuntime.ts";
@@ -156,6 +157,11 @@ import * as TerminalManager from "./terminal/Manager.ts";
 import * as ThreadLaunchService from "./orchestration-v2/ThreadLaunchService.ts";
 import * as ThreadSearch from "./orchestration-v2/ThreadSearch.ts";
 import * as UsageLimitSources from "./usage/UsageLimitSources.ts";
+import * as InferenceDiscovery from "./inference/InferenceDiscovery.ts";
+import * as InferenceImageChecks from "./inference/InferenceImageChecks.ts";
+import * as InferenceStops from "./inference/InferenceStops.ts";
+import * as InferenceServerRegistry from "./inference/InferenceServerRegistry.ts";
+import * as InferenceRequests from "./persistence/InferenceRequests.ts";
 import * as UsageService from "./usage/UsageService.ts";
 import * as VcsProvisioningService from "./vcs/VcsProvisioningService.ts";
 import * as VcsStatusBroadcaster from "./vcs/VcsStatusBroadcaster.ts";
@@ -165,12 +171,13 @@ import * as TaskFolders from "./workspace/TaskFolders.ts";
 import * as WorkspaceFileSystem from "./workspace/WorkspaceFileSystem.ts";
 import * as WorktreeSetupTracker from "./project/WorktreeSetupTracker.ts";
 import * as ProjectFaviconResolver from "./project/ProjectFaviconResolver.ts";
-import * as TraceDiagnostics from "./diagnostics/TraceDiagnostics.ts";
 import * as TriageService from "./triage/TriageService.ts";
 import * as TextGenerators from "./textGeneration/TextGenerators.ts";
 import * as WorkspacePaths from "./workspace/WorkspacePaths.ts";
 import * as ServerSecretStore from "./auth/ServerSecretStore.ts";
 import * as SecretCheck from "./secrets/SecretCheck.ts";
+import * as RemoteMcpTokens from "./auth/RemoteMcpTokens.ts";
+import * as PublicAddressCheck from "./environment/PublicAddressCheck.ts";
 import * as ServerConfigModule from "./config.ts";
 import * as Keybindings from "./keybindings.ts";
 import { USAGE_LIMITS_COMMAND } from "@t3tools/shared/usageLimits";
@@ -832,8 +839,9 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(DocumentText.DocumentText)({}),
   Layer.mock(ServerSecretStore.ServerSecretStore)({}),
   Layer.mock(SecretCheck.SecretCheck)({}),
+  Layer.mock(RemoteMcpTokens.RemoteMcpTokens)({}),
+  Layer.mock(PublicAddressCheck.PublicAddressCheck)({}),
   Layer.mock(WorkspacePaths.WorkspacePaths)({}),
-  Layer.mock(TraceDiagnostics.TraceDiagnostics)({}),
   Layer.mock(TriageService.TriageService)({}),
   Layer.mock(TextGenerators.TextGenerators)({}),
   Layer.mock(ProjectFaviconResolver.ProjectFaviconResolver)({}),
@@ -843,7 +851,6 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(AcpRegistrySessions.AcpRegistrySessions)({}),
   Layer.mock(AgentSessionImporter.AgentSessionImporter)({}),
   Layer.mock(AgentSessionScanner.AgentSessionScanner)({}),
-  Layer.mock(AnalyticsService.AnalyticsService)({}),
   Layer.mock(AntigravityInstallation.AntigravityInstallation)({ managedDirectory: "/unused" }),
   Layer.mock(BackgroundPolicy.BackgroundPolicy)({}),
   Layer.mock(CheckpointDiffQuery.CheckpointDiffQuery)({}),
@@ -855,12 +862,44 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(EnvironmentTheme.EnvironmentThemeService)({}),
   Layer.mock(GitWorkflowService.GitWorkflowService)({}),
   Layer.mock(HostResources.HostResources)({}),
+  Layer.succeed(
+    InferenceDiscovery.InferenceDiscovery,
+    InferenceDiscovery.InferenceDiscovery.of({ discover: () => Effect.die("unused") }),
+  ),
+  Layer.succeed(
+    InferenceImageChecks.InferenceImageChecks,
+    InferenceImageChecks.InferenceImageChecks.of({ check: () => Effect.die("unused") }),
+  ),
+  Layer.succeed(
+    InferenceRequests.InferenceRequestLog,
+    InferenceRequests.InferenceRequestLog.of({
+      record: () => Effect.void,
+      summarize: () => Effect.die("unused"),
+      latestForThread: () => Effect.succeed(null),
+    }),
+  ),
+  Layer.succeed(
+    InferenceServerRegistry.InferenceServerRegistry,
+    InferenceServerRegistry.InferenceServerRegistry.of({
+      current: Effect.succeed([]),
+      streamChanges: Stream.empty,
+      refresh: () => Effect.succeed([]),
+      publishGatewayQueue: () => Effect.void,
+    }),
+  ),
+  Layer.succeed(
+    InferenceStops.InferenceStops,
+    InferenceStops.InferenceStops.of({
+      record: () => Effect.void,
+      latest: () => Effect.succeed(null),
+      refusesRetry: () => Effect.succeed(false),
+    }),
+  ),
   Layer.mock(McpAppRequests.McpAppRequests)({}),
   Layer.mock(McpSignIn.McpSignIn)({}),
   Layer.mock(ModelManifest.ModelManifest)({}),
   Layer.mock(OrchestrationEventStore.OrchestrationEventStore)({}),
   Layer.mock(Orchestrator.OrchestratorV2)({}),
-  Layer.mock(OtlpEndpointCheck.OtlpEndpointCheck)({}),
   Layer.mock(PairingGrantStore.PairingGrantStore)({}),
   Layer.mock(PeerLinks.PeerLinks)({}),
   Layer.mock(PeerLinkRequests.PeerLinkRequests)({}),
@@ -890,6 +929,7 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(RepositoryIdentityResolver.RepositoryIdentityResolver)({}),
   Layer.mock(ResourceTelemetry.ResourceTelemetry)({}),
   Layer.mock(ReviewService.ReviewService)({}),
+  Layer.mock(ThreadReview.ThreadReview)({}),
   Layer.mock(ScheduledTasks.ScheduledTaskService)({}),
   Workflows.layerDisabled,
   Layer.mock(WorkflowRuntime.WorkflowDefinitions)({}),
@@ -969,7 +1009,6 @@ it.live.each([
           markDisconnected: () => Effect.void,
           awaitInvalidation: () => Effect.never,
         }),
-        Layer.mock(AnalyticsService.AnalyticsService)({ recordOwners: () => Effect.void }),
         Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
           namedProjectsRoot: process.cwd(),
         }),
@@ -1084,6 +1123,14 @@ it.effect.each([
           streamChanges: Stream.never,
         }),
         Layer.mock(UsageLimitSources.UsageLimitSources)({ streamChanges: Stream.make([]) }),
+        Layer.mock(InferenceRequests.InferenceRequestLog)({}),
+        Layer.mock(InferenceStops.InferenceStops)({}),
+        Layer.mock(InferenceImageChecks.InferenceImageChecks)({}),
+        Layer.mock(InferenceDiscovery.InferenceDiscovery)({}),
+        Layer.mock(InferenceServerRegistry.InferenceServerRegistry)({
+          current: Effect.succeed([]),
+          streamChanges: Stream.make([]),
+        }),
         Layer.mock(RemoteOpenTargets.RemoteOpenTargets)({
           resolveTargets: () =>
             Deferred.succeed(remoteDiscoveryStarted, undefined).pipe(
@@ -1168,7 +1215,6 @@ it.effect.each([
               method: "browser-session-cookie",
               scopes: [],
             },
-            {},
             yield* ServerBrowser.ServerBrowser,
             () => Effect.void,
             { secretReferences: true },
@@ -1323,7 +1369,6 @@ it.effect("access changes made while the snapshot loads reach the client after i
             method: "browser-session-cookie",
             scopes: [],
           },
-          {},
           yield* ServerBrowser.ServerBrowser,
           () => Effect.void,
           { secretReferences: true },
@@ -1448,6 +1493,7 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
     let scansCwd = true;
     let registryProviders: ReadonlyArray<ServerProvider> = [provider];
     const providerChanges = yield* Queue.unbounded<ReadonlyArray<ServerProvider>>();
+    const inferenceChanges = yield* Queue.unbounded<ReadonlyArray<InferenceServerSnapshot>>();
     const pulled = yield* Queue.unbounded<void>();
     const responses = yield* Queue.unbounded<unknown>();
     const configRpcServices = Layer.mergeAll(
@@ -1485,6 +1531,14 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
         current: Effect.succeed([]),
         streamChanges: Stream.make([]),
         refresh: Effect.void,
+      }),
+      Layer.mock(InferenceRequests.InferenceRequestLog)({}),
+      Layer.mock(InferenceStops.InferenceStops)({}),
+      Layer.mock(InferenceImageChecks.InferenceImageChecks)({}),
+      Layer.mock(InferenceDiscovery.InferenceDiscovery)({}),
+      Layer.mock(InferenceServerRegistry.InferenceServerRegistry)({
+        current: Effect.succeed([]),
+        streamChanges: Stream.concat(Stream.make([]), Stream.fromQueue(inferenceChanges)),
       }),
       Layer.mock(RemoteOpenTargets.RemoteOpenTargets)({
         resolveTargets: () => Effect.succeed([]),
@@ -1539,7 +1593,6 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
             method: "browser-session-cookie",
             scopes: [],
           },
-          {},
           yield* ServerBrowser.ServerBrowser,
           () => Effect.void,
           { secretReferences: true },
@@ -1598,6 +1651,25 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
     if (replaced.type !== "providerStatuses") return yield* Effect.die("Expected provider update");
     assert.deepEqual(replaced.payload.providers[0]?.slashCommands, provider.slashCommands);
     assert.deepEqual(replaced.payload.providers[0]?.skills, provider.skills);
+    assert.deepEqual(replaced.payload.inferenceServers, []);
+
+    // A probed inference server rides the same event, with the providers it pairs with.
+    const rtx: InferenceServerSnapshot = {
+      id: InferenceServerId.make("rtx"),
+      displayName: "rtx",
+      baseUrl: "http://rtx.test:8888/v1",
+      enabled: true,
+      status: "ready",
+      checkedAt: "2026-10-25T00:00:00.000Z",
+      models: [{ id: "GLM-5.3-Flash", servedContextWindow: 813056 }],
+    };
+    yield* server.write(0, { _tag: "Ack", requestId: configRequest });
+    yield* Queue.offer(inferenceChanges, [rtx]);
+    yield* TestClock.adjust("1 second");
+    const probed = (yield* Queue.take(responses)) as ServerConfigStreamEvent;
+    if (probed.type !== "providerStatuses") return yield* Effect.die("Expected provider update");
+    assert.deepEqual(probed.payload.inferenceServers, [rtx]);
+    assert.equal(probed.payload.providers[0]?.status, "warning");
 
     yield* server.write(0, {
       _tag: "Request",
@@ -1900,7 +1972,6 @@ it.effect("a missing thread worktree gets its project's skills in the cwd snapsh
             method: "browser-session-cookie",
             scopes: [],
           },
-          {},
           yield* ServerBrowser.ServerBrowser,
           () => Effect.void,
           { secretReferences: true },
@@ -1981,7 +2052,6 @@ it.effect(
                 method: "browser-session-cookie",
                 scopes: [...scopes],
               },
-              {},
               browser,
               () => Effect.void,
               { secretReferences: true },
@@ -2069,7 +2139,6 @@ it.effect("a git action that fails partway still refreshes the repository status
             method: "browser-session-cookie",
             scopes: [AuthSourceControlWriteScope],
           },
-          {},
           yield* ServerBrowser.ServerBrowser,
           () => Effect.void,
           { secretReferences: true },
@@ -2129,6 +2198,11 @@ it.effect("a publish whose push fails still refreshes the new remote", () =>
       Layer.mock(ExternalLauncher.ExternalLauncher)({}),
       Layer.mock(ProviderRegistry.ProviderRegistry)({}),
       Layer.mock(UsageLimitSources.UsageLimitSources)({}),
+      Layer.mock(InferenceRequests.InferenceRequestLog)({}),
+      Layer.mock(InferenceStops.InferenceStops)({}),
+      Layer.mock(InferenceImageChecks.InferenceImageChecks)({}),
+      Layer.mock(InferenceDiscovery.InferenceDiscovery)({}),
+      Layer.mock(InferenceServerRegistry.InferenceServerRegistry)({}),
       Layer.mock(RemoteOpenTargets.RemoteOpenTargets)({}),
       Layer.mock(DirectEndpoints.DirectEndpoints)({}),
       Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({ namedProjectsRoot: "/unused" }),
@@ -2149,7 +2223,6 @@ it.effect("a publish whose push fails still refreshes the new remote", () =>
             method: "browser-session-cookie",
             scopes: [AuthSourceControlWriteScope],
           },
-          {},
           yield* ServerBrowser.ServerBrowser,
           () => Effect.void,
           { secretReferences: true },
@@ -2740,7 +2813,6 @@ it.effect("ACP session RPCs list a thread missing its history and repair it on i
             method: "browser-session-cookie",
             scopes: [],
           },
-          {},
           yield* ServerBrowser.ServerBrowser,
           () => Effect.void,
           { secretReferences: true },
@@ -2887,7 +2959,6 @@ const makeWorkflowClient = Effect.fn("test.makeWorkflowClient")(function* (
           method: "browser-session-cookie",
           scopes: [...scopes],
         },
-        {},
         yield* ServerBrowser.ServerBrowser,
         () => Effect.void,
         { secretReferences: true },
@@ -2955,7 +3026,6 @@ const makeAcpRegistryClient = Effect.fn("test.makeAcpRegistryClient")(function* 
           method: "browser-session-cookie",
           scopes,
         },
-        {},
         yield* ServerBrowser.ServerBrowser,
         () => Effect.void,
         { secretReferences: true },

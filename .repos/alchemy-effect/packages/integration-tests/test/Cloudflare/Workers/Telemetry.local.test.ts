@@ -40,7 +40,7 @@ const TraceExport = Schema.fromJsonString(
 
 /**
  * The batches carrying the test's own spans, with those spans' names. Local
- * tools probe every port they see listening (T3 Code sends `GET /` to the
+ * tools probe every port they see listening (CMDeck sends `GET /` to the
  * Worker), and the Worker exports those requests too. The test's spans are
  * its client trace, which the DO RPC events continue; anything else is a
  * probe's.

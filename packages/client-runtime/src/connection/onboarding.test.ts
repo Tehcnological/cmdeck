@@ -46,7 +46,7 @@ const layerClientPresentation = Layer.succeed(
   ClientCapabilities.ClientPresentation,
   ClientCapabilities.ClientPresentation.of({
     metadata: {
-      label: "T3 Code Test",
+      label: "CMDeck Test",
       deviceType: "desktop",
       os: "Test OS",
     },
@@ -58,6 +58,7 @@ function layerPairingHttp(
   options?: {
     readonly failDescriptor?: boolean;
     readonly failExchange?: boolean;
+    readonly approvalPending?: boolean;
     readonly protocolVersion?: number;
     readonly selfUpdate?: boolean;
     readonly grantScopes?: ReadonlyArray<AuthEnvironmentScope>;
@@ -97,6 +98,18 @@ function layerPairingHttp(
     }
 
     if (url.endsWith("/oauth/token")) {
+      if (options?.approvalPending === true) {
+        return Promise.resolve(
+          Response.json(
+            {
+              _tag: "EnvironmentConnectApprovalPendingError",
+              code: "connect_approval_pending",
+              traceId: "trace-pairing-test",
+            },
+            { status: 403 },
+          ),
+        );
+      }
       if (options?.failExchange === true) {
         return Promise.resolve(
           Response.json(
@@ -279,7 +292,7 @@ describe("connection onboarding", () => {
       const tokenParams = new URLSearchParams(tokenBody);
       expect(tokenParams.get("subject_token")).toBe("pairing-token");
       expect(tokenParams.has("scope")).toBe(false);
-      expect(tokenParams.get("client_label")).toBe("T3 Code Test");
+      expect(tokenParams.get("client_label")).toBe("CMDeck Test");
       expect(tokenParams.get("client_device_type")).toBe("desktop");
       expect(tokenParams.get("client_os")).toBe("Test OS");
     }),
@@ -526,6 +539,22 @@ describe("connection onboarding", () => {
       expect(after.get(PAIRED_ENVIRONMENT_ID)?.enabled).toBe(false);
       expect(after.get(PAIRED_ENVIRONMENT_ID)?.unsupportedReason).toBe(UNSUPPORTED_ERROR.message);
     }).pipe(Effect.provide(layerPairingOnboarding({ failExchange: true }))),
+  );
+
+  // CMDeck holds direct pairing for approval with this response; upstream clients must keep
+  // reading it as "waiting", which lets the official mobile app retry the same link.
+  it.effect("reports a host holding the device for approval as waiting", () =>
+    Effect.gen(function* () {
+      const error = yield* preparePairingRegistration({
+        host: "remote.example.test",
+        pairingCode: "pairing-token",
+      }).pipe(Effect.flip);
+      expect(error).toMatchObject({
+        _tag: "ConnectionTransientError",
+        reason: "approval-pending",
+        failureCause: "approval_pending",
+      });
+    }).pipe(Effect.provide(layerPairingOnboarding({ approvalPending: true }))),
   );
 
   it.effect("rejects an incompatible server without consuming the pairing credential", () =>

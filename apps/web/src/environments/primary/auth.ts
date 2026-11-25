@@ -4,6 +4,7 @@ import type {
   AuthClientMetadata,
   AuthConnectDeviceRequest,
   AuthEnvironmentScope,
+  AuthPairingRequest,
   ServerAuthSessionMethod,
   AuthSessionId,
   AuthSessionState,
@@ -87,6 +88,21 @@ export class PrimaryEnvironmentPairingCredentialRejectedError extends Schema.Tag
   }
 }
 
+class PrimaryEnvironmentPairingApprovalPendingError extends Schema.TaggedError<PrimaryEnvironmentPairingApprovalPendingError>()(
+  "PrimaryEnvironmentPairingApprovalPendingError",
+  {
+    cause: Schema.Defect(),
+  },
+) {
+  override get message(): string {
+    return m(
+      msg(
+        "This device is waiting for approval. Ask someone already connected to approve it in Settings → Access, then try again.",
+      ),
+    );
+  }
+}
+
 export class PrimaryEnvironmentAuthSessionTimeoutError extends Schema.TaggedError<PrimaryEnvironmentAuthSessionTimeoutError>()(
   "PrimaryEnvironmentAuthSessionTimeoutError",
   {
@@ -120,6 +136,7 @@ export interface ServerPairingLinkRecord {
   readonly createdAt: string;
   readonly expiresAt: string;
   readonly connectDeviceRequest?: AuthConnectDeviceRequest;
+  readonly pairingRequest?: AuthPairingRequest;
 }
 
 export interface ServerClientSessionRecord {
@@ -241,6 +258,12 @@ async function exchangeBootstrapCredential(credential: string): Promise<AuthBrow
           providedLength: credential.length,
           cause: error,
         });
+      }
+      if (
+        isEnvironmentHttpCommonError(error) &&
+        error._tag === "EnvironmentConnectApprovalPendingError"
+      ) {
+        throw new PrimaryEnvironmentPairingApprovalPendingError({ cause: error });
       }
       throw PrimaryEnvironmentRequestError.fromCause({
         operation: "exchange-bootstrap-credential",

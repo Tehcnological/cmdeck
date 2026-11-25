@@ -15,6 +15,7 @@ import {
   ProviderDriverKind,
   type ProviderInstanceId,
   type SidebarProjectGroupingMode,
+  type TextGenerationFallback,
 } from "@t3tools/contracts";
 import {
   DEFAULT_UNIFIED_SETTINGS,
@@ -34,11 +35,14 @@ import {
 import { desktopUpdateChannelOf } from "@t3tools/shared/cliRelease";
 import { createModelSelection, pickModelSelection } from "@t3tools/shared/model";
 import { resolvePastedPath } from "@t3tools/shared/path";
+import { effectiveTextGenerationFallback } from "@t3tools/shared/serverSettings";
 import * as Equal from "effect/Equal";
 import * as Schema from "effect/Schema";
 import { APP_VERSION, HOSTED_APP_CHANNEL, HOSTED_APP_CHANNEL_LABEL } from "../../branding";
 import { AboutVersionTitle } from "./AboutVersionTitle";
 import { CliCommandSettingsRow } from "./CliCommandSettingsRow";
+import { DesktopTraySettings } from "./DesktopTraySettings";
+import { getDesktopTrayBridge } from "~/state/desktopTraySettings";
 import { MobileAppSettingsRow } from "./MobileAppSettingsRow";
 import {
   canCheckForUpdate,
@@ -72,7 +76,7 @@ import { ProjectDefaultsSettings } from "./ProjectDefaultsSettings";
 import { ThreadTitleInstructionsSettings } from "./ThreadTitleInstructionsSettings";
 import { SnoozePresetsRow } from "./SnoozePresetsSettings";
 import { useDesktopUpdateState } from "../../state/desktopUpdate";
-import { managedTelemetryOffMessage, usePrimaryManagedPolicy } from "../../state/managedPolicy";
+import { usePrimaryManagedPolicy } from "../../state/managedPolicy";
 import {
   getTextGenerationModelOptionsByInstance,
   resolveAppModelSelectionState,
@@ -491,13 +495,13 @@ export function useSettingsRestore(onRestored?: () => void) {
   } = useTheme();
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
-
   const isTextGenerationModelDirty = !Equal.equals(
     settings.textGenerationModelSelection ?? null,
     DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection ?? null,
   );
   const isBackgroundActivityDirty = hasChangedBackgroundActivitySettings(settings);
 
+  // Server settings belong to their environments and reset from their own rows.
   const changedSettingLabels = [
     ...(theme !== "system" ? [gt("Theme")] : []),
     ...(!followSystem ? [gt("Follow system")] : []),
@@ -762,8 +766,6 @@ export function useSettingsRestore(onRestored?: () => void) {
       confirmThreadDelete: DEFAULT_UNIFIED_SETTINGS.confirmThreadDelete,
       confirmThreadUnpin: DEFAULT_UNIFIED_SETTINGS.confirmThreadUnpin,
       confirmQuit: DEFAULT_UNIFIED_SETTINGS.confirmQuit,
-      textGenerationModelSelection: DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection,
-      threadTitleInstructions: DEFAULT_UNIFIED_SETTINGS.threadTitleInstructions,
       fontFamilySans: DEFAULT_UNIFIED_SETTINGS.fontFamilySans,
       fontFamilyComposer: DEFAULT_UNIFIED_SETTINGS.fontFamilyComposer,
       fontFamilyCode: DEFAULT_UNIFIED_SETTINGS.fontFamilyCode,
@@ -783,7 +785,6 @@ export function useSettingsRestore(onRestored?: () => void) {
       browserCustomSearchUrl: DEFAULT_UNIFIED_SETTINGS.browserCustomSearchUrl,
       browserAutoShowFloatingPreview: DEFAULT_UNIFIED_SETTINGS.browserAutoShowFloatingPreview,
       pullRequestLinksOpenInApp: DEFAULT_UNIFIED_SETTINGS.pullRequestLinksOpenInApp,
-      enableAgentBrowserAccess: DEFAULT_UNIFIED_SETTINGS.enableAgentBrowserAccess,
     });
     onRestored?.();
   };
@@ -1134,6 +1135,12 @@ export function GeneralSettingsPanel() {
           />
         ) : null}
       </SettingsSection>
+
+      {getDesktopTrayBridge() ? (
+        <SettingsSection id="desktop-app" title={gt("Desktop app")}>
+          <DesktopTraySettings />
+        </SettingsSection>
+      ) : null}
 
       <SettingsSection id="display" title={gt("Display")}>
         <SettingsRow
@@ -2212,9 +2219,18 @@ export function ThreadsSettingsPanel() {
           serverScoped
           settingKeys={["textGenerationModelSelection"]}
           {...setting("text-generation-model")}
-          description={gt(
-            "For thread titles and other generated text. Source control has its own setting. Text generators from Providers also appear here.",
-          )}
+          description={
+            !settings.textGenerationModelSelectionExplicit &&
+            Object.values(settings.providerInstances).some(
+              (instance) => instance.inference === "local",
+            )
+              ? gt(
+                  "Automatic: a ready local model writes thread titles and other generated text until you pick a model here. Source control can override it.",
+                )
+              : gt(
+                  "For thread titles and other generated text. Source control has its own setting. Text generators from Providers also appear here.",
+                )
+          }
           resetAction={
             hasServerTargets && isTextGenerationModelDirty ? (
               <SettingResetButton
@@ -2223,6 +2239,7 @@ export function ThreadsSettingsPanel() {
                   updateSettings({
                     textGenerationModelSelection:
                       DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection,
+                    textGenerationModelSelectionExplicit: false,
                   })
                 }
               />
@@ -2314,6 +2331,52 @@ export function ThreadsSettingsPanel() {
             )
           }
         />
+        <SettingsRow
+          serverScoped
+          settingKeys={["textGenerationFallback"]}
+          {...setting("text-generation-fallback")}
+          description={
+            settings.textGenerationFallback === undefined &&
+            effectiveTextGenerationFallback(settings) === "local"
+              ? gt(
+                  "Where background writing goes when its model cannot run. Set to Local models only automatically, because a local model is set up; pick another to change it.",
+                )
+              : gt(
+                  "Where background writing goes when its model cannot run. Local models only never sends it to a cloud provider you did not choose.",
+                )
+          }
+          resetAction={
+            settings.textGenerationFallback !== undefined ? (
+              <SettingResetButton
+                ariaLabel={gt("Reset text generation fallback")}
+                onClick={() => updateSettings({ textGenerationFallback: null })}
+              />
+            ) : null
+          }
+          control={
+            <Select
+              value={effectiveTextGenerationFallback(settings)}
+              onValueChange={(value) => {
+                if (value === "local" || value === "any" || value === "none") {
+                  updateSettings({ textGenerationFallback: value });
+                }
+              }}
+            >
+              <SelectTrigger size="sm" className="w-full sm:w-56" aria-label={gt("Fallback")}>
+                <SelectValue>
+                  {(value: TextGenerationFallback) => TEXT_GENERATION_FALLBACK_LABELS[value]}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectPopup align="end" alignItemWithTrigger={false}>
+                {TEXT_GENERATION_FALLBACKS.map((value) => (
+                  <SelectItem key={value} hideIndicator value={value}>
+                    {TEXT_GENERATION_FALLBACK_LABELS[value]}
+                  </SelectItem>
+                ))}
+              </SelectPopup>
+            </Select>
+          }
+        />
         <AdvancedSettings
           targetIds={[setting("thread-title-instructions").id, setting("response-streaming").id]}
         >
@@ -2375,6 +2438,13 @@ export function ThreadsSettingsPanel() {
     </SettingsPageContainer>
   );
 }
+
+const TEXT_GENERATION_FALLBACKS = ["local", "any", "none"] as const;
+const TEXT_GENERATION_FALLBACK_LABELS: Record<TextGenerationFallback, string> = {
+  local: "Local models only",
+  any: "Any provider",
+  none: "Don't fall back",
+};
 
 export function MaintenanceSettingsPanel() {
   const setting = useSearchableSetting();
@@ -2526,11 +2596,9 @@ export function MaintenanceSettingsPanel() {
 export function AboutSettingsPanel() {
   const setting = useSearchableSetting();
   const gt = useGT();
-  const messages = useMessages();
   const primaryPolicy = usePrimaryManagedPolicy();
   // The Welcome page sets up this computer, so it needs one.
   const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const telemetryOff = managedTelemetryOffMessage(primaryPolicy, messages);
   return (
     <SettingsPageContainer>
       <SettingsSection id="about" title={gt("App")}>
@@ -2584,11 +2652,7 @@ export function AboutSettingsPanel() {
       <SettingsSection id="legal" title={gt("Legal")}>
         <SettingsRow
           {...setting("privacy-policy")}
-          description={
-            telemetryOff === undefined
-              ? gt("How we handle your data, including the anonymous usage data T3 Code collects.")
-              : gt("How we handle your data. {telemetryOff}", { telemetryOff })
-          }
+          description={gt("How we handle your data.")}
           control={
             <Button
               render={<a href={PRIVACY_POLICY_URL} target="_blank" rel="noreferrer noopener" />}
@@ -2601,7 +2665,7 @@ export function AboutSettingsPanel() {
         />
         <SettingsRow
           {...setting("open-source-licenses")}
-          description={gt("Notices for dependencies, assets, and optional tools used by T3 Code.")}
+          description={gt("Notices for dependencies, assets, and optional tools used by CMDeck.")}
           control={
             <Button
               render={<Link to="/settings/open-source-licenses" />}

@@ -1,6 +1,6 @@
 import { AuthMcpClientAccess } from "@t3tools/contracts";
 import { T, useMessages } from "gt-react";
-import { useId } from "react";
+import { type ReactNode, useId } from "react";
 
 import { accessConfig } from "../auth/ConnectAgentSurface";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
@@ -10,10 +10,15 @@ export function LinkAccessPicker({
   value,
   onChange,
   disabled = false,
+  label,
+  footnote,
 }: {
   readonly value: AuthMcpClientAccess;
   readonly onChange: (access: AuthMcpClientAccess) => void;
   readonly disabled?: boolean;
+  /** Replaces the linked-environment wording, for another kind of MCP access. */
+  readonly label?: ReactNode;
+  readonly footnote?: ReactNode;
 }) {
   const labelId = useId();
   const m = useMessages();
@@ -21,7 +26,7 @@ export function LinkAccessPicker({
   return (
     <div className="space-y-1.5">
       <span id={labelId} className="block text-xs font-medium">
-        <T>What agents here may do there</T>
+        {label ?? <T>What agents here may do there</T>}
       </span>
       <Select
         value={value}
@@ -57,11 +62,13 @@ export function LinkAccessPicker({
       </Select>
       <p className="text-xs text-muted-foreground">
         {m(selected.description)}{" "}
-        <T>
-          An agent never gets more access there than its own mode here. Below full access, it can
-          change only threads this link started, not that machine's own threads, projects or
-          settings.
-        </T>
+        {footnote ?? (
+          <T>
+            An agent never gets more access there than its own mode here. Below full access, it can
+            change only threads this link started, not that machine's own threads, projects or
+            settings.
+          </T>
+        )}
       </p>
     </div>
   );

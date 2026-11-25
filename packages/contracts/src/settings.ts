@@ -1,3 +1,4 @@
+import { InferenceServerId } from "./inference.ts";
 import { EasDeviceHostConfigs, SimlockDeviceHostConfigs, SshDeviceHostConfigs } from "./device.ts";
 import {
   AuthOrchestrationOperateScope,
@@ -17,11 +18,13 @@ import {
   ForwardCompatibleNullable,
   ForwardCompatibleOptional,
   OmittedWhenNull,
+  PositiveInt,
   ProjectId,
   ThreadId,
   TrimmedNonEmptyString,
   TrimmedString,
 } from "./baseSchemas.ts";
+import { PublicBaseUrl } from "./remoteAccess.ts";
 import { UsageLimitSourceId } from "./usageLimitSourceId.ts";
 import { UsageModelFilter } from "./usage.ts";
 import { SecretProviderId, SecretProviderSlug } from "./secretReference.ts";
@@ -349,6 +352,10 @@ export const LoadBalancingWeights = Schema.Record(
 
 export const DiffColorScheme = Schema.Literals(["red-green", "blue-orange"]);
 
+/** The standard theme's dark mode: dark gray, or true black for OLED screens. */
+export const DarkStyle = Schema.Literals(["gray", "oled"]);
+export type DarkStyle = typeof DarkStyle.Type;
+
 export const ChatWidth = Schema.Literals(["comfortable", "wide", "full"]);
 export type ChatWidth = typeof ChatWidth.Type;
 
@@ -421,6 +428,7 @@ export const ClientSettingsSchema = Schema.Struct({
   diffColorScheme: DiffColorScheme.pipe(
     Schema.withDecodingDefault(Effect.succeed("red-green" as const)),
   ),
+  darkStyle: DarkStyle.pipe(Schema.withDecodingDefault(Effect.succeed("gray" as const))),
   chatWidth: ChatWidth.pipe(Schema.withDecodingDefault(Effect.succeed("comfortable" as const))),
   htmlPreviewWidth: HtmlPreviewWidth.pipe(
     Schema.withDecodingDefault(Effect.succeed("chat" as const)),
@@ -541,6 +549,10 @@ export const ClientSettingsSchema = Schema.Struct({
   ),
   sideThreadOpenTarget: SideThreadOpenTarget.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDE_THREAD_OPEN_TARGET)),
+  ),
+  // The last second-model reviewer per environment id. It only prefills the Review dialog.
+  reviewerModelSelections: Schema.Record(Schema.String, ModelSelection).pipe(
+    Schema.withDecodingDefault(Effect.succeed({})),
   ),
   proactivePanelsEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   showSkillsInSlashMenu: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
@@ -960,6 +972,20 @@ export const UsageLimitSourceConfig = Schema.Struct({
 });
 export type UsageLimitSourceConfig = typeof UsageLimitSourceConfig.Type;
 
+export const InferenceServerConfig = Schema.Struct({
+  displayName: Schema.optional(TrimmedNonEmptyString),
+  /** OpenAI-compatible root such as http://localhost:8080/v1; credentials belong in apiKey. */
+  baseUrl: TrimmedNonEmptyString,
+  apiKey: SettingsSecretValue.pipe(Schema.withDecodingDefault(Effect.succeed("")), secretSetting),
+  enabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+  maxConcurrency: Schema.optional(PositiveInt),
+  /** Serves this server's requests while it is down or unreachable, if it serves the same model; never overflow. */
+  fallbackServerId: Schema.optional(InferenceServerId),
+  /** T3's gateway stops a reply that loops, only thinks, or goes silent; on unless turned off. */
+  watchdog: Schema.optional(Schema.Struct({ enabled: Schema.optional(Schema.Boolean) })),
+});
+export type InferenceServerConfig = typeof InferenceServerConfig.Type;
+
 export const TextGeneratorKind = Schema.Literals(["openaiCompatible", "anthropic"]);
 export type TextGeneratorKind = typeof TextGeneratorKind.Type;
 
@@ -1052,13 +1078,6 @@ const SecretProviderConfigWrite = Schema.Struct({
 export const SourceControlHostSettings = Schema.Record(Schema.String, Schema.Unknown);
 export type SourceControlHostSettings = typeof SourceControlHostSettings.Type;
 
-export const ObservabilitySettings = Schema.Struct({
-  otlpTracesUrl: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
-  otlpMetricsUrl: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
-  otlpLogsUrl: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
-});
-export type ObservabilitySettings = typeof ObservabilitySettings.Type;
-
 export const SourceControlWritingStyleMode = Schema.Literals([
   "repo_conventions",
   "conventional_commits",
@@ -1097,6 +1116,10 @@ const SourceControlWritingStyleSetting = Schema.Union([
   SourceControlWritingStyleSettings,
   LegacySourceControlWritingStyle,
 ]);
+
+/** Where background writing may go when its model cannot run: local-marked instances, anything, or nowhere. */
+export const TextGenerationFallback = Schema.Literals(["local", "any", "none"]);
+export type TextGenerationFallback = typeof TextGenerationFallback.Type;
 
 export const BranchNamingMode = Schema.Literals(["static", "semantic", "custom"]);
 export type BranchNamingMode = typeof BranchNamingMode.Type;
@@ -1414,14 +1437,21 @@ export const ServerSettings = Schema.Struct({
   ),
   /** Holds an OS sleep inhibitor while any run is active; closing a laptop lid still sleeps it. */
   keepAwakeWhileAgentsWork: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
-  /** New T3 Connect device keys wait for approval from someone already trusted here. */
+  /**
+   * New devices wait for approval from someone already trusted here: T3 Connect device keys and,
+   * in this fork, devices redeeming a direct pairing link. On by default in this fork.
+   */
   requireConnectDeviceApproval: Schema.Boolean.pipe(
-    Schema.withDecodingDefault(Effect.succeed(false)),
+    Schema.withDecodingDefault(Effect.succeed(true)),
   ),
 
   enableAgentBrowserAccess: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
   /** Lets clients reach this machine's loopback ports over `/api/preview/tunnel`. */
   enablePreviewTunnel: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+  /** Accepts `t3mcp_` bearer tokens on `/mcp`. `T3CODE_REMOTE_MCP`, when set, overrides it. */
+  remoteMcpEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
+  /** A tunnel the user runs here; webhook and MCP links use it, pairing only when picked. */
+  publicBaseUrl: PublicBaseUrl.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
   cloudSpeechCredentials: CloudSpeechCredentials.pipe(
     Schema.withDecodingDefault(Effect.succeed({ openai: "", xai: "", openrouter: "" })),
   ),
@@ -1571,6 +1601,12 @@ export const ServerSettings = Schema.Struct({
       }),
     ),
   ),
+  /** Set when a client picks a text generation model; until then a ready local instance is preferred. */
+  textGenerationModelSelectionExplicit: Schema.Boolean.pipe(
+    Schema.withDecodingDefault(Effect.succeed(false)),
+  ),
+  /** Absent until the user picks one; `effectiveTextGenerationFallback` resolves it then. */
+  textGenerationFallback: Schema.optionalKey(TextGenerationFallback),
   threadTitleInstructions: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
   branchNamingMode: BranchNamingMode.pipe(
     Schema.withDecodingDefault(Effect.succeed("static" as const)),
@@ -1598,7 +1634,6 @@ export const ServerSettings = Schema.Struct({
   providerInstances: Schema.Record(ProviderInstanceId, ProviderInstanceConfig).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
   ),
-  observability: ObservabilitySettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
   sourceControlHosts: Schema.Record(Schema.String, SourceControlHostSettings).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
   ),
@@ -1608,6 +1643,9 @@ export const ServerSettings = Schema.Struct({
   ),
   // User-chosen ids preserve rows across edits; undecodable entries round-trip untouched.
   usageLimitSources: Schema.Record(UsageLimitSourceId, UsageLimitSourceConfig).pipe(
+    Schema.withDecodingDefault(Effect.succeed({})),
+  ),
+  inferenceServers: Schema.Record(InferenceServerId, InferenceServerConfig).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
   ),
   textGenerators: Schema.Record(ProviderInstanceId, TextGeneratorConfig).pipe(
@@ -1888,6 +1926,8 @@ export const ServerSettingsPatch = Schema.Struct({
   requireConnectDeviceApproval: Schema.optionalKey(Schema.Boolean),
   enableAgentBrowserAccess: Schema.optionalKey(Schema.Boolean),
   enablePreviewTunnel: Schema.optionalKey(Schema.Boolean),
+  remoteMcpEnabled: Schema.optionalKey(Schema.Boolean),
+  publicBaseUrl: Schema.optionalKey(PublicBaseUrl),
   cloudSpeechCredentials: Schema.optionalKey(
     Schema.Struct({
       openai: Schema.optionalKey(SettingsSecretValue),
@@ -1971,6 +2011,10 @@ export const ServerSettingsPatch = Schema.Struct({
   addProjectBaseDirectory: Schema.optionalKey(TrimmedString),
   ghqCloneLayout: Schema.optionalKey(Schema.Boolean),
   textGenerationModelSelection: Schema.optionalKey(ModelSelectionPatch),
+  /** `null` drops the user's pick and restores the automatic policy. */
+  textGenerationFallback: Schema.optionalKey(Schema.NullOr(TextGenerationFallback)),
+  /** Omitted with a selection means the user picked it; resets send false to restore automatic. */
+  textGenerationModelSelectionExplicit: Schema.optionalKey(Schema.Boolean),
   threadTitleInstructions: Schema.optionalKey(TrimmedString),
   branchNamingMode: Schema.optionalKey(BranchNamingMode),
   branchNamePrefix: Schema.optionalKey(TrimmedString),
@@ -1988,13 +2032,6 @@ export const ServerSettingsPatch = Schema.Struct({
   reviewGuideModelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
   reviewGuideInstructions: Schema.optionalKey(TrimmedString),
   pullRequestMergeMethod: Schema.optionalKey(Schema.NullOr(PullRequestMergeMethod)),
-  observability: Schema.optionalKey(
-    Schema.Struct({
-      otlpTracesUrl: Schema.optionalKey(TrimmedString),
-      otlpMetricsUrl: Schema.optionalKey(TrimmedString),
-      otlpLogsUrl: Schema.optionalKey(TrimmedString),
-    }),
-  ),
   /** Merges per host, replacing patched fields whole; redaction markers retain secrets, empty secrets remove them. A non-empty token map keeps the saved tokens of hosts it omits; an empty map clears them all. */
   sourceControlHosts: Schema.optionalKey(Schema.Record(Schema.String, SourceControlHostSettings)),
   offeredSourceControlProviders: Schema.optionalKey(Schema.Record(Schema.String, Schema.Boolean)),
@@ -2003,6 +2040,9 @@ export const ServerSettingsPatch = Schema.Struct({
   // Merge per source to avoid racing other edits; null removes an entry.
   usageLimitSources: Schema.optionalKey(
     Schema.Record(UsageLimitSourceId, Schema.NullOr(UsageLimitSourceConfig)),
+  ),
+  inferenceServers: Schema.optionalKey(
+    Schema.Record(InferenceServerId, Schema.NullOr(InferenceServerConfig)),
   ),
   // Merge per entry like usageLimitSources; null removes an entry.
   textGenerators: Schema.optionalKey(
@@ -2048,12 +2088,18 @@ export function requiredScopesForServerSettingsPatch(
   let changesAccess = false;
   for (const [key, value] of Object.entries(patch)) {
     if (value === undefined) continue;
-    if (key === "requireConnectDeviceApproval" || key === "enablePreviewTunnel") {
+    if (
+      key === "requireConnectDeviceApproval" ||
+      key === "enablePreviewTunnel" ||
+      key === "remoteMcpEnabled" ||
+      key === "publicBaseUrl"
+    ) {
       changesAccess = true;
     } else if (
       key === "providers" ||
       key === "providerInstances" ||
       key === "usageLimitSources" ||
+      key === "inferenceServers" ||
       key === "textGenerators" ||
       key === "secretProviders"
     ) {
@@ -2096,6 +2142,7 @@ export const ClientSettingsPatch = Schema.Struct({
   notificationMode: Schema.optionalKey(NotificationMode),
   inAppNotificationsEnabled: Schema.optionalKey(Schema.Boolean),
   diffColorScheme: Schema.optionalKey(DiffColorScheme),
+  darkStyle: Schema.optionalKey(DarkStyle),
   chatWidth: Schema.optionalKey(ChatWidth),
   htmlPreviewWidth: Schema.optionalKey(HtmlPreviewWidth),
   effortDisplay: Schema.optionalKey(EffortDisplay),
@@ -2146,6 +2193,7 @@ export const ClientSettingsPatch = Schema.Struct({
   sendShortcut: Schema.optionalKey(Schema.Literals(["enter", "mod-enter-multiline", "mod-enter"])),
   followUpBehavior: Schema.optionalKey(Schema.Literals(["queue", "steer"])),
   sideThreadOpenTarget: Schema.optionalKey(SideThreadOpenTarget),
+  reviewerModelSelections: Schema.optionalKey(Schema.Record(Schema.String, ModelSelection)),
   proactivePanelsEnabled: Schema.optionalKey(Schema.Boolean),
   showSkillsInSlashMenu: Schema.optionalKey(Schema.Boolean),
   boringSidebarEnabled: Schema.optionalKey(Schema.Boolean),

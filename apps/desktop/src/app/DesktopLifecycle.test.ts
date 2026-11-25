@@ -18,6 +18,7 @@ import * as DesktopLifecycle from "./DesktopLifecycle.ts";
 import * as DesktopShutdown from "./DesktopShutdown.ts";
 import * as DesktopState from "./DesktopState.ts";
 import * as DesktopWindow from "../window/DesktopWindow.ts";
+import { LAUNCH_HIDDEN_ARGUMENT } from "../window/DesktopTrayPolicy.ts";
 
 function layerElectronApp(
   appListeners: Map<string, (...args: readonly unknown[]) => void>,
@@ -38,7 +39,7 @@ function layerElectronApp(
 
   return Layer.succeed(ElectronApp.ElectronApp, {
     metadata: Effect.die("unexpected metadata read"),
-    name: Effect.succeed("T3 Code"),
+    name: Effect.succeed("CMDeck"),
     systemLocale: Effect.succeed("en-US"),
     preferredSystemLanguages: Effect.succeed(["en-US"]),
     whenReady: Effect.void,
@@ -260,16 +261,17 @@ describe("DesktopLifecycle", () => {
         return yield* Deferred.await(relaunched);
       }).pipe(
         Effect.provide(layer),
-        Effect.provideService(HostProcess.ExecutablePath, "/opt/T3 Code/t3code"),
+        Effect.provideService(HostProcess.ExecutablePath, "/opt/CMDeck/t3code"),
         Effect.provideService(HostProcess.Arguments, [
-          "/opt/T3 Code/t3code",
+          "/opt/CMDeck/t3code",
           "--no-sandbox",
+          LAUNCH_HIDDEN_ARGUMENT,
           "T3CODE://pair?token=spent",
           "t3code://new?prompt=hello",
         ]),
       );
 
-      assert.deepEqual(options, { execPath: "/opt/T3 Code/t3code", args: ["--no-sandbox"] });
+      assert.deepEqual(options, { execPath: "/opt/CMDeck/t3code", args: ["--no-sandbox"] });
     }),
   );
 
@@ -322,6 +324,91 @@ describe("DesktopLifecycle", () => {
 
           assert.deepEqual(exitCodes, [0]);
           assert.equal(prevented, 4);
+        }),
+      ).pipe(Effect.provide(layer));
+    }),
+  );
+
+  it("keeps running after the last window closes only with a tray or on macOS", () => {
+    const decide = (platform: NodeJS.Platform, trayActive: boolean, quitting = false) =>
+      DesktopLifecycle.shouldQuitWhenAllWindowsClosed({ platform, quitting, trayActive });
+    assert.isTrue(decide("win32", false));
+    assert.isTrue(decide("linux", false));
+    assert.isFalse(decide("win32", true));
+    assert.isFalse(decide("linux", true));
+    assert.isFalse(decide("darwin", false));
+    assert.isFalse(decide("darwin", true));
+    // A quit already underway owns the exit.
+    assert.isFalse(decide("win32", false, true));
+  });
+
+  it.effect("quits when the last window closes once the tray is gone", () =>
+    Effect.gen(function* () {
+      const appListeners = new Map<string, (...args: readonly unknown[]) => void>();
+      const quitRequested = yield* Deferred.make<void>();
+      const layerEnvironment = Layer.succeed(DesktopEnvironment.DesktopEnvironment, {
+        platform: "win32",
+        isDevelopment: false,
+      } as DesktopEnvironment.DesktopEnvironment["Service"]);
+      const layer = DesktopLifecycle.layer.pipe(
+        Layer.provideMerge(
+          layerElectronApp(
+            appListeners,
+            Deferred.succeed(quitRequested, undefined).pipe(Effect.asVoid),
+          ),
+        ),
+        Layer.provideMerge(layerElectronTheme),
+        Layer.provideMerge(layerElectronWindow()),
+        Layer.provideMerge(layerDesktopWindow()),
+        Layer.provideMerge(layerEnvironment),
+        Layer.provideMerge(DesktopShutdown.layer),
+        Layer.provideMerge(DesktopState.layer),
+      );
+
+      yield* Effect.scoped(
+        Effect.gen(function* () {
+          const lifecycle = yield* DesktopLifecycle.DesktopLifecycle;
+          const state = yield* DesktopState.DesktopState;
+          yield* lifecycle.register;
+          // Turning close-to-tray off clears the flag; closing the window must quit as before.
+          yield* Ref.set(state.trayActive, true);
+          yield* Ref.set(state.trayActive, false);
+
+          appListeners.get("window-all-closed")?.();
+
+          yield* Deferred.await(quitRequested);
+        }),
+      ).pipe(Effect.provide(layer));
+    }),
+  );
+
+  it.effect("lets the updater's quit end the app even while the tray is active", () =>
+    Effect.gen(function* () {
+      const appListeners = new Map<string, (...args: readonly unknown[]) => void>();
+      const layerEnvironment = Layer.succeed(DesktopEnvironment.DesktopEnvironment, {
+        platform: "win32",
+        isDevelopment: false,
+      } as DesktopEnvironment.DesktopEnvironment["Service"]);
+      const layer = DesktopLifecycle.layer.pipe(
+        Layer.provideMerge(layerElectronApp(appListeners)),
+        Layer.provideMerge(layerElectronTheme),
+        Layer.provideMerge(layerElectronWindow()),
+        Layer.provideMerge(layerDesktopWindow()),
+        Layer.provideMerge(layerEnvironment),
+        Layer.provideMerge(DesktopShutdown.layer),
+        Layer.provideMerge(DesktopState.layer),
+      );
+
+      yield* Effect.scoped(
+        Effect.gen(function* () {
+          const lifecycle = yield* DesktopLifecycle.DesktopLifecycle;
+          const state = yield* DesktopState.DesktopState;
+          yield* lifecycle.register;
+          yield* Ref.set(state.trayActive, true);
+
+          appListeners.get("before-quit-for-update")?.();
+
+          assert.isFalse(yield* Ref.get(state.trayActive));
         }),
       ).pipe(Effect.provide(layer));
     }),

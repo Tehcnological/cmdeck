@@ -1,10 +1,14 @@
 # Security
 
-Report vulnerabilities to [security@t3.codes](mailto:security@t3.codes). The
-[security policy](.github/SECURITY.md) covers disclosure and safe harbor.
+CMDeck is an unofficial fork of T3 Code. Report vulnerabilities in code this
+fork changed or added through this repository's private vulnerability reporting,
+and vulnerabilities in code inherited unchanged from T3 Code to T3 Tools at
+[security@t3.codes](mailto:security@t3.codes). The
+[security policy](.github/SECURITY.md) says how to tell them apart.
 
-The rest of this file is for agents and maintainers auditing T3 Code or triaging
-reports. It defines who is trusted with what, which boundaries a real finding
+The rest of this file is for agents and maintainers auditing CMDeck or triaging
+reports. It follows upstream's model; the fork's differences are marked
+**CMDeck:**. It defines who is trusted with what, which boundaries a real finding
 crosses, and what is intended. The reasoning behind each boundary lives in
 [environment auth](docs/internals/04_environment-auth.md),
 [T3 Connect](docs/internals/06_t3-connect.md), and
@@ -23,25 +27,29 @@ revocation and ceilings hold, not what a full-scope session can do once issued.
 
 ## Principals
 
-| Principal                                                                                        | How it gets in                                                           | What it may do                                                                                                                                                                             |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Anyone who reaches the port                                                                      | Network                                                                  | Read the environment descriptor, pair with a valid one-time credential, run OAuth flows. Nothing else.                                                                                     |
-| Full-scope client (desktop, paired browser or phone, `t3 auth session issue`, T3 Connect device) | Pairing, token exchange, Connect mint                                    | Everything the server's OS user can do. This is the default grant.                                                                                                                         |
-| Narrow client                                                                                    | Pairing link with explicit scopes                                        | Only the RPCs and routes its scopes allow. Can never widen its own grant.                                                                                                                  |
-| MCP client (outside agent, subject `mcp-client`)                                                 | OAuth on `/mcp`                                                          | Only `/mcp`, within a read-only grant or a runtime-mode ceiling. Every other route rejects it.                                                                                             |
-| Linked environment (peer link)                                                                   | OAuth client `t3code-peer-link`                                          | Work it starts carries an immutable `linkOrigin` and never exceeds the access it was paired with.                                                                                          |
-| Agent run by T3                                                                                  | Thread's runtime mode and thread credential                              | Within its runtime mode, managed policy, and the MCP access declared per tool.                                                                                                             |
-| Guest link                                                                                       | HMAC token for one share                                                 | Read one thread and propose messages. Never a session; no RPC, WebSocket, or MCP path accepts it.                                                                                          |
-| Signed asset URL                                                                                 | Minted with `filesystem:read`                                            | One file, by device and inode identity, until it expires.                                                                                                                                  |
-| Webhook sender                                                                                   | A task's webhook URL, plus its signing secret when the task requires one | Start that one task's run with content of its choosing. Nothing in the request is trusted beyond the signature check.                                                                      |
-| T3 Connect relay                                                                                 | Environment link                                                         | Trusted broker for mint requests. It never sees environment session tokens. With `requireConnectDeviceApproval` on, a new device key also needs approval from someone with `access:write`. |
-| Managed policy                                                                                   | Admin-deployed file, read at startup                                     | Ceilings and locks the server enforces for every client.                                                                                                                                   |
-| Preview pages, HTML renders, file previews, agent output                                         | Rendered by clients                                                      | Untrusted content. It must never run script in the app's origin or reach Electron IPC or Node.                                                                                             |
+| Principal                                                                                        | How it gets in                                                           | What it may do                                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Anyone who reaches the port                                                                      | Network                                                                  | Read the environment descriptor, pair with a valid one-time credential, run OAuth flows. Nothing else.                                                                                 |
+| **CMDeck:** device waiting for approval                                                          | Redeemed a direct pairing link while device approval is on               | Nothing. It holds no session; the link stays unspent until a client with `access:write` or the host's CLI approves the request. Denial, or 10 minutes unanswered, revokes the link.    |
+| Full-scope client (desktop, paired browser or phone, `t3 auth session issue`, T3 Connect device) | Pairing (**CMDeck:** once approved), token exchange, Connect mint        | Everything the server's OS user can do. This is the default grant.                                                                                                                     |
+| Narrow client                                                                                    | Pairing link with explicit scopes                                        | Only the RPCs and routes its scopes allow. Can never widen its own grant.                                                                                                              |
+| MCP client (outside agent, subject `mcp-client`)                                                 | OAuth on `/mcp`                                                          | Only `/mcp`, within a read-only grant or a runtime-mode ceiling. Every other route rejects it.                                                                                         |
+| **CMDeck:** remote MCP token client                                                              | Bearer token on `/mcp`, while remote MCP is on                           | Only `/mcp`, within the access chosen when the token was created. No WebSocket, so it cannot reach token or access settings. Revoking the token or turning remote MCP off cuts it off. |
+| Linked environment (peer link)                                                                   | OAuth client `t3code-peer-link`                                          | Work it starts carries an immutable `linkOrigin` and never exceeds the access it was paired with.                                                                                      |
+| Agent run by T3                                                                                  | Thread's runtime mode and thread credential                              | Within its runtime mode, managed policy, and the MCP access declared per tool.                                                                                                         |
+| Guest link                                                                                       | HMAC token for one share                                                 | Read one thread and propose messages. Never a session; no RPC, WebSocket, or MCP path accepts it.                                                                                      |
+| Signed asset URL                                                                                 | Minted with `filesystem:read`                                            | One file, by device and inode identity, until it expires.                                                                                                                              |
+| Webhook sender                                                                                   | A task's webhook URL, plus its signing secret when the task requires one | Start that one task's run with content of its choosing. Nothing in the request is trusted beyond the signature check.                                                                  |
+| T3 Connect relay                                                                                 | Environment link                                                         | **CMDeck:** none. Connect is off (`ManagedLimits.allowsConnect` is always false), so no relay is trusted. Upstream trusts it as a broker for mint requests.                            |
+| Managed policy                                                                                   | Admin-deployed file, read at startup                                     | Ceilings and locks the server enforces for every client.                                                                                                                               |
+| Preview pages, HTML renders, file previews, agent output                                         | Rendered by clients                                                      | Untrusted content. It must never run script in the app's origin or reach Electron IPC or Node.                                                                                         |
 
 ## A real finding crosses one of these
 
 1. **No credential → session.** Any route or socket granting access without
-   a valid credential, or a pairing credential redeemable twice.
+   a valid credential, or a pairing credential redeemable twice. **CMDeck:**
+   with device approval on, a direct pairing link that yields a session before
+   it is approved, or to a device other than the one approved.
 2. **Scope escalation.** An RPC, HTTP route, or MCP tool running without its
    declared scope; pairing or token exchange widening a grant; an
    `mcp-client` session reaching a non-`/mcp` route; a read-only MCP grant
@@ -54,7 +62,7 @@ revocation and ceilings hold, not what a full-scope session can do once issued.
 5. **Revocation that doesn't take effect.** A revoked session, device key,
    pairing link, or peer link that still works. Documented exception: signed
    asset URLs last until they expire.
-6. **Credential exposure.** Tokens or secrets reaching logs, traces, telemetry,
+6. **Credential exposure.** Tokens or secrets reaching logs,
    the relay, socket URLs (outside short-lived tickets), the access read model,
    or error messages. A token sent to an address that has not answered as the
    expected environment, or a token paired over HTTPS sent over plain HTTP.
@@ -81,6 +89,20 @@ revocation and ceilings hold, not what a full-scope session can do once issued.
 - The default grant includes `access:write`, so a full-scope session can mint
   more pairing links and sessions. They appear in Sharing & access, and "revoke
   all others" removes them.
+- **CMDeck:** device approval (`requireConnectDeviceApproval`, on by default)
+  holds only direct pairing links: those made in Settings, by
+  `t3 auth pairing create`, or by `t3 pair`, whether a client or an outside
+  agent's sign-in redeems them. Credentials created for one purpose by someone
+  who already holds the OS account or `access:write` never wait: the desktop
+  bootstrap credential, the startup link printed on the host's console,
+  `t3 auth session issue`, MCP app approval and peer-link codes, and remote MCP
+  tokens. Approving needs `access:write` but not the link's scopes, because the
+  approver receives no credential; the link's creator already delegated them.
+  Approval admits the device that asked first, bound to its DPoP key when it
+  sent one. A device that paired without a key is bound only by the link, so
+  whoever holds a leaked link and redeems it first after approval gets in;
+  approval shows the owner the request, it does not make a leaked link safe.
+  Turning the setting off lets waiting links be redeemed at once.
 - `filesystem:read` reads anything the server's OS user can read, including
   paths outside projects.
 - Plain HTTP on a LAN or tailnet is the user's choice. `t3 serve` warns when
@@ -132,7 +154,8 @@ revocation and ceilings hold, not what a full-scope session can do once issued.
 - Guest links: [`guest/GuestShareService.ts`](apps/server/src/guest/GuestShareService.ts)
 - Files and assets: [`workspace/WorkspaceFileSystem.ts`](apps/server/src/workspace/WorkspaceFileSystem.ts), [`assets/AssetAccess.ts`](apps/server/src/assets/AssetAccess.ts)
 - Managed policy: [`apps/server/src/policy`](apps/server/src/policy)
-- T3 Connect: [`cloud/CloudLink.ts`](apps/server/src/cloud/CloudLink.ts), [`EnvironmentConnector.ts`](infra/relay/src/environments/EnvironmentConnector.ts)
+- T3 Connect (off in CMDeck): [`policy/managedLimits.ts`](apps/server/src/policy/managedLimits.ts), [`cloud/CloudLink.ts`](apps/server/src/cloud/CloudLink.ts)
+- **CMDeck:** remote MCP tokens: [`auth/RemoteMcpTokens.ts`](apps/server/src/auth/RemoteMcpTokens.ts), [`auth/McpOAuth.ts`](apps/server/src/auth/McpOAuth.ts); tunnel address check: [`environment/PublicAddressCheck.ts`](apps/server/src/environment/PublicAddressCheck.ts); importer: [`fork/T3Import.ts`](apps/server/src/fork/T3Import.ts)
 - Desktop preview isolation: [`preview/WebviewPreferences.ts`](apps/desktop/src/preview/WebviewPreferences.ts)
 
 ## How to audit and triage
@@ -163,7 +186,8 @@ revocation and ceilings hold, not what a full-scope session can do once issued.
 - Check the reported commit against `main`. Reports often trail fixes.
 - Prove a finding with a failing test at the lowest layer that shows it, as
   [Verifying](AGENTS.md#verifying) describes. Do not run a PoC against
-  `~/.t3/userdata` or any live environment; use a dev server on seeded data.
+  `~/.cmdeck/userdata`, `~/.t3/userdata`, or any live environment; use a dev
+  server on seeded data.
 - Treat report attachments as untrusted. Extract them into an empty directory
   outside the worktree and read PoCs before running anything.
 - Fix confirmed findings rather than filing them. Keep advisory details out of

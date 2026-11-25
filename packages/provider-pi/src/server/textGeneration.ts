@@ -16,6 +16,7 @@ import type { PiSettings } from "../settings.ts";
 
 import { makePiRpcConnection, piRecordField, piRecordString, resolvePiModelSlug } from "./rpc.ts";
 import { buildPiRpcLaunch, resolvePiLaunchArgs } from "./mcpInjection.ts";
+import { type PiGatewaySource, unmanagedPiGatewaySource } from "./gateway.ts";
 import * as TextGenerationOperations from "@t3tools/provider-core/server/textGenerationOperations";
 import { isPiThinkingLevel } from "./modelCapabilities.ts";
 import { runPiVersionCommand } from "./status.ts";
@@ -36,6 +37,7 @@ const piTurnErrorDetail = (errorMessage: string | undefined) => {
 export const makePiTextGeneration = Effect.fn("makePiTextGeneration")(function* (
   piSettings: PiSettings,
   environment: NodeJS.ProcessEnv = process.env,
+  gatewaySource: PiGatewaySource = unmanagedPiGatewaySource,
   compatibility: ProviderCompatibilityLookup = noCompatibilityPolicy,
 ) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
@@ -55,7 +57,7 @@ export const makePiTextGeneration = Effect.fn("makePiTextGeneration")(function* 
             : null;
         const broken =
           version === null
-            ? "T3 Code could not determine the Pi version. Update Pi and try again."
+            ? "CMDeck could not determine the Pi version. Update Pi and try again."
             : brokenVersionDetail({
                 name: "Pi",
                 version,
@@ -73,11 +75,15 @@ export const makePiTextGeneration = Effect.fn("makePiTextGeneration")(function* 
           detail: resolvedLaunchArgs.message,
         });
       }
+      // Only T3's gateway-only extension loads; user extensions stay off.
+      const gateway = yield* gatewaySource.forBackground;
       const launch = buildPiRpcLaunch({
         launchArgs: resolvedLaunchArgs.args,
         environment,
         mcpSession: undefined,
         extensionPath: undefined,
+        gateway,
+        gatewayExtensionPath: gateway?.extensionPath,
         ephemeral: true,
         shortLived: true,
         disableExtensions: true,
@@ -128,7 +134,7 @@ export const makePiTextGeneration = Effect.fn("makePiTextGeneration")(function* 
         // level falls back to Pi's default instead of failing the whole generation.
         yield* connection
           .request({ type: "set_thinking_level", level: thinking })
-          .pipe(Effect.catchTags({ PiRpcError: () => Effect.void }));
+          .pipe(Effect.ignoreCause({ log: true }));
       }
 
       yield* connection.request({ type: "prompt", message: prompt });

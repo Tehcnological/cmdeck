@@ -20,6 +20,10 @@ export class DesktopState extends Context.Service<
     // Set by DesktopUpdates.configure, which runs before the first backend start.
     readonly canInstallUpdates: Ref.Ref<boolean>;
     readonly primaryBackendStartup: SubscriptionRef.SubscriptionRef<PrimaryBackendStartup>;
+    // A tray icon exists and close-to-tray is on, so closing every window keeps the app running.
+    readonly trayActive: Ref.Ref<boolean>;
+    // The user sent the app to the tray; backend readiness must not reopen the main window.
+    readonly mainHiddenInTray: Ref.Ref<boolean>;
   }
 >()("@t3tools/desktop/app/DesktopState") {}
 
@@ -28,6 +32,8 @@ const make = Effect.all({
   quitting: Ref.make(false),
   canInstallUpdates: Ref.make(false),
   primaryBackendStartup: SubscriptionRef.make<PrimaryBackendStartup>({ _tag: "Starting" }),
+  trayActive: Ref.make(false),
+  mainHiddenInTray: Ref.make(false),
 });
 
 export const layer = Layer.effect(DesktopState, make);

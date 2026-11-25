@@ -4,6 +4,7 @@ import { Tool } from "effect/ai";
 
 import { advertisedJsonSchema } from "./advertisedJsonSchema.ts";
 import { ThemeToolkit } from "./toolkits/theme/tools.ts";
+import { ProjectToolkit } from "./toolkits/project/tools.ts";
 
 it("drops JSON noise, merges tagged unions, and keeps null where it is required", () => {
   const Every = Schema.Struct({ ms: Schema.Int });
@@ -34,11 +35,19 @@ it("drops JSON noise, merges tagged unions, and keeps null where it is required"
       target: {
         type: "object",
         properties: {
-          kind: { type: "string", enum: ["url", "number"] },
+          kind: {
+            type: "string",
+            enum: ["url", "number"],
+            description: "`url` requires `url`. `number` requires `number`.",
+          },
           url: { type: "string" },
           number: { type: "integer" },
         },
         required: ["kind"],
+        allOf: [
+          { if: { properties: { kind: { const: "url" } } }, required: ["kind", "url"] },
+          { if: { properties: { kind: { const: "number" } } }, required: ["kind", "number"] },
+        ],
       },
     },
     required: ["beforeRunId", "every"],
@@ -58,4 +67,28 @@ it("advertises only string enum values, which Gemini requires", () => {
   collect(advertisedJsonSchema(ThemeToolkit.tools.t3_theme_set));
 
   expect(enumValues.filter((value) => typeof value !== "string")).toEqual([]);
+});
+
+it("advertises baseRef as required for worktree launch and decodes the same shape", () => {
+  const schema = advertisedJsonSchema(ProjectToolkit.tools.t3_thread_launch) as {
+    readonly properties: {
+      readonly workspaceStrategy: { readonly required?: unknown; readonly allOf?: unknown };
+    };
+  };
+  const strategy = schema.properties.workspaceStrategy;
+  expect(strategy.required).toEqual(["type"]);
+  expect(strategy.allOf).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        if: expect.objectContaining({ properties: { type: { const: "worktree" } } }),
+        required: ["type", "baseRef"],
+      }),
+    ]),
+  );
+  const decode = Schema.decodeUnknownSync(ProjectToolkit.tools.t3_thread_launch.parametersSchema);
+  expect(
+    decode({ title: "Fix", workspaceStrategy: { type: "worktree", baseRef: "main" } })
+      .workspaceStrategy,
+  ).toEqual({ type: "worktree", baseRef: "main" });
+  expect(() => decode({ title: "Fix", workspaceStrategy: { type: "worktree" } })).toThrow();
 });

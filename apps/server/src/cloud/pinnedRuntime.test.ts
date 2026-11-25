@@ -31,6 +31,7 @@ import {
   resolveLauncherPath,
 } from "./pinnedRuntime.ts";
 import { SERVICE_LAUNCHER_PROTOCOL } from "./serviceProtocol.ts";
+import { FORK_RUNTIME_MARKER_FILE } from "../fork/forkRuntimeMarker.ts";
 
 const version = "1.2.3";
 const archiveName = `t3-${version}-linux-x64.tar.gz`;
@@ -106,6 +107,7 @@ it.layer(NodeServices.layer)("ensurePinnedRuntimeInstalled", (it) => {
       ]);
       assert.deepEqual(commands, ["tar"]);
       assert.equal(yield* fs.readFileString(paths.sentinelPath), `${version}\n`);
+      assert.isTrue(yield* fs.exists(path.join(paths.versionDir, FORK_RUNTIME_MARKER_FILE)));
       assert.isFalse(yield* fs.exists(path.join(paths.versionDir, "t3-runtime-archive")));
     }),
   );
@@ -537,6 +539,7 @@ it.layer(NodeServices.layer)("ensurePinnedRuntimeInstalled", (it) => {
       yield* fs.makeDirectory(path.dirname(cached.entryPath), { recursive: true });
       yield* fs.writeFileString(cached.entryPath, "#!/bin/sh\n");
       yield* fs.writeFileString(cached.sentinelPath, `${version}\n`);
+      yield* fs.writeFileString(path.join(cached.versionDir, FORK_RUNTIME_MARKER_FILE), "");
       const install = (checksums: string, requests: string[]) =>
         ensurePinnedRuntimeInstalled({
           baseDir,
@@ -564,6 +567,39 @@ it.layer(NodeServices.layer)("ensurePinnedRuntimeInstalled", (it) => {
     }),
   );
 
+  it.effect("refuses to reuse a complete runtime this fork did not install", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const baseDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-pinned-runtime-official-" });
+      const official = pinnedRuntimePaths(path, baseDir, version, "linux");
+      yield* fs.makeDirectory(official.versionDir, { recursive: true });
+      yield* fs.writeFileString(official.entryPath, "#!/bin/sh\n");
+      yield* fs.writeFileString(official.sentinelPath, `${version}\n`);
+      const requests: string[] = [];
+      let validations = 0;
+
+      const error = yield* ensurePinnedRuntimeInstalled({
+        baseDir,
+        version,
+        fs,
+        path,
+        platform: "linux",
+        arch: "x64",
+        httpClient: releaseHttpClient(yield* validChecksums, requests),
+        runner: extractingRunner(fs, path),
+        validate: () => Effect.sync(() => void validations++),
+      }).pipe(Effect.flip);
+
+      assert.equal(error._tag, "PinnedRuntimePreflightBlockedError");
+      assert.include(error.message, `${official.versionDir} holds a T3 Code runtime`);
+      assert.include(error.message, "Delete that folder");
+      assert.deepEqual(requests, []);
+      assert.equal(validations, 0);
+      assert.equal(yield* fs.readFileString(official.entryPath), "#!/bin/sh\n");
+    }),
+  );
+
   it.effect("preserves a completed runtime when validation fails", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -573,6 +609,7 @@ it.layer(NodeServices.layer)("ensurePinnedRuntimeInstalled", (it) => {
       yield* fs.makeDirectory(path.dirname(finalPaths.entryPath), { recursive: true });
       yield* fs.writeFileString(finalPaths.entryPath, "broken\n");
       yield* fs.writeFileString(finalPaths.sentinelPath, `${version}\n`);
+      yield* fs.writeFileString(path.join(finalPaths.versionDir, FORK_RUNTIME_MARKER_FILE), "");
 
       let validations = 0;
       const requests: string[] = [];

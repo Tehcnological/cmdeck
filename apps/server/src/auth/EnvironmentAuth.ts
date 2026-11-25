@@ -100,7 +100,7 @@ export interface McpClientSession {
   readonly sessionId: AuthSessionId;
   readonly label: string;
   readonly access: AuthMcpClientAccess;
-  /** Another T3 Code environment's link, whose work here stays within it. */
+  /** Another CMDeck environment's link, whose work here stays within it. */
   readonly peerLink: boolean;
   /** When a peer link's session ends unless it is used again; the linking side keeps this. */
   readonly linkExpiresAt?: DateTime.Utc;
@@ -473,14 +473,23 @@ export class ServerAuthConnectApprovalPendingError extends Schema.TaggedError<Se
 
 export class ServerAuthMcpApprovalCodeError extends Schema.TaggedError<ServerAuthMcpApprovalCodeError>()(
   "ServerAuthMcpApprovalCodeError",
-  { reason: Schema.Literals(["unknown_or_used", "not_a_pairing_code", "insufficient_scope"]) },
+  {
+    reason: Schema.Literals([
+      "unknown_or_used",
+      "not_a_pairing_code",
+      "insufficient_scope",
+      "approval_pending",
+    ]),
+  },
 ) {
   override get message(): string {
-    return this.reason === "insufficient_scope"
-      ? "That pairing code cannot grant this access. It has not been used, so choose an access level it grants, or create a code with the standard scopes."
-      : this.reason === "not_a_pairing_code"
-        ? "That is not a one-time pairing code."
-        : "That pairing code is unknown, expired, or already used.";
+    return this.reason === "approval_pending"
+      ? "That pairing code is waiting for approval on this machine. Approve it in Settings → Access, then enter the code again."
+      : this.reason === "insufficient_scope"
+        ? "That pairing code cannot grant this access. It has not been used, so choose an access level it grants, or create a code with the standard scopes."
+        : this.reason === "not_a_pairing_code"
+          ? "That is not a one-time pairing code."
+          : "That pairing code is unknown, expired, or already used.";
   }
 }
 
@@ -504,6 +513,7 @@ export class EnvironmentAuth extends Context.Service<
       credential: string,
       requestMetadata: AuthClientMetadata,
       previousSessionToken?: string,
+      options?: { readonly requirePairingApproval?: boolean },
     ) => Effect.Effect<
       {
         readonly response: AuthBrowserSessionResult;
@@ -511,7 +521,9 @@ export class EnvironmentAuth extends Context.Service<
         readonly cookieName?: string;
         readonly expireNormalCookie?: boolean;
       },
-      ServerAuthInvalidCredentialError | ServerAuthInternalError
+      | ServerAuthInvalidCredentialError
+      | ServerAuthConnectApprovalPendingError
+      | ServerAuthInternalError
     >;
     readonly exchangeBootstrapCredentialForAccessToken: (
       credential: string,
@@ -519,6 +531,8 @@ export class EnvironmentAuth extends Context.Service<
       requestMetadata: AuthClientMetadata,
       input?: {
         readonly proofKeyThumbprint?: string;
+        /** Direct pairing links wait until someone with `access:write` approves the device. */
+        readonly requirePairingApproval?: boolean;
       },
     ) => Effect.Effect<
       AuthAccessTokenResult,
@@ -559,6 +573,7 @@ export class EnvironmentAuth extends Context.Service<
       { readonly credential: string; readonly expiresAt: DateTime.Utc },
       ServerAuthInternalError | ManagedLimits.ManagedPolicyRefusedError
     >;
+    /** Approves a waiting T3 Connect device or a device waiting on a direct pairing link. */
     readonly approveConnectDevice: (
       pairingLinkId: string,
     ) => Effect.Effect<boolean, ServerAuthInternalError>;
@@ -668,6 +683,8 @@ export class EnvironmentAuth extends Context.Service<
       code: string,
       access: AuthMcpClientAccess,
       peerLink?: boolean,
+      /** Holds a plain pairing code until someone approves this sign-in. */
+      pairingApproval?: { readonly client: AuthClientMetadata },
     ) => Effect.Effect<
       AuthMcpClientAccess,
       ServerAuthMcpApprovalCodeError | ServerAuthInternalError
@@ -972,7 +989,7 @@ export const make = Effect.gen(function* () {
 
   const createBrowserSession: EnvironmentAuth["Service"]["createBrowserSession"] = Effect.fn(
     "EnvironmentAuth.createBrowserSession",
-  )(function* (credential, requestMetadata, previousSessionToken) {
+  )(function* (credential, requestMetadata, previousSessionToken, options) {
     if (devAuth?.matches(credential)) {
       return yield* sessions.verify(credential).pipe(
         mapSessionVerificationErrors,
@@ -1006,8 +1023,21 @@ export const make = Effect.gen(function* () {
             Effect.mapError((cause) => new ServerAuthSessionCredentialValidationError({ cause })),
           );
     const grant = yield* bootstrapCredentials
-      .consume(credential)
-      .pipe(Effect.mapError(toBootstrapExchangeError));
+      .consume(credential, {
+        requestMetadata,
+        ...(options?.requirePairingApproval ? { requirePairingApproval: true } : {}),
+      })
+      .pipe(
+        Effect.catchTags({
+          BootstrapCredentialConnectApprovalPendingError: () =>
+            Effect.fail(new ServerAuthConnectApprovalPendingError({})),
+        }),
+        Effect.mapError((cause) =>
+          cause._tag === "ServerAuthConnectApprovalPendingError"
+            ? cause
+            : toBootstrapExchangeError(cause),
+        ),
+      );
     const session = yield* issueUnlessOthersRevokedSince(
       revocationsAtStart,
       sessions
@@ -1051,6 +1081,7 @@ export const make = Effect.gen(function* () {
       readonly allowedSubject?: string;
       /** Shown to approvers when the credential waits on T3 Connect device approval. */
       readonly requestMetadata?: AuthClientMetadata;
+      readonly requirePairingApproval?: boolean;
     },
   ): Effect.Effect<
     ResolvedBootstrapGrant,
@@ -1325,6 +1356,9 @@ export const make = Effect.gen(function* () {
     pairingLinkId,
   ) =>
     bootstrapCredentials.approveConnectRequest(pairingLinkId).pipe(
+      Effect.flatMap((approved) =>
+        approved ? Effect.succeed(true) : bootstrapCredentials.approvePairingRequest(pairingLinkId),
+      ),
       Effect.mapError((cause) => new ServerAuthConnectDevicesError({ cause })),
       Effect.withSpan("EnvironmentAuth.approveConnectDevice"),
     );
@@ -1731,16 +1765,24 @@ export const make = Effect.gen(function* () {
     code,
     access,
     peerLink = false,
+    pairingApproval,
   ) =>
     resolveBootstrapGrant(code.trim(), {
       requiredScopes: mcpClientScopes(access),
       allowedSubject: `${peerLink ? PEER_LINK_PAIRING_SUBJECT_PREFIX : MCP_APPROVAL_SUBJECT_PREFIX}${access}`,
+      ...(pairingApproval
+        ? { requirePairingApproval: true, requestMetadata: pairingApproval.client }
+        : {}),
     }).pipe(
       Effect.catchTags({
         ServerAuthInvalidCredentialError: () =>
           Effect.fail(new ServerAuthMcpApprovalCodeError({ reason: "unknown_or_used" })),
         ServerAuthConnectApprovalPendingError: () =>
-          Effect.fail(new ServerAuthMcpApprovalCodeError({ reason: "unknown_or_used" })),
+          Effect.fail(
+            new ServerAuthMcpApprovalCodeError({
+              reason: pairingApproval ? "approval_pending" : "unknown_or_used",
+            }),
+          ),
         ServerAuthScopeNotGrantedError: () =>
           Effect.fail(new ServerAuthMcpApprovalCodeError({ reason: "insufficient_scope" })),
       }),

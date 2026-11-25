@@ -193,7 +193,7 @@ export const make = Effect.fn("RelayClientLedger.make")(function* (input: {
   const stopOrphan = Effect.fn("RelayClientLedger.stopOrphan")(function* (client: ProcessIdentity) {
     let state = yield* compare(client);
     if (state !== "same") return state === "gone";
-    yield* Effect.logInfo("Stopping a relay client left by a previous T3 Code server", {
+    yield* Effect.logInfo("Stopping a relay client left by a previous CMDeck server", {
       pid: client.pid,
     });
     for (const name of ["SIGTERM", "SIGKILL"] as const) {
@@ -247,12 +247,3 @@ export const layer = (input: { readonly stateDir: string }) =>
       return RelayClientLedger.of({ track: ledger.track });
     }),
   );
-
-export const layerTest = Layer.succeed(
-  RelayClientLedger,
-  RelayClientLedger.of({
-    track: Effect.fn("RelayClientLedger.track")(function () {
-      return Effect.succeed(Effect.void);
-    }),
-  }),
-);

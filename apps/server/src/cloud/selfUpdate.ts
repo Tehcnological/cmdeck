@@ -191,17 +191,23 @@ export const make = Effect.fn("cloud.server_self_update.make")(function* () {
         );
       }
       return yield* failWith(
-        "This server is managed by the T3 Code desktop app on its machine; update the desktop app to update it.",
+        "This server is managed by the CMDeck desktop app on its machine; update the desktop app to update it.",
       );
     }
     // The target must accept the launcher that will run it, which can be older than this server.
     const launcherProtocol = launcher.protocol;
     if (capability === null || launcherProtocol === undefined) {
       return yield* failWith(
-        "Remote updates require the T3 Code background service. Run `t3 service install` on the server machine.",
+        "Remote updates require the CMDeck background service. Run `t3 service install` on the server machine.",
       );
     }
 
+    // Private fork: the default release source is upstream's GitHub, which would replace this fork.
+    if (releaseBaseUrl === undefined) {
+      return yield* failWith(
+        `This private fork does not install published t3 releases. Set a managed update mirror or ${CLI_RELEASE_BASE_URL_ENV} to a source of this fork's builds.`,
+      );
+    }
     const unsafeCrossing = crossesTrackUnsafely(input);
     if (unsafeCrossing !== null) return yield* failWith(unsafeCrossing);
     const targetVersion = input.targetVersion.trim();

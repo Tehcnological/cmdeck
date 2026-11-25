@@ -12,10 +12,6 @@ import { describe, expect, it } from "vite-plus/test";
 const launcherScript = (executable: string) =>
   `#!/bin/sh\nexec '${executable.replaceAll("'", "'\\''")}' "$@"\n`;
 
-const nightlies = Array.from({ length: 100 }, (_, index) => ({
-  tag_name: `v1.2.4-nightly.20261020.${200 - index}`,
-}));
-
 describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer home", () => {
   it("installs a relative home from a directory ending in a newline", async () => {
     const temporaryRoot = await NodeFSP.realpath(
@@ -30,6 +26,7 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer home
     try {
       await NodeFSP.mkdir(target, { recursive: true });
       await NodeFSP.writeFile(NodePath.join(target, ".install-complete"), `${version}\n`);
+      await NodeFSP.writeFile(NodePath.join(target, ".cmdeck"), "");
       await NodeFSP.writeFile(NodePath.join(target, "t3"), "#!/bin/sh\necho 't3 v1.2.3'\n", {
         mode: 0o755,
       });
@@ -51,8 +48,11 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer home
       expect(first.status, first.stdout + first.stderr).toBe(0);
       const { status, stdout, stderr } = install();
       expect(status, stdout + stderr).toBe(0);
-      expect(stderr).toContain(`Installed T3 Code ${version}`);
+      expect(stderr).toContain(`Installed CMDeck ${version}`);
       expect(await NodeFSP.readFile(launcher, "utf8")).toBe(
+        launcherScript(NodePath.join(target, "t3")),
+      );
+      expect(await NodeFSP.readFile(NodePath.join(root, "bin/cmdeck"), "utf8")).toBe(
         launcherScript(NodePath.join(target, "t3")),
       );
       expect(
@@ -67,59 +67,38 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer home
   });
 });
 
-// regression: #22490
-describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer channel lookup", () => {
+describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer release source", () => {
   it.each([
-    // regression: #32897
-    ["stable", "1.2.3", 1],
-    ["preview", "1.2.4-preview.20261019.50", 0],
-  ])("finds %s %s behind nightlies and %i HTTP 504s", async (channel, version, failures) => {
-    const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-install-index-"));
-    const target = NodePath.join(root, "home/runtime/versions", version);
+    [false, "CMDeck publishes no hosted builds. Set T3CODE_RELEASE_BASE_URL"],
+    [true, "set T3CODE_VERSION"],
+  ])("stops without a mirror and version (mirror set: %s)", async (withMirror, message) => {
+    const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-install-source-"));
+    const requests: Array<string> = [];
     const server = NodeHttp.createServer((request, response) => {
-      if (failures-- > 0) return response.writeHead(504).end();
-      const url = new URL(request.url ?? "/", "http://fixture");
-      const body =
-        url.pathname === "/pingdotgg/t3code/releases/latest" &&
-        request.headers.accept === "application/json"
-          ? { tag_name: "v1.2.3" }
-          : url.pathname === "/repos/pingdotgg/t3code/releases"
-            ? { "1": nightlies, "2": [{ tag_name: `v${version}` }, { tag_name: "v1.2.3" }] }[
-                url.searchParams.get("page") ?? ""
-              ]
-            : undefined;
-      if (body === undefined) response.statusCode = 404;
-      // The API pretty-prints and the installer reads it line by line.
-      response.end(JSON.stringify(body ?? [], null, 2));
+      requests.push(request.url ?? "");
+      response.writeHead(404).end();
     });
     try {
-      // An existing completed install isolates release resolution from archive downloads.
-      await NodeFSP.mkdir(target, { recursive: true });
-      await NodeFSP.writeFile(NodePath.join(target, ".install-complete"), `${version}\n`);
       await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
       const address = server.address();
       if (!address || typeof address === "string") throw new Error("Expected a TCP listener");
-      const origin = `http://127.0.0.1:${address.port}`;
-      const source = await NodeFSP.readFile(
-        NodePath.resolve(import.meta.dirname, "install.sh"),
-        "utf8",
-      );
-      const installer = NodePath.join(root, "install.sh");
-      await NodeFSP.writeFile(installer, source.replace(/https:\/\/(api\.)?github\.com/g, origin));
+      const mirror = `http://127.0.0.1:${address.port}`;
       const { code, output } = await new Promise<{ code: number | null; output: string }>(
         (resolve, reject) => {
-          const child = NodeChildProcess.spawn("sh", [installer], {
-            env: {
-              ...process.env,
-              T3CODE_VERSION: "",
-              T3CODE_CHANNEL: channel,
-              T3CODE_HOME: NodePath.join(root, "home"),
-              T3CODE_INSTALL_BIN_DIR: NodePath.join(root, "bin"),
-              // A wrong version must fail here instead of downloading a real release.
-              T3CODE_RELEASE_BASE_URL: origin,
+          const child = NodeChildProcess.spawn(
+            "sh",
+            [NodePath.resolve(import.meta.dirname, "install.sh")],
+            {
+              env: {
+                ...process.env,
+                T3CODE_VERSION: "",
+                T3CODE_RELEASE_BASE_URL: withMirror ? mirror : "",
+                T3CODE_HOME: NodePath.join(root, "home"),
+                T3CODE_INSTALL_BIN_DIR: NodePath.join(root, "bin"),
+              },
+              stdio: ["ignore", "pipe", "pipe"],
             },
-            stdio: ["ignore", "pipe", "pipe"],
-          });
+          );
           let output = "";
           child.stdout.on("data", (chunk: Buffer) => (output += chunk.toString()));
           child.stderr.on("data", (chunk: Buffer) => (output += chunk.toString()));
@@ -127,8 +106,10 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer chan
           child.on("close", (code) => resolve({ code, output }));
         },
       );
-      expect(code, output).toBe(0);
-      expect(output).toContain(`Installed T3 Code ${version}`);
+      expect(code, output).not.toBe(0);
+      expect(output).toContain(message);
+      expect(requests).toEqual([]);
+      expect(await NodeFSP.readdir(root)).toEqual([]);
     } finally {
       server.closeAllConnections();
       await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -162,7 +143,6 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")(
               {
                 env: {
                   ...process.env,
-                  T3CODE_CHANNEL: "",
                   T3CODE_VERSION: "1.2.3",
                   T3CODE_HOME: NodePath.join(root, "home"),
                   T3CODE_INSTALL_BIN_DIR: NodePath.join(root, "bin"),
@@ -196,10 +176,13 @@ async function installOver(input: {
   readonly binDir: string;
   readonly env?: NodeJS.ProcessEnv;
   readonly cwd?: string;
+  /** False seeds a runtime the official T3 Code installed, without the fork's marker. */
+  readonly forkInstalled?: boolean;
 }) {
   const target = NodePath.join(input.home, "runtime", "versions", "1.2.3");
   await NodeFSP.mkdir(target, { recursive: true });
   await NodeFSP.writeFile(NodePath.join(target, ".install-complete"), "1.2.3\n");
+  if (input.forkInstalled !== false) await NodeFSP.writeFile(NodePath.join(target, ".cmdeck"), "");
   const installer = NodePath.resolve(import.meta.dirname, input.script);
   const [command, args] =
     input.script === "install.sh"
@@ -210,7 +193,6 @@ async function installOver(input: {
     ...(input.cwd === undefined ? {} : { cwd: input.cwd }),
     env: {
       ...process.env,
-      T3CODE_CHANNEL: "",
       T3CODE_VERSION: "1.2.3",
       T3CODE_HOME: input.home,
       T3CODE_INSTALL_BIN_DIR: input.binDir,
@@ -222,6 +204,42 @@ async function installOver(input: {
 }
 
 describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("install.sh t3 command", () => {
+  it("refuses to reuse a runtime the official T3 Code installed", async () => {
+    const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-install-official-"));
+    try {
+      const binDir = NodePath.join(root, "bin");
+      const result = await installOver({
+        script: "install.sh",
+        home: NodePath.join(root, "home"),
+        binDir,
+        forkInstalled: false,
+      });
+      expect(result.code).not.toBe(0);
+      expect(result.output).toContain(`${result.target} holds a T3 Code runtime this fork did not`);
+    } finally {
+      await NodeFSP.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("ignores a T3CODE_HOME that names the official T3 Code home", async () => {
+    const root = await NodeFSP.realpath(
+      await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-install-t3-home-")),
+    );
+    try {
+      const result = await installOver({
+        script: "install.sh",
+        home: NodePath.join(root, ".cmdeck"),
+        binDir: NodePath.join(root, "bin"),
+        env: { HOME: root, CMDECK_HOME: undefined, T3CODE_HOME: NodePath.join(root, ".t3") },
+      });
+      expect(result.code, result.output).toBe(0);
+      expect(result.output).toContain("ignoring T3CODE_HOME=");
+      expect(await NodeFSP.readdir(root)).not.toContain(".t3");
+    } finally {
+      await NodeFSP.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("replaces only this home's own launchers and prints a PATH command", async () => {
     const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-install-link-"));
     try {
@@ -299,7 +317,7 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("install.sh t3 
         env: { HOME: root, PATH: `${binDir}/:/usr/bin:/bin` },
       });
       expect(slashed.code, slashed.output).toBe(0);
-      expect(slashed.output).toContain("Run t3 to use T3 Code here");
+      expect(slashed.output).toContain("Run t3 to use CMDeck here");
 
       // A relative folder is made absolute, so the PATH command never follows the working directory.
       const relative = await installOver({
@@ -346,7 +364,7 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "win32")("install.ps1 t3
       const shim = NodePath.join(binDir, "t3.cmd");
       await NodeFSP.mkdir(binDir, { recursive: true });
 
-      const desktopShim = '@echo off\r\n"C:\\Program Files\\T3 Code\\T3 Code.exe" "x" %*\r\n';
+      const desktopShim = '@echo off\r\n"C:\\Program Files\\CMDeck\\CMDeck.exe" "x" %*\r\n';
       await NodeFSP.writeFile(shim, desktopShim);
       const foreign = await installOver({ script: "install.ps1", home, binDir });
       expect(foreign.code).not.toBe(0);
@@ -403,7 +421,7 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "win32")("install.ps1 t3
         env: { [pathKey]: `${binDir}\\;${process.env[pathKey] ?? ""}` },
       });
       expect(slashed.code, slashed.output).toBe(0);
-      expect(slashed.output).toContain("to use T3 Code here");
+      expect(slashed.output).toContain("to use CMDeck here");
       // The same when the install folder itself is given with a trailing separator.
       const bothSlashed = await installOver({
         script: "install.ps1",
@@ -412,7 +430,7 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "win32")("install.ps1 t3
         env: { [pathKey]: `${binDir}\\;${process.env[pathKey] ?? ""}` },
       });
       expect(bothSlashed.code, bothSlashed.output).toBe(0);
-      expect(bothSlashed.output).toContain("to use T3 Code here");
+      expect(bothSlashed.output).toContain("to use CMDeck here");
     } finally {
       await NodeFSP.rm(root, { recursive: true, force: true });
     }
@@ -517,6 +535,9 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer chec
               await NodeFSP.readFile(NodePath.join(versions, version, ".install-complete"), "utf8"),
             ).toBe("1.2.3\n");
             expect(
+              await NodeFSP.readFile(NodePath.join(versions, version, ".cmdeck"), "utf8"),
+            ).toBe("cmdeck\n");
+            expect(
               NodeChildProcess.execFileSync(NodePath.join(root, "bin/t3"), ["--version"], {
                 encoding: "utf8",
               }).trim(),
@@ -524,7 +545,7 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer chec
           } else {
             expect(code).not.toBe(0);
             expect(output).toContain("checksum mismatch");
-            expect(output).not.toContain("Installed T3 Code");
+            expect(output).not.toContain("Installed CMDeck");
             expect(await NodeFSP.readdir(versions)).toEqual([]);
           }
         } finally {
@@ -584,9 +605,11 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("concurrent ins
         wrapper,
         `
 import { execFileSync } from 'node:child_process';
-await fetch(process.env.T3_TEST_ORIGIN + '/ready/' + process.env.T3_TEST_INSTALLER);
+// Only the runtime publication (plain mv) is staged; launcher moves (mv -f) pass straight through.
+const staged = process.argv[2] !== '-f';
+if (staged) await fetch(process.env.T3_TEST_ORIGIN + '/ready/' + process.env.T3_TEST_INSTALLER);
 execFileSync(${JSON.stringify(realMv)}, process.argv.slice(2));
-if (process.env.T3_TEST_INSTALLER === 'first') await fetch(process.env.T3_TEST_ORIGIN + '/published');
+if (staged && process.env.T3_TEST_INSTALLER === 'first') await fetch(process.env.T3_TEST_ORIGIN + '/published');
 `,
       );
       await NodeFSP.writeFile(

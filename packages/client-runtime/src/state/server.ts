@@ -1423,6 +1423,11 @@ export function createServerEnvironmentAtoms<R, E>(
       Atom.withLabel(`environment-data:server:providers:${environmentId}`),
     ),
   );
+  const inferenceServersValueAtom = Atom.family((environmentId: EnvironmentId) =>
+    Atom.make((get) => get(configValueAtom(environmentId))?.inferenceServers ?? null).pipe(
+      Atom.withLabel(`environment-data:server:inference-servers:${environmentId}`),
+    ),
+  );
   const welcomeStateFamily = Atom.family((environmentId: EnvironmentId) =>
     runtime
       .atom(serverWelcomeStateChanges(environmentId), { initialValue: null })
@@ -1508,6 +1513,14 @@ export function createServerEnvironmentAtoms<R, E>(
     scheduler: configScheduler,
     concurrency: configConcurrency,
   });
+  const remoteMcpStatus = createEnvironmentRpcQueryAtomFamily(runtime, {
+    label: "environment-data:server:remote-mcp:status",
+    tag: WS_METHODS.remoteMcpStatus,
+  });
+  const refreshRemoteMcpStatus = (
+    { environmentId }: { readonly environmentId: EnvironmentId },
+    registry: AtomRegistry.AtomRegistry,
+  ) => Effect.sync(() => registry.refresh(remoteMcpStatus({ environmentId, input: {} })));
 
   return {
     configValueAtom,
@@ -1538,6 +1551,7 @@ export function createServerEnvironmentAtoms<R, E>(
     hiddenThreadTagsAtom,
     usageModelFilterAtom,
     providersValueAtom,
+    inferenceServersValueAtom,
     providerAuthState: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
       label: "environment-data:provider:auth-state",
       tag: WS_METHODS.providerAuthSubscribe,
@@ -1607,10 +1621,6 @@ export function createServerEnvironmentAtoms<R, E>(
     removeProviderInstallation: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:provider:install-remove",
       tag: WS_METHODS.providerInstallRemove,
-    }),
-    traceDiagnostics: createEnvironmentRpcQueryAtomFamily(runtime, {
-      label: "environment-data:server:trace-diagnostics",
-      tag: WS_METHODS.serverGetTraceDiagnostics,
     }),
     npmRelease: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:server:npm-release",
@@ -1707,12 +1717,12 @@ export function createServerEnvironmentAtoms<R, E>(
       },
     }),
     resourceTelemetry: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
-      label: "environment-data:server:resource-telemetry",
+      label: "environment-data:server:resource-monitor",
       tag: WS_METHODS.subscribeResourceTelemetry,
       idleTtlMs: 0,
     }),
     resourceTelemetryHistory: createEnvironmentRpcQueryAtomFamily(runtime, {
-      label: "environment-data:server:resource-telemetry-history",
+      label: "environment-data:server:resource-monitor-history",
       tag: WS_METHODS.serverGetResourceTelemetryHistory,
       staleTimeMs: 5_000,
       refreshIntervalMs: 5_000,
@@ -1826,6 +1836,56 @@ export function createServerEnvironmentAtoms<R, E>(
             input.refreshModels ?? false,
             input.modelCatalogOnly ?? false,
           ]),
+      },
+    }),
+    refreshInferenceServers: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:refresh-inference-servers",
+      tag: WS_METHODS.serverRefreshInferenceServers,
+      concurrency: {
+        mode: "singleFlight",
+        key: ({ environmentId, input }) => JSON.stringify([environmentId, input.id ?? null]),
+      },
+    }),
+    discoverInferenceServers: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:discover-inference-servers",
+      tag: WS_METHODS.serverDiscoverInferenceServers,
+      concurrency: {
+        mode: "singleFlight",
+        key: ({ environmentId, input }) =>
+          JSON.stringify([environmentId, input.host ?? null, input.baseUrl ?? null]),
+      },
+    }),
+    getInferenceUsage: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:inference-usage",
+      tag: WS_METHODS.serverGetInferenceUsage,
+      concurrency: {
+        mode: "singleFlight",
+        key: ({ environmentId, input }) => JSON.stringify([environmentId, input.window]),
+      },
+    }),
+    checkInferenceModelImages: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:check-inference-model-images",
+      tag: WS_METHODS.serverCheckInferenceModelImages,
+      concurrency: {
+        mode: "singleFlight",
+        key: ({ environmentId, input }) =>
+          JSON.stringify([environmentId, input.serverId, input.model]),
+      },
+    }),
+    getThreadInferenceStop: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:thread-inference-stop",
+      tag: WS_METHODS.serverGetThreadInferenceStop,
+      concurrency: {
+        mode: "singleFlight",
+        key: ({ environmentId, input }) => JSON.stringify([environmentId, input.threadId]),
+      },
+    }),
+    getThreadInferenceRequest: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:thread-inference-request",
+      tag: WS_METHODS.serverGetThreadInferenceRequest,
+      concurrency: {
+        mode: "singleFlight",
+        key: ({ environmentId, input }) => JSON.stringify([environmentId, input.threadId]),
       },
     }),
     updateProvider: createEnvironmentRpcCommand(runtime, {
@@ -2036,20 +2096,32 @@ export function createServerEnvironmentAtoms<R, E>(
         key: ({ environmentId }) => environmentId,
       },
     }),
-    checkOtlpEndpoint: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:check-otlp-endpoint",
-      tag: WS_METHODS.serverCheckOtlpEndpoint,
-    }),
     checkSecretSource: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:check-secret-source",
       tag: WS_METHODS.serverCheckSecretSource,
+    }),
+    checkPublicAddress: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:check-public-address",
+      tag: WS_METHODS.serverCheckPublicAddress,
+    }),
+    /** Token metadata only; a token's secret is in the create answer alone. */
+    remoteMcpStatus,
+    createRemoteMcpToken: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:remote-mcp:create-token",
+      tag: WS_METHODS.remoteMcpCreateToken,
+      onSuccess: refreshRemoteMcpStatus,
+    }),
+    revokeRemoteMcpToken: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:remote-mcp:revoke-token",
+      tag: WS_METHODS.remoteMcpRevokeToken,
+      onSuccess: refreshRemoteMcpStatus,
     }),
     listTextGeneratorModels: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:list-text-generator-models",
       tag: WS_METHODS.serverListTextGeneratorModels,
     }),
     retryResourceTelemetry: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:retry-resource-telemetry",
+      label: "environment-data:server:retry-resource-monitor",
       tag: WS_METHODS.serverRetryResourceTelemetry,
       concurrency: {
         mode: "singleFlight",

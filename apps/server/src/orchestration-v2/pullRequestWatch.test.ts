@@ -1054,6 +1054,46 @@ Review triggered.
     assert.include(text, `"${"x".repeat(196)}..."`);
   });
 
+  it("quotes the end of at most three failing checks' logs, fenced", () => {
+    const message = (logs: Parameters<typeof pullRequestWatchMessage>[0]["logs"]) =>
+      pullRequestWatchMessage({
+        number: 1,
+        url: "https://github.com/o/r/pull/1",
+        baseBranch: "main",
+        headSha: null,
+        report: {
+          changes: [
+            {
+              kind: "checks-failed",
+              failed: ["a", "b", "c", "d", "e"].map((name) => check(name, "failure")),
+            },
+          ],
+          next: watch(),
+          exhausted: false,
+        },
+        ...(logs === undefined ? {} : { logs }),
+      }).text;
+    const text = message([
+      { name: "passing", log: "not failing" },
+      { name: "a", log: "a failed" },
+      { name: "b", log: null },
+      { name: "c", log: `${"x".repeat(2_000)}\nlast \`\`\` line` },
+      { name: "d", log: "d failed" },
+      { name: "e", log: "e failed" },
+    ]);
+    assert.include(text, "a:\n```\na failed\n```");
+    assert.include(text, "d:\n```\nd failed\n```\n\nLook into each item");
+    assert.notInclude(text, "e failed");
+    assert.notInclude(text, "not failing");
+    // The excerpt keeps the end, and its fence outlasts the log's own backticks.
+    assert.include(text, "c:\n````\nxxx");
+    assert.include(text, "last ``` line\n````");
+    assert.notInclude(text, "x".repeat(1_500));
+
+    assert.isTrue(message([{ name: "a", log: `${"🚀".repeat(1_000)}z` }]).isWellFormed());
+    assert.notInclude(message([]), "End of each failing check's log");
+  });
+
   it.each([
     [
       "a bot's leading badge",
@@ -1345,7 +1385,7 @@ describe("pullRequestWatchEndMessage", () => {
     });
     assert.equal(
       merged.text,
-      `Pull request #7 (${url}) was merged into main by juliusmarminge as 3b2f958, so T3 Code stopped watching it.`,
+      `Pull request #7 (${url}) was merged into main by juliusmarminge as 3b2f958, so CMDeck stopped watching it.`,
     );
     assert.deepEqual(merged.notification, {
       source: { kind: "monitor" },
@@ -1355,13 +1395,13 @@ describe("pullRequestWatchEndMessage", () => {
     // GitCafe reports a merge made on GitHub without who made it.
     assert.equal(
       end({ mergeCommitSha }).text,
-      `Pull request #7 (${url}) was merged into main as 3b2f958, so T3 Code stopped watching it.`,
+      `Pull request #7 (${url}) was merged into main as 3b2f958, so CMDeck stopped watching it.`,
     );
 
     const closed = end({ state: "closed" });
     assert.equal(
       closed.text,
-      `Pull request #7 (${url}) was closed without merging, so T3 Code stopped watching it. If it is reopened, call watch_pull_request to watch it again.`,
+      `Pull request #7 (${url}) was closed without merging, so CMDeck stopped watching it. If it is reopened, call watch_pull_request to watch it again.`,
     );
     assert.equal(closed.notification.summary, "#7: closed, stopped watching");
   });
