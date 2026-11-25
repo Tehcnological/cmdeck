@@ -78,9 +78,12 @@ async function download(url, file) {
 
 async function install(dir, key) {
   const archive = `t3-${version}-${key}.${process.platform === "win32" ? "zip" : "tar.gz"}`;
-  const base = (
-    process.env.T3CODE_RELEASE_BASE_URL || "https://github.com/pingdotgg/t3code/releases/download"
-  ).replace(/\/+$/, "");
+  const base = (process.env.T3CODE_RELEASE_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (base === "") {
+    throw new Error(
+      "CMDeck publishes no hosted builds. Set T3CODE_RELEASE_BASE_URL to your own mirror of CMDeck builds.",
+    );
+  }
   const sums = await (await get(`${base}/v${version}/SHA256SUMS`)).text();
   const expected = /^([0-9a-f]{64})\s+\*?(.+)$/im;
   const line = sums
@@ -179,8 +182,7 @@ async function main() {
   const key = `${process.platform}-${process.arch}`;
   if (!SUPPORTED.includes(key)) {
     throw new Error(
-      `no CMDeck CLI build is available for ${key} (supported: ${SUPPORTED.join(", ")}).\n` +
-        "The desktop app is at https://github.com/pingdotgg/t3code/releases",
+      `no CMDeck CLI build is available for ${key} (supported: ${SUPPORTED.join(", ")}).`,
     );
   }
   const dir = path.join(t3Home(), "runtime", "versions", version);

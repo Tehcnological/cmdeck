@@ -353,6 +353,19 @@ fs.readFileSync = (file, ...rest) => {
           yield* fs.readDirectory(path.join(root, "other-home/runtime/versions")),
           [],
         );
+
+        const requestsBeforeNoMirror = release.requests.length;
+        const noMirror = yield* run(process.execPath, [launcher, "--version"], {
+          cwd: root,
+          env: {
+            ...env,
+            T3CODE_HOME: path.join(root, "no-mirror-home"),
+            T3CODE_RELEASE_BASE_URL: "",
+          },
+        });
+        assert.equal(noMirror.exitCode, 1);
+        assert.include(noMirror.stderr, "CMDeck publishes no hosted builds");
+        assert.equal(release.requests.length, requestsBeforeNoMirror);
       }),
   );
   it.effect.skipIf(HostProcess.Platform.defaultValue() === "win32")(

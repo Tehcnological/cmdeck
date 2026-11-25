@@ -4,11 +4,12 @@ CMDeck runs coding agents on your computer and lets you control them from its
 desktop, web, or mobile app. Set up the machine where the agents will work first.
 
 > [!NOTE]
-> CMDeck is an unofficial fork of T3 Code with no hosted downloads. Run
-> `scripts/install.sh` (or `scripts/install.ps1`) from your CMDeck checkout instead of the
-> `t3.codes` URLs below, and build the desktop app from source. The installer adds both a
-> `cmdeck` and a `t3` command. CMDeck keeps its data in `~/.cmdeck` (set `CMDECK_HOME` to
-> move it) and its server defaults to port 3783, so it can run next to the official T3 Code.
+> CMDeck is an unofficial fork of T3 Code and publishes no hosted builds. The `t3.codes`
+> installers, `npx t3`, the `t3` npm package, and T3 Code's GitHub releases and package-manager
+> entries all install the official T3 Code, not CMDeck. Install CMDeck from builds you host
+> yourself, as described below, or build the desktop app from source. The installer adds both a
+> `cmdeck` and a `t3` command. CMDeck keeps its data in `~/.cmdeck` (set `CMDECK_HOME` to move
+> it) and its server defaults to port 3783, so it can run next to the official T3 Code.
 
 ## Requirements
 
@@ -17,23 +18,30 @@ launch CMDeck and configure providers afterwards.
 
 ## Command line
 
+The installers in `scripts/` download a CMDeck build from your own mirror: any HTTP(S) server
+laid out as `<mirror>/v<version>/SHA256SUMS` next to `t3-<version>-<platform>-<arch>.tar.gz`
+(`.zip` on Windows). Set `T3CODE_RELEASE_BASE_URL` to the mirror and `T3CODE_VERSION` to the
+version to install; without them the installer stops instead of downloading anything.
+
 ```bash
-curl -fsSL https://t3.codes/install.sh | sh
+T3CODE_RELEASE_BASE_URL=https://mirror.example/cmdeck T3CODE_VERSION=1.2.3 scripts/install.sh
 ```
 
 On Windows, in PowerShell:
 
 ```powershell
-irm https://t3.codes/install.ps1 | iex
+$env:T3CODE_RELEASE_BASE_URL = "https://mirror.example/cmdeck"
+$env:T3CODE_VERSION = "1.2.3"
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 ```
 
-This installs the `t3` command to `~/.local/bin`. If that folder is not on your
+The installer checks the archive against `SHA256SUMS` and installs the `t3` and `cmdeck`
+commands to `~/.local/bin`. If that folder is not on your
 `PATH` yet, the installer says so and, for zsh, bash on Linux, and fish, prints
 a command to add it. On Windows, `t3` works in the same PowerShell window right
 away; add the folder to your `PATH` for new windows. If a `t3` that the
 installer or the desktop app did not create is already there, it leaves that
-one alone and stops. Set `T3CODE_CHANNEL=nightly` to install the nightly train, or
-`T3CODE_VERSION` to pin an exact version.
+one alone and stops.
 
 | Task                                  | Command                                                                 |
 | ------------------------------------- | ----------------------------------------------------------------------- |
@@ -54,22 +62,15 @@ command it names and open the pairing URL to connect to that server. Stop it
 before starting a replacement, or use a different `--base-dir` for an
 independent server.
 
-To try CMDeck once without installing it, run `npx t3@latest` instead (needs
-Node.js for `npx`). It offers to install the `t3` command first. If you say no,
-it asks again at the next minor release, and `npx t3 install` installs it later.
-`npx t3` always runs the version npm picked, even when a `t3` is installed. On
-the nightly train, run your installed `t3` (for example `t3 connect`), not
-`npx t3`, which runs the latest stable release.
-
 ### Intel Macs
 
-There is no `t3` executable for Intel Macs (the desktop app is available). To
+There is no `t3` executable for Intel Macs. To
 run a server there, build it from source with `vp`, which provides the Node version it needs
 ([Install vp](../operations/00_development.md#first-checkout)):
 
 ```bash
-git clone https://github.com/pingdotgg/t3code
-cd t3code && vp i && vp run build:desktop
+git clone https://github.com/Tehcnological/cmdeck
+cd cmdeck && vp i && vp run build:desktop
 node apps/server/dist/bin.mjs
 ```
 
@@ -78,63 +79,10 @@ update it with `git pull` and a rebuild.
 
 ## Desktop app
 
-Download a release from [GitHub Releases](https://github.com/pingdotgg/t3code/releases),
-or use a package manager:
-
-| Platform           | Install                                                      |
-| ------------------ | ------------------------------------------------------------ |
-| Windows            | `winget install T3Tools.T3Code`                              |
-| Windows (Scoop)    | `scoop install extras/t3code`                                |
-| macOS              | `brew install --cask t3-code`                                |
-| Debian, Ubuntu     | `sudo apt install ./T3-Code-*.deb`                           |
-| Arch Linux         | `yay -S t3code-bin`                                          |
-| Arch Linux nightly | `yay -S t3code-nightly-bin`                                  |
-| Nix                | `nix profile add github:NixOS/nixpkgs/nixos-unstable#t3code` |
-
-### Linux
-
-AppImage and `.deb` downloads are available for x86_64 and ARM64. Check your
-architecture with `uname -m`: for `x86_64`, choose a file ending in
-`x86_64.AppImage` or `amd64.deb`; for `aarch64`, choose `arm64.AppImage` or
-`arm64.deb`.
-
-To launch an AppImage, open a terminal in its download folder. Replace
-`T3-Code.AppImage` below with the exact filename you downloaded:
-
-```bash
-chmod +x ./T3-Code.AppImage
-./T3-Code.AppImage
-```
-
-The `.deb` updates itself like the other desktop builds. It asks for your
-password to install each update. If your desktop has no password prompt, the
-update fails. Download the new `.deb` and install it the same way.
-
-The AUR packages support x86_64 and ARM64.
-Update AUR installs with your AUR helper, such as `yay -Syu`, instead of the
-in-app updater.
-
-### Nix (nixpkgs)
-
-CMDeck is maintained in [nixpkgs](https://github.com/NixOS/nixpkgs/tree/nixos-unstable/pkgs/by-name/t3/t3code).
-The command above installs from `nixos-unstable` and requires Nix 2.30 or later with
-`nix-command` and `flakes` enabled. Launch the desktop app with `t3code-desktop`;
-the package also includes the `t3` command.
-
-On NixOS, you can instead add the package to your system configuration, using
-a nixpkgs revision that includes `t3code`:
-
-```nix
-environment.systemPackages = [ pkgs.t3code ];
-```
-
-Apply the change with `sudo nixos-rebuild switch`. For Home Manager, add
-`pkgs.t3code` to `home.packages` and run `home-manager switch`.
-
-Update a profile installation with `nix profile upgrade t3code`. For NixOS or
-Home Manager, update your configuration's nixpkgs input or channel and rebuild.
-Nix manages both the desktop app and the bundled
-`t3` command; use Nix to update them instead of the in-app updater or `t3 update`.
+CMDeck has no desktop downloads or package-manager entries; the T3 Code releases, `winget`,
+Scoop, Homebrew, AUR, and nixpkgs packages all install the official T3 Code. Build the desktop
+app from a CMDeck checkout instead
+([development setup](../operations/00_development.md#first-checkout)).
 
 ### The `t3` command
 

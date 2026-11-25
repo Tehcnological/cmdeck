@@ -96,7 +96,7 @@ export const homeOwnedMessage = (owner: Option.Option<HomeOwner>): string =>
     onNone: () =>
       m(
         msg(
-          "Another CMDeck server, such as the background service, is using this data directory, or an older background service is set up for it. Stop that server or try `t3 update`. If the older launcher cannot update, run `t3 service uninstall` and optionally reinstall with `t3 service install` from a current CLI. Use `npx t3@latest` if `t3` is missing or outdated, and pass `--base-dir` with the service's T3 home to each command. Then reopen CMDeck. You can also set a separate T3CODE_HOME and pair with the running server.",
+          "Another CMDeck server, such as the background service, is using this data directory, or an older background service is set up for it. Stop that server or try `t3 update`. If the older launcher cannot update, run `t3 service uninstall` and optionally reinstall with `t3 service install` from a current CLI. Reinstall CMDeck from your build mirror if `t3` is missing or outdated, and pass `--base-dir` with the service's T3 home to each command. Then reopen CMDeck. You can also set a separate T3CODE_HOME and pair with the running server.",
         ),
       ),
     onSome: (owner) => {

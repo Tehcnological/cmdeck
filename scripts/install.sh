@@ -1,25 +1,23 @@
 #!/bin/sh
-# Installs the CMDeck CLI (as `cmdeck` and `t3`) from a GitHub Release archive. Needs only sh, tar,
-# sha256sum or shasum, and curl or wget; no Node, npm, or compiler.
+# Installs the CMDeck CLI (as `cmdeck` and `t3`) from a release archive on your own mirror of CMDeck
+# builds. Needs only sh, tar, sha256sum or shasum, and curl or wget; no Node, npm, or compiler.
+# CMDeck publishes no hosted builds, so this never downloads from GitHub.
 #
-#   curl -fsSL https://t3.codes/install.sh | sh
+#   T3CODE_RELEASE_BASE_URL=https://mirror.example/cmdeck T3CODE_VERSION=1.2.3 sh install.sh
 #
 # Environment:
-#   T3CODE_CHANNEL           release train to follow: stable, nightly, or preview
-#                            (default: stable; preview is a maintainers' test train)
-#   T3CODE_VERSION           exact version to install (overrides T3CODE_CHANNEL)
+#   T3CODE_RELEASE_BASE_URL  your mirror, laid out as <url>/v<version>/<archive> (required)
+#   T3CODE_VERSION           exact version to install (required)
 #   CMDECK_HOME              data directory (default: ~/.cmdeck); wins over T3CODE_HOME
 #   T3CODE_HOME              data directory, read when CMDECK_HOME is unset
 #   T3CODE_INSTALL_BIN_DIR   where the `cmdeck` and `t3` commands go (default: ~/.local/bin)
-#   T3CODE_RELEASE_BASE_URL  mirror for releases/download (default: GitHub)
 #
 # The archive is unpacked into $T3CODE_HOME/runtime/versions/<version>, the
 # same layout `t3 service install` uses, so the service reuses this download
 # instead of fetching the release again.
 set -eu
 
-repo="pingdotgg/t3code"
-base_url="${T3CODE_RELEASE_BASE_URL:-https://github.com/${repo}/releases/download}"
+base_url="${T3CODE_RELEASE_BASE_URL:-}"
 t3_home="${CMDECK_HOME:-${T3CODE_HOME:-$HOME/.cmdeck}}"
 case "$t3_home" in
   /*) ;;
@@ -164,7 +162,7 @@ download() {
 case "$(uname -s)" in
   Darwin) platform="darwin" ;;
   Linux) platform="linux" ;;
-  *) fail "unsupported operating system $(uname -s); use the desktop app or npm" ;;
+  *) fail "unsupported operating system $(uname -s); use the desktop app" ;;
 esac
 case "$(uname -m)" in
   arm64 | aarch64) arch="arm64" ;;
@@ -172,7 +170,7 @@ case "$(uname -m)" in
   *) fail "unsupported architecture $(uname -m)" ;;
 esac
 if [ "${platform}-${arch}" = darwin-x64 ]; then
-  fail "there is no t3 CLI for Intel Macs. Install the desktop app from https://t3.codes/download, or run a server from source: https://github.com/${repo}/blob/main/docs/user/install.md#intel-macs"
+  fail "there is no CMDeck CLI for Intel Macs. Run a server from source: https://github.com/Tehcnological/cmdeck/blob/main/docs/user/install.md#intel-macs"
 fi
 command -v tar >/dev/null 2>&1 || fail "tar is required"
 if command -v sha256sum >/dev/null 2>&1; then
@@ -183,44 +181,11 @@ else
   fail "sha256sum or shasum is required"
 fi
 
-channel="${T3CODE_CHANNEL:-stable}"
+[ -n "$base_url" ] ||
+  fail "CMDeck publishes no hosted builds. Set T3CODE_RELEASE_BASE_URL to your own mirror of CMDeck builds"
+base_url="${base_url%/}"
 version="${T3CODE_VERSION:-}"
-if [ -z "$version" ]; then
-  case "$channel" in
-    stable) tag_pattern='v\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)' ;;
-    nightly | preview) tag_pattern="v\([0-9][^\"]*-${channel}\.[0-9]*\.[0-9]*\)" ;;
-    *) fail "T3CODE_CHANNEL must be stable, nightly, or preview" ;;
-  esac
-  tmp_index="$(mktemp)"
-  if [ "$channel" = stable ]; then
-    # release.yml marks only plain stable releases latest. This is a github.com
-    # page, so it is not cut off by a page of newer nightlies or the API quota.
-    fetch "https://github.com/${repo}/releases/latest" "$tmp_index" application/json
-    version="$(sed -n "s/.*\"tag_name\": *\"${tag_pattern}\".*/\1/p" "$tmp_index" | head -n 1)"
-  else
-    page=1
-    while [ -z "$version" ] && [ "$page" -le 10 ]; do
-      fetch "https://api.github.com/repos/${repo}/releases?per_page=100&page=${page}" "$tmp_index"
-      version="$(sed -n "s/.*\"tag_name\": *\"${tag_pattern}\".*/\1/p" "$tmp_index" | head -n 1)"
-      grep -q '"tag_name"' "$tmp_index" || break
-      page=$((page + 1))
-    done
-  fi
-  rm -f "$tmp_index"
-  [ -n "$version" ] || fail "could not find a ${channel} release; set T3CODE_VERSION"
-fi
-case "$version" in
-  *-preview.*)
-    printf '%s\n' \
-      "t3 ${version} is a preview build." \
-      "  Preview builds are cut by maintainers from unreleased branches to exercise the release" \
-      "  pipeline. They can be broken, receive no fixes, and are never offered as updates." \
-      "  Set T3CODE_CHANNEL=stable (the default) for a supported build." >&2
-    if [ "$channel" != "preview" ] && [ -z "${T3CODE_VERSION:-}" ]; then
-      fail "refusing a preview build that was not explicitly requested"
-    fi
-    ;;
-esac
+[ -n "$version" ] || fail "set T3CODE_VERSION to the CMDeck version on your mirror"
 
 stem="t3-${version}-${platform}-${arch}"
 archive="${stem}.tar.gz"
@@ -246,7 +211,7 @@ else
   fetch_status=0
   fetch "${base_url}/v${version}/SHA256SUMS" "${staging}/SHA256SUMS" || fetch_status=$?
   if [ "$fetch_status" -eq 44 ]; then
-    fail "t3 ${version} has no release archive for ${platform}-${arch}; releases before the self-contained CLI can only be installed with \`npm install -g t3@${version}\`"
+    fail "${base_url} has no CMDeck ${version} release"
   elif [ "$fetch_status" -ne 0 ]; then
     fail "could not download the release checksums"
   fi

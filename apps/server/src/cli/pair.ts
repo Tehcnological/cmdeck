@@ -91,7 +91,7 @@ export class IncompatibleServerProtocolError extends Schema.TaggedError<Incompat
   override get message(): string {
     return [
       `The running CMDeck server (${this.serverVersion}) speaks orchestration protocol ${String(this.serverProtocolVersion)}, but this CLI speaks protocol ${String(ORCHESTRATION_PROTOCOL_VERSION)}.`,
-      `Pair with the matching CLI instead: \`${this.pairCommand}\`.`,
+      `Pair with the CLI of CMDeck ${this.serverVersion} instead: \`${this.pairCommand}\`.`,
     ].join("\n");
   }
 }
@@ -545,7 +545,7 @@ export const pairCommand = Command.make("pair", {
         return yield* new IncompatibleServerProtocolError({
           serverVersion: target.descriptor.serverVersion,
           serverProtocolVersion,
-          pairCommand: `npx t3@${target.descriptor.serverVersion} pair${baseDirArgs}`,
+          pairCommand: `t3 pair${baseDirArgs}`,
         });
       }
 

@@ -1,24 +1,23 @@
-# Installs the CMDeck CLI from a GitHub Release archive on Windows. Needs
-# only PowerShell 5.1+; no Node, npm, or compiler.
+# Installs the CMDeck CLI on Windows from a release archive on your own mirror of CMDeck
+# builds. Needs only PowerShell 5.1+; no Node, npm, or compiler. CMDeck publishes no hosted
+# builds, so this never downloads from GitHub.
 #
-#   irm https://t3.codes/install.ps1 | iex
+#   $env:T3CODE_RELEASE_BASE_URL = "https://mirror.example/cmdeck"; $env:T3CODE_VERSION = "1.2.3"
+#   powershell -ExecutionPolicy Bypass -File install.ps1
 #
 # Environment:
-#   T3CODE_CHANNEL           release train to follow: stable, nightly, or preview
-#                            (default: stable; preview is a maintainers' test train)
-#   T3CODE_VERSION           exact version to install (overrides T3CODE_CHANNEL)
+#   T3CODE_RELEASE_BASE_URL  your mirror, laid out as <url>/v<version>/<archive> (required)
+#   T3CODE_VERSION           exact version to install (required)
 #   CMDECK_HOME              data directory (default: ~\.cmdeck); wins over T3CODE_HOME
 #   T3CODE_HOME              data directory, read when CMDECK_HOME is unset
 #   T3CODE_INSTALL_BIN_DIR   where the cmdeck.cmd and t3.cmd shims go (default: ~\.local\bin)
-#   T3CODE_RELEASE_BASE_URL  mirror for releases/download (default: GitHub)
 #
 # The archive is unpacked into $T3CODE_HOME\runtime\versions\<version>, the
 # same layout `t3 service install` uses, so the service reuses this download.
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$repo = "pingdotgg/t3code"
-$baseUrl = if ($env:T3CODE_RELEASE_BASE_URL) { $env:T3CODE_RELEASE_BASE_URL.TrimEnd("/") } else { "https://github.com/$repo/releases/download" }
+$baseUrl = if ($env:T3CODE_RELEASE_BASE_URL) { $env:T3CODE_RELEASE_BASE_URL.TrimEnd("/") } else { $null }
 $t3Home = if ($env:CMDECK_HOME) { $env:CMDECK_HOME } elseif ($env:T3CODE_HOME) { $env:T3CODE_HOME } else { Join-Path $HOME ".cmdeck" }
 $binDir = if ($env:T3CODE_INSTALL_BIN_DIR) { $env:T3CODE_INSTALL_BIN_DIR } else { Join-Path $HOME ".local\bin" }
 # Absolute, so PATH never gets a folder that changes with the working directory.
@@ -145,37 +144,9 @@ $arch = switch ($rawArch) {
   default { Fail "unsupported architecture $rawArch" }
 }
 
-$channel = if ($env:T3CODE_CHANNEL) { $env:T3CODE_CHANNEL } else { "stable" }
+if (-not $baseUrl) { Fail "CMDeck publishes no hosted builds. Set T3CODE_RELEASE_BASE_URL to your own mirror of CMDeck builds" }
 $version = $env:T3CODE_VERSION
-if (-not $version) {
-  $tagPattern = switch ($channel) {
-    "stable" { '^v\d+\.\d+\.\d+$' }
-    "nightly" { '^v\d+\.\d+\.\d+-nightly\.\d+\.\d+$' }
-    "preview" { '^v\d+\.\d+\.\d+-preview\.\d+\.\d+$' }
-    default { Fail "T3CODE_CHANNEL must be stable, nightly, or preview" }
-  }
-  if ($channel -eq "stable") {
-    # release.yml marks only plain stable releases latest. This is a github.com
-    # page, so it is not cut off by a page of newer nightlies or the API quota.
-    $release = Invoke-Retrying { Invoke-RestMethod -Uri "https://github.com/$repo/releases/latest" -Headers @{ "User-Agent" = "t3-install"; "Accept" = "application/json" } }
-    $tag = ($release | Where-Object { $_.tag_name -match $tagPattern }).tag_name
-  } else {
-    $tag = $null
-    for ($page = 1; -not $tag -and $page -le 10; $page++) {
-      $releases = Invoke-Retrying { Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases?per_page=100&page=$page" -Headers @{ "User-Agent" = "t3-install" } }
-      $tag = ($releases | Where-Object { -not $_.draft -and $_.tag_name -match $tagPattern } | Select-Object -First 1).tag_name
-      if (-not $releases) { break }
-    }
-  }
-  if (-not $tag) { Fail "could not find a $channel release; set T3CODE_VERSION" }
-  $version = $tag.Substring(1)
-}
-if ($version -match '-preview\.') {
-  Write-Warning "t3 $version is a preview build. Preview builds are cut by maintainers from unreleased branches to exercise the release pipeline. They can be broken, receive no fixes, and are never offered as updates. Set T3CODE_CHANNEL=stable (the default) for a supported build."
-  if ($channel -ne "preview" -and -not $env:T3CODE_VERSION) {
-    Fail "refusing a preview build that was not explicitly requested"
-  }
-}
+if (-not $version) { Fail "set T3CODE_VERSION to the CMDeck version on your mirror" }
 
 $stem = "t3-$version-win32-$arch"
 $archive = "$stem.zip"
@@ -202,7 +173,7 @@ if ((Test-Path $marker) -and ((Get-Content $marker -Raw).Trim() -eq $version)) {
     } catch {
       $status = $_.Exception.Response.StatusCode.value__
       if ($status -eq 404) {
-        Fail "t3 $version has no release archive for win32-$arch; releases before the self-contained CLI can only be installed with 'npm install -g t3@$version'"
+        Fail "$baseUrl has no CMDeck $version release"
       }
       throw
     }

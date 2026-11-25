@@ -16,14 +16,18 @@ interface on desktop, web, and phone. What this fork adds on top of upstream:
 
 ## Install
 
-There are no hosted downloads. From a checkout:
+There are no hosted downloads, and the `t3.codes` installers, `npx t3`, and T3 Code's releases
+install the official T3 Code, not this fork. The installers in `scripts/` take a CMDeck build from
+your own mirror (laid out as `<mirror>/v<version>/SHA256SUMS` plus the platform archives) and stop
+if none is set:
 
 ```bash
-scripts/install.sh            # macOS / Linux: installs the cmdeck and t3 commands
+T3CODE_RELEASE_BASE_URL=https://mirror.example/cmdeck T3CODE_VERSION=1.2.3 scripts/install.sh
 ```
 
 ```powershell
-scripts/install.ps1           # Windows
+$env:T3CODE_RELEASE_BASE_URL = "https://mirror.example/cmdeck"; $env:T3CODE_VERSION = "1.2.3"
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 ```
 
 Build the desktop app from source; see [docs/user/install.md](./docs/user/install.md) and the
