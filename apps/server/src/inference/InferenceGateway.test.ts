@@ -887,6 +887,52 @@ it.effect("a client leaving mid-stream aborts the upstream and settles once", ()
   }),
 );
 
+it.effect.each([
+  {
+    name: "keeps streaming when content arrives after a keepalive",
+    chunks: [
+      ["1 second", ": keepalive\n\n"],
+      ["118 seconds", 'data: {"choices":[{"delta":{"content":"b"}}]}\n\n'],
+    ],
+    expected: { status: "cancelled", failureCause: "cancelled" },
+  },
+  {
+    name: "stops an idle stream even when it sends a keepalive",
+    chunks: [["119 seconds", ": keepalive\n\n"]],
+    expected: { status: "failed", failureCause: "watchdog-idle" },
+  },
+] as const)("$name", ({ chunks, expected }) =>
+  Effect.gen(function* () {
+    // Start the watchdog one second before the first token so it checks again at t=124s.
+    yield* TestClock.setTime(-1_000);
+    const { start, exchanges, gate, settledOnce } = yield* makeLifecycle();
+    yield* Deferred.succeed(gate, undefined);
+    const { handler, requestScope } = yield* start();
+    const exchange = yield* Queue.take(exchanges);
+    const upstream = controlledBody();
+    yield* Deferred.succeed(exchange.reply, upstream.response);
+    const response = yield* Fiber.join(handler);
+    const received = yield* Queue.unbounded<Uint8Array>();
+    const writer = yield* Stream.runForEach(bodyText(response), (chunk) =>
+      Queue.offer(received, chunk),
+    ).pipe(Effect.forkChild({ startImmediately: true }));
+
+    yield* TestClock.adjust("1 second");
+    yield* upstream.push('data: {"choices":[{"delta":{"content":"a"}}]}\n\n');
+    yield* Queue.take(received);
+    for (const [delay, chunk] of chunks) {
+      yield* TestClock.adjust(delay);
+      yield* upstream.push(chunk);
+      yield* Queue.take(received);
+    }
+    yield* TestClock.adjust("5 seconds");
+
+    yield* Fiber.interrupt(writer);
+    yield* Scope.close(requestScope, Exit.void);
+    expect(yield* settledOnce()).toMatchObject(expected);
+  }),
+);
+
 it.effect("a client abort racing an upstream error records one terminal state", () =>
   Effect.gen(function* () {
     const { start, exchanges, gate, settledOnce } = yield* makeLifecycle();

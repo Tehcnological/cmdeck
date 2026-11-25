@@ -710,13 +710,12 @@ const make = Effect.gen(function* () {
       bufferedReply === undefined ? upstream.stream : Stream.make(bufferedReply);
     const body = upstreamStream.pipe(
       // Untraced per chunk: the request span already covers the stream.
-      Stream.tap((chunk) => {
-        const moved = progressed;
-        progressed = false;
-
-        return Effect.gen(function* () {
+      Stream.tap((chunk) =>
+        Effect.gen(function* () {
           if (bufferedReply !== undefined) return;
+          progressed = false;
           const first = meter.push(chunk);
+          const moved = progressed;
           const reason = pendingStop;
           if (first || moved) {
             const now = yield* Clock.currentTimeMillis;
@@ -725,8 +724,8 @@ const make = Effect.gen(function* () {
             yield* Ref.set(lastProgressAt, now);
           }
           if (reason !== undefined) yield* stopFor(reason);
-        });
-      }),
+        }),
+      ),
       (stream) =>
         watching ? stream.pipe(Stream.interruptWhen(Deferred.await(stopSignal))) : stream,
       (stream) => {
