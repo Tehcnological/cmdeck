@@ -57,7 +57,12 @@ describe("RemoteMcpTokenCreator", () => {
     await expect.element(page.getByRole("button", { name: "Copy" })).toBeInTheDocument();
 
     // Base UI's modal guard covers this harness's footer for Playwright's hit test.
-    await act(() => page.getByRole("button", { name: "Done" }).element().click());
+    await act(() =>
+      page
+        .getByRole("button", { name: "Done" })
+        .element()
+        .dispatchEvent(new MouseEvent("click", { bubbles: true })),
+    );
     await expect.element(secretField()).not.toBeInTheDocument();
 
     await userEvent.click(page.getByRole("button", { name: "open token dialog" }));
