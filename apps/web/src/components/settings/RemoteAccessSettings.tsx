@@ -403,7 +403,7 @@ export function RemoteMcpSettings({
   canWrite,
 }: {
   readonly environmentId: EnvironmentId;
-  readonly serverConfig: ServerConfig | null;
+  readonly serverConfig: Pick<ServerConfig, "settings" | "managedPolicy"> | null;
   /** The tunnel's address when set, else the address this client uses. */
   readonly externalBaseUrl: string | null;
   readonly canRead: boolean;

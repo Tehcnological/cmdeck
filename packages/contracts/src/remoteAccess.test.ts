@@ -42,11 +42,11 @@ describe("PublicBaseUrl", () => {
   });
 
   it("defaults to unset and needs access management to change", () => {
-    const settings = Schema.decodeUnknownSync(ServerSettings)({});
+    const settings = Schema.decodeSync(ServerSettings)({});
     expect(settings.publicBaseUrl).toBe("");
     expect(settings.remoteMcpEnabled).toBe(false);
     expect(() =>
-      Schema.decodeUnknownSync(ServerSettingsPatch)({ publicBaseUrl: "http://plain.example" }),
+      Schema.decodeSync(ServerSettingsPatch)({ publicBaseUrl: "http://plain.example" }),
     ).toThrow();
     for (const patch of [
       { publicBaseUrl: "https://cmdeck.example.com" },
