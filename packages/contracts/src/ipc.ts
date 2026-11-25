@@ -358,6 +358,34 @@ export const DesktopCliCommandStateSchema = Schema.Struct({
 });
 export type DesktopCliCommandState = typeof DesktopCliCommandStateSchema.Type;
 
+export const DesktopUninstallOptionsSchema = Schema.Struct({
+  /** Also remove threads, settings and sign-ins; otherwise only the app is removed. */
+  removeData: Schema.Boolean,
+});
+export type DesktopUninstallOptions = typeof DesktopUninstallOptionsSchema.Type;
+
+export const DesktopUninstallPlanSchema = Schema.Struct({
+  /** False in development builds, which have no installed app to remove. */
+  supported: Schema.Boolean,
+  actions: Schema.Array(
+    Schema.Struct({
+      kind: Schema.Literals([
+        "stop-service",
+        "remove-launcher",
+        "remove-path-entry",
+        "run-app-uninstaller",
+        "remove-app",
+        "remove-app-manually",
+        "remove-data",
+      ]),
+      target: Schema.String,
+    }),
+  ),
+  /** Paths kept because they failed a safety check, each with its reason. */
+  refusals: Schema.Array(Schema.String),
+});
+export type DesktopUninstallPlan = typeof DesktopUninstallPlanSchema.Type;
+
 export interface DesktopUpdateActionResult {
   accepted: boolean;
   completed: boolean;
@@ -1252,6 +1280,11 @@ export interface DesktopBridge {
     install: () => Promise<DesktopCliCommandState>;
     uninstall: () => Promise<DesktopCliCommandState>;
     addToPath: () => Promise<DesktopCliCommandState>;
+  };
+  uninstall?: {
+    getPlan: (options: DesktopUninstallOptions) => Promise<DesktopUninstallPlan>;
+    /** Quits the app; the bundled CLI finishes the plan once it has exited. */
+    run: (options: DesktopUninstallOptions) => Promise<void>;
   };
   webLinks: {
     setReady: (ready: boolean) => Promise<void>;

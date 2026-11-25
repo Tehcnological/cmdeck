@@ -169,6 +169,78 @@ it.layer(Layer.mergeAll(NodeServices.layer, NetService.layer))("t3 uninstall com
   );
 });
 
+it.layer(Layer.mergeAll(NodeServices.layer, NetService.layer))("t3 uninstall --all", (it) => {
+  it.effect("previews, then removes only CMDeck's data next to the official T3 Code", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const home = yield* fs
+        .makeTempDirectoryScoped({ prefix: "t3-uninstall-all-" })
+        .pipe(Effect.flatMap(fs.realPath));
+      const baseDir = path.join(home, ".cmdeck");
+      const ours = path.join(baseDir, "userdata", "statev2.sqlite");
+      const official = path.join(home, ".t3", "userdata", "state.sqlite");
+      const claude = path.join(home, ".claude", "settings.json");
+      for (const file of [ours, official, claude]) {
+        yield* fs.makeDirectory(path.dirname(file), { recursive: true });
+        yield* fs.writeFileString(file, "");
+      }
+      vi.spyOn(BootService, "layer").mockReturnValue(
+        Layer.succeed(
+          BootService.BootService,
+          BootService.BootService.of({
+            status: Effect.succeed({
+              supported: true,
+              installed: false,
+              current: false,
+              unitPath: "",
+              logPath: "",
+            }),
+            withStopped: (operation) => operation,
+            restart: Effect.die("unexpected restart"),
+            install: () => Effect.die("unexpected install"),
+            uninstall: Effect.die("unexpected uninstall"),
+          }),
+        ),
+      );
+      const run = (args: ReadonlyArray<string>) =>
+        Command.runWith(uninstallCommand, { version: packageJson.version })([
+          "--base-dir",
+          baseDir,
+          "--all",
+          ...args,
+        ]).pipe(
+          Effect.andThen(TestConsole.logLines),
+          Effect.map((lines) => lines.join("\n")),
+          Effect.provideService(HostProcess.Environment, {
+            APPDATA: path.join(home, "AppData", "Roaming"),
+            LOCALAPPDATA: path.join(home, "AppData", "Local"),
+            XDG_CONFIG_HOME: path.join(home, ".config"),
+          }),
+          Effect.provideService(HostProcess.HomeDirectory, home),
+          Effect.provideService(HostProcess.IsExecutable, false),
+          Effect.provide(
+            Layer.mergeAll(
+              ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} })),
+              Layer.fresh(TestConsole.layer),
+            ),
+          ),
+        );
+
+      const preview = yield* run(["--dry-run"]);
+      assert.include(preview, baseDir);
+      assert.include(preview, "Dry run: nothing was removed.");
+      assert.notInclude(preview, path.join(home, ".t3"));
+      assert.isTrue(yield* fs.exists(ours));
+
+      yield* run(["--yes"]);
+      assert.isFalse(yield* fs.exists(baseDir));
+      assert.isTrue(yield* fs.exists(official));
+      assert.isTrue(yield* fs.exists(claude));
+    }).pipe(Effect.scoped),
+  );
+});
+
 it.layer(NodeServices.layer)("t3 uninstall launcher", (it) => {
   it.effect("claims only a launcher that points into this home's runtime tree", () =>
     Effect.gen(function* () {

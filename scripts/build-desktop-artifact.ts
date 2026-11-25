@@ -15,7 +15,11 @@ import {
   type DirectoryRecord,
 } from "@electron/asar";
 
-import { APP_RELEASE_OWNER, APP_RELEASE_REPO } from "@t3tools/shared/appIdentity";
+import {
+  APP_RELEASE_OWNER,
+  APP_RELEASE_REPO,
+  DESKTOP_PACKAGE_NAME,
+} from "@t3tools/shared/appIdentity";
 import { fromYaml } from "@t3tools/shared/schemaYaml";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import { clerkFrontendApiHostnameFromPublishableKey } from "@t3tools/shared/relayAuth";
@@ -3940,7 +3944,7 @@ const buildDesktopArtifactUnlocked = Effect.fn("buildDesktopArtifactUnlocked")(f
       : undefined;
   const stagePackageJson: StagePackageJson = {
     // NSIS installs to %LOCALAPPDATA%\Programs\<name>; "t3code" is the official app's folder.
-    name: "cmdeck",
+    name: DESKTOP_PACKAGE_NAME,
     version: appVersion,
     buildVersion: appVersion,
     t3codeCommitHash: commitHash,
