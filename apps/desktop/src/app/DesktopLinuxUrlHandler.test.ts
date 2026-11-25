@@ -289,10 +289,10 @@ describe("DesktopLinuxUrlHandler", () => {
 
     return Effect.gen(function* () {
       yield* runRegister(recorded, {
-        environment: { desktopLauncherPath: Option.some("/opt/CMDeck/t3code") },
+        environment: { desktopLauncherPath: Option.some("/opt/CMDeck Nightly/cmdeck") },
       });
 
-      assert.include(recorded.files[0]?.content, 'Exec="/opt/CMDeck/t3code" %U');
+      assert.include(recorded.files[0]?.content, 'Exec="/opt/CMDeck Nightly/cmdeck" %U');
     });
   });
 
