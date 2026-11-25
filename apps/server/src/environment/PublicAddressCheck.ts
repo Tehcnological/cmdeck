@@ -8,12 +8,32 @@ import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
+import * as Schema from "effect/Schema";
+import * as Stream from "effect/Stream";
+import { FetchHttpClient, HttpClient, type HttpClientResponse } from "effect/http";
 
 import * as ServerEnvironment from "./ServerEnvironment.ts";
 
 const WELL_KNOWN_ENVIRONMENT_PATH = "/.well-known/t3/environment";
 const REQUEST_TIMEOUT = Duration.seconds(10);
+// A descriptor is a few hundred bytes; an address that streams more is not this server.
+const MAX_BODY_BYTES = 64 * 1024;
+const decodeDescriptor = Schema.decodeOption(Schema.fromJsonString(ExecutionEnvironmentDescriptor));
+
+/** The body as text, or none once it passes `MAX_BODY_BYTES`; reading stops there. */
+function readCappedBody(response: HttpClientResponse.HttpClientResponse) {
+  let read = 0;
+  return response.stream.pipe(
+    Stream.takeWhile((chunk) => {
+      read += chunk.length;
+      return read <= MAX_BODY_BYTES;
+    }),
+    Stream.decodeText(),
+    Stream.mkString,
+    Effect.map((body) => (read > MAX_BODY_BYTES ? Option.none<string>() : Option.some(body))),
+    Effect.orElseSucceed(() => Option.none<string>()),
+  );
+}
 
 /**
  * `/.well-known/t3/environment` needs no sign-in, so a redirect or a 401/403 there comes from a
@@ -58,9 +78,7 @@ const make = Effect.gen(function* () {
       });
       const descriptor =
         response.status === 200
-          ? yield* HttpClientResponse.schemaBodyJson(ExecutionEnvironmentDescriptor)(response).pipe(
-              Effect.option,
-            )
+          ? Option.flatMap(yield* readCappedBody(response), decodeDescriptor)
           : Option.none();
       return {
         status: response.status,

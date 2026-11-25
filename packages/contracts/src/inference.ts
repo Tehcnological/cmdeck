@@ -137,9 +137,17 @@ export const InferenceDiscoveredServer = Schema.Struct({
 });
 export type InferenceDiscoveredServer = typeof InferenceDiscoveredServer.Type;
 
+/** The server builds probe URLs from it, so only a hostname or an IP address, never a URL. */
+const InferenceDiscoveryHost = TrimmedNonEmptyString.check(
+  Schema.isMaxLength(255),
+  Schema.isPattern(
+    /^(?:[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?)*\.?|\[?[0-9a-f.]*:[0-9a-f:.]*\]?)$/iu,
+  ),
+);
+
 export const InferenceDiscoveryInput = Schema.Struct({
   /** Search only this host, as repairing one server does. */
-  host: Schema.optional(TrimmedNonEmptyString),
+  host: Schema.optional(InferenceDiscoveryHost),
   /** An address the user typed, checked as well. */
   baseUrl: Schema.optional(TrimmedNonEmptyString),
 });

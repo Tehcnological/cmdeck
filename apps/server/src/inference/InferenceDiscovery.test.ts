@@ -159,4 +159,20 @@ describe("discoveryCandidates", () => {
     expect(bases).toContainEqual({ base: "http://rtx:8030/v1" });
     expect(bases.some((candidate) => candidate.base.includes("spark1"))).toBe(false);
   });
+
+  it("brackets an IPv6 host and probes nothing for a host that is not one", () => {
+    const search = (host: string) =>
+      InferenceDiscovery.discoveryCandidates({
+        host,
+        registered: [],
+        listeningPorts: [],
+        hostname: "rtx",
+      }).map((candidate) => candidate.base);
+    expect(search("fd00::5")).toEqual(
+      InferenceDiscovery.WELL_KNOWN_PORTS.map((port) => `http://[fd00::5]:${port}/v1`),
+    );
+    for (const host of ["evil.example/x?", "user@evil.example", "evil.example#", "a:1"]) {
+      expect(search(host)).toEqual([]);
+    }
+  });
 });

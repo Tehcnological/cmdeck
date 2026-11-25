@@ -59,6 +59,24 @@ function endpointKey(base: string, hostname: string): string | undefined {
   }
 }
 
+/** `http://<host>:<port>/v1` with IPv6 bracketed; undefined when `host` is not a bare host. */
+function probeBaseUrl(host: string, port: number): string | undefined {
+  const literal = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
+  try {
+    const url = new URL(`http://${literal}:${port}/v1`);
+    const onlyHost =
+      url.username === "" &&
+      url.password === "" &&
+      url.port === String(port) &&
+      url.pathname === "/v1" &&
+      url.search === "" &&
+      url.hash === "";
+    return onlyHost ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 interface Candidate {
   readonly base: string;
   readonly registeredServerId?: InferenceServerId;
@@ -77,7 +95,8 @@ export function discoveryCandidates(input: {
   readonly hostname: string;
 }): ReadonlyArray<Candidate> {
   const candidates = new Map<string, Candidate>();
-  const add = (base: string, registeredServerId?: InferenceServerId) => {
+  const add = (base: string | undefined, registeredServerId?: InferenceServerId) => {
+    if (base === undefined) return;
     const key = endpointKey(base, input.hostname);
     if (key === undefined) return;
     const existing = candidates.get(key);
@@ -121,11 +140,11 @@ export function discoveryCandidates(input: {
   if (target !== undefined && !searchesThisMachine) remoteHosts.add(target);
   if (searchesThisMachine) {
     for (const port of [...WELL_KNOWN_PORTS, ...input.listeningPorts]) {
-      add(`http://${localHost}:${port}/v1`);
+      add(probeBaseUrl(localHost, port));
     }
   }
   for (const host of remoteHosts) {
-    for (const port of WELL_KNOWN_PORTS) add(`http://${host}:${port}/v1`);
+    for (const port of WELL_KNOWN_PORTS) add(probeBaseUrl(host, port));
   }
   return [...candidates.values()];
 }
