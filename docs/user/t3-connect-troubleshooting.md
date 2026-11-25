@@ -61,7 +61,7 @@ host and this device are on the same Tailscale network, add the host's
 Tailscale address as a direct route. See
 [Reach one machine several ways](./remote-access.md#reach-one-machine-several-ways).
 
-## The tunnel works, but CMDeck does not answer
+## The tunnel works, but T3 Code does not answer
 
 The host's tunnel is up, but it cannot reach CMDeck on the host. Common causes:
 
@@ -143,7 +143,7 @@ T3 Connect signs requests with short-lived proofs. When the clock on this
 device or the host is a few minutes wrong, T3 Connect rejects them. Turn on
 automatic date and time on both devices, then retry.
 
-## The host runs an older CMDeck
+## The host runs an older T3 Code
 
 This app needs a newer CMDeck on the host. Update CMDeck on the host. See
 [Updating CMDeck](./updating.md).
