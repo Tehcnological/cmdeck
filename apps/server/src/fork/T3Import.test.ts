@@ -45,12 +45,19 @@ const hashTree = (dir: string): Record<string, string> => {
   return hashes;
 };
 
-/** A T3 Code data folder at `schema`, whose database stays open in WAL mode until `close`. */
-const makeSource = (base: string, schema: number = BUILD_MIGRATION_HEAD) => {
+/** A T3 Code data folder at `schema`, whose database stays open in WAL mode until `close`. Like
+ * T3 Code's own, the database uses incremental auto_vacuum unless `autoVacuum` says otherwise. */
+const makeSource = (
+  base: string,
+  schema: number = BUILD_MIGRATION_HEAD,
+  autoVacuum: "INCREMENTAL" | "NONE" = "INCREMENTAL",
+) => {
   const userdata = NodePath.join(base, "userdata");
   NodeFS.mkdirSync(userdata, { recursive: true });
   const db = new NodeSqlite.DatabaseSync(NodePath.join(userdata, "statev2.sqlite"));
-  db.exec("PRAGMA journal_mode = WAL; PRAGMA wal_autocheckpoint = 0;");
+  db.exec(
+    `PRAGMA auto_vacuum = ${autoVacuum}; PRAGMA journal_mode = WAL; PRAGMA wal_autocheckpoint = 0;`,
+  );
   db.exec("CREATE TABLE effect_sql_migrations (migration_id INTEGER PRIMARY KEY, name TEXT)");
   const insert = db.prepare("INSERT INTO effect_sql_migrations VALUES (?, ?)");
   for (const [id, name] of migrationManifest) if (id <= schema) insert.run(id, name);
@@ -97,6 +104,15 @@ const rowCount = (databasePath: string, table: string) => {
   const db = new NodeSqlite.DatabaseSync(databasePath, { readOnly: true });
   try {
     return Number(db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get()?.n);
+  } finally {
+    db.close();
+  }
+};
+
+const autoVacuumMode = (databasePath: string) => {
+  const db = new NodeSqlite.DatabaseSync(databasePath, { readOnly: true });
+  try {
+    return Number(db.prepare("PRAGMA auto_vacuum").get()?.auto_vacuum);
   } finally {
     db.close();
   }
@@ -194,6 +210,24 @@ it.layer(T3Import.layer.pipe(Layer.provideMerge(NodeServices.layer)))("T3Import"
       const imported = NodePath.join(target, "userdata", "statev2.sqlite");
       assert.equal(rowCount(imported, "orchestration_v2_projection_threads"), 2);
       assert.isFalse(NodeFS.existsSync(`${imported}-wal`));
+      assert.equal(autoVacuumMode(imported), 2);
+    }),
+  );
+
+  it.effect("gives a copy of a database without auto_vacuum incremental auto_vacuum", () =>
+    Effect.gen(function* () {
+      const root = yield* tempRoot;
+      const source = NodePath.join(root, "t3");
+      const target = NodePath.join(root, "cmdeck");
+      makeSource(source, BUILD_MIGRATION_HEAD, "NONE").close();
+      const before = hashTree(source);
+
+      yield* (yield* T3Import.T3Import).run({ source, target, force: false });
+
+      assert.deepEqual(hashTree(source), before);
+      const imported = NodePath.join(target, "userdata", "statev2.sqlite");
+      assert.equal(autoVacuumMode(imported), 2);
+      assert.equal(rowCount(imported, "orchestration_v2_projection_threads"), 2);
     }),
   );
 
