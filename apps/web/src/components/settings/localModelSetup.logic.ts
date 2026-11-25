@@ -21,6 +21,7 @@ const decodeInstanceId = Schema.decodeOption(ProviderInstanceId);
 /** Agents that reach a model server through T3's gateway, best first, and the API each needs. */
 const LOCAL_MODEL_AGENTS = [
   { driver: ProviderDriverKind.make("pi"), label: "Pi", protocol: "chat-completions" },
+  { driver: ProviderDriverKind.make("omp"), label: "OMP", protocol: "chat-completions" },
   { driver: ProviderDriverKind.make("opencode"), label: "OpenCode", protocol: "chat-completions" },
   // Experimental on local servers: Codex sends T3's tools as a group some servers reject.
   { driver: ProviderDriverKind.make("codex"), label: "Codex", protocol: "responses" },
