@@ -174,6 +174,10 @@ jobs:
       - name: Ensure Electron runtime is installed
         run: vp run --filter @t3tools/desktop ensure:electron
 
+      # The desktop tests compile the browser secret helper.
+      - name: Install browser secret helper build libraries
+        run: sudo apt-get update -o Acquire::Languages=none && sudo apt-get install -y libsecret-1-dev pkg-config
+
       # Mirrors upstream's shared Test job: every package except the server and web suites.
       - name: Test
         run: |
@@ -216,3 +220,37 @@ jobs:
 
       - name: Test
         run: vp run --filter @t3tools/web test
+
+  test-server:
+    name: Server tests (full suite)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          sparse-checkout: |
+            /*
+            !/.repos/
+            !/apps/mobile/modules/t3-terminal/Vendor/**/*.a
+          sparse-checkout-cone-mode: false
+
+      - name: Setup Vite+
+        uses: ./.github/actions/setup-ci-deps
+        with:
+          install: "false"
+
+      - name: Install dependencies
+        run: vp install --frozen-lockfile
+
+      - name: Install Chromium for server browser integration tests
+        run: |
+          node apps/server/node_modules/playwright-core/cli.js install --only-shell chromium
+          browser=$(find "$HOME/.cache/ms-playwright" -name chrome-headless-shell -type f -print -quit)
+          if ldd "$browser" | grep '=> not found'; then
+            node apps/server/node_modules/playwright-core/cli.js install-deps chromium
+          fi
+
+      - name: Test
+        working-directory: apps/server
+        run: vp test run --concurrency 4
