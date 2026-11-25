@@ -62,7 +62,8 @@ jobs:
   # System Settings > Privacy & Security.
   macos-arm64:
     name: macOS arm64 disk image
-    runs-on: macos-15
+    # The Apple Speech helper needs Xcode 26.
+    runs-on: macos-26
     timeout-minutes: 90
     steps:
       - name: Checkout
@@ -117,9 +118,9 @@ jobs:
       - name: Install dependencies
         run: vp install --frozen-lockfile
 
-      # The browser secret helper links against libsecret.
+      # The browser secret helper links against libsecret; ImageMagick renders the package icons.
       - name: Install build libraries
-        run: sudo apt-get update -o Acquire::Languages=none && sudo apt-get install -y libsecret-1-dev pkg-config
+        run: sudo apt-get update -o Acquire::Languages=none && sudo apt-get install -y libsecret-1-dev pkg-config imagemagick
 
       - name: Build AppImage and deb
         run: vp run dist:desktop:linux
