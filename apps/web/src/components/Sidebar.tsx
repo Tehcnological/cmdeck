@@ -3777,7 +3777,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                                 count={settledCount}
                                 description={
                                   settledShelfExpanded && settledCount > 0
-                                    ? "Settled by you or when idle."
+                                    ? gt("Settled by you or when idle.")
                                     : undefined
                                 }
                                 dragging={from !== null}

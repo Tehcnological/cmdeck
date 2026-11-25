@@ -972,7 +972,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "text-generation-fallback",
-    title: "Text generation fallback",
+    title: msg("Text generation fallback"),
     to: "/settings/threads",
     scope: "environment",
     searchTerms: ["local models only cloud privacy background writing titles commit messages"],
@@ -1102,7 +1102,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "inference-servers",
-    title: "Inference servers",
+    title: msg("Inference servers"),
     to: "/settings/inference",
     searchTerms: [
       "local models self-hosted model server gpu ollama lm studio llama.cpp vllm sglang openai compatible base url api key context window concurrency load queue",

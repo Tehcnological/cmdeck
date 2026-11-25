@@ -15,8 +15,10 @@ import {
 import { getLatestThreadForProject } from "@t3tools/client-runtime/state/thread-sort";
 import { AuthOrchestrationOperateScope, type EnvironmentId } from "@t3tools/contracts";
 import { useNavigate } from "@tanstack/react-router";
+import { msg } from "gt-react";
 
 import { stackedThreadToast, toastManager } from "../components/ui/toast";
+import { m } from "../i18n/messages";
 import { newProjectId } from "../lib/utils";
 import { useProjects, useVisibleThreadShells } from "../state/entities";
 import { useEnvironments } from "../state/environments";
@@ -46,10 +48,13 @@ export function resolveAddProjectPath(
 ): AddProjectPathResolution {
   const trimmed = input.rawCwd.trim();
   if (isUnsupportedWindowsProjectPath(trimmed, input.platform)) {
-    return { kind: "invalid", message: "Windows-style paths are only supported on Windows." };
+    return {
+      kind: "invalid",
+      message: m(msg("Windows-style paths are only supported on Windows.")),
+    };
   }
   if (isExplicitRelativeProjectPath(trimmed) && !input.currentProjectCwd) {
-    return { kind: "invalid", message: "Relative paths require an active project." };
+    return { kind: "invalid", message: m(msg("Relative paths require an active project.")) };
   }
   const cwd = resolveProjectPathForDispatch(input.rawCwd, input.currentProjectCwd);
   return cwd.length === 0 ? { kind: "empty" } : { kind: "path", cwd };
@@ -60,7 +65,7 @@ function toastError(title: string, description: string) {
 }
 
 function errorDescription(error: unknown) {
-  return error instanceof Error ? error.message : "An error occurred.";
+  return error instanceof Error ? error.message : m(msg("An error occurred."));
 }
 
 /**
@@ -109,7 +114,7 @@ export function useAddProjectAtPath() {
         void updateProject({
           environmentId: existing.environmentId,
           input: { projectId: existing.id, archived: false },
-        }).then((result) => reportProjectFailure("Failed to unarchive project", result));
+        }).then((result) => reportProjectFailure(m(msg("Failed to unarchive project")), result));
       }
       const latestThread = getLatestThreadForProject(
         threads.filter((thread) => thread.environmentId === existing.environmentId),

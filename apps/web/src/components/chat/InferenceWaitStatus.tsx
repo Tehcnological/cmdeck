@@ -1,6 +1,7 @@
 import { useAtomValue } from "@effect/atom-react";
 import type { ScopedThreadRef } from "@t3tools/contracts";
 import { formatThreadInferenceWait } from "@t3tools/client-runtime/state/inference-activity";
+import { useMessages } from "gt-react";
 
 import { threadInferenceWaitAtom } from "../../state/inference";
 
@@ -12,6 +13,7 @@ export function InferenceWaitStatus({
   readonly threadRef: ScopedThreadRef;
   readonly className?: string;
 }) {
+  const m = useMessages();
   const wait = useAtomValue(
     threadInferenceWaitAtom({
       environmentId: threadRef.environmentId,
@@ -21,7 +23,7 @@ export function InferenceWaitStatus({
   if (wait === null) return null;
   return (
     <span role="status" className={className}>
-      {formatThreadInferenceWait(wait)}
+      {formatThreadInferenceWait(wait, m)}
     </span>
   );
 }

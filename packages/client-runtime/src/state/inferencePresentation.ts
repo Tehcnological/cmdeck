@@ -11,6 +11,8 @@ import type {
   UnifiedSettings,
 } from "@t3tools/contracts";
 import { formatPercent, formatTokens as formatUsageTokens } from "@t3tools/shared/usageFormat";
+import { mFallback, msg } from "gt-i18n";
+import type { MFunctionType } from "gt-i18n/types";
 
 export type InferenceServers = UnifiedSettings["inferenceServers"];
 
@@ -79,11 +81,14 @@ export interface InferenceServerOutage {
  * The server a selected agent is linked to, while it is down. Its gateway models drop out of the
  * agent's list until it answers again; checking and turned-off servers are not an outage.
  */
-export function inferenceServerOutage(input: {
-  readonly serverId: string | undefined;
-  readonly servers: InferenceServers;
-  readonly snapshots: ReadonlyArray<InferenceServerSnapshot>;
-}): InferenceServerOutage | null {
+export function inferenceServerOutage(
+  input: {
+    readonly serverId: string | undefined;
+    readonly servers: InferenceServers;
+    readonly snapshots: ReadonlyArray<InferenceServerSnapshot>;
+  },
+  resolve: MFunctionType = mFallback,
+): InferenceServerOutage | null {
   if (input.serverId === undefined) return null;
   const config = input.servers[input.serverId as InferenceServerId];
   const snapshot = input.snapshots.find((candidate) => candidate.id === input.serverId);
@@ -93,7 +98,7 @@ export function inferenceServerOutage(input: {
     id: input.serverId as InferenceServerId,
     name: inferenceServerDisplayName(input.serverId, config),
     baseUrl: config.baseUrl,
-    message: snapshot.message ?? "It did not answer its last check.",
+    message: snapshot.message ?? resolve(msg("It did not answer its last check.")),
   };
 }
 
@@ -231,13 +236,14 @@ export interface InferencePromptCacheHealth {
 
 export function describeInferencePromptCache(
   snapshot: Pick<InferenceServerSnapshot, "engine" | "promptCache">,
+  resolve: MFunctionType = mFallback,
 ): InferencePromptCacheHealth | null {
   const cache = snapshot.promptCache;
   if (cache === undefined) return null;
   const tensorFold = snapshot.engine === "TensorFold";
   if (cache.status === "none") {
     return {
-      summary: "No prompt cache: every request reads its whole prompt",
+      summary: resolve(msg("No prompt cache: every request reads its whole prompt")),
       warning: null,
       advice: tensorFold
         ? "Start TensorFold with --prompt-cache-gib to keep threads warm, if memory allows."
@@ -298,6 +304,7 @@ export function describeInferenceServerProbeFreshness(
   checkedAt: string,
   probeIntervalMs: number,
   nowMs: number,
+  resolve: MFunctionType = mFallback,
 ): InferenceServerProbeFreshness | null {
   const checkedMs = Date.parse(checkedAt);
   if (Number.isNaN(checkedMs)) return null;
@@ -312,7 +319,7 @@ export function describeInferenceServerProbeFreshness(
   const staleAtMs = probeIntervalMs > 0 ? checkedMs + 2 * probeIntervalMs : Infinity;
   const stale = nowMs >= staleAtMs;
   return {
-    label: `Checked ${relativeAgoLabel(elapsedMs)}`,
+    label: resolve(msg("Checked {ago}", { ago: relativeAgoLabel(elapsedMs) })),
     stale,
     msUntilChange: stale ? labelChangeMs : Math.min(labelChangeMs, staleAtMs - nowMs),
   };
@@ -378,8 +385,13 @@ export function formatCachedShare(share: number | null): string {
 }
 
 /** "Last request: 12.3K prompt tokens (80% cached) · TTFT 1.2 s · 35 tok/s · waited 0.4 s" */
-export function formatLastInferenceRequest(last: InferenceThreadLastRequest): string {
-  return `Last request: ${formatLastInferenceRequestMeasures(last)}`;
+export function formatLastInferenceRequest(
+  last: InferenceThreadLastRequest,
+  resolve: MFunctionType = mFallback,
+): string {
+  return resolve(
+    msg("Last request: {measures}", { measures: formatLastInferenceRequestMeasures(last) }),
+  );
 }
 
 /** "12.3K prompt tokens (80% cached) · TTFT 1.2 s · 35 tok/s · waited 0.4 s" */

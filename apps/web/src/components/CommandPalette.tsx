@@ -1662,7 +1662,7 @@ function OpenCommandPaletteDialog(props: {
       "remote",
       "machine",
     ],
-    title: "Add project",
+    title: gt("Add project"),
     icon: <FolderPlusIcon className={ITEM_ICON_CLASS} />,
     run: async () => {
       openAddProjectDialog();
@@ -1845,7 +1845,7 @@ function OpenCommandPaletteDialog(props: {
       "server",
       "offline",
     ],
-    title: "Use a local model",
+    title: gt("Use a local model"),
     icon: <CpuIcon className={ITEM_ICON_CLASS} />,
     run: async () => {
       await navigate({ to: "/settings/inference", search: { setup: "local" } });

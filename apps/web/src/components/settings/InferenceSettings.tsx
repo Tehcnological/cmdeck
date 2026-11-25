@@ -11,6 +11,7 @@ import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import { resolveServerBackgroundActivitySettings } from "@t3tools/shared/backgroundActivitySettings";
 import * as Duration from "effect/Duration";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
+import { T, useGT, useMessages, Var } from "gt-react";
 import { PlusIcon, SearchIcon } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
 
@@ -96,6 +97,7 @@ export function InferenceSettingsPanel({
   /** Clears the link's request once its dialog closes, so the same link works again. */
   readonly onLinkHandled?: () => void;
 }) {
+  const gt = useGT();
   const searchableSetting = useSearchableSetting();
   const { scope, environment } = useSettingsScope();
   // Servers without inference support (such as upstream's release) omit the snapshot field.
@@ -106,11 +108,15 @@ export function InferenceSettingsPanel({
       {environment?.connection.phase === "connected" && lacksInference ? (
         <SettingsSection {...searchableSetting("inference-servers")}>
           <SettingsRow
-            title={`${environment.label} runs a CMDeck server without inference servers.`}
+            title={gt("{environment} runs a CMDeck server without inference servers.", {
+              environment: environment.label,
+            })}
             description={
               environment.entry.target._tag === "SshConnectionTarget"
-                ? "Restart this app to install its own server there. It updates SSH machines each time it connects."
-                : "Install this app's server on that machine to use model servers there."
+                ? gt(
+                    "Restart this app to install its own server there. It updates SSH machines each time it connects.",
+                  )
+                : gt("Install this app's server on that machine to use model servers there.")
             }
           />
         </SettingsSection>
@@ -126,8 +132,8 @@ export function InferenceSettingsPanel({
       ) : (
         <SettingsSection {...searchableSetting("inference-servers")}>
           <SettingsRow
-            title="No environment connected."
-            description="Connect an environment to register the model servers it can reach."
+            title={gt("No environment connected.")}
+            description={gt("Connect an environment to register the model servers it can reach.")}
           />
         </SettingsSection>
       )}
@@ -148,6 +154,7 @@ function EnvironmentInferenceServers({
   readonly repairServerId: string | undefined;
   readonly onLinkHandled: (() => void) | undefined;
 }) {
+  const gt = useGT();
   const searchableSetting = useSearchableSetting();
   const environmentId = environment.environmentId;
   const sessionState = useEnvironmentSessionState(environmentId);
@@ -246,19 +253,19 @@ function EnvironmentInferenceServers({
                 onClick={() => void refreshAll()}
               >
                 <RefreshIcon refreshing={refreshing} />
-                {refreshing ? "Checking" : "Refresh"}
+                {refreshing ? <T>Checking</T> : <T>Refresh</T>}
               </Button>
             ) : null}
             {!readOnly && canDiscover ? (
               <Button size="xs" variant="outline" onClick={() => setLocalSetupRequested(true)}>
                 <SearchIcon className="size-3" aria-hidden />
-                Find servers
+                <T>Find servers</T>
               </Button>
             ) : null}
             {!readOnly ? (
               <Button size="xs" variant="outline" onClick={() => setDialog({ mode: "add" })}>
                 <PlusIcon className="size-3" aria-hidden />
-                Add server
+                <T>Add server</T>
               </Button>
             ) : null}
           </div>
@@ -266,17 +273,17 @@ function EnvironmentInferenceServers({
       >
         {projectScoped ? (
           <p className="px-4 pt-3 text-xs text-muted-foreground">
-            Environment-wide setting. Select an environment to change it.
+            <T>Environment-wide setting. Select an environment to change it.</T>
           </p>
         ) : null}
         {entries.length === 0 ? (
           <SettingsRow
-            title="No model servers yet."
+            title={gt("No model servers yet.")}
             description={EMPTY_STATE}
             control={
               !readOnly && canDiscover ? (
                 <Button size="sm" onClick={() => setLocalSetupRequested(true)}>
-                  Find local models
+                  <T>Find local models</T>
                 </Button>
               ) : null
             }
@@ -386,6 +393,7 @@ function InferenceServerOffersFrom({
   readonly targetLabel: string;
   readonly onAdd: (offer: InferenceServerOffer) => void;
 }) {
+  const gt = useGT();
   const originServers = useEnvironmentSettings(
     origin.environmentId,
     (settings) => settings.inferenceServers,
@@ -398,11 +406,14 @@ function InferenceServerOffersFrom({
     <SettingsRow
       key={offer.id}
       title={`${offer.name} on ${origin.label}`}
-      description={`Use it from ${targetLabel} at ${offer.baseUrl}.`}
+      description={gt("Use it from {target} at {url}.", {
+        target: targetLabel,
+        url: offer.baseUrl,
+      })}
       control={
         <Button size="xs" variant="outline" onClick={() => onAdd(offer)}>
           <PlusIcon className="size-3" aria-hidden />
-          Add here
+          <T>Add here</T>
         </Button>
       }
     />
@@ -438,11 +449,13 @@ function InferenceServerRow({
   readonly onEnabledChange: (enabled: boolean) => void;
   readonly onRemove: () => void;
 }) {
+  const gt = useGT();
+  const m = useMessages();
   const name = inferenceServerDisplayName(id, config);
   const current = config.enabled && snapshot?.enabled ? snapshot : undefined;
   const down = current?.status === "unreachable" || current?.status === "error";
   const load = current ? describeInferenceServerLoad(current) : null;
-  const promptCache = current ? describeInferencePromptCache(current) : null;
+  const promptCache = current ? describeInferencePromptCache(current, m) : null;
   const details = inferenceServerDetails(config, current, fallback);
   return (
     <SettingsRow
@@ -451,7 +464,7 @@ function InferenceServerRow({
           <span className="min-w-0 wrap-anywhere">{name}</span>
           {!config.enabled ? (
             <Badge variant="outline" size="sm">
-              Disabled
+              <T>Disabled</T>
             </Badge>
           ) : current ? (
             <Badge variant={STATUS_BADGE_VARIANTS[current.status]} size="sm">
@@ -469,16 +482,16 @@ function InferenceServerRow({
               {down && !readOnly ? (
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   <Button size="xs" variant="outline" onClick={onCheckAgain}>
-                    Check again
+                    <T>Check again</T>
                   </Button>
                   {onFind ? (
                     <Button size="xs" variant="outline" onClick={onFind}>
                       <SearchIcon className="size-3" aria-hidden />
-                      Find server
+                      <T>Find server</T>
                     </Button>
                   ) : null}
                   <Button size="xs" variant="outline" onClick={onEdit}>
-                    Change address
+                    <T>Change address</T>
                   </Button>
                 </div>
               ) : null}
@@ -519,7 +532,9 @@ function InferenceServerRow({
                   })}
                 </ul>
               ) : current.status === "ready" ? (
-                <p>No models reported.</p>
+                <p>
+                  <T>No models reported.</T>
+                </p>
               ) : null}
             </div>
           ) : (
@@ -533,10 +548,10 @@ function InferenceServerRow({
             <Switch
               checked={config.enabled}
               onCheckedChange={(checked) => onEnabledChange(Boolean(checked))}
-              aria-label={`Use ${name}`}
+              aria-label={gt("Use {name}", { name })}
             />
             <Button size="xs" variant="ghost" onClick={onEdit}>
-              Edit
+              <T>Edit</T>
             </Button>
             <RemoveInferenceServerButton label={name} onConfirm={onRemove} />
           </div>
@@ -588,7 +603,13 @@ function InferenceModelImages({
         <>
           {" "}
           <Button size="xs" variant="ghost" disabled={checking} onClick={() => void runCheck()}>
-            {checking ? "Checking images" : image ? "Check images again" : "Check images"}
+            {checking ? (
+              <T>Checking images</T>
+            ) : image ? (
+              <T>Check images again</T>
+            ) : (
+              <T>Check images</T>
+            )}
           </Button>
         </>
       ) : null}
@@ -605,6 +626,7 @@ function InferenceServerProbeFreshness({
   readonly checkedAt: string;
   readonly probeIntervalMs: number;
 }) {
+  const m = useMessages();
   const subscribe = (onChange: () => void) => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const schedule = () => {
@@ -612,6 +634,7 @@ function InferenceServerProbeFreshness({
         checkedAt,
         probeIntervalMs,
         Date.now(),
+        m,
       )?.msUntilChange;
       if (delayMs === undefined || delayMs === null) return;
       timer = setTimeout(() => {
@@ -622,13 +645,22 @@ function InferenceServerProbeFreshness({
     schedule();
     return () => clearTimeout(timer);
   };
-  const read = () => describeInferenceServerProbeFreshness(checkedAt, probeIntervalMs, Date.now());
+  const read = () =>
+    describeInferenceServerProbeFreshness(checkedAt, probeIntervalMs, Date.now(), m);
   const readLabel = () => read()?.label ?? null;
   const readStale = () => read()?.stale ?? false;
   const label = useSyncExternalStore(subscribe, readLabel, readLabel);
   const stale = useSyncExternalStore(subscribe, readStale, readStale);
   if (label === null) return null;
-  return stale ? <p className="text-warning">{label}, overdue</p> : <p>{label}</p>;
+  return stale ? (
+    <p className="text-warning">
+      <T>
+        <Var>{label}</Var>, overdue
+      </T>
+    </p>
+  ) : (
+    <p>{label}</p>
+  );
 }
 
 function InferenceServerRequestHealth({
@@ -647,11 +679,19 @@ function InferenceServerRequestHealth({
   const health = inferenceServerRequestHealth(summary, serverId);
   return (
     <>
-      <p>Reports cached tokens: {health.reportsCachedTokens ? "yes" : "unknown"}</p>
+      <p>
+        {health.reportsCachedTokens ? (
+          <T>Reports cached tokens: yes</T>
+        ) : (
+          <T>Reports cached tokens: unknown</T>
+        )}
+      </p>
       {health.recentFailure ? (
         <p>
-          Last request {health.recentFailure.status} at{" "}
-          {formatShortTimestamp(health.recentFailure.at, timestampFormat)}
+          <T>
+            Last request <Var>{health.recentFailure.status}</Var> at{" "}
+            <Var>{formatShortTimestamp(health.recentFailure.at, timestampFormat)}</Var>
+          </T>
         </p>
       ) : null}
     </>
@@ -669,20 +709,28 @@ function RemoveInferenceServerButton({
   return (
     <>
       <Button size="xs" variant="ghost" onClick={() => setOpen(true)}>
-        Remove
+        <T>Remove</T>
       </Button>
       <AlertDialog open={open} onOpenChange={setOpen}>
         <AlertDialogPopup>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove {label}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              <T>
+                Remove <Var>{label}</Var>?
+              </T>
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Its API key is deleted from this environment. Provider instances linked to it show a
-              warning until you link them elsewhere, and servers that fall back to it stop doing so.
-              The server itself is untouched.
+              <T>
+                Its API key is deleted from this environment. Provider instances linked to it show a
+                warning until you link them elsewhere, and servers that fall back to it stop doing
+                so. The server itself is untouched.
+              </T>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogClose render={<Button variant="outline" />}>Cancel</AlertDialogClose>
+            <AlertDialogClose render={<Button variant="outline" />}>
+              <T>Cancel</T>
+            </AlertDialogClose>
             <Button
               variant="destructive"
               onClick={() => {
@@ -690,7 +738,7 @@ function RemoveInferenceServerButton({
                 onConfirm();
               }}
             >
-              Remove server
+              <T>Remove server</T>
             </Button>
           </AlertDialogFooter>
         </AlertDialogPopup>
