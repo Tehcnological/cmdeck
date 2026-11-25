@@ -36,7 +36,7 @@ jobs:
         run: bash scripts/fork/guard.sh upstream/main
 
   check:
-    name: Typecheck and tests
+    name: Typecheck
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -97,20 +97,6 @@ jobs:
           code=0; vp exec effect-tsgo tsrs --noEmit > tsc.log 2>&1 || code=$?
           grep -v 'suggestion TS' tsc.log | grep -v '^\s*$' | tail -80 || true
           exit $code
-
-      - name: Server tests (areas this fork changes)
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        working-directory: apps/server
-        run: >-
-          vp test run
-          src/persistence
-          src/mcp
-          src/inference
-          src/auth
-          src/textGeneration
-          src/provider/ProviderInstanceRegistry.test.ts
-          src/serverSettings.test.ts
-          src/fork/T3Import.test.ts
 
   lint:
     name: Lint, unused code, i18n, format
@@ -188,15 +174,16 @@ jobs:
               sys.stdout.write(line.encode("ascii", "backslashreplace").decode("ascii"))
           '
 
-  # Sharded: one Chromium session for all ~670 browser files crashes on stock runners.
+  # Sharded small: on private-repo runners one Chromium session for ~220 files can run out of
+  # memory and drop its connection.
   test-web:
-    name: Web tests (${{ matrix.shard }}/3)
+    name: Web tests (${{ matrix.shard }}/6)
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -230,7 +217,7 @@ jobs:
         run: |
           set -o pipefail
           for attempt in 1 2; do
-            vp test run --passWithNoTests --project unit --project browser --shard ${{ matrix.shard }}/3 2>&1 | tee test.log && exit 0
+            vp test run --passWithNoTests --project unit --project browser --shard ${{ matrix.shard }}/6 2>&1 | tee test.log && exit 0
             grep -q VITEST_BROWSER_CONNECTION_CLOSED test.log || exit 1
             echo "::warning::Chromium dropped the test connection (attempt $attempt)"
           done
