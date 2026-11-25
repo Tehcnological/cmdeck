@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
 import * as SubscriptionRef from "effect/SubscriptionRef";
+import type { DatabaseMigrationProgress } from "@t3tools/contracts";
 
 import type { BackendStartupFailure } from "../backend/DesktopBackendManager.ts";
 
@@ -24,6 +25,7 @@ export class DesktopState extends Context.Service<
     readonly trayActive: Ref.Ref<boolean>;
     // The user sent the app to the tray; backend readiness must not reopen the main window.
     readonly mainHiddenInTray: Ref.Ref<boolean>;
+    readonly databaseMigrationProgress: Ref.Ref<DatabaseMigrationProgress | null>;
   }
 >()("@t3tools/desktop/app/DesktopState") {}
 
@@ -34,6 +36,7 @@ const make = Effect.all({
   primaryBackendStartup: SubscriptionRef.make<PrimaryBackendStartup>({ _tag: "Starting" }),
   trayActive: Ref.make(false),
   mainHiddenInTray: Ref.make(false),
+  databaseMigrationProgress: Ref.make<DatabaseMigrationProgress | null>(null),
 });
 
 export const layer = Layer.effect(DesktopState, make);
