@@ -34,11 +34,20 @@ jobs:
         with:
           install: "false"
 
+      # On a Vite+ cache hit the shared action adds a bash-style path that pwsh cannot read.
+      - name: Add Vite+ to PATH
+        run: Add-Content $env:GITHUB_PATH "$HOME\.vite-plus\bin"
+
       - name: Install dependencies
         run: vp install --frozen-lockfile
 
       # Unsigned: Windows SmartScreen shows an "unknown publisher" prompt on install.
+      # A native Windows build would add ~39 prepared compile-cache files, which the 80-file payload
+      # limit does not allow (upstream builds Windows on Linux, where that step is skipped). This
+      # flag skips them; the app then compiles on first start.
       - name: Build installer
+        env:
+          T3CODE_DESKTOP_UNTRUSTED_BUNDLE: "true"
         run: vp run dist:desktop:win:x64
 
       - name: Upload installer
