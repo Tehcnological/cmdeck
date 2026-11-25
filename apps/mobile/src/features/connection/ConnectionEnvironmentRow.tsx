@@ -3,7 +3,12 @@ import { msg, T, useGT, useMessages } from "gt-react-native";
 import * as Dialog from "../../components/ui/Dialog";
 import { ConnectionTraceId } from "./ConnectionTraceId";
 import { SymbolView } from "../../components/ui/AppSymbol";
-import { hasSavedBearerRoute, hostFreezeNotice } from "@t3tools/client-runtime/connection";
+import {
+  connectionSecurityBadge,
+  connectionSecurityBadgeText,
+  hasSavedBearerRoute,
+  hostFreezeNotice,
+} from "@t3tools/client-runtime/connection";
 import type { AtomCommandResult } from "@t3tools/client-runtime/state/runtime";
 import { type EnvironmentId, resolveEnvironmentMachineKind } from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
@@ -79,7 +84,16 @@ export function ConnectionEnvironmentRow(props: {
     presentation,
   );
   const enabled = props.environment.isEnabled && !unsupported;
-  const statusLabel = connectionStatusLabel(props.environment, m);
+  const securityBadge =
+    enabled && presentation !== null && props.environment.connectionState === "connected"
+      ? connectionSecurityBadge({ entry: presentation.entry, connectedTarget: null })
+      : null;
+  const statusLabel = [
+    connectionStatusLabel(props.environment, m),
+    securityBadge ? connectionSecurityBadgeText(securityBadge, m) : null,
+  ]
+    .filter((part): part is string => part !== null)
+    .join(" · ");
   const statusTraceId = enabled ? props.environment.connectionErrorTraceId : null;
   const hasConnectionFailure = enabled && props.environment.connectionError !== null;
   const freeze = enabled

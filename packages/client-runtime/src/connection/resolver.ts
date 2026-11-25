@@ -136,12 +136,15 @@ const makeBearerBroker = Effect.fn("clientRuntime.connection.broker.makeBearer")
         actual: profile.environmentId,
       });
     }
+    const e2eePin = profile.serverIdentityKey
+      ? { e2eeServerIdentityKey: profile.serverIdentityKey }
+      : {};
     if (profile.authorization === "t3-connect") {
       const authorized = yield* remote.authorizeDpop({
         expectedEnvironmentId: target.environmentId,
         directEndpoint: { httpBaseUrl: profile.httpBaseUrl, wsBaseUrl: profile.wsBaseUrl },
       });
-      return { ...authorized, target } satisfies PreparedConnection;
+      return { ...authorized, target, ...e2eePin } satisfies PreparedConnection;
     }
     const credential = yield* credentials.get(credentialConnectionId(target.connectionId)).pipe(
       Effect.flatMap(
@@ -169,6 +172,7 @@ const makeBearerBroker = Effect.fn("clientRuntime.connection.broker.makeBearer")
     return {
       ...authorized,
       target,
+      ...e2eePin,
     } satisfies PreparedConnection;
   });
 });

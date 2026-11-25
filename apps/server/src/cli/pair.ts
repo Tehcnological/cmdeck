@@ -29,6 +29,7 @@ import { Command, Flag, GlobalFlag } from "effect/cli";
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 
 import * as EnvironmentAuth from "../auth/EnvironmentAuth.ts";
+import * as ServerE2eeIdentity from "../auth/ServerE2eeIdentity.ts";
 import * as ServerConfig from "../config.ts";
 import * as ManagedLimits from "../policy/managedLimits.ts";
 import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
@@ -591,7 +592,10 @@ export const pairCommand = Command.make("pair", {
         ttl: flags.ttl,
         label: flags.label,
       });
-      const pairingUrl = buildPairingUrl(pairingBaseUrl, issued.credential);
+      const serverIdentityKey = yield* ServerE2eeIdentity.readPairingServerIdentityKey.pipe(
+        Effect.provide(ServerConfig.layer(config)),
+      );
+      const pairingUrl = buildPairingUrl(pairingBaseUrl, issued.credential, { serverIdentityKey });
 
       yield* Console.log(
         formatPairOutput({

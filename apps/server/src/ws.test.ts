@@ -51,6 +51,18 @@ import {
   type ServerProvider,
 } from "@t3tools/contracts";
 import { SOCKET_FRAME_PARTS_QUERY_PARAM } from "@t3tools/shared/socketFrameParts";
+import {
+  E2EE_REQUIRED_CODE,
+  SOCKET_E2EE_QUERY_PARAM,
+  encodeIdentityKey,
+  generateIdentityKeypair,
+  identityFingerprint,
+  layerE2eeCrypto,
+  wrapClientSocketWithE2ee,
+  type E2eeIdentityKeypair,
+} from "@t3tools/shared/socketE2ee";
+import * as Socket from "effect/socket/Socket";
+import * as ServerE2eeIdentity from "./auth/ServerE2eeIdentity.ts";
 import * as Deferred from "effect/Deferred";
 import type { ProviderInstance } from "@t3tools/provider-core/server/driver";
 import * as DateTime from "effect/DateTime";
@@ -840,6 +852,9 @@ it.effect("shell snapshots omit idle children and older settled threads only on 
 const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(DocumentText.DocumentText)({}),
   Layer.mock(ServerSecretStore.ServerSecretStore)({}),
+  Layer.succeed(ServerEnvironment.ServerEnvironmentIdentity, {
+    getEnvironmentId: Effect.succeed(EnvironmentId.make("ws-route-test")),
+  }),
   Layer.mock(SecretCheck.SecretCheck)({}),
   Layer.mock(RemoteMcpTokens.RemoteMcpTokens)({}),
   Layer.mock(PublicAddressCheck.PublicAddressCheck)({}),
@@ -1021,7 +1036,9 @@ it.live.each([
         Layer.mock(ExternalLauncher.ExternalLauncher)({}),
         Layer.mock(RemoteOpenTargets.RemoteOpenTargets)({}),
         Layer.mock(DirectEndpoints.DirectEndpoints)({}),
-        Layer.mock(ServerEnvironment.ServerEnvironment)({}),
+        Layer.mock(ServerEnvironment.ServerEnvironment)({
+          getEnvironmentId: Effect.succeed(EnvironmentId.make("ws-policy-test")),
+        }),
         Layer.mock(VcsProcess.VcsProcess)({
           run: (input) =>
             Effect.fail(
@@ -1072,6 +1089,236 @@ it.live.each([
       );
       assert.equal(socket.extensions, extensions);
     }).pipe(Effect.scoped),
+);
+
+const E2EE_ENVIRONMENT_ID = "ws-e2ee-test";
+
+/** The real `/ws` route on a loopback port, with a fixed E2EE identity. */
+const startE2eeWsServer = Effect.fn("test.startE2eeWsServer")(function* (
+  identity: E2eeIdentityKeypair,
+) {
+  const descriptor = {
+    publicKeyBase64Url: encodeIdentityKey(identity.publicKey),
+    fingerprint: identityFingerprint(identity.publicKey),
+  };
+  const services = Layer.mergeAll(
+    layerUnusedConfigRpcServices,
+    Layer.succeed(ServerE2eeIdentity.ServerE2eeIdentity, {
+      getKeypair: Effect.succeed(identity),
+      getDescriptor: Effect.succeed(descriptor),
+      rotate: Effect.succeed(descriptor),
+    }),
+    Layer.mock(ServerBrowser.ServerBrowser)({
+      profileReporter: Effect.succeed(() => Effect.void),
+    }),
+    Layer.mock(EnvironmentAuth.EnvironmentAuth)({
+      authenticateWebSocketUpgrade: () =>
+        Effect.succeed({
+          sessionId: AuthSessionId.make("e2ee-test"),
+          subject: "one-time-token",
+          method: "bearer-access-token",
+          scopes: [],
+        }),
+    }),
+    Layer.mock(SessionStore.SessionStore)({
+      cookieName: "e2ee-test",
+      legacyCookieName: undefined,
+      markConnected: () => Effect.void,
+      markDisconnected: () => Effect.void,
+      awaitInvalidation: () => Effect.never,
+    }),
+    Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({ namedProjectsRoot: process.cwd() }),
+    Layer.mock(ScratchThreadPromotion.ScratchThreadPromotion)({}),
+    Layer.mock(ProviderRegistry.ProviderRegistry)({}),
+    Layer.mock(UsageLimitSources.UsageLimitSources)({}),
+    Layer.mock(ExternalLauncher.ExternalLauncher)({}),
+    Layer.mock(RemoteOpenTargets.RemoteOpenTargets)({}),
+    Layer.mock(DirectEndpoints.DirectEndpoints)({}),
+    Layer.mock(ServerEnvironment.ServerEnvironment)({
+      getEnvironmentId: Effect.succeed(EnvironmentId.make(E2EE_ENVIRONMENT_ID)),
+    }),
+    Layer.mock(VcsProcess.VcsProcess)({
+      run: (input) =>
+        Effect.fail(
+          new VcsProcessSpawnError({
+            operation: input.operation,
+            command: input.command,
+            cwd: input.cwd,
+            cause: "No VCS commands in the E2EE fixture",
+          }),
+        ),
+    }),
+    ProviderInstallationGate.layer,
+    FetchHttpClient.layer,
+  );
+  const context = yield* Layer.build(
+    HttpRouter.serve(Ws.layer, { disableListenLog: true }).pipe(
+      Layer.provideMerge(
+        NodeHttpServer.layer(NodeHttp.createServer, { host: "127.0.0.1", port: 0 }),
+      ),
+      Layer.provide(services),
+      Layer.provideMerge(layerConfigSources),
+    ),
+  );
+  const server = Context.get(context, HttpServer.HttpServer);
+  return {
+    settings: Context.get(context, ServerSettings.ServerSettingsService),
+    wsUrl: (e2ee: boolean) =>
+      `${HttpServer.formatAddress(server.address).replace(/^http/, "ws")}/ws?${ORCHESTRATION_PROTOCOL_QUERY_PARAM}=${ORCHESTRATION_PROTOCOL_VERSION}&${SOCKET_FRAME_PARTS_QUERY_PARAM}=1${e2ee ? `&${SOCKET_E2EE_QUERY_PARAM}=1` : ""}`,
+  };
+});
+
+/** Opens a raw socket and reports whether the upgrade succeeded or the refusal code. */
+const tryUpgrade = (url: string, headers: Record<string, string> = {}) =>
+  Effect.acquireUseRelease(
+    Effect.sync(() => new WebSocket(url, { origin: "t3code://app", headers })),
+    (socket) =>
+      Effect.promise(
+        () =>
+          new Promise<{ readonly status: number; readonly code?: string }>((resolve, reject) => {
+            socket.once("open", () => resolve({ status: 101 }));
+            socket.once("unexpected-response", (_request, response) => {
+              let body = "";
+              response.on("data", (chunk: Buffer) => (body += chunk.toString()));
+              response.on("end", () => {
+                let code: string | undefined;
+                try {
+                  code = (JSON.parse(body) as { readonly code?: string }).code;
+                } catch {
+                  code = `unparsed:${body}`;
+                }
+                resolve({ status: response.statusCode ?? 0, ...(code ? { code } : {}) });
+              });
+            });
+            socket.once("error", reject);
+          }),
+      ),
+    (socket) => Effect.sync(() => socket.terminate()),
+  );
+
+/**
+ * Runs one RPC ping over a client socket pinned to `pinned`, recording every raw
+ * frame the server sent so the test can prove nothing crossed in plaintext.
+ */
+const pingOverE2ee = (url: string, pinned: Uint8Array) =>
+  Effect.gen(function* () {
+    const rawFrames: Array<Uint8Array | string> = [];
+    const raw = yield* Socket.makeWebSocket(url);
+    const recorded = Socket.make({
+      reader: Effect.map(raw.reader, (reader) => ({
+        upgrade: reader.upgrade,
+        pull: Effect.tap(reader.pull, (batch) => Effect.sync(() => rawFrames.push(...batch))),
+      })),
+      writer: raw.writer,
+    });
+    const socket = yield* wrapClientSocketWithE2ee(recorded, {
+      environmentId: E2EE_ENVIRONMENT_ID,
+      expectedServerIdentityKey: pinned,
+    });
+    const reply = yield* Effect.scoped(
+      Effect.gen(function* () {
+        const reader = yield* socket.reader;
+        const writer = yield* socket.writer;
+        yield* writer.write(JSON.stringify({ _tag: "Ping" }));
+        return yield* reader.pull;
+      }),
+    );
+    return { reply, rawFrames };
+  }).pipe(
+    Effect.provide(layerE2eeCrypto),
+    Effect.provideService(
+      Socket.WebSocketConstructor,
+      (url) => new WebSocket(url, { origin: "t3code://app" }) as unknown as globalThis.WebSocket,
+    ),
+  );
+
+it.live("a pinned client runs E2EE end to end against the real /ws route", () =>
+  Effect.gen(function* () {
+    const identity = yield* generateIdentityKeypair().pipe(Effect.provide(layerE2eeCrypto));
+    const host = yield* startE2eeWsServer(identity);
+    yield* host.settings.updateSettings({ e2eeMode: "prefer" });
+
+    const { reply, rawFrames } = yield* pingOverE2ee(host.wsUrl(true), identity.publicKey);
+    assert.deepEqual([...reply], [JSON.stringify({ _tag: "Pong" })]);
+    // Server hello, then the encrypted Pong: every frame on the wire is a binary record.
+    assert.isAtLeast(rawFrames.length, 2);
+    for (const frame of rawFrames) {
+      assert.instanceOf(frame, Uint8Array);
+      assert.notInclude(new TextDecoder().decode(frame as Uint8Array), "Pong");
+    }
+
+    // A different pinned key is a MITM or a re-keyed host: the handshake fails closed.
+    const other = yield* generateIdentityKeypair().pipe(Effect.provide(layerE2eeCrypto));
+    const mismatch = yield* Effect.flip(pingOverE2ee(host.wsUrl(true), other.publicKey));
+    assert.include(
+      String((mismatch.reason as { readonly cause?: unknown }).cause),
+      "E2EE_IDENTITY_MISMATCH",
+    );
+  }).pipe(Effect.scoped),
+);
+
+it.live("prefer accepts plaintext and E2EE clients; require refuses remote plaintext", () =>
+  Effect.gen(function* () {
+    const identity = yield* generateIdentityKeypair().pipe(Effect.provide(layerE2eeCrypto));
+    const host = yield* startE2eeWsServer(identity);
+    const remote = { "x-forwarded-for": "203.0.113.9" };
+
+    yield* host.settings.updateSettings({ e2eeMode: "prefer" });
+    assert.deepEqual(yield* tryUpgrade(host.wsUrl(false), remote), { status: 101 });
+    const preferred = yield* pingOverE2ee(host.wsUrl(true), identity.publicKey);
+    assert.deepEqual([...preferred.reply], [JSON.stringify({ _tag: "Pong" })]);
+
+    yield* host.settings.updateSettings({ e2eeMode: "require" });
+    assert.deepEqual(yield* tryUpgrade(host.wsUrl(false), remote), {
+      status: 403,
+      code: E2EE_REQUIRED_CODE,
+    });
+    // A local proxy announcing a Tailscale client is still remote, not the loopback exemption.
+    assert.deepEqual(yield* tryUpgrade(host.wsUrl(false), { "x-forwarded-for": "100.72.10.4" }), {
+      status: 403,
+      code: E2EE_REQUIRED_CODE,
+    });
+    // Only header-less loopback (this machine, SSH forwards) skips the requirement.
+    assert.deepEqual(yield* tryUpgrade(host.wsUrl(false)), { status: 101 });
+    const required = yield* pingOverE2ee(host.wsUrl(true), identity.publicKey);
+    assert.deepEqual([...required.reply], [JSON.stringify({ _tag: "Pong" })]);
+  }).pipe(Effect.scoped),
+);
+
+it.live("turning E2EE off makes pinned clients fail closed instead of downgrading", () =>
+  Effect.gen(function* () {
+    const identity = yield* generateIdentityKeypair().pipe(Effect.provide(layerE2eeCrypto));
+    const host = yield* startE2eeWsServer(identity);
+    yield* host.settings.updateSettings({ e2eeMode: "off" });
+    assert.deepEqual(yield* tryUpgrade(host.wsUrl(true)), {
+      status: 403,
+      code: "E2EE_NOT_SUPPORTED",
+    });
+    const refused = yield* Effect.flip(pingOverE2ee(host.wsUrl(true), identity.publicKey));
+    assert.instanceOf(refused, Socket.SocketError);
+  }).pipe(Effect.scoped),
+);
+
+it.live("private-e2ee-only refuses proxied public clients but keeps loopback", () =>
+  Effect.gen(function* () {
+    const identity = yield* generateIdentityKeypair().pipe(Effect.provide(layerE2eeCrypto));
+    const host = yield* startE2eeWsServer(identity);
+    yield* host.settings.updateSettings({ remoteTransportPolicy: "private-e2ee-only" });
+    for (const headers of [
+      { "x-forwarded-for": "100.72.10.4, 203.0.113.9" },
+      { "x-real-ip": "127.0.0.1" },
+      { "cf-connecting-ip": "203.0.113.9" },
+    ]) {
+      assert.deepEqual(yield* tryUpgrade(host.wsUrl(false), headers), {
+        status: 403,
+        code: "REMOTE_TRANSPORT_NOT_ALLOWED",
+      });
+    }
+    assert.deepEqual(yield* tryUpgrade(host.wsUrl(false), { "x-forwarded-for": "100.72.10.4" }), {
+      status: 101,
+    });
+    assert.deepEqual(yield* tryUpgrade(host.wsUrl(false)), { status: 101 });
+  }).pipe(Effect.scoped),
 );
 
 it.effect.each([
@@ -1389,7 +1636,9 @@ it.effect("access changes made while the snapshot loads reach the client after i
                 namedProjectsRoot: "/unused",
               }),
               Layer.mock(ScratchThreadPromotion.ScratchThreadPromotion)({}),
-              Layer.mock(ServerEnvironment.ServerEnvironment)({}),
+              Layer.mock(ServerEnvironment.ServerEnvironment)({
+                getEnvironmentId: Effect.succeed(EnvironmentId.make("ws-policy-test")),
+              }),
               Layer.mock(EnvironmentAuth.EnvironmentAuth)({
                 listPairingLinks: () => Effect.succeed([]),
                 listConnectDevices: () => Effect.succeed([]),
@@ -1952,7 +2201,9 @@ it.effect("a missing thread worktree gets its project's skills in the cwd snapsh
         namedProjectsRoot: process.cwd(),
       }),
       Layer.mock(ScratchThreadPromotion.ScratchThreadPromotion)({}),
-      Layer.mock(ServerEnvironment.ServerEnvironment)({}),
+      Layer.mock(ServerEnvironment.ServerEnvironment)({
+        getEnvironmentId: Effect.succeed(EnvironmentId.make("ws-policy-test")),
+      }),
       Layer.mock(EnvironmentAuth.EnvironmentAuth)({}),
     );
     const server = yield* RpcServer.makeNoSerialization(
@@ -2213,7 +2464,9 @@ it.effect("a git action that fails partway still refreshes the repository status
       Layer.mock(DirectEndpoints.DirectEndpoints)({}),
       Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({ namedProjectsRoot: "/unused" }),
       Layer.mock(ScratchThreadPromotion.ScratchThreadPromotion)({}),
-      Layer.mock(ServerEnvironment.ServerEnvironment)({}),
+      Layer.mock(ServerEnvironment.ServerEnvironment)({
+        getEnvironmentId: Effect.succeed(EnvironmentId.make("ws-policy-test")),
+      }),
       Layer.mock(EnvironmentAuth.EnvironmentAuth)({}),
     );
     const server = yield* RpcServer.makeNoSerialization(WsRpcGroup, {
@@ -2297,7 +2550,9 @@ it.effect("a publish whose push fails still refreshes the new remote", () =>
       Layer.mock(DirectEndpoints.DirectEndpoints)({}),
       Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({ namedProjectsRoot: "/unused" }),
       Layer.mock(ScratchThreadPromotion.ScratchThreadPromotion)({}),
-      Layer.mock(ServerEnvironment.ServerEnvironment)({}),
+      Layer.mock(ServerEnvironment.ServerEnvironment)({
+        getEnvironmentId: Effect.succeed(EnvironmentId.make("ws-policy-test")),
+      }),
       Layer.mock(EnvironmentAuth.EnvironmentAuth)({}),
     );
     const server = yield* RpcServer.makeNoSerialization(WsRpcGroup, {
@@ -2854,7 +3109,9 @@ it.effect("ACP session RPCs list a thread missing its history and repair it on i
       Layer.mock(DirectEndpoints.DirectEndpoints)({}),
       Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({ namedProjectsRoot: "/unused" }),
       Layer.mock(ScratchThreadPromotion.ScratchThreadPromotion)({}),
-      Layer.mock(ServerEnvironment.ServerEnvironment)({}),
+      Layer.mock(ServerEnvironment.ServerEnvironment)({
+        getEnvironmentId: Effect.succeed(EnvironmentId.make("ws-policy-test")),
+      }),
       Layer.mock(EnvironmentAuth.EnvironmentAuth)({}),
       Layer.mock(ProjectService.ProjectService)({
         getById: () =>

@@ -38,6 +38,11 @@ import {
   useConnectionDiagnosis,
 } from "./ConnectionDiagnosisDetails";
 import { usePreparedConnection } from "~/state/session";
+import {
+  connectionSecurityBadge,
+  connectionSecurityBadgeText,
+  pinnedServerIdentityFingerprint,
+} from "@t3tools/client-runtime/connection";
 import { EnvironmentRow, environmentTransportLabel } from "./EnvironmentRow";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
 import { Switch } from "../ui/switch";
@@ -232,11 +237,16 @@ export function SavedBackendListRow({
       (lastDescriptor === undefined ? null : { environment: lastDescriptor }),
   );
   const routeCount = connectionRoutes(environment.entry).length;
+  const securityBadge =
+    enabled && isConnected
+      ? connectionSecurityBadge({ entry: environment.entry, connectedTarget })
+      : null;
   const subtitleText = [
     environmentTransportLabel(environment, connectedTarget, messages),
     // The headline below names the failure in full.
     diagnosis ? null : resumingServerUpdate ? gt("Restarting") : status.text,
     enabled && versionMismatch ? serverVersion : null,
+    securityBadge ? connectionSecurityBadgeText(securityBadge, messages) : null,
   ]
     .filter((value): value is string => value !== null)
     .join(" · ");
@@ -247,6 +257,7 @@ export function SavedBackendListRow({
     versionMismatch !== null &&
     (serverUpdateState.status === "idle" || serverUpdateState.status === "failed");
 
+  const pinnedFingerprint = pinnedServerIdentityFingerprint(environment.entry);
   const statusTooltip = `${
     unsupported
       ? (connectionErrorText(environment.connection, messages) ??
@@ -260,6 +271,10 @@ export function SavedBackendListRow({
           serverVersion: versionMismatch.serverVersion,
           clientVersion: versionMismatch.clientVersion,
         })}`
+      : ""
+  }${
+    pinnedFingerprint
+      ? `\n${gt("End-to-end encryption key: {fingerprint}", { fingerprint: pinnedFingerprint })}`
       : ""
   }`;
 
@@ -856,6 +871,100 @@ function ConfiguredCloudLinkRow({
 export interface ConnectDeviceApprovalControl {
   readonly required: boolean;
   readonly canManage: boolean;
+}
+
+/** Older servers have no transport policy or E2EE, so callers pass null and the rows stay hidden. */
+export interface TransportSecurityControl {
+  readonly policy: "any" | "private-e2ee-only";
+  readonly e2eeMode: "off" | "prefer" | "require";
+  readonly fingerprint: string | null;
+  readonly canManage: boolean;
+}
+
+/** Lives outside the T3 Connect row: it must show on hosts without T3 Connect configured. */
+export function TransportSecurityRows({
+  environmentId,
+  transportSecurity,
+}: {
+  readonly environmentId: EnvironmentId;
+  readonly transportSecurity: TransportSecurityControl | null;
+}) {
+  const gt = useGT();
+  const updateEnvironmentSettings = useUpdateEnvironmentSettings(environmentId);
+  return (
+    <>
+      {transportSecurity ? (
+        <SettingsRow
+          title={gt("Private transports only")}
+          description={gt(
+            "Only accept remote connections over private end-to-end-encrypted transports: this machine, Tailscale, or SSH. Tunnels, proxies, and plain LAN addresses are refused.",
+          )}
+          control={
+            <CloudLinkSwitch
+              ariaLabel={gt("Only accept private end-to-end-encrypted transports")}
+              checked={transportSecurity.policy === "private-e2ee-only"}
+              disabled={!transportSecurity.canManage}
+              disabledReason={
+                transportSecurity.canManage
+                  ? null
+                  : gt("Your session does not have permission to manage access.")
+              }
+              onCheckedChange={(enabled) =>
+                updateEnvironmentSettings({
+                  remoteTransportPolicy: enabled ? "private-e2ee-only" : "any",
+                })
+              }
+            />
+          }
+        />
+      ) : null}
+      {transportSecurity && transportSecurity.fingerprint ? (
+        <SettingsRow
+          title={gt("End-to-end encryption")}
+          description={
+            transportSecurity.e2eeMode === "off"
+              ? gt(
+                  "Remote sessions are protected by their transport. This host can also encrypt the stream itself (Tailscale, SSH, tunnels alike).",
+                )
+              : transportSecurity.e2eeMode === "prefer"
+                ? gt(
+                    "CMDeck devices paired while this is on encrypt the session itself and verify this key fingerprint: {fingerprint}. The official T3 Code apps still connect without it.",
+                    { fingerprint: transportSecurity.fingerprint },
+                  )
+                : gt(
+                    "Every remote session must be encrypted and verify this key fingerprint: {fingerprint}. The official T3 Code apps and devices paired without it are refused.",
+                    { fingerprint: transportSecurity.fingerprint },
+                  )
+          }
+          control={
+            <CloudLinkSwitch
+              ariaLabel={gt("Encrypt remote sessions end to end")}
+              checked={transportSecurity.e2eeMode !== "off"}
+              disabled={!transportSecurity.canManage}
+              disabledReason={
+                transportSecurity.canManage
+                  ? null
+                  : gt("Your session does not have permission to manage access.")
+              }
+              onCheckedChange={(enabled) => {
+                updateEnvironmentSettings({ e2eeMode: enabled ? "prefer" : "off" });
+                // A pinned client refuses a host that stops offering E2EE.
+                if (!enabled) {
+                  toastManager.add({
+                    type: "warning",
+                    title: gt("End-to-end encryption is off"),
+                    description: gt(
+                      "Devices paired while it was on will not connect until you pair them again.",
+                    ),
+                  });
+                }
+              }}
+            />
+          }
+        />
+      ) : null}
+    </>
+  );
 }
 
 export function CloudLinkRow({
