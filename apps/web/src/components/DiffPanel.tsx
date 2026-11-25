@@ -1439,10 +1439,13 @@ export default function DiffPanel({
           <Tooltip>
             <TooltipTrigger
               render={
+                // Narrow panels need the room for the comparison pickers; the command palette
+                // still offers the review.
                 <Button
                   type="button"
                   size="icon-sm"
                   variant="ghost"
+                  className="@max-[30rem]/diff-header:hidden"
                   aria-label={gt("Review with another model")}
                   onClick={() => openThreadReviewDialog(routeThreadRef)}
                 />
