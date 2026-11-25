@@ -33,9 +33,13 @@ Besides the traffic you or your tools create, these are the outbound calls CMDec
 - **Model prices** from LiteLLM's public price table on `raw.githubusercontent.com` (falling back
   to `api.github.com`), at most once a day, when you open **Usage**. Prices are cached on disk.
   There is no switch; if you never open Usage, it is never fetched.
+- **Desktop app update checks**: the desktop app looks for a newer CMDeck release on
+  `github.com/Tehcnological/cmdeck` about 15 seconds after it starts, every 4 hours, and when you
+  check by hand, and downloads the update from there when you choose to. See
+  [Updating CMDeck](./updating.md#desktop-app-updates) to turn this off.
 - **Server update checks in the mobile app**: when you check a server for updates, the mobile app
   looks up the newest release on T3 Code's GitHub releases page (`github.com`, then
   `api.github.com` if needed). CMDeck installs updates only from a build mirror you configure.
 
 CMDeck does not use T3 Connect or its relay, does not look up its own releases on the npm
-registry, and its desktop builds have no update feed to check.
+registry, and never checks T3 Code's releases for desktop updates.

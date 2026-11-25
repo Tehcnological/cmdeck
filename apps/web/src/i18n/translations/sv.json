@@ -6438,7 +6438,7 @@
     "i den här terminalen."
   ],
   "9d9b9624c7bd95df": "Andra mappar",
-  "1eb8f3d4695033fb": [
+  "a1232e43056b2752": [
     "Tillagd i ",
     {
       "i": 1,
@@ -6450,16 +6450,16 @@
     {
       "t": "code",
       "i": 2,
-      "c": "t3"
+      "c": "cmdeck"
     },
     "."
   ],
-  "ad72bb102aa39c31": [
+  "9ffe90093a3bf69b": [
     "Använd ",
     {
       "t": "code",
       "i": 1,
-      "c": "t3"
+      "c": "cmdeck"
     },
     " från valfri terminal. Lägger till en rad i",
     " ",
@@ -8053,17 +8053,17 @@
       "v": "v"
     }
   ],
-  "d0e747ae0c4f68a5": "Kunde inte installera t3",
-  "ba3ac338f36cba74": "Kunde inte ta bort t3",
-  "9c942b53b58119b8": "Kunde inte lägga till t3 i PATH",
-  "e9d97f47db8e8056": "En annan t3 i {path} körs först i en ny terminal. Ta bort den för att använda CMDecks.",
-  "a57d97b85dc46df6": "Kör CMDecks CLI som `t3` från valfri terminal.",
+  "2512a3eeef121ec7": "Kunde inte installera cmdeck",
+  "6c2df7ad05b2c42a": "Kunde inte ta bort cmdeck",
+  "61430464d1c31a00": "Kunde inte lägga till cmdeck i PATH",
+  "70bd2d8af4b0950b": "En annan cmdeck i {path} körs först i en ny terminal. Ta bort den för att använda CMDecks.",
+  "26f037e2312067f6": "Kör CMDecks CLI som `cmdeck` från valfri terminal.",
   "4f6e93011ef2da6f": "Installerad i {path}. Öppna en ny terminal för att använda den.",
   "371ca438cf467125": "Installerad i {path} och tillagd i PATH i {file}. Öppna en ny terminal för att använda den.",
   "fd3eece9d1a7ea38": "Installerad i {path}, som inte finns i din PATH än.",
-  "5fff98fa978bd008": "Installerad i {path}, som inte finns i din PATH än. Lägg till mappen i din PATH för att köra `t3`.",
-  "dc06294dd4078b00": "Ta bort",
-  "b707d919dbf0222a": "Installera",
+  "0330ba2b287adbee": "Installerad i {path}, som inte finns i din PATH än. Lägg till mappen i din PATH för att köra `cmdeck`.",
+  "1a9dc5d76867a136": "Ta bort",
+  "af3432d376001228": "Installera",
   "9a284b5893dc04a2": "OpenRouter-modell",
   "c8361c16c47d5fb5": "Sök transkriberingsmodeller",
   "d72eccdd92d4f989": "Kunde inte spara ändringen. Kontrollera anslutningen och försök igen.",
@@ -11126,7 +11126,7 @@
   "0c5fc3b5e41e1956": "genererade trådtitlar prompt anpassad stil namngivning byt namn generera om",
   "a83570bcb45d8fa1": "om sök efter uppdateringar ladda ner installera uppgradera version",
   "d65bdf6748801734": "versionskanal stabil latest nightly förhandsversion",
-  "0767c794edea8f03": "Kommandot t3",
+  "77910eeccec108be": "Kommandot cmdeck",
   "46dd4dc08c1e552f": "cli terminal skal sökväg installera kommandorad",
   "86479042bae0e2db": "Mobilapp",
   "dc2a999ca67ccf31": "telefon surfplatta iPhone iPad iOS Android App Store Google Play QR",

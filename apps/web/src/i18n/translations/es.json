@@ -6436,7 +6436,7 @@
     "en esta terminal."
   ],
   "9d9b9624c7bd95df": "Otras carpetas",
-  "1eb8f3d4695033fb": [
+  "a1232e43056b2752": [
     "Añadido a ",
     {
       "i": 1,
@@ -6448,16 +6448,16 @@
     {
       "t": "code",
       "i": 2,
-      "c": "t3"
+      "c": "cmdeck"
     },
     "."
   ],
-  "ad72bb102aa39c31": [
+  "9ffe90093a3bf69b": [
     "Usa ",
     {
       "t": "code",
       "i": 1,
-      "c": "t3"
+      "c": "cmdeck"
     },
     " desde cualquier terminal. Añade una línea a",
     " ",
@@ -8047,17 +8047,17 @@
       "v": "v"
     }
   ],
-  "d0e747ae0c4f68a5": "No se pudo instalar t3",
-  "ba3ac338f36cba74": "No se pudo quitar t3",
-  "9c942b53b58119b8": "No se pudo añadir t3 al PATH",
-  "e9d97f47db8e8056": "Otro t3 en {path} se ejecuta primero en una terminal nueva. Quítalo para usar el de CMDeck.",
-  "a57d97b85dc46df6": "Ejecuta la CLI de CMDeck como `t3` desde cualquier terminal.",
+  "2512a3eeef121ec7": "No se pudo instalar cmdeck",
+  "6c2df7ad05b2c42a": "No se pudo quitar cmdeck",
+  "61430464d1c31a00": "No se pudo añadir cmdeck al PATH",
+  "70bd2d8af4b0950b": "Otro cmdeck en {path} se ejecuta primero en una terminal nueva. Quítalo para usar el de CMDeck.",
+  "26f037e2312067f6": "Ejecuta la CLI de CMDeck como `cmdeck` desde cualquier terminal.",
   "4f6e93011ef2da6f": "Instalado en {path}. Abre una terminal nueva para usarlo.",
   "371ca438cf467125": "Instalado en {path} y añadido al PATH en {file}. Abre una terminal nueva para usarlo.",
   "fd3eece9d1a7ea38": "Instalado en {path}, que aún no está en tu PATH.",
-  "5fff98fa978bd008": "Instalado en {path}, que aún no está en tu PATH. Añade su carpeta a tu PATH para ejecutar `t3`.",
-  "dc06294dd4078b00": "Quitar",
-  "b707d919dbf0222a": "Instalar",
+  "0330ba2b287adbee": "Instalado en {path}, que aún no está en tu PATH. Añade su carpeta a tu PATH para ejecutar `cmdeck`.",
+  "1a9dc5d76867a136": "Quitar",
+  "af3432d376001228": "Instalar",
   "9a284b5893dc04a2": "Modelo de OpenRouter",
   "c8361c16c47d5fb5": "Buscar modelos de transcripción",
   "d72eccdd92d4f989": "No se pudo guardar este cambio. Comprueba tu conexión y vuelve a intentarlo.",
@@ -11116,7 +11116,7 @@
   "0c5fc3b5e41e1956": "títulos de hilos generados prompt estilo personalizado nombres renombrar regenerar",
   "a83570bcb45d8fa1": "acerca de buscar actualizaciones descargar instalar actualizar versión",
   "d65bdf6748801734": "canal de versiones estable latest nightly preliminar",
-  "0767c794edea8f03": "Comando t3",
+  "77910eeccec108be": "Comando cmdeck",
   "46dd4dc08c1e552f": "cli terminal shell ruta instalar línea de comandos",
   "86479042bae0e2db": "App móvil",
   "dc2a999ca67ccf31": "teléfono tableta iPhone iPad iOS Android App Store Google Play QR",

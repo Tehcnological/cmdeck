@@ -1,3 +1,4 @@
+import { formatAppVersion } from "@t3tools/shared/appIdentity";
 import type { DesktopBridge, DesktopUpdateState } from "@t3tools/contracts";
 import { msg, T, useGT, useMessages, Var } from "gt-react";
 import { ExternalLinkIcon } from "lucide-react";
@@ -86,8 +87,8 @@ export function SidebarUpdateReleaseNotes({
             {state.availableVersion ? (
               <div className="mt-0.5 text-xs leading-4 text-muted-foreground">
                 {releasedAt
-                  ? `${state.availableVersion} · ${formatReleaseAge(releasedAt, m)}`
-                  : state.availableVersion}
+                  ? `${formatAppVersion(state.availableVersion)} · ${formatReleaseAge(releasedAt, m)}`
+                  : formatAppVersion(state.availableVersion)}
               </div>
             ) : null}
           </div>

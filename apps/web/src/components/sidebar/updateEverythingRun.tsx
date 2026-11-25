@@ -1,3 +1,4 @@
+import { formatAppVersion } from "@t3tools/shared/appIdentity";
 import { useAtomValue } from "@effect/atom-react";
 import { AVAILABLE_CONNECTION_STATE } from "@t3tools/client-runtime/connection";
 import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
@@ -445,8 +446,8 @@ export function startDesktopUpdateLaunchNotice(): () => void {
           title: m(msg("Update did not apply")),
           description: m(
             msg("CMDeck is still on {current}. Install {version} again from the update button.", {
-              current: APP_VERSION,
-              version: notAppliedVersion,
+              current: formatAppVersion(APP_VERSION),
+              version: formatAppVersion(notAppliedVersion),
             }),
           ),
         }),

@@ -4,6 +4,11 @@ import type {
   DesktopUpdateActionResult,
   DesktopUpdateState,
 } from "@t3tools/contracts";
+import {
+  APP_RELEASE_REPOSITORY,
+  appReleaseTag,
+  formatAppVersion,
+} from "@t3tools/shared/appIdentity";
 import { desktopUpdateChannelOf } from "@t3tools/shared/cliRelease";
 import { msg } from "gt-react";
 
@@ -12,7 +17,7 @@ import { channelSwitchLabel } from "./sidebar/updateEverything.logic";
 
 export type DesktopUpdateButtonAction = "download" | "install" | "none";
 
-const DEFAULT_DESKTOP_RELEASE_REPOSITORY = "pingdotgg/t3code";
+const DEFAULT_DESKTOP_RELEASE_REPOSITORY = APP_RELEASE_REPOSITORY;
 const GITHUB_REPOSITORY_SEGMENT = /^[A-Za-z0-9._-]+$/u;
 
 function isValidRepositorySegment(value: string | undefined): value is string {
@@ -42,7 +47,7 @@ export function getDesktopUpdateReleaseUrl(
 ): string | null {
   const normalizedVersion = version?.trim();
   if (!normalizedVersion) return null;
-  return `${desktopReleaseRepositoryUrl(repository)}/tag/v${encodeURIComponent(normalizedVersion)}`;
+  return `${desktopReleaseRepositoryUrl(repository)}/tag/${encodeURIComponent(appReleaseTag(normalizedVersion))}`;
 }
 
 export function getDesktopUpdateReleaseHistoryUrl(
@@ -121,7 +126,9 @@ export function getDesktopUpdateButtonTooltip(
     getDesktopUpdateDownloadedVersion(state) === state.notAppliedVersion
   ) {
     return resolve(
-      msg("Update {version} did not apply. Click to retry.", { version: state.notAppliedVersion }),
+      msg("Update {version} did not apply. Click to retry.", {
+        version: formatAppVersion(state.notAppliedVersion),
+      }),
     );
   }
   if (
@@ -130,13 +137,19 @@ export function getDesktopUpdateButtonTooltip(
     state.availableVersion
   ) {
     return resolve(
-      msg("Download failed for {version}. Click to retry.", { version: state.availableVersion }),
+      msg("Download failed for {version}. Click to retry.", {
+        version: formatAppVersion(state.availableVersion),
+      }),
     );
   }
   if (state.status === "available") {
     return state.availableVersion === null
       ? resolve(msg("Update available ready to download"))
-      : resolve(msg("Update {version} ready to download", { version: state.availableVersion }));
+      : resolve(
+          msg("Update {version} ready to download", {
+            version: formatAppVersion(state.availableVersion),
+          }),
+        );
   }
   if (state.status === "downloading") {
     return typeof state.downloadPercent === "number"
@@ -148,24 +161,32 @@ export function getDesktopUpdateButtonTooltip(
   if (state.status === "downloaded") {
     if (state.errorContext === "install" && state.downloadedVersion) {
       return resolve(
-        msg("Install failed for {version}. Click to retry.", { version: state.downloadedVersion }),
+        msg("Install failed for {version}. Click to retry.", {
+          version: formatAppVersion(state.downloadedVersion),
+        }),
       );
     }
     const version = state.downloadedVersion ?? state.availableVersion;
     return version === null
       ? resolve(msg("Update ready downloaded. Click to restart and install."))
-      : resolve(msg("Update {version} downloaded. Click to restart and install.", { version }));
+      : resolve(
+          msg("Update {version} downloaded. Click to restart and install.", {
+            version: formatAppVersion(version),
+          }),
+        );
   }
   if (state.status === "error") {
     if (state.errorContext === "install" && state.downloadedVersion) {
       return resolve(
-        msg("Install failed for {version}. Click to retry.", { version: state.downloadedVersion }),
+        msg("Install failed for {version}. Click to retry.", {
+          version: formatAppVersion(state.downloadedVersion),
+        }),
       );
     }
     if (state.downloadedVersion) {
       return resolve(
         msg("Update {version} downloaded. Click to restart and install.", {
-          version: state.downloadedVersion,
+          version: formatAppVersion(state.downloadedVersion),
         }),
       );
     }
@@ -204,7 +225,7 @@ export function getDesktopUpdateInstallConfirmationMessage(
     ? resolve(
         msg(
           "Install update {version} and restart CMDeck?\n\nAny running tasks will be interrupted. Make sure you're ready before continuing.",
-          { version },
+          { version: formatAppVersion(version) },
         ),
       )
     : resolve(

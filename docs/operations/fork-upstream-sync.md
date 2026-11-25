@@ -1,8 +1,10 @@
 # Merging upstream into this fork
 
-This fork tracks [pingdotgg/t3code](https://github.com/pingdotgg/t3code). Nothing updates on its
-own: installers carry no release feed, servers do not fetch releases, and no workflow pulls
-upstream. You merge upstream when you choose, review it as a pull request, then rebuild.
+This fork tracks [pingdotgg/t3code](https://github.com/pingdotgg/t3code). Upstream never arrives on
+its own: desktop installers update only from this repository's own releases
+([release runbook](./03_release.md#cmdeck-releases-this-fork)), servers do not fetch releases, and
+no workflow pulls upstream. You merge upstream when you choose, review it as a pull request, then
+release.
 
 ## Steps
 
@@ -52,7 +54,7 @@ The script stops and lists the files. Resolve, `git add -A && git commit --no-ed
 - a numbered migration exists that upstream does not have;
 - a forbidden pattern (analytics ingest, PostHog, crash reporting, OTLP exporters, Google
   `v1internal`, the T3 relay host) reappears in `apps/`, `packages/` or `scripts/`;
-- the desktop build would publish a release feed again;
+- the desktop build's release feed points anywhere but `Tehcnological/cmdeck`;
 - a fork hook or CMDeck identity value (below) lost its place in an upstream file.
 
 Add a pattern to its list whenever you remove something upstream may reintroduce.

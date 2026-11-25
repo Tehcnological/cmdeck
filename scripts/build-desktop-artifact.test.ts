@@ -505,40 +505,23 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     }),
   );
 
-  it.effect("omits update feeds from every build", () =>
+  it.effect("publishes only release builds, and only to the CMDeck repository", () =>
     Effect.gen(function* () {
-      const preview = yield* createBuildConfig(
-        "mac",
-        "dmg",
-        "0.0.33-pr.8182.1",
-        false,
-        false,
-        undefined,
-        undefined,
-      );
-      const release = yield* createBuildConfig(
-        "mac",
-        "dmg",
-        "0.0.33",
-        false,
-        false,
-        undefined,
-        undefined,
-      );
-
-      const previewChannel = yield* createBuildConfig(
-        "mac",
-        "dmg",
-        "0.0.41-preview.20260912.1589",
-        false,
-        false,
-        undefined,
-        undefined,
-      );
+      const config = (version: string) =>
+        createBuildConfig("mac", "dmg", version, false, false, undefined, undefined);
+      const preview = yield* config("0.0.33-pr.8182.1");
+      const previewChannel = yield* config("0.0.41-preview.20260912.1589");
+      const nightly = yield* config("2.0.1-nightly.20261125.1");
+      const release = yield* config("2.0.0");
 
       assert.isNull(preview.publish);
       assert.isNull(previewChannel.publish);
-      assert.isNull(release.publish);
+      assert.isNull(nightly.publish);
+      // GITHUB_REPOSITORY names upstream here; the feed must still be the fork's own.
+      assert.deepStrictEqual(release.publish, [
+        { provider: "github", owner: "Tehcnological", repo: "cmdeck", releaseType: "release" },
+      ]);
+      assert.deepStrictEqual((release.mac as { target: unknown }).target, ["dmg", "zip"]);
     }).pipe(
       Effect.provide(
         ConfigProvider.layer(
@@ -568,7 +551,6 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     }),
   );
 
-  // Only mock-update builds carry a feed in this fork, so only they get the updatable name.
   it.effect("names updatable AppImages without a version and apart per channel", () =>
     Effect.gen(function* () {
       const appImageName = (version: string) =>

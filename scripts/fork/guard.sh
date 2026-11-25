@@ -59,10 +59,14 @@ for entry in "${forbidden_in[@]}"; do
   ! grep -q -E "${entry#*:}" "$file" || bad "$file has '${entry#*:}' again"
 done
 
-# 4. Installers must not carry a release feed (that would let the app replace itself with upstream).
-if git grep -q -E 'resolveGitHubPublishConfig\(updateChannel\)' -- scripts/build-desktop-artifact.ts; then
-  bad "scripts/build-desktop-artifact.ts publishes a GitHub update feed again"
+# 4. The only release feed an installer may carry is CMDeck's own GitHub releases
+#    (Tehcnological/cmdeck); any other feed would let the app replace itself with an upstream build.
+if git grep -q -E 'resolveGitHubPublishConfig\(updateChannel\)|GITHUB_REPOSITORY|pingdotgg|repo: "t3code"' -- scripts/build-desktop-artifact.ts; then
+  bad "scripts/build-desktop-artifact.ts may publish an update feed other than Tehcnological/cmdeck"
 fi
+{ grep -q -E '^export const APP_RELEASE_OWNER = "Tehcnological";$' packages/shared/src/appIdentity.ts &&
+  grep -q -E '^export const APP_RELEASE_REPO = "cmdeck";$' packages/shared/src/appIdentity.ts; } ||
+  bad "packages/shared/src/appIdentity.ts no longer names Tehcnological/cmdeck as the release feed"
 
 # 5. Fork hooks and the CMDeck identity live in upstream files; a merge that takes upstream's side drops them.
 required=(
@@ -85,6 +89,7 @@ required=(
   'apps/desktop/src/app/DesktopUserData.ts:DESKTOP_USER_DATA_DIR_NAME'
   'apps/server/src/cloud/bootService.ts:SERVICE_LAUNCHD_LABEL'
   'scripts/build-desktop-artifact.ts:com\.tehcnological\.cmdeck'
+  'scripts/build-desktop-artifact.ts:owner: APP_RELEASE_OWNER, +repo: APP_RELEASE_REPO,'
   'apps/server/src/bin.ts:applyAppHomeEnv'
   # What the fork turned off. Line breaks are matched as spaces.
   'apps/server/src/policy/managedLimits.ts:export const allowsConnect = \(_policy: PolicyDocument\): boolean => false;'

@@ -1,3 +1,4 @@
+import { formatAppVersion } from "@t3tools/shared/appIdentity";
 import { expect, it, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser";
 
@@ -6,7 +7,8 @@ import { APP_VERSION } from "../../branding";
 import { AnchoredToastProvider } from "../ui/toast";
 import { AboutVersionTitle } from "./AboutVersionTitle";
 
-it("copies the version without a notification", async () => {
+it("copies the displayed version without a notification", async () => {
+  const version = formatAppVersion(APP_VERSION);
   await using screen = await render(
     <AnchoredToastProvider>
       <AboutVersionTitle />
@@ -14,8 +16,8 @@ it("copies the version without a notification", async () => {
   );
   using write = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
 
-  await screen.getByRole("button", { name: `Copy version ${APP_VERSION}` }).click();
+  await screen.getByRole("button", { name: `Copy version ${version}` }).click();
 
-  expect(write).toHaveBeenCalledWith(APP_VERSION);
+  expect(write).toHaveBeenCalledWith(version);
   await expect.element(page.getByText(/^Copied!?$/)).not.toBeInTheDocument();
 });

@@ -2,7 +2,7 @@
 import * as NodePath from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
-import { applyAppHomeEnv } from "./appIdentity.ts";
+import { appReleaseTag, applyAppHomeEnv, formatAppVersion } from "./appIdentity.ts";
 
 const linux = {
   homeDir: "/home/me",
@@ -45,5 +45,21 @@ describe("applyAppHomeEnv", () => {
       resolve: (path: string) => NodePath.win32.resolve("C:\\work", path),
     };
     expect(applyAppHomeEnv(env, windows)).toBe("C:\\Users\\Me\\.T3");
+  });
+});
+
+describe("formatAppVersion", () => {
+  it("shows release N.0.0 as vN and leaves other versions alone", () => {
+    expect(formatAppVersion("2.0.0")).toBe("v2");
+    expect(formatAppVersion("13.0.0")).toBe("v13");
+    expect(formatAppVersion("2.0.1")).toBe("2.0.1");
+    expect(formatAppVersion("2.1.0")).toBe("2.1.0");
+    expect(formatAppVersion("3.0.0-nightly.20261125.1")).toBe("3.0.0-nightly.20261125.1");
+    expect(formatAppVersion("0.0.0")).toBe("0.0.0");
+  });
+
+  it("names the release tag", () => {
+    expect(appReleaseTag("2.0.0")).toBe("v2");
+    expect(appReleaseTag("0.1.12")).toBe("v0.1.12");
   });
 });
