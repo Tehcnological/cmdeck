@@ -48,9 +48,7 @@ describe("PublicBaseUrl", () => {
     const settings = decodeServerSettings({});
     expect(settings.publicBaseUrl).toBe("");
     expect(settings.remoteMcpEnabled).toBe(false);
-    expect(() =>
-      decodeServerSettingsPatch({ publicBaseUrl: "http://plain.example" }),
-    ).toThrow();
+    expect(() => decodeServerSettingsPatch({ publicBaseUrl: "http://plain.example" })).toThrow();
     for (const patch of [
       { publicBaseUrl: "https://cmdeck.example.com" },
       { remoteMcpEnabled: true },

@@ -105,8 +105,6 @@ it("offers every provider, Antigravity included, with the last reviewer prefille
   await expect.element(page.getByRole("button", { name: "Start review" })).toBeEnabled();
 
   await trigger.click();
-  await expect
-    .element(page.getByRole("button", { name: /^Antigravity/ }))
-    .toBeVisible();
+  await expect.element(page.getByRole("button", { name: /^Antigravity/ })).toBeVisible();
   await expect.element(page.getByRole("button", { name: /^Claude/ })).toBeVisible();
 });
