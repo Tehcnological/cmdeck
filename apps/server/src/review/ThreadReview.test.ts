@@ -16,6 +16,7 @@ import * as Layer from "effect/Layer";
 
 import * as CheckpointDiffQuery from "../checkpointing/CheckpointDiffQuery.ts";
 import { liveThreadShell } from "../mcp/McpToolAccess.testkit.ts";
+import { DispatchModeLimit } from "../orchestration-v2/DispatchModeLimit.ts";
 import * as ThreadManagement from "../orchestration-v2/ThreadManagementService.ts";
 import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
 import * as ThreadReview from "./ThreadReview.ts";
@@ -36,6 +37,11 @@ const provider = (instanceId: string, driver: string): ServerProvider => ({
   slashCommands: [],
   skills: [],
 });
+
+const autoOnly: ServerProvider = {
+  ...provider("auto-only", "codex"),
+  supportedRuntimeModes: ["auto", "full-access"],
+};
 
 function setup() {
   const dispatched: Array<OrchestrationV2ServerCommand> = [];
@@ -78,6 +84,7 @@ function setup() {
           getProviders: Effect.succeed([
             provider("claude-work", "claudeAgent"),
             provider("antigravity", "antigravity"),
+            autoOnly,
           ]),
         }),
         SecureRandom.layerWebCrypto,
@@ -154,4 +161,38 @@ it.effect("refuses an unknown reviewer instead of falling back to another", () =
     assert.strictEqual(error.reason, "reviewer_unavailable");
     assert.deepEqual(dispatched, []);
   }).pipe(Effect.provide(layer));
+});
+
+it.effect("keeps an agent's reviewer within the agent's runtime mode and passes its focus", () => {
+  const { dispatched, layer } = setup();
+  return Effect.gen(function* () {
+    const review = yield* ThreadReview.ThreadReview;
+    const refused = yield* review
+      .start({
+        threadId,
+        modelSelection: { instanceId: ProviderInstanceId.make("auto-only"), model: "m" },
+        requestedBy: "agent",
+      })
+      .pipe(Effect.flip);
+    assert.strictEqual(refused.reason, "reviewer_unavailable");
+    assert.deepEqual(dispatched, []);
+
+    yield* review.start({
+      threadId,
+      modelSelection: { instanceId: ProviderInstanceId.make("claude-work"), model: "m" },
+      requestedBy: "agent",
+      instructions: "Check the cache expiry.",
+    });
+    const message = dispatched.find((command) => command.type === "message.dispatch");
+    assert.isTrue(message?.type === "message.dispatch");
+    if (message?.type !== "message.dispatch") return;
+    assert.include(message.text, "Check the cache expiry.");
+    assert.strictEqual(message.createdBy, "agent");
+  }).pipe(
+    Effect.provideService(DispatchModeLimit, {
+      runtimeMode: "approval-required",
+      interactionMode: "default",
+    }),
+    Effect.provide(layer),
+  );
 });

@@ -1,6 +1,7 @@
 import {
   CHECKPOINT_DIFF_TRUNCATED_MARKER,
   CommandId,
+  isRuntimeModeAbove,
   MessageId,
   type ModelSelection,
   type OrchestrationGetFullThreadDiffResult,
@@ -16,6 +17,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import * as CheckpointDiffQuery from "../checkpointing/CheckpointDiffQuery.ts";
+import { DispatchModeLimit } from "../orchestration-v2/DispatchModeLimit.ts";
 import type { ProjectionCheckpointContext } from "../orchestration-v2/ProjectionStore.ts";
 import * as ThreadManagement from "../orchestration-v2/ThreadManagementService.ts";
 import { userFacingDispatchErrorMessage } from "../orchestration-v2/UserFacingErrors.ts";
@@ -42,6 +44,8 @@ export class ThreadReview extends Context.Service<
       readonly threadId: ThreadId;
       readonly modelSelection: ModelSelection;
       readonly requestedBy: "user" | "agent";
+      /** Extra focus for the reviewer, from the agent that asked. */
+      readonly instructions?: string | undefined;
     }) => Effect.Effect<ThreadReviewStartResult, ThreadReviewError>;
   }
 >()("t3/review/ThreadReview") {}
@@ -75,7 +79,7 @@ function reviewPatch(diff: OrchestrationGetFullThreadDiffResult): string {
     .join("\n\n");
 }
 
-function reviewPrompt(patch: string): string {
+function reviewPrompt(patch: string, instructions: string | undefined): string {
   const truncated =
     patch.length > MAX_REVIEW_DIFF_CHARS || patch.includes(CHECKPOINT_DIFF_TRUNCATED_MARKER);
   return [
@@ -83,6 +87,7 @@ function reviewPrompt(patch: string): string {
     "Do not edit files, run commands that change anything, or commit. Read files in the workspace only when you need context.",
     "Report concrete findings, most severe first. For each: the file and line, what is wrong, and why it matters. Skip style nits unless they hide a bug. If you find nothing worth fixing, say so plainly.",
     ...(truncated ? ["The diff is truncated; say which parts you could not review."] : []),
+    ...(instructions === undefined ? [] : ["", "Also:", instructions]),
     "",
     "```diff",
     patch.slice(0, MAX_REVIEW_DIFF_CHARS),
@@ -112,15 +117,21 @@ const make = Effect.gen(function* () {
         message: `Provider instance ${input.modelSelection.instanceId} is not available on this environment.`,
       });
     }
+    // An agent's review runs no broader than the agent itself may.
+    const limit = yield* DispatchModeLimit;
     const runtimeMode = REVIEWER_RUNTIME_MODES.find(
       (mode) =>
-        reviewer.supportedRuntimeModes === undefined ||
-        reviewer.supportedRuntimeModes.includes(mode),
+        (reviewer.supportedRuntimeModes === undefined ||
+          reviewer.supportedRuntimeModes.includes(mode)) &&
+        (limit === undefined || !isRuntimeModeAbove(mode, limit.runtimeMode)),
     );
     if (runtimeMode === undefined) {
       return yield* new ThreadReviewError({
         reason: "reviewer_unavailable",
-        message: `Provider instance ${reviewer.instanceId} only runs with full access, which a reviewer never gets.`,
+        message:
+          limit === undefined
+            ? `Provider instance ${reviewer.instanceId} only runs with full access, which a reviewer never gets.`
+            : `Provider instance ${reviewer.instanceId} has no permission mode within this caller's ${limit.runtimeMode}.`,
       });
     }
 
@@ -198,7 +209,7 @@ const make = Effect.gen(function* () {
       commandId: command("message"),
       threadId: reviewThreadId,
       messageId: MessageId.make(`message:thread-review:${id}`),
-      text: reviewPrompt(patch),
+      text: reviewPrompt(patch, input.instructions),
       attachments: [],
       modelSelection: input.modelSelection,
       freshContext: true,
