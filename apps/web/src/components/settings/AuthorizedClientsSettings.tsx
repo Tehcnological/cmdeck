@@ -77,7 +77,7 @@ import {
   endpointShareHint,
 } from "./ConnectionsSettings.logic";
 
-function AccessScopeSummary({
+export function AccessScopeSummary({
   scopes,
   label,
 }: {

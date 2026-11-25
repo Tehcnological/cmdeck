@@ -13,7 +13,15 @@ model.
   returns a credential to the caller requires `access:write` and every scope that credential
   carries: a pairing link, an MCP sign-in approval, a remote MCP token, a link code from a linked
   environment, and a guest link (which reads a thread). Revoking is not capped by the caller's scopes. Admitting a
-  T3 Connect device is not delegation; see [T3 Connect](./06_t3-connect.md).
+  T3 Connect device, or a device waiting on a direct pairing link, is not delegation: the approver
+  receives no credential. See [T3 Connect](./06_t3-connect.md).
+- **Direct pairing approval reuses the Connect wire state.** With `requireConnectDeviceApproval`
+  on, redeeming a direct pairing link answers `connect_approval_pending` (403) and leaves the link
+  unspent, so upstream clients, including the official mobile app this fork cannot change, show
+  "waiting for approval" and pair when they retry the same link after approval. Do not add a new
+  response or a scopeless session for this; older clients would not recover from either. The
+  request and approval live in the fork's `auth_pairing_requests` table
+  ([`PairingGrantStore`](../../apps/server/src/auth/PairingGrantStore.ts)).
 - **Why the default grant includes management scopes.** `terminal:operate` and
   `orchestration:operate` already grant OS-user execution (which can invoke `t3 auth session issue`),
   so withholding access or relay management from the default grant would not be a real boundary.

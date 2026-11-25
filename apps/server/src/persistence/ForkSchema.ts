@@ -33,4 +33,12 @@ export const ensureForkSchema = Effect.fn("ensureForkSchema")(function* () {
     ON inference_requests(received_at)`;
   yield* sql`CREATE INDEX IF NOT EXISTS idx_inference_requests_thread
     ON inference_requests(thread_id, received_at) WHERE thread_id IS NOT NULL`;
+  yield* sql`CREATE TABLE IF NOT EXISTS auth_pairing_requests (
+    pairing_link_id TEXT PRIMARY KEY,
+    requested_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    proof_key_thumbprint TEXT,
+    client_json TEXT,
+    approved_at TEXT
+  )`;
 });

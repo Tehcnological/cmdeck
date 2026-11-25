@@ -28,6 +28,7 @@ import { makeDpopKey } from "./dpop.testkit.ts";
 import * as ServerSecretStore from "./ServerSecretStore.ts";
 import * as AuthHttp from "./http.ts";
 import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
+import * as ServerSettings from "../serverSettings.ts";
 
 const DEV_TOKEN = "reusable-dev-auth-token-that-is-long-enough";
 class AuthTestApi extends HttpApi.make("environment").add(EnvironmentHttpApi.groups.auth) {}
@@ -52,19 +53,22 @@ const layerEnvironmentAuth = EnvironmentAuth.layer.pipe(
   Layer.provide(ServerEnvironment.layerIdentity),
   Layer.provide(layerConfig),
 );
-const layerRoutes = HttpApiBuilder.layer(AuthTestApi).pipe(
-  Layer.provide(AuthHttp.layer),
-  Layer.provide(AuthHttp.layerAuthenticatedAuth),
-  Layer.provideMerge(layerEnvironmentAuth),
-  Layer.provide(layerConfig),
-  Layer.provideMerge(
-    HttpPlatform.layer.pipe(
-      Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
-      Layer.provideMerge(Etag.layerWeak),
+const makeLayerRoutes = (requireConnectDeviceApproval: boolean) =>
+  HttpApiBuilder.layer(AuthTestApi).pipe(
+    Layer.provide(AuthHttp.layer),
+    Layer.provide(AuthHttp.layerAuthenticatedAuth),
+    Layer.provide(ServerSettings.layerTest({ requireConnectDeviceApproval })),
+    Layer.provideMerge(layerEnvironmentAuth),
+    Layer.provide(layerConfig),
+    Layer.provideMerge(
+      HttpPlatform.layer.pipe(
+        Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
+        Layer.provideMerge(Etag.layerWeak),
+      ),
     ),
-  ),
-  Layer.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
-);
+    Layer.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
+  );
+const layerRoutes = makeLayerRoutes(false);
 
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const postJson = (path: string, body: unknown, headers?: Readonly<Record<string, string>>) =>
@@ -169,6 +173,68 @@ it.effect("sets the selected browser session cookies through the HTTP route", ()
         }),
       ([environmentA, environmentB]) =>
         Effect.promise(() => Promise.all([environmentA.dispose(), environmentB.dispose()])),
+    );
+  }).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
+);
+
+it.effect("holds a directly paired browser until a client with access:write approves it", () =>
+  Effect.gen(function* () {
+    const random = yield* SecureRandom.SecureRandom;
+    const unusedSecretStore = ServerSecretStore.ServerSecretStore.of({
+      get: () => Effect.succeedNone,
+      set: () => Effect.void,
+      create: () => Effect.void,
+      getOrCreateRandom: () => Effect.die("Not used by these routes."),
+      remove: () => Effect.void,
+    });
+    const requestContext = Context.make(SecureRandom.SecureRandom, random).pipe(
+      Context.add(ServerSecretStore.ServerSecretStore, unusedSecretStore),
+    );
+    return yield* Effect.acquireUseRelease(
+      Effect.sync(() => HttpRouter.toWebHandler(makeLayerRoutes(true), { disableLogger: true })),
+      (environment) =>
+        Effect.promise(async () => {
+          const owner = await environment.handler(
+            postJson("/api/auth/browser-session", { credential: DEV_TOKEN }),
+            requestContext,
+          );
+          const ownerCookies = owner.headers.getSetCookie();
+          const devCookie = ownerCookies.find((cookie) => cookie.startsWith("t3_dev_session_"));
+          const ownerCookie = devCookie?.split(";", 1)[0] ?? "";
+          const pairingResponse = await environment.handler(
+            postJson("/api/auth/pairing-token", {}, { cookie: ownerCookie }),
+            requestContext,
+          );
+          const pairing = (await pairingResponse.json()) as { id: string; credential: string };
+          const redeem = () =>
+            environment.handler(
+              postJson("/api/auth/browser-session", { credential: pairing.credential }),
+              requestContext,
+            );
+          const approve = (headers?: Readonly<Record<string, string>>) =>
+            environment.handler(
+              postJson("/api/auth/connect-devices/approve", { pairingLinkId: pairing.id }, headers),
+              requestContext,
+            );
+
+          const held = await redeem();
+          expect(held.status).toBe(403);
+          expect(await held.json()).toMatchObject({ code: "connect_approval_pending" });
+          // The waiting device holds no session, so it cannot approve itself.
+          expect((await approve()).status).toBe(401);
+          const selfApproval = await approve({ authorization: `Bearer ${pairing.credential}` });
+          expect(selfApproval.status).toBe(401);
+          expect((await redeem()).status).toBe(403);
+
+          const approved = await approve({ cookie: ownerCookie });
+          expect(approved.status).toBe(200);
+          expect(await approved.json()).toEqual({ approved: true });
+          const paired = await redeem();
+          expect(paired.status).toBe(200);
+          expect(paired.headers.getSetCookie()[0]).toMatch(/^t3_session_/);
+          expect((await redeem()).status).toBe(401);
+        }),
+      (environment) => Effect.promise(() => environment.dispose()),
     );
   }).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
 );

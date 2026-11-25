@@ -1445,10 +1445,8 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/access",
     targetId: "connections-environment",
     searchTerms: [
-      msg("t3 connect devices approve deny trust revoke pairing code security account"),
+      msg("devices approve deny trust revoke pairing link qr code phone security t3 connect"),
     ],
-    cloudOnly: true,
-    managedTunnelOnly: true,
   },
   {
     id: "hold-webhooks-while-offline",
