@@ -35,10 +35,28 @@ forbidden=(
   '@opentelemetry/exporter'
   'OTLPTraceExporter'
   'github\.com/\$\{CLI_RELEASE_REPOSITORY\}/releases/download'
+  'AnalyticsService'
+  'telemetryId'
+  'axiom'
+  'u\.expo\.dev'
+  'registry\.npmjs\.org/t3'
+  'name: "zed"'
+  'pingdotgg/t3code/releases'
+  't3\.codes/install'
 )
 for pattern in "${forbidden[@]}"; do
   hits="$(git grep -n -i -E "$pattern" -- apps packages scripts ':!scripts/fork/**' ':!**/*.md' ':!apps/marketing/**' ':!**/*.graphql' ':!**/*.test.ts' ':!**/*.test.tsx' ':!packages/contracts/src/relay.ts' | head -5)"
   [ -z "$hits" ] || bad "forbidden pattern '$pattern' is back:"$'\n'"$hits"
+done
+
+# Code that must not come back in one file.
+forbidden_in=(
+  # The Antigravity CLI keeps per-profile sign-ins only when it believes it runs over SSH.
+  'apps/server/src/provider/antigravityAuthSupport.ts:SSH_CONNECTION'
+)
+for entry in "${forbidden_in[@]}"; do
+  file="${entry%%:*}"
+  ! grep -q -E "${entry#*:}" "$file" || bad "$file has '${entry#*:}' again"
 done
 
 # 4. Installers must not carry a release feed (that would let the app replace itself with upstream).
@@ -68,10 +86,19 @@ required=(
   'apps/server/src/cloud/bootService.ts:SERVICE_LAUNCHD_LABEL'
   'scripts/build-desktop-artifact.ts:com\.tehcnological\.cmdeck'
   'apps/server/src/bin.ts:applyAppHomeEnv'
+  # What the fork turned off. Line breaks are matched as spaces.
+  'apps/server/src/policy/managedLimits.ts:export const allowsConnect = \(_policy: PolicyDocument\): boolean => false;'
+  'apps/web/src/cloud/publicConfig.ts:return \{ clerkPublishableKey: null, clerkJwtTemplate: null, relayUrl: null \};'
+  'apps/server/src/cloud/npmRelease.ts:Effect\.fn\("NpmRelease\.get"\)\(function\* \(\) \{ +return null;'
+  'packages/contracts/src/settings.ts:requireConnectDeviceApproval: Schema\.Boolean\.pipe\( +Schema\.withDecodingDefault\(Effect\.succeed\(true\)\)'
+  'apps/mobile/app.config.ts:updates: \{ +enabled: false,'
+  'apps/server/src/provider/acp/AntigravityAcpSupport.ts:ANTIGRAVITY_CLIENT_INFO = \{ +name: "t3-code",'
+  'apps/server/src/provider/acp/AntigravityAcpSupport.ts:clientInfo: ANTIGRAVITY_CLIENT_INFO,'
 )
 for entry in "${required[@]}"; do
   file="${entry%%:*}"
-  grep -q -E "${entry#*:}" "$file" 2>/dev/null || bad "$file lost its fork hook '${entry#*:}'"
+  { tr '\r\n' '  ' <"$file" | grep -q -E "${entry#*:}"; } 2>/dev/null ||
+    bad "$file lost its fork hook '${entry#*:}'"
 done
 
 if [ "$fail" -ne 0 ]; then
