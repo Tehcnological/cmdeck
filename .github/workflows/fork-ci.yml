@@ -252,5 +252,4 @@ jobs:
           fi
 
       - name: Test
-        working-directory: apps/server
-        run: vp test run --concurrency 4
+        run: vp run test:cached -- --concurrency 2
