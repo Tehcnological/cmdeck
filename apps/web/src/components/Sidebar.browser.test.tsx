@@ -13,7 +13,7 @@ import {
   type ScopedThreadRef,
 } from "@t3tools/contracts";
 import { isMacPlatform } from "@t3tools/shared/keybindings";
-import { describe, expect, it, vi } from "vite-plus/test";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser";
 
 import { act, fakeTimers, render } from "../../test/render";
@@ -82,6 +82,17 @@ function project(id: string): Project {
     scripts: [],
   };
 }
+
+// Drafts other browser test files persist would otherwise show up as extra sidebar rows.
+beforeEach(() => {
+  const initial = useComposerDraftStore.getState();
+  useComposerDraftStore.setState({
+    draftsByThreadKey: {},
+    draftThreadsByThreadKey: {},
+    logicalProjectDraftThreadKeyByLogicalProjectKey: {},
+  });
+  return () => useComposerDraftStore.setState(initial, true);
+});
 
 describe("sidebar header new thread", () => {
   it.each([
