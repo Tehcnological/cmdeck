@@ -277,25 +277,26 @@ const reportRelayClientInstallProgress = (event: RelayClientInstallProgressEvent
     ? Console.log(`Relay client: ${relayClientInstallProgressMessage(event.stage)}...`)
     : Effect.void;
 
-const acquireRelayClientForLink = Effect.fn("cloud.cli.acquire_relay_client_for_link")(
-  function* <ConfirmError, ConfirmContext>(
-    relayClient: RelayClient.RelayClient["Service"],
-    confirmInstall: (version: string) => Effect.Effect<boolean, ConfirmError, ConfirmContext>,
-    reportProgress: (event: RelayClientInstallProgressEvent) => Effect.Effect<void>,
-  ) {
-    const executable = yield* relayClient.resolve;
-    if (executable.status === "available") {
-      return Option.some(executable);
-    }
-    if (executable.status === "unsupported") {
-      return Option.some(yield* relayClient.installWithProgress(reportProgress));
-    }
-    if (!(yield* confirmInstall(executable.version))) {
-      return Option.none();
-    }
+const acquireRelayClientForLink = Effect.fn("cloud.cli.acquire_relay_client_for_link")(function* <
+  ConfirmError,
+  ConfirmContext,
+>(
+  relayClient: RelayClient.RelayClient["Service"],
+  confirmInstall: (version: string) => Effect.Effect<boolean, ConfirmError, ConfirmContext>,
+  reportProgress: (event: RelayClientInstallProgressEvent) => Effect.Effect<void>,
+) {
+  const executable = yield* relayClient.resolve;
+  if (executable.status === "available") {
+    return Option.some(executable);
+  }
+  if (executable.status === "unsupported") {
     return Option.some(yield* relayClient.installWithProgress(reportProgress));
-  },
-);
+  }
+  if (!(yield* confirmInstall(executable.version))) {
+    return Option.none();
+  }
+  return Option.some(yield* relayClient.installWithProgress(reportProgress));
+});
 
 type LiveCloudActionResult =
   | { readonly status: "not-running" }

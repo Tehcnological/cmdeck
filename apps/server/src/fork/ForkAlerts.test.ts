@@ -27,12 +27,9 @@ it.layer(NodeServices.layer)("fork alerts", (it) => {
       yield* fs.makeDirectory(path.dirname(config.dbPath), { recursive: true });
       const db = new NodeSqlite.DatabaseSync(config.dbPath);
       db.exec("CREATE TABLE effect_sql_migrations (migration_id INTEGER PRIMARY KEY, name TEXT)");
-      db.prepare("INSERT INTO effect_sql_migrations (migration_id, name) VALUES (?, ?), (?, ?)").run(
-        BUILD_MIGRATION_HEAD,
-        "Known",
-        BUILD_MIGRATION_HEAD + 1,
-        "OfficialOnly",
-      );
+      db.prepare(
+        "INSERT INTO effect_sql_migrations (migration_id, name) VALUES (?, ?), (?, ?)",
+      ).run(BUILD_MIGRATION_HEAD, "Known", BUILD_MIGRATION_HEAD + 1, "OfficialOnly");
       db.close();
       const versionDir = path.join(config.baseDir, "runtime", "versions", "1.2.3");
       yield* fs.makeDirectory(versionDir, { recursive: true });

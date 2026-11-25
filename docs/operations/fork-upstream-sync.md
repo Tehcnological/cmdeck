@@ -57,20 +57,19 @@ The script stops and lists the files. Resolve, `git add -A && git commit --no-ed
 
 Add a pattern to its list whenever you remove something upstream may reintroduce.
 
-
 ## Separate data from T3 Code
 
 CMDeck keeps its own data and identity, so it installs and runs next to the official T3 Code
 without either one touching the other's state:
 
-| What                    | CMDeck                                                        | Official T3 Code                  |
-| ----------------------- | ------------------------------------------------------------- | --------------------------------- |
-| Data directory          | `~/.cmdeck` (`CMDECK_HOME`, else `T3CODE_HOME`)                | `~/.t3` (`T3CODE_HOME`)           |
-| Desktop app ID          | `com.tehcnological.cmdeck`                                    | `com.t3tools.t3code`              |
-| Electron profile        | `<app data>/cmdeck` (dev: `cmdeck-dev`)                       | `<app data>/t3code-v2`            |
-| Windows install folder  | `%LOCALAPPDATA%\Programs\cmdeck`                              | `%LOCALAPPDATA%\Programs\t3code`  |
-| Background service      | `cmdeck.service`, `com.tehcnological.cmdeck.service`, task `cmdeck-<domain>-<user>` | `t3code.service`, `com.t3tools.t3code.service`, `t3code-…` |
-| Default server port     | 3783                                                          | 3773                              |
+| What                   | CMDeck                                                                              | Official T3 Code                                           |
+| ---------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Data directory         | `~/.cmdeck` (`CMDECK_HOME`, else `T3CODE_HOME`)                                     | `~/.t3` (`T3CODE_HOME`)                                    |
+| Desktop app ID         | `com.tehcnological.cmdeck`                                                          | `com.t3tools.t3code`                                       |
+| Electron profile       | `<app data>/cmdeck` (dev: `cmdeck-dev`)                                             | `<app data>/t3code-v2`                                     |
+| Windows install folder | `%LOCALAPPDATA%\Programs\cmdeck`                                                    | `%LOCALAPPDATA%\Programs\t3code`                           |
+| Background service     | `cmdeck.service`, `com.tehcnological.cmdeck.service`, task `cmdeck-<domain>-<user>` | `t3code.service`, `com.t3tools.t3code.service`, `t3code-…` |
+| Default server port    | 3783                                                                                | 3773                                                       |
 
 All of these come from `packages/shared/src/appIdentity.ts`, which also exports upstream's values
 for the importer. CMDeck never reads the official app's folders on its own: the upstream code that

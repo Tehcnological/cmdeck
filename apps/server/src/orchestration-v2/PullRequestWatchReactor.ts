@@ -636,20 +636,17 @@ export const make = Effect.gen(function* () {
 
   // A failure wake goes out without log excerpts when the host has none, is slow, or refuses.
   const failingLogs = (group: WatchGroup) =>
-    pullRequests
-      .checkLogs({ ...referenceOf(group), tailLines: PULL_REQUEST_WATCH_LOG_LINES })
-      .pipe(
-        Effect.timeout("20 seconds"),
-        Effect.catchCause(
-          (cause): Effect.Effect<ReadonlyArray<ProviderCheckLog>> =>
-            Cause.hasInterruptsOnly(cause)
-              ? Effect.interrupt
-              : Effect.logDebug("pull request watch log read failed", {
-                  pullRequest: group.key,
-                  cause,
-                }).pipe(Effect.as([])),
-        ),
-      );
+    pullRequests.checkLogs({ ...referenceOf(group), tailLines: PULL_REQUEST_WATCH_LOG_LINES }).pipe(
+      Effect.timeout("20 seconds"),
+      Effect.catchCause((cause): Effect.Effect<ReadonlyArray<ProviderCheckLog>> =>
+        Cause.hasInterruptsOnly(cause)
+          ? Effect.interrupt
+          : Effect.logDebug("pull request watch log read failed", {
+              pullRequest: group.key,
+              cause,
+            }).pipe(Effect.as([])),
+      ),
+    );
 
   const readGroup = Effect.fn("PullRequestWatchReactor.readGroup")(function* (
     group: WatchGroup,

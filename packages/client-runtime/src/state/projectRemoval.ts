@@ -76,9 +76,7 @@ export function planProjectRemoval<
           ),
         ]
       : [
-          resolve(
-            msg("Any archived threads are deleted from CMDeck. Provider sessions are kept."),
-          ),
+          resolve(msg("Any archived threads are deleted from CMDeck. Provider sessions are kept.")),
         ]),
     isWholeGroup && !hasOtherMembers
       ? resolve(msg("This removes only the project entries, not the files on disk."))

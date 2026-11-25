@@ -270,10 +270,7 @@ const make = Effect.gen(function* () {
   // Serialize get/remove so concurrent consumers cannot read the same one-use ref.
   const consumeLock = yield* Semaphore.make(1);
   const consume: SecretRequests["Service"]["consume"] = (input) =>
-    consumeRef(input).pipe(
-      consumeLock.withPermits(1),
-      Effect.withSpan("SecretRequests.consume"),
-    );
+    consumeRef(input).pipe(consumeLock.withPermits(1), Effect.withSpan("SecretRequests.consume"));
 
   /** A live ref's value, left in the store. */
   const readRef = Effect.fn("SecretRequests.readRef")(function* (input: {

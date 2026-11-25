@@ -23,10 +23,7 @@ import * as Schema from "effect/Schema";
 import { DPOP_REPLAY_MARKER_PREFIX } from "../auth/dpop.ts";
 import * as ServerConfig from "../config.ts";
 import { expandHomePath, resolveBaseDir } from "../os-jank.ts";
-import {
-  BUILD_MIGRATION_HEAD,
-  recordedMigrations,
-} from "../persistence/databaseMigrationHead.ts";
+import { BUILD_MIGRATION_HEAD, recordedMigrations } from "../persistence/databaseMigrationHead.ts";
 import { skippedV2Migrations } from "../persistence/Migrations.ts";
 import { isServerOwnershipHeld } from "../serverOwnership.ts";
 
@@ -482,7 +479,11 @@ const make = Effect.gen(function* () {
         });
       const stagedWorkflowsExist = NodeFS.existsSync(stagedWorkflows);
       const undo = Effect.sync(() => {
-        if (stagedWorkflowsExist && NodeFS.existsSync(staging) && !NodeFS.existsSync(stagedWorkflows)) {
+        if (
+          stagedWorkflowsExist &&
+          NodeFS.existsSync(staging) &&
+          !NodeFS.existsSync(stagedWorkflows)
+        ) {
           NodeFS.renameSync(targetPaths.workflowsDir, stagedWorkflows);
         }
         for (const backup of backups) {
@@ -514,28 +515,27 @@ export const layer = Layer.effect(T3Import, make);
 /** Where an import reads from and writes to.
  * shortcut: the source is `~/.t3` and the target this build's base dir; repoint both at the
  * data-dir constants once CMDeck's own home (`~/.cmdeck`) lands. */
-export const resolveImportLocations = Effect.fn("T3Import.resolveImportLocations")(function* (input: {
-  readonly from: string | undefined;
-  readonly baseDir: string | undefined;
-}) {
-  const path = yield* Path.Path;
-  const envHome = yield* Config.String(APP_HOME_ENV).pipe(
-    Config.orElse(() => Config.String(UPSTREAM_HOME_ENV)),
-    Config.option,
-  );
-  const target = yield* resolveBaseDir(input.baseDir ?? Option.getOrUndefined(envHome));
-  const rawSource =
-    input.from === undefined
-      ? path.join(yield* HostProcess.HomeDirectory, UPSTREAM_HOME_DIR_NAME)
-      : path.resolve(yield* expandHomePath(input.from.trim()));
-  // `--from ~/.t3/userdata` names the state folder; the import wants the folder holding it.
-  const source =
-    path.basename(rawSource) === "userdata" &&
-    NodeFS.existsSync(path.join(rawSource, "statev2.sqlite"))
-      ? path.dirname(rawSource)
-      : rawSource;
-  return { source, target };
-});
+export const resolveImportLocations = Effect.fn("T3Import.resolveImportLocations")(
+  function* (input: { readonly from: string | undefined; readonly baseDir: string | undefined }) {
+    const path = yield* Path.Path;
+    const envHome = yield* Config.String(APP_HOME_ENV).pipe(
+      Config.orElse(() => Config.String(UPSTREAM_HOME_ENV)),
+      Config.option,
+    );
+    const target = yield* resolveBaseDir(input.baseDir ?? Option.getOrUndefined(envHome));
+    const rawSource =
+      input.from === undefined
+        ? path.join(yield* HostProcess.HomeDirectory, UPSTREAM_HOME_DIR_NAME)
+        : path.resolve(yield* expandHomePath(input.from.trim()));
+    // `--from ~/.t3/userdata` names the state folder; the import wants the folder holding it.
+    const source =
+      path.basename(rawSource) === "userdata" &&
+      NodeFS.existsSync(path.join(rawSource, "statev2.sqlite"))
+        ? path.dirname(rawSource)
+        : rawSource;
+    return { source, target };
+  },
+);
 
 /** The import offer the app shows while this build's own database has no threads. */
 export const importOfferIssues = Effect.fn("T3Import.importOfferIssues")(function* () {

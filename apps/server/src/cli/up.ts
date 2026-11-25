@@ -241,7 +241,8 @@ const setUp = Effect.fn("cli.up")(function* (flags: {
   if (before.connect === null && Option.getOrElse(flags.connect, () => false)) {
     return yield* new CliError.UserError({
       cause: "connect",
-      userMessage: "T3 Connect is removed in this build. Use `t3 up --lan` with Tailscale, or your own Cloudflare Tunnel.",
+      userMessage:
+        "T3 Connect is removed in this build. Use `t3 up --lan` with Tailscale, or your own Cloudflare Tunnel.",
     });
   }
 

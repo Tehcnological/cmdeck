@@ -40,12 +40,7 @@ it.effect("streams successful blob downloads from R2", () =>
       );
     }).pipe(
       Effect.provide(
-        Cache.layer.pipe(
-          Layer.provide([
-            Layer.succeed(Cache.Bindings, bindings),
-            Admission.layer,
-          ]),
-        ),
+        Cache.layer.pipe(Layer.provide([Layer.succeed(Cache.Bindings, bindings), Admission.layer])),
       ),
     );
     expect(response.status).toBe(200);
@@ -95,12 +90,7 @@ it.effect("returns 503 immediately when authenticated requests fill all read per
       yield* Effect.forEach(pending, Fiber.interrupt);
     }).pipe(
       Effect.provide([
-        Cache.layer.pipe(
-          Layer.provide([
-            Layer.succeed(Cache.Bindings, bindings),
-            Admission.layer,
-          ]),
-        ),
+        Cache.layer.pipe(Layer.provide([Layer.succeed(Cache.Bindings, bindings), Admission.layer])),
         Logger.layer([Logger.make(({ message }) => logs.push(message))], {
           mergeWithExisting: false,
         }),
@@ -157,12 +147,7 @@ it.effect("aborts the upstream deadline before disposing it on interruption", ()
       expect(cancelled).toEqual([true]);
     }).pipe(
       Effect.provide(
-        Cache.layer.pipe(
-          Layer.provide([
-            Layer.succeed(Cache.Bindings, bindings),
-            Admission.layer,
-          ]),
-        ),
+        Cache.layer.pipe(Layer.provide([Layer.succeed(Cache.Bindings, bindings), Admission.layer])),
       ),
     );
   }),
@@ -172,11 +157,7 @@ it.effect("does not charge authenticated budgets for anonymous or malformed requ
   const limit = vi.fn(async (_options: { key: string }) => ({ success: true }));
   return Effect.gen(function* () {
     const cache = yield* Cache.Cache;
-    for (const operation of [
-      "fetch",
-      "store",
-      "blob/12345678-1234-1234-1234-123456789abc",
-    ]) {
+    for (const operation of ["fetch", "store", "blob/12345678-1234-1234-1234-123456789abc"]) {
       for (const method of ["GET", "POST"]) {
         yield* cache.handle(
           new Request(`https://cache.example/projects/t3code/${operation}`, { method }),

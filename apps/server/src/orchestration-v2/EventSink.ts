@@ -307,9 +307,7 @@ const layerBase: Layer.Layer<
         }
       });
     const publishStoredEvents = (events: ReadonlyArray<OrchestrationV2StoredEvent>) =>
-      eventStore
-        .publishCommitted(events)
-        .pipe(Effect.andThen(publishLiveEvents(events)));
+      eventStore.publishCommitted(events).pipe(Effect.andThen(publishLiveEvents(events)));
 
     // Serialize commit and publish; reordered publication makes clients drop earlier sequences.
     const publishLane = yield* Semaphore.make(1);
@@ -659,10 +657,7 @@ const layerBase: Layer.Layer<
           yield* applyStoredEvents(storedEvents);
           return { committed: true as const, storedEvents };
         }),
-        (result) =>
-          result.committed
-            ? publishStoredEvents(result.storedEvents)
-            : Effect.void,
+        (result) => (result.committed ? publishStoredEvents(result.storedEvents) : Effect.void),
       );
     });
 
@@ -688,10 +683,7 @@ const layerBase: Layer.Layer<
           yield* applyStoredEvents(storedEvents);
           return { committed: true as const, storedEvents };
         }),
-        (result) =>
-          result.committed
-            ? publishStoredEvents(result.storedEvents)
-            : Effect.void,
+        (result) => (result.committed ? publishStoredEvents(result.storedEvents) : Effect.void),
       );
 
     const writeIfProviderThreadUnchangedEffect = Effect.fn(

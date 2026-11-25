@@ -31,7 +31,9 @@ export interface EarlyLinuxElectronOptions {
 }
 
 export const resolveLinuxDesktopEntryName = (isDevelopment: boolean): string =>
-  isDevelopment ? "com.tehcnological.CMDeck.Development.desktop" : "com.tehcnological.CMDeck.desktop";
+  isDevelopment
+    ? "com.tehcnological.CMDeck.Development.desktop"
+    : "com.tehcnological.CMDeck.desktop";
 
 const trimNonEmpty = (value: string | undefined): string | null => {
   const trimmed = value?.trim();

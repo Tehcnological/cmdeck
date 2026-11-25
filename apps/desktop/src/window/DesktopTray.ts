@@ -100,7 +100,8 @@ const hasStatusNotifierHost = Effect.tryPromise({
       bus.disconnect();
     }
   },
-  catch: (cause) => new DesktopTrayUnavailableError({ reason: "StatusNotifier probe failed", cause }),
+  catch: (cause) =>
+    new DesktopTrayUnavailableError({ reason: "StatusNotifier probe failed", cause }),
 }).pipe(
   Effect.timeout("2 seconds"),
   Effect.orElseSucceed(() => false),
@@ -284,7 +285,9 @@ export const make = Effect.gen(function* () {
           .makeDirectory(directory, { recursive: true })
           .pipe(Effect.andThen(fileSystem.writeFileString(entryPath, entry)))
       : fileSystem.remove(entryPath, { force: true });
-    yield* write.pipe(Effect.mapError((cause) => new DesktopTrayLoginItemError({ enabled, cause })));
+    yield* write.pipe(
+      Effect.mapError((cause) => new DesktopTrayLoginItemError({ enabled, cause })),
+    );
   });
 
   const applyLaunchAtLogin = Effect.fn("desktop.tray.applyLaunchAtLogin")(function* (

@@ -144,7 +144,8 @@ describe("DesktopPreReadyPlatform", () => {
       desktopName = name;
     });
     writeFileSyncMock.mockImplementation((path: string, contents: string | Buffer) => {
-      if (path === "/xdg/applications/com.tehcnological.CMDeck.desktop") desktopEntry = String(contents);
+      if (path === "/xdg/applications/com.tehcnological.CMDeck.desktop")
+        desktopEntry = String(contents);
       if (path === iconPath) iconInstalled = Buffer.compare(Buffer.from(contents), iconBytes) === 0;
     });
 

@@ -110,11 +110,7 @@ describe("DesktopObservability", () => {
       assert.equal(end.annotations.instanceId, "primary");
       assert.equal(end.annotations.phase, "END");
       assert.equal(end.annotations.details, "code=1");
-
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(NodeServices.layer),
-    ),
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
   it.effect("keeps buffering output after a non-terminal failure snapshot", () =>
@@ -151,10 +147,7 @@ describe("DesktopObservability", () => {
         true,
       );
       assert.equal(records.at(-1)?.annotations.details, "code=1");
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(NodeServices.layer),
-    ),
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
   it.effect("retains only the last mebibyte of backend child output", () =>
@@ -195,10 +188,7 @@ describe("DesktopObservability", () => {
       }
       assert.equal(new TextEncoder().encode(text).byteLength, maxBufferedBytes);
       assert.isFalse(text.includes("y"));
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(NodeServices.layer),
-    ),
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
   it.effect("startup prunes only canonical rotation suffixes", () =>

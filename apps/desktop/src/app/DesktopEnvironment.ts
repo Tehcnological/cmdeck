@@ -4,11 +4,7 @@ import type {
   DesktopRuntimeArch,
   DesktopRuntimeInfo,
 } from "@t3tools/contracts";
-import {
-  APP_DISPLAY_NAME,
-  DESKTOP_APP_ID,
-  DESKTOP_DEV_APP_ID,
-} from "@t3tools/shared/appIdentity";
+import { APP_DISPLAY_NAME, DESKTOP_APP_ID, DESKTOP_DEV_APP_ID } from "@t3tools/shared/appIdentity";
 import * as Config from "effect/Config";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";

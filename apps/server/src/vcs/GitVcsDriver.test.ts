@@ -2820,4 +2820,3 @@ it.effect("GitVcsDriver reads an absent checkpoint ref as absent despite a Git w
     assert.isFalse(yield* driver.checkpoints.hasCheckpointRef({ cwd, checkpointRef }));
   }).pipe(Effect.scoped, Effect.provide(layerGitContract)),
 );
-

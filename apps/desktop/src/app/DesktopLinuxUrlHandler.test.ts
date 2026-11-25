@@ -400,7 +400,8 @@ describe("DesktopLinuxUrlHandler", () => {
           module: "FileSystem",
           method: "writeFileString",
           description: "read-only filesystem",
-          pathOrDescriptor: "/home/alice/.local/share/applications/com.tehcnological.CMDeck.desktop",
+          pathOrDescriptor:
+            "/home/alice/.local/share/applications/com.tehcnological.CMDeck.desktop",
         }),
       });
 
@@ -682,7 +683,9 @@ it.layer(NodeServices.layer)("DesktopLinuxUrlHandler theme icons", (it) => {
 
       yield* registerWithRealFileSystem(run);
 
-      assert.isTrue(yield* fileSystem.exists(path.join(fixture.appsDir, "com.tehcnological.CMDeck.png")));
+      assert.isTrue(
+        yield* fileSystem.exists(path.join(fixture.appsDir, "com.tehcnological.CMDeck.png")),
+      );
       assert.equal(iconCacheRuns(run), 1);
     }),
   );

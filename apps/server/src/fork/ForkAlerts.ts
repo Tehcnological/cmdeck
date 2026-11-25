@@ -15,7 +15,7 @@ import * as ServerConfig from "../config.ts";
 import { BUILD_MIGRATION_HEAD, recordedMigrations } from "../persistence/databaseMigrationHead.ts";
 import { FORK_RUNTIME_MARKER_FILE, unmarkedActiveRuntimeAlert } from "./forkRuntimeMarker.ts";
 
-const databaseNewerThanForkAlert =(migrations: ReadonlyArray<string>) =>
+const databaseNewerThanForkAlert = (migrations: ReadonlyArray<string>) =>
   `A newer T3 Code build migrated this database past this fork's schema (${migrations.join(", ")}), for example before it was imported. CMDeck still started, but some features may misbehave until you sync it: run \`scripts/fork/sync-upstream.sh\`, then rebuild.`;
 
 export class ForkAlerts extends Context.Service<
@@ -51,9 +51,10 @@ const make = Effect.gen(function* () {
   }
 
   const runtimeDir = path.join(config.baseDir, "runtime");
-  const serviceState = yield* fs
-    .readFileString(path.join(runtimeDir, SERVICE_STATE_FILE))
-    .pipe(Effect.map(parseServiceState), Effect.orElseSucceed(() => undefined));
+  const serviceState = yield* fs.readFileString(path.join(runtimeDir, SERVICE_STATE_FILE)).pipe(
+    Effect.map(parseServiceState),
+    Effect.orElseSucceed(() => undefined),
+  );
   if (serviceState !== undefined) {
     const versionDir = path.join(runtimeDir, "versions", serviceState.activeVersion);
     const [complete, forkInstalled] = yield* Effect.all([

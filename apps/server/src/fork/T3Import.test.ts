@@ -180,7 +180,10 @@ it.layer(T3Import.layer.pipe(Layer.provideMerge(NodeServices.layer)))("T3Import"
       const target = NodePath.join(root, "cmdeck");
       const sourceDb = makeSource(source);
       // The rows live only in the WAL until a checkpoint, which this open connection never runs.
-      assert.isAbove(NodeFS.statSync(NodePath.join(sourceDb.userdata, "statev2.sqlite-wal")).size, 0);
+      assert.isAbove(
+        NodeFS.statSync(NodePath.join(sourceDb.userdata, "statev2.sqlite-wal")).size,
+        0,
+      );
       const before = hashTree(source);
 
       yield* (yield* T3Import.T3Import).run({ source, target, force: false });

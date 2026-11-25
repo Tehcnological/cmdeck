@@ -631,20 +631,18 @@ export const layerMcpClientAuthenticator = Layer.effect(
     const remoteTokens = yield* RemoteMcpTokens.makeVerifier;
     const toScope = (client: McpInvocationContext.McpClientCaller) =>
       Clock.currentTimeMillis.pipe(
-        Effect.map(
-          (issuedAt): McpInvocationContext.McpInvocationScope => ({
-            environmentId,
-            requestNamespace: `client:${client.sessionId}`,
-            thread: undefined,
-            client,
-            capabilities: new Set<McpInvocationContext.McpCapability>([
-              "orchestration",
-              "worktree",
-              "pull-requests",
-            ]),
-            issuedAt,
-          }),
-        ),
+        Effect.map((issuedAt): McpInvocationContext.McpInvocationScope => ({
+          environmentId,
+          requestNamespace: `client:${client.sessionId}`,
+          thread: undefined,
+          client,
+          capabilities: new Set<McpInvocationContext.McpCapability>([
+            "orchestration",
+            "worktree",
+            "pull-requests",
+          ]),
+          issuedAt,
+        })),
       );
     // A remote token is refused, never passed on to OAuth, while the feature or the policy is off.
     const authenticateRemoteToken = (

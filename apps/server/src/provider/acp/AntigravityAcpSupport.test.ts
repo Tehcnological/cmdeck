@@ -65,28 +65,23 @@ describe("Antigravity release gates", () => {
     { version: "1.5.7", advertisedAppend: true },
     { version: undefined, advertisedAppend: false },
     { version: "unknown", advertisedAppend: false },
-  ])(
-    "$version: advertised system append $advertisedAppend",
-    ({ version, advertisedAppend }) => {
-      const initialize = {
-        protocolVersion: 1,
-        ...(advertisedAppend
-          ? { agentCapabilities: { _meta: { antigravity: { systemPrompt: { append: true } } } } }
-          : {}),
-        ...(version === undefined
-          ? {}
-          : { agentInfo: { name: "Antigravity ACP Server", version } }),
-      };
-      // Helpers send no append.
-      expect(antigravitySessionMeta(initialize)).toBeUndefined();
-      expect(antigravitySessionMeta(initialize, "<pull_request_linking/>")).toEqual(
-        advertisedAppend
-          ? { antigravity: { systemPrompt: { append: "<pull_request_linking/>" } } }
-          : undefined,
-      );
-      expect(ANTIGRAVITY_CLIENT_INFO.name).toBe("t3-code");
-    },
-  );
+  ])("$version: advertised system append $advertisedAppend", ({ version, advertisedAppend }) => {
+    const initialize = {
+      protocolVersion: 1,
+      ...(advertisedAppend
+        ? { agentCapabilities: { _meta: { antigravity: { systemPrompt: { append: true } } } } }
+        : {}),
+      ...(version === undefined ? {} : { agentInfo: { name: "Antigravity ACP Server", version } }),
+    };
+    // Helpers send no append.
+    expect(antigravitySessionMeta(initialize)).toBeUndefined();
+    expect(antigravitySessionMeta(initialize, "<pull_request_linking/>")).toEqual(
+      advertisedAppend
+        ? { antigravity: { systemPrompt: { append: "<pull_request_linking/>" } } }
+        : undefined,
+    );
+    expect(ANTIGRAVITY_CLIENT_INFO.name).toBe("t3-code");
+  });
 });
 
 describe("Antigravity Auto", () => {

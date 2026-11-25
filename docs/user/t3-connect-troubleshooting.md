@@ -150,10 +150,10 @@ This app needs a newer CMDeck on the host. Update CMDeck on the host. See
 
 ## T3 Connect returned an error
 
-| Error                                                     | Fix                                                                                                                                                                                                  |
-| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Error                                                     | Fix                                                                                                                                                                                                 |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `environment_link_limit_exceeded` or managed tunnel limit | Remove an unused environment or link a paid T3 Chat account, then restart CMDeck on the host.                                                                                                       |
-| `auth_invalid` or `invalid_bearer`                        | Run `t3 connect login`. If credentials were revoked, run `t3 connect logout`, then `t3 connect` again. Restart the server after signing in.                                                          |
+| `auth_invalid` or `invalid_bearer`                        | Run `t3 connect login`. If credentials were revoked, run `t3 connect logout`, then `t3 connect` again. Restart the server after signing in.                                                         |
 | Expired or invalid link proof                             | Check the host's date and time, update CMDeck, then restart it.                                                                                                                                     |
 | HTTP 403 without a recognized error                       | If the host requires approval for new devices, update CMDeck on this device and approve it. Otherwise check relay access, proxies, and firewall rules. Keep any Cloudflare Ray ID for a bug report. |
 | HTTP 408, 429, or 5xx                                     | Wait a few minutes. CMDeck retries temporary failures on its own.                                                                                                                                   |

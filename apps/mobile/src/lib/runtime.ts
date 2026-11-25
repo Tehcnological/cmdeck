@@ -25,7 +25,7 @@ type RuntimeLayerSource =
   | typeof NativeWebSocket.layer
   | typeof Dpop.layer
   | typeof layerHttpClient
-  | typeof Persistence.layer
+  | typeof Persistence.layer;
 
 const layerRuntime = Layer.merge(
   ManagedRelayLayer.layer(configuredRelayUrl()),

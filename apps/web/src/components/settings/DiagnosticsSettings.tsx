@@ -6,12 +6,7 @@ import { environmentSession } from "../../state/session";
 import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
 import { AuthEnvironmentMaintainScope } from "@t3tools/contracts";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
-import {
-  AlertTriangleIcon,
-  InfoIcon,
-  ChevronDownIcon,
-  ChevronRightIcon,
-} from "lucide-react";
+import { AlertTriangleIcon, InfoIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
@@ -973,7 +968,6 @@ function DiagnosticsSettingsBody() {
           }
         />
       </SettingsSection>
-
     </SettingsPageContainer>
   );
 }

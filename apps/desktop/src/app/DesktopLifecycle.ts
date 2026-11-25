@@ -250,8 +250,7 @@ export const make = DesktopLifecycle.of({
         args: args
           .slice(1)
           .filter(
-            (arg) =>
-              !arg.toLowerCase().startsWith(appLinkPrefix) && arg !== LAUNCH_HIDDEN_ARGUMENT,
+            (arg) => !arg.toLowerCase().startsWith(appLinkPrefix) && arg !== LAUNCH_HIDDEN_ARGUMENT,
           ),
       });
       yield* electronApp.exit(0);

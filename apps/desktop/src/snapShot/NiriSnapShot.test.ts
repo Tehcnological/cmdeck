@@ -195,7 +195,9 @@ it("rejects compositor errors and cleans up its temporary image", async () => {
       send(socket, { Err: "window disappeared" });
     } else await original(request, socket);
   };
-  await expect(captureLinuxWindow("com.tehcnological.CMDeck")).rejects.toThrow("window disappeared");
+  await expect(captureLinuxWindow("com.tehcnological.CMDeck")).rejects.toThrow(
+    "window disappeared",
+  );
   expect(await NodeFSP.stat(NodePath.dirname(capturePath!)).catch(() => undefined)).toBeUndefined();
 });
 

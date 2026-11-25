@@ -230,9 +230,7 @@ describe("remote environment authorization", () => {
         },
         { method: "GET", url: "https://remote.example.com/ws", accessToken: "ws-ticket" },
       ]);
-      expect(url).toBe(
-        "wss://remote.example.com/ws?wsTicket=ws-ticket&dpop=proof-2",
-      );
+      expect(url).toBe("wss://remote.example.com/ws?wsTicket=ws-ticket&dpop=proof-2");
     }),
   );
 

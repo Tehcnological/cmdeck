@@ -133,7 +133,7 @@ request starts slowly.
 | -------- | ----------------------------------------------------------------------------------- | ----------------------------------- |
 | Pi       | Pi's `~/.pi/agent/models.json`                                                      | OpenAI Chat Completions             |
 | OpenCode | OpenCode's `opencode.json`, or a link to a registered server                        | OpenAI Chat Completions             |
-| Claude   | The instance's **Environment variables** in CMDeck                                 | Anthropic Messages (`/v1/messages`) |
+| Claude   | The instance's **Environment variables** in CMDeck                                  | Anthropic Messages (`/v1/messages`) |
 | Codex    | Codex's `config.toml`, with the instance's setup set to use your existing Codex CLI | OpenAI Responses (`/v1/responses`)  |
 
 Pi and OpenCode work with the widest range of servers. Use the model's exact ID

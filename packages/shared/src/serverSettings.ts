@@ -67,11 +67,7 @@ const TEXT_GENERATION_FALLBACK_DRIVERS = [
 /** Configured instances come after every default instance, so they only win when no default qualifies. */
 export function fallbackTextGenerationModelSelection(
   providerInstances: ServerSettings["providerInstances"],
-  isEnabled: (
-    instanceId: ProviderInstanceId,
-    driver: ProviderDriverKind,
-    model: string,
-  ) => boolean,
+  isEnabled: (instanceId: ProviderInstanceId, driver: ProviderDriverKind, model: string) => boolean,
   options?: {
     readonly includeConfiguredInstances?: boolean;
     readonly defaultModelSelection?: ModelSelection | null;

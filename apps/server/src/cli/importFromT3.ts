@@ -53,10 +53,7 @@ export const formatImportPlan = (plan: T3Import.ImportPlan): string =>
     "  copy* = copied with changes; see the reason.",
     `Total to copy: ${formatBytes(plan.bytes)}`,
     ...(plan.targetHasData
-      ? [
-          "",
-          "CMDeck already has data here. --force moves it to a backup folder before importing.",
-        ]
+      ? ["", "CMDeck already has data here. --force moves it to a backup folder before importing."]
       : []),
     ...plan.notes.map((note) => `Note: ${note}`),
     ...plan.blockers.map((blocker) => `Cannot import: ${blocker}`),

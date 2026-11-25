@@ -68,8 +68,7 @@ export const layer = HttpApiBuilder.group(
         ),
         Effect.option,
       );
-      const tooLarge = (error: string) =>
-        Effect.sync(() => json(413, { error }, "body_too_large"));
+      const tooLarge = (error: string) => Effect.sync(() => json(413, { error }, "body_too_large"));
       if (Option.isNone(body)) return yield* tooLarge("body_too_large_or_unreadable");
       if (body.value.byteLength > WEBHOOK_MAX_BODY_BYTES) {
         return yield* tooLarge("body_too_large");
