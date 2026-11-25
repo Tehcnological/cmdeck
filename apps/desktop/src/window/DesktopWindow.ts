@@ -504,6 +504,8 @@ export const make = Effect.gen(function* () {
         preload: environment.preloadPath,
         // Hidden-renderer throttling stalls first paint; re-enable it after the first reveal.
         backgroundThrottling: false,
+        // Cache renderer bytecode on first load, not after V8's repeat-use heuristic, for faster cold starts.
+        v8CacheOptions: "bypassHeatCheck",
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,

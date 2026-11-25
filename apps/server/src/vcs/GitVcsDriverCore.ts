@@ -2797,20 +2797,6 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
     options?: GitVcsDriver.GitLocalStatusOptions,
   ) {
     const includeDivergence = options?.includeDivergence !== false;
-    // Hidden untracked files could not be committed; `all` stays as configured.
-    const untrackedFilesHidden = untrackedFilesHiddenByConfig(
-      yield* readConfigValue(cwd, "status.showUntrackedFiles").pipe(
-        Effect.orElseSucceed(() => null),
-      ),
-    );
-    const statusArgs = [
-      "status",
-      "--porcelain=2",
-      "--branch",
-      "-z",
-      ...(untrackedFilesHidden ? ["--untracked-files=normal"] : []),
-      ...(includeDivergence ? [] : ["--no-ahead-behind"]),
-    ];
     const readPaths = (...args: string[]) =>
       executeGitWithStableDiagnostics(
         "GitVcsDriver.statusDetails.indexPath",
@@ -2823,13 +2809,30 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
             isMissingGitCwdError(error) ? Effect.succeed(null) : Effect.fail(error),
         }),
       );
-    const paths = yield* readPaths(
-      "--path-format=absolute",
-      "--git-path",
-      "index",
-      "--git-common-dir",
-      "--show-toplevel",
+    // Both always run, so they share one round trip.
+    const [untrackedFilesConfig, paths] = yield* Effect.all(
+      [
+        readConfigValue(cwd, "status.showUntrackedFiles").pipe(Effect.orElseSucceed(() => null)),
+        readPaths(
+          "--path-format=absolute",
+          "--git-path",
+          "index",
+          "--git-common-dir",
+          "--show-toplevel",
+        ),
+      ],
+      { concurrency: 2 },
     );
+    // Hidden untracked files could not be committed; `all` stays as configured.
+    const untrackedFilesHidden = untrackedFilesHiddenByConfig(untrackedFilesConfig);
+    const statusArgs = [
+      "status",
+      "--porcelain=2",
+      "--branch",
+      "-z",
+      ...(untrackedFilesHidden ? ["--untracked-files=normal"] : []),
+      ...(includeDivergence ? [] : ["--no-ahead-behind"]),
+    ];
     if (paths === null || (paths.exitCode !== 0 && isNonRepositoryGitStderr(paths.stderr))) {
       return NON_REPOSITORY_STATUS_DETAILS;
     }

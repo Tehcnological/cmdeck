@@ -1,6 +1,8 @@
+import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Predicate from "effect/Predicate";
 import * as Schema from "effect/Schema";
@@ -14,6 +16,27 @@ import * as ServerConfig from "../config.ts";
 import * as ServerOwnership from "../serverOwnership.ts";
 
 const WAL_SIZE_LIMIT_BYTES = 128 * 1024 * 1024;
+const DEFAULT_MMAP_BYTES = 256 * 1024 * 1024;
+// mmap turns an I/O error on a network or cloud-synced file into a crash, or corruption when another host writes it.
+// shortcut: only path names are checked; NFS/SMB mounted at an ordinary path need T3CODE_SQLITE_MMAP_BYTES=0.
+const NETWORK_OR_SYNCED_PATH =
+  /^(?:\\\\|\/\/)|[\\/](?:onedrive|dropbox|icloud ?drive|mobile documents|google ?drive|box)(?:[\\/]| - |$)/i;
+
+/** `T3CODE_SQLITE_MMAP_BYTES` wins (0 disables); otherwise 256 MiB, or 0 on a network or synced path. */
+export const readMmapBytes = (dbPath: string) =>
+  Config.option(Config.Int("T3CODE_SQLITE_MMAP_BYTES")).pipe(
+    Effect.map(
+      Option.match({
+        onSome: (bytes) => Math.max(0, bytes),
+        onNone: () => (NETWORK_OR_SYNCED_PATH.test(dbPath) ? 0 : DEFAULT_MMAP_BYTES),
+      }),
+    ),
+    Effect.catch((cause) =>
+      Effect.logWarning("T3CODE_SQLITE_MMAP_BYTES is not a whole number; SQLite mmap stays off.", {
+        cause,
+      }).pipe(Effect.as(0)),
+    ),
+  );
 
 export class ServerOwnsDatabaseError extends Schema.TaggedError<ServerOwnsDatabaseError>()(
   "ServerOwnsDatabaseError",
@@ -64,7 +87,10 @@ const runMigrationsAsOwner = Effect.fn("SqlitePersistence.runMigrationsAsOwner")
   yield* runMigrations();
 }, Effect.scoped);
 
-const makeLayerSetup = <E, R>(migrate: Effect.Effect<unknown, E, R>) =>
+const makeLayerSetup = <E, R>(
+  migrate: Effect.Effect<unknown, E, R>,
+  pragmas: ReadonlyArray<string> = [],
+) =>
   Layer.effectDiscard(
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
@@ -87,6 +113,8 @@ const makeLayerSetup = <E, R>(migrate: Effect.Effect<unknown, E, R>) =>
       yield* sql`PRAGMA temp_store = MEMORY;`;
       // PASSIVE checkpoints retain peak WAL size until the last connection closes.
       yield* sql.unsafe(`PRAGMA journal_size_limit = ${WAL_SIZE_LIMIT_BYTES};`);
+      // One statement each: a prepared statement runs only the first of several.
+      for (const pragma of pragmas) yield* sql.unsafe(pragma);
       yield* migrate;
       // Collecting stats scans every page, and stale small-table stats cause scans after growth; use indexes by default.
       // Connections cache stats; reload after deleting them.
@@ -100,17 +128,23 @@ const makeLayerSetup = <E, R>(migrate: Effect.Effect<unknown, E, R>) =>
 
 const layerSetup = makeLayerSetup(runMigrations());
 
-const makeLayerFromPath = <E, R>(makeSetup: (dbPath: string) => Layer.Layer<never, E, R>) =>
+const makeLayerFromPath = <E, R>(
+  makeSetup: (pragmas: ReadonlyArray<string>) => Layer.Layer<never, E, R>,
+) =>
   Effect.fn("makeSqlitePersistenceLive")(function* (dbPath: string) {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     yield* fs.makeDirectory(path.dirname(dbPath), { recursive: true });
+    const mmapBytes = yield* readMmapBytes(dbPath);
+    // SQLite's default page cache is about 2 MiB; a cache fills only as pages are read.
+    const pragmas = ["PRAGMA cache_size = -64000;", `PRAGMA mmap_size = ${mmapBytes};`];
 
     return Layer.provideMerge(
-      makeSetup(dbPath),
+      makeSetup(pragmas),
       NodeSqliteClient.layer({
         filename: dbPath,
         readerWorker: true,
+        readerPragmas: `PRAGMA temp_store = MEMORY; PRAGMA cache_size = -32000; PRAGMA mmap_size = ${mmapBytes};`,
         // A slow disk then delays writes instead of freezing every client.
         writerWorker: true,
         spanAttributes: {
@@ -132,7 +166,9 @@ const makeLayerFromPath = <E, R>(makeSetup: (dbPath: string) => Layer.Layer<neve
     );
   }, Layer.unwrap);
 
-export const layerFromPath = makeLayerFromPath(() => layerSetup);
+export const layerFromPath = makeLayerFromPath((pragmas) =>
+  makeLayerSetup(runMigrations(), pragmas),
+);
 
 export const layerMemory = Layer.provideMerge(
   layerSetup,
@@ -154,5 +190,5 @@ export const layerConfig = makeLayerConfig(layerFromPath);
 
 /** For CLI commands: pending migrations run only while no server owns the T3 home. */
 export const layerCliConfig = makeLayerConfig(
-  makeLayerFromPath(() => makeLayerSetup(runMigrationsAsOwner())),
+  makeLayerFromPath((pragmas) => makeLayerSetup(runMigrationsAsOwner(), pragmas)),
 );

@@ -160,6 +160,7 @@ const hasModelCapabilities = (model: ServerProvider["models"][number]): boolean 
   (model.capabilities?.optionDescriptors?.length ?? 0) > 0;
 
 const MAX_WORKSPACE_SNAPSHOTS_PER_PROVIDER = 16;
+export const SECRET_REFRESH_CONCURRENCY = 4;
 
 function dropProviderWorkspaceSnapshot(provider: ServerProvider, cwd: string): ServerProvider {
   return provider.workspaceSnapshots?.some((snapshot) => snapshot.cwd === cwd)
@@ -912,7 +913,11 @@ export const layer = Layer.effect(
       value: string,
     ) {
       const instanceIds = yield* instanceRegistryMutator.applySecret(reference, value);
-      yield* Effect.forEach(instanceIds, refreshInstance, { discard: true });
+      // Each refresh probes a provider CLI; a shared secret can touch many instances at once.
+      yield* Effect.forEach(instanceIds, refreshInstance, {
+        concurrency: SECRET_REFRESH_CONCURRENCY,
+        discard: true,
+      });
       return yield* Ref.get(providersRef);
     });
 

@@ -9,6 +9,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -152,8 +153,57 @@ it.effect("upgrades an existing database on a read-write worker connection", () 
       requireWal: false,
       allowExtension: false,
       prepareCacheSize: 200,
+      pragmas: undefined,
     });
   }).pipe(
+    Effect.ensuring(Effect.sync(() => NodeFS.rmSync(tempDir, { recursive: true, force: true }))),
+  );
+});
+
+const withEnv = (env: Record<string, string>) =>
+  Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env })));
+
+it.effect.each([
+  { path: "/home/me/.cmdeck/userdata/state.sqlite", env: {}, bytes: 256 * 1024 * 1024 },
+  { path: "C:\\Users\\me\\OneDrive - Work\\cmdeck\\state.sqlite", env: {}, bytes: 0 },
+  { path: "/Users/me/Dropbox/cmdeck/state.sqlite", env: {}, bytes: 0 },
+  { path: "\\\\nas\\share\\cmdeck\\state.sqlite", env: {}, bytes: 0 },
+  { path: "/home/me/boxes/state.sqlite", env: {}, bytes: 256 * 1024 * 1024 },
+  { path: "/home/me/state.sqlite", env: { T3CODE_SQLITE_MMAP_BYTES: "0" }, bytes: 0 },
+  {
+    path: "/home/me/OneDrive/state.sqlite",
+    env: { T3CODE_SQLITE_MMAP_BYTES: "4096" },
+    bytes: 4096,
+  },
+  { path: "/home/me/state.sqlite", env: { T3CODE_SQLITE_MMAP_BYTES: "-1" }, bytes: 0 },
+  { path: "/home/me/state.sqlite", env: { T3CODE_SQLITE_MMAP_BYTES: "lots" }, bytes: 0 },
+])("maps $bytes bytes for $path with $env", ({ path, env, bytes }) =>
+  SqlitePersistence.readMmapBytes(path).pipe(
+    Effect.map((actual) => assert.equal(actual, bytes)),
+    withEnv(env),
+  ),
+);
+
+it.effect("applies the mmap override to the writer and every reader", () => {
+  const tempDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "t3-sqlite-mmap-"));
+  const persistence = SqlitePersistence.layerFromPath(NodePath.join(tempDir, "state.sqlite")).pipe(
+    Layer.provide(NodeServices.layer),
+  );
+
+  return Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient;
+    const mmapSize = sql<{ readonly mmap_size: number }>`PRAGMA mmap_size`.pipe(
+      Effect.map((rows) => rows[0]?.mmap_size),
+    );
+    assert.equal(yield* mmapSize, 4096);
+    assert.equal(yield* NodeSqliteClient.readOnly(mmapSize), 4096);
+    assert.include(
+      workerData.map((data) => (data as { pragmas?: string }).pragmas),
+      "PRAGMA temp_store = MEMORY; PRAGMA cache_size = -32000; PRAGMA mmap_size = 4096;",
+    );
+  }).pipe(
+    Effect.provide(persistence),
+    withEnv({ T3CODE_SQLITE_MMAP_BYTES: "4096" }),
     Effect.ensuring(Effect.sync(() => NodeFS.rmSync(tempDir, { recursive: true, force: true }))),
   );
 });

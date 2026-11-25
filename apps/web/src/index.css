@@ -493,6 +493,50 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
   }
 }
 
+/* A zero blur still allocates a backdrop readback pass; drop the filter entirely when nothing shows through. */
+:root[data-glass-opaque="true"] {
+  --glass-blur: 0px;
+  --glass-saturation: 1;
+}
+
+:root[data-glass-opaque="true"] .surface-glass,
+:root[data-glass-opaque="true"] .alert-glass,
+:root[data-glass-opaque="true"] .dialog-glass,
+:root[data-glass-opaque="true"] .dropdown-glass,
+:root[data-glass-opaque="true"] [class*="backdrop-blur"] {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+:root[data-glass-opaque="true"] [class*="before:backdrop-blur"]::before {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  /* !important outranks the inline --glass-opacity that appearance settings set. */
+  :root {
+    --glass-opacity: 100% !important;
+    --glass-blur: 0px !important;
+    --glass-saturation: 1;
+  }
+
+  .surface-glass,
+  .alert-glass,
+  .dialog-glass,
+  .dropdown-glass,
+  .dialog-backdrop,
+  [class*="backdrop-blur"] {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  [class*="before:backdrop-blur"]::before {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
 @utility topbar-scroll-fade {
   -webkit-mask-image:
     linear-gradient(

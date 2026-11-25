@@ -33,6 +33,7 @@ import {
   PROVIDER_WORKSPACE_SNAPSHOT_TTL_MS,
   ProviderDriverKind,
   ProviderInstanceId,
+  SecretProviderId,
   ServerSettings,
   ServerSettingsError,
   ServerProvider,
@@ -3521,6 +3522,113 @@ it.layer(
 
           yield* registry.refresh();
           assert.strictEqual(yield* Ref.get(refreshCalls), 2);
+        }).pipe(Effect.provide(runtimeServices));
+      }),
+    );
+
+    it.effect("probes instances sharing a changed secret a few at a time", () =>
+      Effect.gen(function* () {
+        const driver = ProviderDriverKind.make("codex");
+        const limit = ProviderRegistry.SECRET_REFRESH_CONCURRENCY;
+        const armed = yield* Ref.make(false);
+        const active = yield* Ref.make(0);
+        const started = yield* Ref.make(0);
+        const saturated = yield* Deferred.make<void>();
+        const releaseProbes = yield* Deferred.make<void>();
+        const instances = Array.from({ length: limit * 2 + 1 }, (_, index) => {
+          const instanceId = ProviderInstanceId.make(`codex-${index}`);
+          const provider = {
+            instanceId,
+            driver,
+            status: "ready",
+            enabled: true,
+            installed: true,
+            auth: { status: "authenticated" },
+            checkedAt: "2026-06-10T00:00:00.000Z",
+            version: "1.0.0",
+            models: [],
+            slashCommands: [],
+            skills: [],
+          } as const satisfies ServerProvider;
+          return {
+            instanceId,
+            driverKind: driver,
+            continuationIdentity: { driverKind: driver, continuationKey: `codex:${instanceId}` },
+            displayName: undefined,
+            enabled: true,
+            snapshot: {
+              resolveMaintenance: () =>
+                Effect.succeed(
+                  makeManualOnlyProviderMaintenanceCapabilities({
+                    provider: driver,
+                    packageName: null,
+                  }),
+                ),
+              getSnapshot: Effect.succeed(provider),
+              refresh: Effect.gen(function* () {
+                if (!(yield* Ref.get(armed))) return provider;
+                yield* Ref.update(started, (count) => count + 1);
+                if ((yield* Ref.updateAndGet(active, (count) => count + 1)) === limit) {
+                  yield* Deferred.succeed(saturated, undefined);
+                }
+                yield* Deferred.await(releaseProbes);
+                yield* Ref.update(active, (count) => count - 1);
+                return provider;
+              }),
+              streamChanges: Stream.empty,
+              applyUsageLimits: () => Effect.void,
+            },
+            orchestrationAdapter: {} as ProviderInstance["orchestrationAdapter"],
+            textGeneration: {} as ProviderInstance["textGeneration"],
+          } satisfies ProviderInstance;
+        });
+        const instanceRegistryLayer = Layer.succeed(
+          ProviderInstanceRegistry.ProviderInstanceRegistry,
+          {
+            getInstance: (requestedId) =>
+              Effect.succeed(instances.find((instance) => instance.instanceId === requestedId)),
+            listInstances: Effect.succeed(instances),
+            listUnavailable: Effect.succeed([]),
+            streamChanges: Stream.empty,
+            subscribeChanges: Effect.flatMap(PubSub.unbounded<void>(), PubSub.subscribe),
+          },
+        );
+        const mutatorLayer = Layer.mock(
+          ProviderInstanceRegistryMutator.ProviderInstanceRegistryMutator,
+        )({
+          applySecret: () => Effect.succeed(instances.map((instance) => instance.instanceId)),
+        });
+        const scope = yield* Scope.make();
+        yield* Effect.addFinalizer(() => Scope.close(scope, Exit.void));
+        const runtimeServices = yield* Layer.build(
+          ProviderRegistry.layer.pipe(
+            Layer.provide(mutatorLayer),
+            Layer.provideMerge(instanceRegistryLayer),
+            Layer.provideMerge(
+              ServerConfig.layerTest(process.cwd(), {
+                prefix: "t3-provider-registry-secret-refresh-",
+              }),
+            ),
+            Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
+          ),
+        ).pipe(Scope.provide(scope));
+
+        yield* Effect.gen(function* () {
+          const registry = yield* ProviderRegistry.ProviderRegistry;
+          yield* registry.refresh();
+          yield* Ref.set(armed, true);
+          const applied = yield* registry
+            .applySecretAndRefresh(
+              { provider: SecretProviderId.make("vault"), reference: "op://Shared/key" },
+              "value",
+            )
+            .pipe(Effect.forkChild);
+          yield* Deferred.await(saturated);
+          for (let turn = 0; turn < 10; turn++) yield* Effect.yieldNow;
+          assert.strictEqual(yield* Ref.get(started), limit);
+          yield* Deferred.succeed(releaseProbes, undefined);
+          yield* Fiber.join(applied);
+          assert.strictEqual(yield* Ref.get(started), instances.length);
         }).pipe(Effect.provide(runtimeServices));
       }),
     );
