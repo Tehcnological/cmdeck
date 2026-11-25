@@ -289,6 +289,17 @@ const parsePortFromLsofName = (name: string): number | null => {
   return port;
 };
 
+/** Ports with a loopback or wildcard listener in `lsof -F n` output. */
+export const parseLsofListeningPorts = (raw: string): ReadonlyArray<number> => {
+  const ports = new Set<number>();
+  for (const line of raw.split("\n")) {
+    if (!line.startsWith("n")) continue;
+    const port = parsePortFromLsofName(line.slice(1));
+    if (port !== null) ports.add(port);
+  }
+  return [...ports];
+};
+
 const exitedWithError = (result: ProcessRunner.ProcessRunOutput): boolean =>
   result.code !== null && result.code !== 0;
 

@@ -7,6 +7,7 @@ import type {
   InferenceDiscoveryResult,
   InferenceServerId,
 } from "@t3tools/contracts";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Context from "effect/Context";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -17,7 +18,8 @@ import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 import { HttpClient, HttpClientRequest } from "effect/http";
 
-import { parseProcNetTcp } from "../preview/PortScanner.ts";
+import { parseLsofListeningPorts, parseProcNetTcp } from "../preview/PortScanner.ts";
+import * as ProcessRunner from "../processRunner.ts";
 import * as Settings from "../serverSettings.ts";
 import { PROTOCOL_PATHS, parseBaseUrl, readModelList } from "./InferenceServerRegistry.ts";
 
@@ -38,6 +40,7 @@ const MAX_CANDIDATES = 80;
 const MAX_BODY_BYTES = 4_000_000;
 const AGENT_PROTOCOLS: ReadonlyArray<InferenceApiProtocol> = ["chat-completions", "responses"];
 const PROC_TABLES = ["/proc/net/tcp", "/proc/net/tcp6"];
+const LSOF_TIMEOUT = Duration.seconds(5);
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
 /** Whether `host` names the machine this server runs on. */
@@ -80,12 +83,14 @@ function probeBaseUrl(host: string, port: number): string | undefined {
 interface Candidate {
   readonly base: string;
   readonly registeredServerId?: InferenceServerId;
+  /** Found only by listing this machine's listeners, so any service may be behind it. */
+  readonly fromListener?: true;
 }
 
 /**
- * Where to look: an address the user typed, registered servers, well-known ports and (on Linux)
- * every listening port of this machine, and well-known ports of registered hosts. `host` narrows
- * the search to one machine.
+ * Where to look: an address the user typed, registered servers, well-known ports and (on Linux
+ * and macOS) every listening port of this machine, and well-known ports of registered hosts.
+ * `host` narrows the search to one machine.
  */
 export function discoveryCandidates(input: {
   readonly host?: string | undefined;
@@ -95,7 +100,11 @@ export function discoveryCandidates(input: {
   readonly hostname: string;
 }): ReadonlyArray<Candidate> {
   const candidates = new Map<string, Candidate>();
-  const add = (base: string | undefined, registeredServerId?: InferenceServerId) => {
+  const add = (
+    base: string | undefined,
+    registeredServerId?: InferenceServerId,
+    fromListener = false,
+  ) => {
     if (base === undefined) return;
     const key = endpointKey(base, input.hostname);
     if (key === undefined) return;
@@ -110,6 +119,7 @@ export function discoveryCandidates(input: {
     candidates.set(key, {
       base,
       ...(registeredServerId === undefined ? {} : { registeredServerId }),
+      ...(fromListener ? { fromListener: true } : {}),
     });
   };
   const target = input.host?.toLowerCase();
@@ -139,8 +149,9 @@ export function discoveryCandidates(input: {
   }
   if (target !== undefined && !searchesThisMachine) remoteHosts.add(target);
   if (searchesThisMachine) {
-    for (const port of [...WELL_KNOWN_PORTS, ...input.listeningPorts]) {
-      add(probeBaseUrl(localHost, port));
+    for (const port of WELL_KNOWN_PORTS) add(probeBaseUrl(localHost, port));
+    for (const port of input.listeningPorts) {
+      add(probeBaseUrl(localHost, port), undefined, true);
     }
   }
   for (const host of remoteHosts) {
@@ -171,17 +182,38 @@ export const make = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
   const settingsService = yield* Settings.ServerSettingsService;
 
-  const listeningPorts = Effect.forEach(PROC_TABLES, (path) =>
-    fileSystem.readFileString(path).pipe(Effect.option),
-  ).pipe(
-    Effect.map((tables) => {
-      const read = tables.flatMap((table) => (Option.isSome(table) ? [table.value] : []));
-      const ports = new Set(read.flatMap((table) => parseProcNetTcp(table).map((l) => l.port)));
+  const processRunner = yield* ProcessRunner.ProcessRunner;
+  const hostPlatform = yield* HostProcess.Platform;
+
+  // Linux lists listeners in /proc. macOS has no /proc, so lsof lists them there instead.
+  const readListeningPorts = Effect.gen(function* () {
+    const tables = yield* Effect.forEach(PROC_TABLES, (path) =>
+      fileSystem.readFileString(path).pipe(Effect.option),
+    );
+    const read = tables.flatMap((table) => (Option.isSome(table) ? [table.value] : []));
+    if (read.length > 0) return read.flatMap((table) => parseProcNetTcp(table).map((l) => l.port));
+    if (hostPlatform === "win32") return undefined;
+    return yield* processRunner
+      .run({
+        command: "lsof",
+        args: ["-iTCP", "-sTCP:LISTEN", "-P", "-n", "-F", "n"],
+        timeout: LSOF_TIMEOUT,
+        maxOutputBytes: 1024 * 1024,
+      })
+      .pipe(
+        Effect.map((result) => parseLsofListeningPorts(result.stdout)),
+        Effect.orElseSucceed(() => undefined),
+      );
+  });
+
+  const listeningPorts = readListeningPorts.pipe(
+    Effect.map((found) => {
+      if (found === undefined) return { searched: false, ports: [] as ReadonlyArray<number> };
       // Chosen ports first, so a busy machine's OS-assigned ones cannot crowd them out of the cap.
       const rankPort = (port: number) => (port >= EPHEMERAL_PORT_FLOOR ? port + 65536 : port);
       return {
-        searched: read.length > 0,
-        ports: [...ports]
+        searched: true,
+        ports: [...new Set(found)]
           .filter((port) => port >= 1024)
           .toSorted((left, right) => rankPort(left) - rankPort(right))
           .slice(0, MAX_LISTENERS),
@@ -243,6 +275,9 @@ export const make = Effect.gen(function* () {
         : { registeredServerId: candidate.registeredServerId }),
     };
     if (listed.status === 401 || listed.status === 403) {
+      // A model server that wants a key says why in its body. An empty refusal on a port found
+      // only by listing listeners is some other service, such as macOS AirPlay on 5000 and 7000.
+      if (candidate.fromListener === true && !listed.body) return undefined;
       return { ...common, status: "needs-key", models: [] } satisfies InferenceDiscoveredServer;
     }
     if (listed.status < 200 || listed.status >= 300 || listed.body === undefined) return undefined;
@@ -305,4 +340,6 @@ export const make = Effect.gen(function* () {
   return InferenceDiscovery.of({ discover });
 });
 
-export const layer = Layer.effect(InferenceDiscovery, make);
+export const layer = Layer.effect(InferenceDiscovery, make).pipe(
+  Layer.provide(ProcessRunner.layer),
+);
