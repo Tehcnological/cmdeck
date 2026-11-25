@@ -1,5 +1,5 @@
 /** Which of T3's MCP tools a session advertises. Tool text is the same in every profile. */
-export const MCP_TOOL_PROFILES = ["full", "lean"] as const;
+const MCP_TOOL_PROFILES = ["full", "lean"] as const;
 export type McpToolProfile = (typeof MCP_TOOL_PROFILES)[number];
 
 /**

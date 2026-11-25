@@ -202,7 +202,11 @@ describe("DesktopAppIdentity", () => {
         assert.isDefined(runtimeName);
         assert.equal(runtimeName, `CMDeck ${stage}`);
         assert.match(runtimeName.replaceAll(" ", ""), /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/);
-        assert.equal(calls.setAboutPanelOptions[0]?.applicationName, `CMDeck (${stage})`);
+        // Release (Beta) builds show the plain name; Dev and Nightly keep their stage suffix.
+        assert.equal(
+          calls.setAboutPanelOptions[0]?.applicationName,
+          stage === "Beta" ? "CMDeck" : `CMDeck (${stage})`,
+        );
       }),
       { calls, environment },
     );

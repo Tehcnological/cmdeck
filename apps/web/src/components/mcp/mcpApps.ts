@@ -13,7 +13,7 @@ import { m, type MessageResolver } from "~/i18n/messages";
 
 /** How the Connect step hands CMDeck's MCP URL to an app. Every `link` is https. */
 export type McpAppHandoff =
-  /** Opens the app's add form with CMDeck filled in. */
+  /** Opens the app's add form with the MCP server name ("T3 Code", kept model-facing) filled in. */
   | { readonly kind: "open"; readonly link: (mcpUrl: string) => string }
   /** Copies the URL, then opens the page it goes on. */
   | { readonly kind: "copy-url"; readonly link: string }
