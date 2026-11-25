@@ -1,11 +1,21 @@
-import { AuthMcpClientAccess } from "@t3tools/contracts";
+import {
+  AuthMcpClientAccess,
+  RemoteMcpTokenError,
+  type RemoteMcpStatus,
+  type RemoteMcpToken as RemoteMcpTokenSummary,
+  type RemoteMcpTokenCreateInput,
+  type RemoteMcpTokenCreateResult,
+  type RemoteMcpTokenRevokeResult,
+} from "@t3tools/contracts";
 import { lock } from "proper-lockfile";
 import * as Config from "effect/Config";
+import * as Context from "effect/Context";
 import * as Digest from "effect/crypto/Digest";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schedule from "effect/Schedule";
@@ -16,10 +26,26 @@ import { base64UrlEncode, timingSafeEqualBase64Url } from "./utils.ts";
 
 /**
  * Static bearer tokens for `/mcp`, for MCP clients that reach this server over Tailscale or a
- * tunnel the user runs and cannot do the OAuth sign-in. Off unless `T3CODE_REMOTE_MCP` is set.
- * Only a SHA-256 of each token is kept; the token is shown once, by `t3 auth mcp-token create`.
+ * tunnel the user runs and cannot do the OAuth sign-in. Off unless the `remoteMcpEnabled` setting
+ * is on. Only a SHA-256 of each token is kept; the token is shown once, when it is created.
  */
-export const enabledConfig = Config.Boolean("T3CODE_REMOTE_MCP").pipe(Config.withDefault(false));
+const envOverrideConfig = Config.option(Config.Boolean("T3CODE_REMOTE_MCP"));
+
+/**
+ * `T3CODE_REMOTE_MCP` when set: true or false wins over the setting. A value that is not a
+ * boolean keeps tokens off.
+ */
+export const readEnvOverride = envOverrideConfig.pipe(
+  Effect.map(Option.getOrNull),
+  Effect.catch((cause) =>
+    Effect.logWarning("T3CODE_REMOTE_MCP is not a boolean; remote MCP tokens stay off.", {
+      cause,
+    }).pipe(Effect.as(false)),
+  ),
+);
+
+export const isEnabled = (envOverride: boolean | null, setting: boolean): boolean =>
+  envOverride ?? setting;
 
 const SECRET_NAME = "remote-mcp-tokens";
 /** Tells these tokens apart from session and provider tokens without reading the store. */
@@ -42,7 +68,7 @@ const TokenList = Schema.fromJsonString(Schema.Array(RemoteMcpToken));
 const decodeTokenList = Schema.decodeUnknownOption(TokenList);
 const encodeTokenList = Schema.encodeSync(TokenList);
 
-class RemoteMcpTokenStoreError extends Schema.TaggedError<RemoteMcpTokenStoreError>()(
+export class RemoteMcpTokenStoreError extends Schema.TaggedError<RemoteMcpTokenStoreError>()(
   "RemoteMcpTokenStoreError",
   {},
 ) {
@@ -68,7 +94,7 @@ const write = (tokens: ReadonlyArray<RemoteMcpToken>) =>
     Effect.uninterruptible,
   );
 
-class RemoteMcpTokenLockError extends Schema.TaggedError<RemoteMcpTokenLockError>()(
+export class RemoteMcpTokenLockError extends Schema.TaggedError<RemoteMcpTokenLockError>()(
   "RemoteMcpTokenLockError",
   { cause: Schema.Defect() },
 ) {
@@ -172,3 +198,68 @@ export const makeVerifier = Effect.gen(function* () {
     );
   return { verify, awaitRevocation };
 });
+
+const toPublic = ({ id, label, access, createdAt }: RemoteMcpToken): RemoteMcpTokenSummary => ({
+  id,
+  label,
+  access,
+  createdAt,
+});
+
+const toServiceError = (cause: unknown) =>
+  new RemoteMcpTokenError({
+    reason:
+      cause instanceof RemoteMcpTokenStoreError
+        ? "unreadable"
+        : cause instanceof RemoteMcpTokenLockError
+          ? "locked"
+          : "storage",
+    cause,
+  });
+
+/** Token management for the environment's owner in Settings; the CLI uses the functions above. */
+export class RemoteMcpTokens extends Context.Service<
+  RemoteMcpTokens,
+  {
+    readonly status: Effect.Effect<RemoteMcpStatus, RemoteMcpTokenError>;
+    readonly create: (
+      input: RemoteMcpTokenCreateInput,
+    ) => Effect.Effect<RemoteMcpTokenCreateResult, RemoteMcpTokenError>;
+    readonly revoke: (id: string) => Effect.Effect<RemoteMcpTokenRevokeResult, RemoteMcpTokenError>;
+  }
+>()("t3/auth/RemoteMcpTokens") {}
+
+const make = Effect.gen(function* () {
+  const services = yield* Effect.context<
+    ServerSecretStore.ServerSecretStore | Digest.Digest | SecureRandom.SecureRandom | Path.Path
+  >();
+  const envOverride = yield* readEnvOverride;
+
+  const status = list().pipe(
+    Effect.map((tokens) => ({ envOverride, tokens: tokens.map(toPublic) })),
+    Effect.mapError(toServiceError),
+    Effect.provide(services),
+    Effect.withSpan("RemoteMcpTokens.status"),
+  );
+
+  const createToken = Effect.fn("RemoteMcpTokens.createToken")(
+    function* (input: RemoteMcpTokenCreateInput) {
+      const { record, token } = yield* create(input);
+      return { token: toPublic(record), secret: token };
+    },
+    Effect.mapError(toServiceError),
+    Effect.provide(services),
+  );
+
+  const revokeToken = Effect.fn("RemoteMcpTokens.revokeToken")(
+    function* (id: string) {
+      return { revoked: yield* revoke(id) };
+    },
+    Effect.mapError(toServiceError),
+    Effect.provide(services),
+  );
+
+  return RemoteMcpTokens.of({ status, create: createToken, revoke: revokeToken });
+});
+
+export const layer = Layer.effect(RemoteMcpTokens, make);

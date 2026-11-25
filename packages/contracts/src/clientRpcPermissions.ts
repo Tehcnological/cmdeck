@@ -14,6 +14,7 @@ import {
   mcpClientScopes,
 } from "./auth.ts";
 import { PeerLinkLinkPairingInput } from "./peerLink.ts";
+import { RemoteMcpTokenCreateInput } from "./remoteAccess.ts";
 import { ORCHESTRATION_V2_WS_METHODS } from "./orchestrationV2.ts";
 import { WS_METHODS } from "./rpc.ts";
 
@@ -109,6 +110,11 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.peerLinksAnswerRequest]: AuthAccessWriteScope,
   [WS_METHODS.peerLinksPairClient]: AuthAccessWriteScope,
   [WS_METHODS.peerLinksPairLink]: AuthAccessWriteScope,
+  // A remote MCP token is a credential for this environment, like a pairing link.
+  [WS_METHODS.remoteMcpCreateToken]: AuthAccessWriteScope,
+  [WS_METHODS.remoteMcpRevokeToken]: AuthAccessWriteScope,
+  // The tunnel address decides where other devices are sent to pair, an access setting.
+  [WS_METHODS.serverCheckPublicAddress]: AuthAccessWriteScope,
   // Send stores and sends a report from a thread's turn: the bar of running that thread.
   [WS_METHODS.agentFeedbackAnswerRequest]: AuthOrchestrationOperateScope,
 } as const;
@@ -117,6 +123,7 @@ export type ClientGuardedRpcTag = keyof typeof CLIENT_GUARDED_RPC_SCOPES;
 const decodePrepareThread = Schema.decodeUnknownSync(GitPreparePullRequestThreadInput);
 const decodeStackedAction = Schema.decodeUnknownSync(GitRunStackedActionInput);
 const decodeLinkPairing = Schema.decodeUnknownSync(PeerLinkLinkPairingInput);
+const decodeRemoteMcpTokenCreate = Schema.decodeUnknownSync(RemoteMcpTokenCreateInput);
 
 export function clientRpcRequiredScopes(
   method: string,
@@ -138,6 +145,10 @@ export function clientRpcRequiredScopes(
   // Handing out access takes holding it: the caller gets back a credential it can spend itself.
   if (method === WS_METHODS.peerLinksPairLink && input !== undefined) {
     const held = mcpClientScopes(decodeLinkPairing(input).access);
+    return [AuthAccessWriteScope, ...held];
+  }
+  if (method === WS_METHODS.remoteMcpCreateToken && input !== undefined) {
+    const held = mcpClientScopes(decodeRemoteMcpTokenCreate(input).access);
     return [AuthAccessWriteScope, ...held];
   }
   if (method === WS_METHODS.guestShareCreate) {

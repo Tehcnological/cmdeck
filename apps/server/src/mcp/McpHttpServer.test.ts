@@ -1527,8 +1527,12 @@ it.effect("accepts remote MCP tokens only while enabled and until revoked", () =
     Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "t3-remote-mcp-test-" })),
     Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
   );
-  const authenticatorWith = (env: Record<string, string>) =>
+  const authenticatorWith = (
+    env: Record<string, string>,
+    settings: { readonly remoteMcpEnabled?: boolean } = {},
+  ) =>
     McpOAuth.layerMcpClientAuthenticator.pipe(
+      Layer.provide(ServerSettings.layerTest(settings)),
       Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env }))),
     );
   const PingToolkit = Toolkit.make(
@@ -1563,6 +1567,20 @@ it.effect("accepts remote MCP tokens only while enabled and until revoked", () =
         }),
       );
       expect(yield* disabled.authenticate(request)).toBeUndefined();
+      // The Settings switch turns tokens on; `T3CODE_REMOTE_MCP`, when set, wins either way.
+      for (const [env, settings, accepted] of [
+        [{}, { remoteMcpEnabled: true }, true],
+        [{ T3CODE_REMOTE_MCP: "false" }, { remoteMcpEnabled: true }, false],
+        [{ T3CODE_REMOTE_MCP: "1" }, { remoteMcpEnabled: false }, true],
+      ] as const) {
+        const authenticator = Context.get(
+          yield* Layer.build(authenticatorWith(env, settings)),
+          McpHttpServer.McpClientAuthenticator,
+        );
+        expect((yield* authenticator.authenticate(request))?.client?.label).toBe(
+          accepted ? "laptop" : undefined,
+        );
+      }
 
       const waiting = yield* Deferred.make<void>();
       yield* HttpRouter.serve(

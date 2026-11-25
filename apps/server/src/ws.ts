@@ -182,6 +182,8 @@ import * as OrchestrationEventStore from "./persistence/OrchestrationEventStore.
 import { userFacingDispatchErrorMessage } from "./orchestration-v2/UserFacingErrors.ts";
 import * as ProviderRegistry from "./provider/ProviderRegistry.ts";
 import * as SecretCheck from "./secrets/SecretCheck.ts";
+import * as RemoteMcpTokens from "./auth/RemoteMcpTokens.ts";
+import * as PublicAddressCheck from "./environment/PublicAddressCheck.ts";
 import * as AcpRegistrySessions from "./provider/AcpRegistrySessions.ts";
 import * as ProviderInstanceRegistry from "./provider/ProviderInstanceRegistry.ts";
 import * as AcpRegistrySupport from "@t3tools/provider-acp-registry/server/AcpRegistrySupport";
@@ -1537,6 +1539,8 @@ export const layerWsRpc = (
       const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
       const sourceControlDiscovery = yield* SourceControlDiscovery.SourceControlDiscovery;
       const secretCheck = yield* SecretCheck.SecretCheck;
+      const remoteMcpTokens = yield* RemoteMcpTokens.RemoteMcpTokens;
+      const publicAddressCheck = yield* PublicAddressCheck.PublicAddressCheck;
       const textGenerators = yield* TextGenerators.TextGenerators;
       const sourceControlRepositories =
         yield* SourceControlRepositoryService.SourceControlRepositoryService;
@@ -2732,6 +2736,10 @@ export const layerWsRpc = (
           }),
         [WS_METHODS.serverDiscoverSourceControl]: (_input) => sourceControlDiscovery.discover,
         [WS_METHODS.serverCheckSecretSource]: (input) => secretCheck.check(input.source),
+        [WS_METHODS.serverCheckPublicAddress]: (input) => publicAddressCheck.check(input.url),
+        [WS_METHODS.remoteMcpStatus]: (_input) => remoteMcpTokens.status,
+        [WS_METHODS.remoteMcpCreateToken]: (input) => remoteMcpTokens.create(input),
+        [WS_METHODS.remoteMcpRevokeToken]: ({ id }) => remoteMcpTokens.revoke(id),
         [WS_METHODS.serverGetProcessDiagnostics]: (_input) => processDiagnostics.read,
         [WS_METHODS.serverGetHostResources]: (_input) => hostResources.read,
         [WS_METHODS.serverGetProcessResourceHistory]: (input) =>

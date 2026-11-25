@@ -1513,6 +1513,14 @@ export function createServerEnvironmentAtoms<R, E>(
     scheduler: configScheduler,
     concurrency: configConcurrency,
   });
+  const remoteMcpStatus = createEnvironmentRpcQueryAtomFamily(runtime, {
+    label: "environment-data:server:remote-mcp:status",
+    tag: WS_METHODS.remoteMcpStatus,
+  });
+  const refreshRemoteMcpStatus = (
+    { environmentId }: { readonly environmentId: EnvironmentId },
+    registry: AtomRegistry.AtomRegistry,
+  ) => Effect.sync(() => registry.refresh(remoteMcpStatus({ environmentId, input: {} })));
 
   return {
     configValueAtom,
@@ -2091,6 +2099,22 @@ export function createServerEnvironmentAtoms<R, E>(
     checkSecretSource: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:check-secret-source",
       tag: WS_METHODS.serverCheckSecretSource,
+    }),
+    checkPublicAddress: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:check-public-address",
+      tag: WS_METHODS.serverCheckPublicAddress,
+    }),
+    /** Token metadata only; a token's secret is in the create answer alone. */
+    remoteMcpStatus,
+    createRemoteMcpToken: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:remote-mcp:create-token",
+      tag: WS_METHODS.remoteMcpCreateToken,
+      onSuccess: refreshRemoteMcpStatus,
+    }),
+    revokeRemoteMcpToken: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:remote-mcp:revoke-token",
+      tag: WS_METHODS.remoteMcpRevokeToken,
+      onSuccess: refreshRemoteMcpStatus,
     }),
     listTextGeneratorModels: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:list-text-generator-models",

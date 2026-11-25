@@ -59,6 +59,16 @@ import * as RpcGroup from "effect/rpc/RpcGroup";
 import * as RpcMiddleware from "effect/rpc/RpcMiddleware";
 import { IsoDateTime, NonNegativeInt, ThreadId, TrimmedNonEmptyString } from "./baseSchemas.ts";
 import { SecretSourceCheckResult } from "./settingsSecretValue.ts";
+import {
+  PublicAddressCheckInput,
+  PublicAddressCheckResult,
+  RemoteMcpStatus,
+  RemoteMcpTokenCreateInput,
+  RemoteMcpTokenCreateResult,
+  RemoteMcpTokenError,
+  RemoteMcpTokenRevokeInput,
+  RemoteMcpTokenRevokeResult,
+} from "./remoteAccess.ts";
 import { SecretReference } from "./secretReference.ts";
 import {
   ProviderAuthCancelInput,
@@ -628,6 +638,10 @@ export const WS_METHODS = {
   serverUpdateSettings: "server.updateSettings",
   serverDiscoverSourceControl: "server.discoverSourceControl",
   serverCheckSecretSource: "server.checkSecretSource",
+  serverCheckPublicAddress: "server.checkPublicAddress",
+  remoteMcpStatus: "remoteMcp.status",
+  remoteMcpCreateToken: "remoteMcp.createToken",
+  remoteMcpRevokeToken: "remoteMcp.revokeToken",
   serverSearchAcpRegistry: "server.searchAcpRegistry",
   serverPrepareAcpRegistryAgent: "server.prepareAcpRegistryAgent",
   serverUninstallAcpRegistryManagedBinary: "server.uninstallAcpRegistryManagedBinary",
@@ -1096,6 +1110,31 @@ const WsServerCheckSecretSourceRpc = Rpc.make(WS_METHODS.serverCheckSecretSource
   payload: Schema.Struct({ source: SecretReference }),
   success: SecretSourceCheckResult,
   error: EnvironmentAuthorizationError,
+});
+
+/** Asks the tunnel address, from this server, whether it reaches this environment. */
+const WsServerCheckPublicAddressRpc = Rpc.make(WS_METHODS.serverCheckPublicAddress, {
+  payload: PublicAddressCheckInput,
+  success: PublicAddressCheckResult,
+  error: EnvironmentAuthorizationError,
+});
+
+const WsRemoteMcpStatusRpc = Rpc.make(WS_METHODS.remoteMcpStatus, {
+  payload: Schema.Struct({}),
+  success: RemoteMcpStatus,
+  error: Schema.Union([RemoteMcpTokenError, EnvironmentAuthorizationError]),
+});
+
+const WsRemoteMcpCreateTokenRpc = Rpc.make(WS_METHODS.remoteMcpCreateToken, {
+  payload: RemoteMcpTokenCreateInput,
+  success: RemoteMcpTokenCreateResult,
+  error: Schema.Union([RemoteMcpTokenError, EnvironmentAuthorizationError]),
+});
+
+const WsRemoteMcpRevokeTokenRpc = Rpc.make(WS_METHODS.remoteMcpRevokeToken, {
+  payload: RemoteMcpTokenRevokeInput,
+  success: RemoteMcpTokenRevokeResult,
+  error: Schema.Union([RemoteMcpTokenError, EnvironmentAuthorizationError]),
 });
 
 const WsServerSearchAcpRegistryRpc = Rpc.make(WS_METHODS.serverSearchAcpRegistry, {
@@ -2573,6 +2612,10 @@ export const WsRpcGroup = RpcGroup.make(
   WsPeerLinksPairLinkRpc,
   WsServerDiscoverSourceControlRpc,
   WsServerCheckSecretSourceRpc,
+  WsServerCheckPublicAddressRpc,
+  WsRemoteMcpStatusRpc,
+  WsRemoteMcpCreateTokenRpc,
+  WsRemoteMcpRevokeTokenRpc,
   WsServerSearchAcpRegistryRpc,
   WsServerPrepareAcpRegistryAgentRpc,
   WsServerUninstallAcpRegistryManagedBinaryRpc,

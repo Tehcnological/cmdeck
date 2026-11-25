@@ -28,6 +28,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Redacted from "effect/Redacted";
 import * as Ref from "effect/Ref";
+import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import { HttpServerRequest } from "effect/http";
 
@@ -620,12 +621,16 @@ export const layerMcpClientAuthenticator = Layer.effect(
     const environmentAuth = yield* EnvironmentAuth.EnvironmentAuth;
     const environment = yield* ServerEnvironment.ServerEnvironment;
     const environmentId = yield* environment.getEnvironmentId;
-    const remoteTokensEnabled = yield* RemoteMcpTokens.enabledConfig.pipe(
-      Effect.catch((cause) =>
-        Effect.logWarning("T3CODE_REMOTE_MCP is not a boolean; remote MCP tokens stay off.", {
-          cause,
-        }).pipe(Effect.as(false)),
-      ),
+    const envOverride = yield* RemoteMcpTokens.readEnvOverride;
+    const serverSettings = yield* ServerSettings.ServerSettingsService;
+    // Read per request, so the Settings switch applies without a restart.
+    const remoteTokensEnabled = serverSettings.getSettings.pipe(
+      Effect.map((settings) => RemoteMcpTokens.isEnabled(envOverride, settings.remoteMcpEnabled)),
+      Effect.orElseSucceed(() => false),
+    );
+    const remoteTokensTurnedOff = remoteTokensEnabled.pipe(
+      Effect.repeat({ schedule: Schedule.spaced("1 second"), while: (enabled) => enabled }),
+      Effect.asVoid,
     );
     const policy = yield* ManagedPolicy.ManagedPolicy;
     const remoteTokens = yield* RemoteMcpTokens.makeVerifier;
@@ -645,12 +650,14 @@ export const layerMcpClientAuthenticator = Layer.effect(
         })),
       );
     // A remote token is refused, never passed on to OAuth, while the feature or the policy is off.
+    // Turning the feature off also ends a token's open requests, as revoking it does.
     const authenticateRemoteToken = (
       token: string,
     ): Effect.Effect<McpInvocationContext.McpInvocationScope | undefined> =>
-      !remoteTokensEnabled || !ManagedLimits.allowsRemoteClients(policy)
+      !ManagedLimits.allowsRemoteClients(policy)
         ? Effect.undefined
-        : remoteTokens.verify(token).pipe(
+        : remoteTokensEnabled.pipe(
+            Effect.flatMap((enabled) => (enabled ? remoteTokens.verify(token) : Effect.undefined)),
             Effect.flatMap(
               (record): Effect.Effect<McpInvocationContext.McpInvocationScope | undefined> =>
                 record === undefined
@@ -659,7 +666,10 @@ export const layerMcpClientAuthenticator = Layer.effect(
                       sessionId: `remote-mcp-token:${record.id}`,
                       label: record.label,
                       access: record.access,
-                      tokenRevoked: remoteTokens.awaitRevocation(record.id),
+                      tokenRevoked: Effect.raceFirst(
+                        remoteTokens.awaitRevocation(record.id),
+                        remoteTokensTurnedOff,
+                      ),
                     }),
             ),
             Effect.catch((error) =>
