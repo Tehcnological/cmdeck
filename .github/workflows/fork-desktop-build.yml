@@ -1,0 +1,50 @@
+# Builds an unsigned Windows x64 installer for a chosen tag or branch and keeps it as a run
+# artifact. Nothing here publishes, deploys, or uses secrets.
+name: Fork desktop build
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Tag, branch or commit to build
+        required: true
+        default: v1
+
+permissions:
+  contents: read
+
+jobs:
+  windows-x64:
+    name: Windows x64 installer
+    runs-on: windows-2025
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ inputs.ref }}
+          sparse-checkout: |
+            /*
+            !/.repos/
+            !/apps/mobile/modules/t3-terminal/Vendor/**/*.a
+          sparse-checkout-cone-mode: false
+
+      - name: Setup Vite+
+        uses: ./.github/actions/setup-ci-deps
+        with:
+          install: "false"
+
+      - name: Install dependencies
+        run: vp install --frozen-lockfile
+
+      # Unsigned: Windows SmartScreen shows an "unknown publisher" prompt on install.
+      - name: Build installer
+        run: vp run dist:desktop:win:x64
+
+      - name: Upload installer
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cmdeck-windows-x64-installer
+          path: release/*.exe
+          if-no-files-found: error
+          retention-days: 14
