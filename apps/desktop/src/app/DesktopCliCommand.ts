@@ -87,6 +87,7 @@ export const make = Effect.gen(function* () {
   const path = environment.path;
   const windows = environment.platform === "win32";
   const launcher = DesktopCliShim.launcherPath(environment);
+  const cmdeckLauncher = DesktopCliShim.cmdeckLauncherPath(environment);
   const binDirectory = path.dirname(launcher);
   const ownedPathMarker = path.join(environment.stateDir, "cli-command-path-entry");
   const firstLaunchMarker = path.join(environment.stateDir, "cli-command-first-launch");
@@ -192,6 +193,14 @@ export const make = Effect.gen(function* () {
       Effect.orElseSucceed(() => false),
     );
 
+  const ourLinkNamed = Effect.fn("DesktopCliCommand.ourLinkNamed")(function* (name: string) {
+    for (const directory of knownLocations(environment.homeDirectory, environment.platform)) {
+      const link = path.join(directory, name);
+      if (yield* isOurLink(link)) return Option.some(link);
+    }
+    return Option.none<string>();
+  });
+
   const installedAt = Effect.gen(function* () {
     if (windows) {
       if (!(yield* exists(ownedPathMarker))) return Option.none<string>();
@@ -200,12 +209,59 @@ export const make = Effect.gen(function* () {
         ? Option.some(launcher)
         : Option.none<string>();
     }
-    for (const directory of knownLocations(environment.homeDirectory, environment.platform)) {
-      const link = path.join(directory, "t3");
-      if (yield* isOurLink(link)) return Option.some(link);
+    return yield* ourLinkNamed("t3");
+  });
+
+  /**
+   * Links `cmdeck` into the first usable user bin folder. Unlike `t3`, the official T3 Code has
+   * no `cmdeck`, so it works even where another `t3` runs first.
+   */
+  const linkCmdeck = Effect.gen(function* () {
+    const replaced = Option.getOrUndefined(yield* ourLinkNamed("cmdeck"));
+    if (replaced !== undefined) {
+      const target = yield* fs.readLink(replaced).pipe(Effect.option);
+      if (Option.getOrUndefined(target) === cmdeckLauncher) return Option.some(replaced);
+    }
+    const onPath = pathEntries(env.PATH, ":").map((entry) => entry.replace(/\/+$/, ""));
+    const candidates = userCandidates(environment.homeDirectory);
+    for (const directory of new Set([
+      ...(replaced === undefined ? [] : [path.dirname(replaced)]),
+      ...candidates.filter((candidate) => onPath.includes(candidate)),
+      ...candidates.filter((candidate) => !onPath.includes(candidate)),
+    ])) {
+      const link = path.join(directory, "cmdeck");
+      const usable = (yield* exists(directory))
+        ? yield* writableDirectory(directory)
+        : yield* fs.makeDirectory(directory, { recursive: true }).pipe(
+            Effect.as(true),
+            Effect.orElseSucceed(() => false),
+          );
+      if (!usable) continue;
+      const staging = `${link}.${yield* Random.nextIntBetween(0, 0xffffff)}.tmp`;
+      const linked = yield* (
+        link === replaced
+          ? fs
+              .symlink(cmdeckLauncher, staging)
+              .pipe(
+                Effect.andThen(
+                  fs
+                    .rename(staging, link)
+                    .pipe(Effect.tapError(() => fs.remove(staging).pipe(Effect.ignore))),
+                ),
+              )
+          : fs.symlink(cmdeckLauncher, link)
+      ).pipe(
+        Effect.as(true),
+        Effect.orElseSucceed(() => false),
+      );
+      if (!linked) continue;
+      if (replaced !== undefined && replaced !== link) {
+        yield* fs.remove(replaced).pipe(Effect.ignore);
+      }
+      return Option.some(link);
     }
     return Option.none<string>();
-  });
+  }).pipe(Effect.withSpan("desktop.cliCommand.linkCmdeck"));
 
   const startupLine = (installedPath: string) => {
     const setup = pathSetup({
@@ -311,6 +367,7 @@ export const make = Effect.gen(function* () {
       }
       return yield* state;
     }
+    const cmdeckLinked = Option.isSome(yield* linkCmdeck);
     const candidates = userCandidates(environment.homeDirectory);
     const replaced = Option.getOrUndefined(yield* installedAt);
     if (replaced !== undefined) {
@@ -320,6 +377,8 @@ export const make = Effect.gen(function* () {
     const shadowedBy = yield* foreignFirstOnPath;
     // Our own link into another T3 home runs first too; it is the one this install updates.
     if (Option.isSome(shadowedBy) && shadowedBy.value !== replaced) {
+      // `cmdeck` still works; `t3` stays with the other install.
+      if (cmdeckLinked) return yield* state;
       return yield* fail(
         `Another t3 at ${shadowedBy.value} runs first in a new terminal. Remove it, or run the launcher directly at ${launcher}.`,
       );
@@ -364,6 +423,7 @@ export const make = Effect.gen(function* () {
       }
       return yield* state;
     }
+    if (cmdeckLinked) return yield* state;
     return yield* fail(
       `Another t3 command is already in ~/.local/bin and ~/bin, or neither is writable. Run the launcher directly at ${launcher}.`,
     );
@@ -382,9 +442,11 @@ export const make = Effect.gen(function* () {
       return yield* state;
     }
     for (const directory of knownLocations(environment.homeDirectory, environment.platform)) {
-      const link = path.join(directory, "t3");
-      if (yield* isOurLink(link)) {
-        yield* fs.remove(link).pipe(Effect.mapError(() => fail(`Could not remove ${link}.`)));
+      for (const name of ["t3", "cmdeck"]) {
+        const link = path.join(directory, name);
+        if (yield* isOurLink(link)) {
+          yield* fs.remove(link).pipe(Effect.mapError(() => fail(`Could not remove ${link}.`)));
+        }
       }
     }
     return yield* state;
@@ -418,7 +480,16 @@ export const make = Effect.gen(function* () {
 
   const installOnFirstLaunch: DesktopCliCommand["Service"]["installOnFirstLaunch"] = Effect.gen(
     function* () {
-      if (!environment.isPackaged || (yield* exists(firstLaunchMarker))) return;
+      if (!environment.isPackaged) return;
+      // Builds before `cmdeck` linked only `t3`; add `cmdeck` beside a `t3` the user kept.
+      if (!windows) {
+        const kept = yield* installedAt;
+        if (Option.isSome(kept) && (yield* leadsHere(kept.value))) {
+          // Startup writes the launchers concurrently; the link must not point at a missing file.
+          yield* ensureLauncher.pipe(Effect.andThen(linkCmdeck), Effect.ignore);
+        }
+      }
+      if (yield* exists(firstLaunchMarker)) return;
       // Mark first so a failed or removed install is never retried behind the user's back.
       yield* fs.writeFileString(firstLaunchMarker, "");
       if (!freshInstall) {
