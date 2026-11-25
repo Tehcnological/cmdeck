@@ -59,7 +59,7 @@ jobs:
   icons:
     name: Brand icons (Icon Composer)
     if: ${{ github.event.label.name == 'run-fixups' }}
-    runs-on: macos-latest
+    runs-on: macos-26
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -78,6 +78,17 @@ jobs:
 
       - name: Install dependencies
         run: vp install --frozen-lockfile
+
+      # The design file needs Icon Composer 2.x (Xcode 26+); pick the newest Xcode that ships it.
+      - name: Find Icon Composer
+        run: |
+          ls -d /Applications/Xcode*.app || true
+          tool=$(ls -d /Applications/Xcode*.app/Contents/Applications/Icon\ Composer.app/Contents/Executables/ictool 2>/dev/null | sort -V | tail -1)
+          echo "ictool: ${tool:-none}"
+          if [ -n "$tool" ]; then
+            echo "ICON_COMPOSER_TOOL=$tool" >> "$GITHUB_ENV"
+            echo "DEVELOPER_DIR=${tool%%.app/*}.app/Contents/Developer" >> "$GITHUB_ENV"
+          fi
 
       - name: Export brand icons
         run: vp run icons:export
