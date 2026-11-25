@@ -126,6 +126,7 @@ describe("resolveProjectSettings", () => {
     const codex = ProviderInstanceId.make("codex");
     const settings = {
       ...DEFAULT_SERVER_SETTINGS,
+      textGenerationFallback: "local" as const,
       textGenerationModelSelection: createModelSelection(codex, "gpt-5"),
       projectSettingsOverrides: {
         [projectId]: { providerInstances: { [codex]: { enabled: false } } },
