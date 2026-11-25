@@ -218,7 +218,13 @@ jobs:
             node apps/web/node_modules/playwright/cli.js install-deps chromium
           fi
 
+      # Run on their own first so a crash elsewhere can't hide their assertion output.
+      - name: Test Sidebar and DiffPanel browser suites
+        working-directory: apps/web
+        run: vp test run --project browser src/components/Sidebar.browser.test.tsx src/components/DiffPanel.browser.test.tsx
+
       - name: Test
+        if: ${{ !cancelled() }}
         run: vp run --filter @t3tools/web test
 
   test-server:
