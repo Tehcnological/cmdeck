@@ -35,7 +35,7 @@ const nameField = () => page.getByPlaceholder("laptop-claude");
 async function createToken(name: string) {
   await userEvent.click(page.getByRole("button", { name: "open token dialog" }));
   await userEvent.fill(nameField(), name);
-  await userEvent.click(page.getByRole("button", { name: "Create token" }));
+  await userEvent.keyboard("{Enter}");
 }
 
 describe("RemoteMcpTokenCreator", () => {

@@ -130,7 +130,7 @@ describe("searchSettings", () => {
       searchSettings("remote pairing")
         .slice(0, 2)
         .map((item) => item.id),
-    ).toEqual(["network-access", "connections-environment"]);
+    ).toEqual(["network-access", "cloudflare-tunnel"]);
   });
 
   it("hides desktop-only settings from browser search", () => {

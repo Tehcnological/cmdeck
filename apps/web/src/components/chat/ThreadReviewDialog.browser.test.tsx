@@ -73,14 +73,14 @@ const provider = (
 
 const providers = [
   provider("claude-work", "claudeAgent", "Claude", { slug: "sonnet", name: "Claude Review" }),
-  provider("antigravity", "antigravity", "Antigravity", { slug: "gemini-x", name: "Gemini X" }),
+  provider("antigravity", "antigravity", "Antigravity", { slug: "hawk-review", name: "Hawk" }),
 ];
 
 it("offers every provider, Antigravity included, with the last reviewer prefilled", async () => {
   __setClientSettingsForTests({
     ...DEFAULT_CLIENT_SETTINGS,
     reviewerModelSelections: {
-      [environmentId]: { instanceId: ProviderInstanceId.make("antigravity"), model: "gemini-x" },
+      [environmentId]: { instanceId: ProviderInstanceId.make("antigravity"), model: "hawk-review" },
     },
   });
   await using _screen = await render(
@@ -93,7 +93,7 @@ it("offers every provider, Antigravity included, with the last reviewer prefille
   );
 
   const trigger = page.getByRole("button", { name: "Reviewer model" });
-  await expect.element(trigger).toHaveTextContent("Gemini X");
+  await expect.element(trigger).toHaveTextContent("Hawk");
   await expect.element(page.getByRole("button", { name: "Start review" })).toBeEnabled();
 
   await trigger.click();
