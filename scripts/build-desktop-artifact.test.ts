@@ -19,7 +19,6 @@ import * as Sink from "effect/Sink";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { fromYaml } from "@t3tools/shared/schemaYaml";
 
 import {
   buildDesktopBundles,
@@ -504,7 +503,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     }),
   );
 
-  it.effect("omits update feeds for pull request preview builds", () =>
+  it.effect("omits update feeds from every build", () =>
     Effect.gen(function* () {
       const preview = yield* createBuildConfig(
         "mac",
@@ -537,14 +536,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
 
       assert.isNull(preview.publish);
       assert.isNull(previewChannel.publish);
-      assert.deepStrictEqual(release.publish, [
-        {
-          provider: "github",
-          owner: "pingdotgg",
-          repo: "t3code",
-          releaseType: "release",
-        },
-      ]);
+      assert.isNull(release.publish);
     }).pipe(
       Effect.provide(
         ConfigProvider.layer(
@@ -574,10 +566,11 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     }),
   );
 
+  // Only mock-update builds carry a feed in this fork, so only they get the updatable name.
   it.effect("names updatable AppImages without a version and apart per channel", () =>
     Effect.gen(function* () {
       const appImageName = (version: string) =>
-        createBuildConfig("linux", "AppImage", version, false, false, undefined, undefined).pipe(
+        createBuildConfig("linux", "AppImage", version, false, true, undefined, undefined).pipe(
           Effect.map((config) => (config.appImage as { artifactName: string }).artifactName),
         );
 
@@ -1457,36 +1450,6 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     ),
   );
 
-  it.effect("packages the macOS preview's PR bundle as untrusted", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const workflow = yield* fs.readFileString(
-        yield* path.fromFileUrl(
-          new URL("../.github/workflows/desktop-macos-preview-publish.yml", import.meta.url),
-        ),
-      );
-      const { jobs } = yield* Schema.decodeEffect(
-        fromYaml(
-          Schema.Struct({
-            jobs: Schema.Record(
-              Schema.String,
-              Schema.Struct({
-                uses: Schema.optional(Schema.String),
-                with: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
-              }),
-            ),
-          }),
-        ),
-      )(workflow);
-      const packaging = Object.values(jobs).filter(
-        (job) => job.uses === "./.github/workflows/release-desktop.yml",
-      );
-      assert.isNotEmpty(packaging);
-      for (const job of packaging) assert.strictEqual(job.with?.untrusted_bundle, true);
-    }),
-  );
-
   it.effect("rejects a macOS stage without a packaged app", () =>
     Effect.scoped(
       Effect.gen(function* () {
@@ -1592,7 +1555,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       "clerk.example.com",
       "example.clerk.accounts.dev",
     ]);
-    assert.include(entitlements, "<string>ABC1234567.com.t3tools.t3code</string>");
+    assert.include(entitlements, "<string>ABC1234567.com.tehcnological.cmdeck</string>");
     assert.include(entitlements, "<string>webcredentials:clerk.example.com</string>");
     assert.include(entitlements, "<string>webcredentials:example.clerk.accounts.dev</string>");
     assert.include(entitlements, "<key>com.apple.security.cs.allow-jit</key>");

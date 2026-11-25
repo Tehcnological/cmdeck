@@ -612,9 +612,11 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("concurrent ins
         wrapper,
         `
 import { execFileSync } from 'node:child_process';
-await fetch(process.env.T3_TEST_ORIGIN + '/ready/' + process.env.T3_TEST_INSTALLER);
+// Only the runtime publication (plain mv) is staged; launcher moves (mv -f) pass straight through.
+const staged = process.argv[2] !== '-f';
+if (staged) await fetch(process.env.T3_TEST_ORIGIN + '/ready/' + process.env.T3_TEST_INSTALLER);
 execFileSync(${JSON.stringify(realMv)}, process.argv.slice(2));
-if (process.env.T3_TEST_INSTALLER === 'first') await fetch(process.env.T3_TEST_ORIGIN + '/published');
+if (staged && process.env.T3_TEST_INSTALLER === 'first') await fetch(process.env.T3_TEST_ORIGIN + '/published');
 `,
       );
       await NodeFSP.writeFile(
