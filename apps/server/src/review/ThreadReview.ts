@@ -1,6 +1,7 @@
 import {
   CHECKPOINT_DIFF_TRUNCATED_MARKER,
   CommandId,
+  isRuntimeModeAbove,
   MessageId,
   type ModelSelection,
   type OrchestrationGetFullThreadDiffResult,
@@ -16,6 +17,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import * as CheckpointDiffQuery from "../checkpointing/CheckpointDiffQuery.ts";
+import { DispatchModeLimit } from "../orchestration-v2/DispatchModeLimit.ts";
 import type { ProjectionCheckpointContext } from "../orchestration-v2/ProjectionStore.ts";
 import * as ThreadManagement from "../orchestration-v2/ThreadManagementService.ts";
 import { userFacingDispatchErrorMessage } from "../orchestration-v2/UserFacingErrors.ts";
@@ -42,6 +44,8 @@ export class ThreadReview extends Context.Service<
       readonly threadId: ThreadId;
       readonly modelSelection: ModelSelection;
       readonly requestedBy: "user" | "agent";
+      /** Extra focus for the reviewer, from the agent that asked. */
+      readonly instructions?: string | undefined;
     }) => Effect.Effect<ThreadReviewStartResult, ThreadReviewError>;
   }
 >()("t3/review/ThreadReview") {}
@@ -75,7 +79,7 @@ function reviewPatch(diff: OrchestrationGetFullThreadDiffResult): string {
     .join("\n\n");
 }
 
-function reviewPrompt(patch: string): string {
+function reviewPrompt(patch: string, instructions: string | undefined): string {
   const truncated =
     patch.length > MAX_REVIEW_DIFF_CHARS || patch.includes(CHECKPOINT_DIFF_TRUNCATED_MARKER);
   return [
@@ -83,6 +87,7 @@ function reviewPrompt(patch: string): string {
     "Do not edit files, run commands that change anything, or commit. Read files in the workspace only when you need context.",
     "Report concrete findings, most severe first. For each: the file and line, what is wrong, and why it matters. Skip style nits unless they hide a bug. If you find nothing worth fixing, say so plainly.",
     ...(truncated ? ["The diff is truncated; say which parts you could not review."] : []),
+    ...(instructions === undefined ? [] : ["", "Also:", instructions]),
     "",
     "```diff",
     patch.slice(0, MAX_REVIEW_DIFF_CHARS),
@@ -96,116 +101,122 @@ const make = Effect.gen(function* () {
   const providers = yield* ProviderRegistry.ProviderRegistry;
   const random = yield* SecureRandom.SecureRandom;
 
-  const start: ThreadReview["Service"]["start"] = Effect.fn("ThreadReview.start")(
-    function* (input) {
-      yield* Effect.annotateCurrentSpan({
-        "thread_review.thread_id": input.threadId,
-        "thread_review.instance_id": input.modelSelection.instanceId,
+  const start: ThreadReview["Service"]["start"] = Effect.fn("ThreadReview.start")(function* (
+    input,
+  ) {
+    yield* Effect.annotateCurrentSpan({
+      "thread_review.thread_id": input.threadId,
+      "thread_review.instance_id": input.modelSelection.instanceId,
+    });
+    const reviewer = (yield* providers.getProviders).find(
+      (provider) => provider.instanceId === input.modelSelection.instanceId,
+    );
+    if (reviewer === undefined || !reviewer.enabled) {
+      return yield* new ThreadReviewError({
+        reason: "reviewer_unavailable",
+        message: `Provider instance ${input.modelSelection.instanceId} is not available on this environment.`,
       });
-      const reviewer = (yield* providers.getProviders).find(
-        (provider) => provider.instanceId === input.modelSelection.instanceId,
-      );
-      if (reviewer === undefined || !reviewer.enabled) {
-        return yield* new ThreadReviewError({
-          reason: "reviewer_unavailable",
-          message: `Provider instance ${input.modelSelection.instanceId} is not available on this environment.`,
-        });
-      }
-      const runtimeMode = REVIEWER_RUNTIME_MODES.find(
-        (mode) =>
-          reviewer.supportedRuntimeModes === undefined ||
-          reviewer.supportedRuntimeModes.includes(mode),
-      );
-      if (runtimeMode === undefined) {
-        return yield* new ThreadReviewError({
-          reason: "reviewer_unavailable",
-          message: `Provider instance ${reviewer.instanceId} only runs with full access, which a reviewer never gets.`,
-        });
-      }
+    }
+    // An agent's review runs no broader than the agent itself may.
+    const limit = yield* DispatchModeLimit;
+    const runtimeMode = REVIEWER_RUNTIME_MODES.find(
+      (mode) =>
+        (reviewer.supportedRuntimeModes === undefined ||
+          reviewer.supportedRuntimeModes.includes(mode)) &&
+        (limit === undefined || !isRuntimeModeAbove(mode, limit.runtimeMode)),
+    );
+    if (runtimeMode === undefined) {
+      return yield* new ThreadReviewError({
+        reason: "reviewer_unavailable",
+        message:
+          limit === undefined
+            ? `Provider instance ${reviewer.instanceId} only runs with full access, which a reviewer never gets.`
+            : `Provider instance ${reviewer.instanceId} has no permission mode within this caller's ${limit.runtimeMode}.`,
+      });
+    }
 
-      const threadNotFound = () =>
-        new ThreadReviewError({
-          reason: "thread_not_found",
-          message: `Thread ${input.threadId} was not found.`,
-        });
-      const parent = yield* threads
-        .getThreadShell(input.threadId)
-        .pipe(Effect.mapError(threadNotFound));
-      if (parent === null || parent.deletedAt !== null) return yield* threadNotFound();
+    const threadNotFound = () =>
+      new ThreadReviewError({
+        reason: "thread_not_found",
+        message: `Thread ${input.threadId} was not found.`,
+      });
+    const parent = yield* threads
+      .getThreadShell(input.threadId)
+      .pipe(Effect.mapError(threadNotFound));
+    if (parent === null || parent.deletedAt !== null) return yield* threadNotFound();
 
-      const diffUnavailable = () =>
-        new ThreadReviewError({
-          reason: "diff_unavailable",
-          message: "The thread's diff could not be read.",
-        });
-      const toTurnCount = latestDiffTurnCount(
-        yield* threads.getCheckpointContext(input.threadId).pipe(Effect.mapError(diffUnavailable)),
-      );
-      const patch =
-        toTurnCount === 0
-          ? ""
-          : reviewPatch(
-              yield* diffs
-                .getFullThreadDiff({ threadId: input.threadId, toTurnCount })
-                .pipe(Effect.mapError(diffUnavailable)),
-            );
-      if (patch.trim().length === 0) {
-        return yield* new ThreadReviewError({
-          reason: "nothing_to_review",
-          message: "This thread has no changes to review yet.",
-        });
-      }
+    const diffUnavailable = () =>
+      new ThreadReviewError({
+        reason: "diff_unavailable",
+        message: "The thread's diff could not be read.",
+      });
+    const toTurnCount = latestDiffTurnCount(
+      yield* threads.getCheckpointContext(input.threadId).pipe(Effect.mapError(diffUnavailable)),
+    );
+    const patch =
+      toTurnCount === 0
+        ? ""
+        : reviewPatch(
+            yield* diffs
+              .getFullThreadDiff({ threadId: input.threadId, toTurnCount })
+              .pipe(Effect.mapError(diffUnavailable)),
+          );
+    if (patch.trim().length === 0) {
+      return yield* new ThreadReviewError({
+        reason: "nothing_to_review",
+        message: "This thread has no changes to review yet.",
+      });
+    }
 
-      const id = yield* random.uuidV4().pipe(Effect.mapError(() => startFailed(undefined)));
-      const reviewThreadId = ThreadId.make(`review:${id}`);
-      const command = (step: string) => CommandId.make(`server:thread-review:${id}:${step}`);
-      const origin = {
-        createdBy: input.requestedBy,
-        creationSource: input.requestedBy === "agent" ? ("mcp" as const) : ("web" as const),
-      };
-      const dispatch = (step: Parameters<typeof threads.dispatch>[0]) =>
-        threads.dispatch(step).pipe(Effect.mapError(startFailed));
+    const id = yield* random.uuidV4().pipe(Effect.mapError(() => startFailed(undefined)));
+    const reviewThreadId = ThreadId.make(`review:${id}`);
+    const command = (step: string) => CommandId.make(`server:thread-review:${id}:${step}`);
+    const origin = {
+      createdBy: input.requestedBy,
+      creationSource: input.requestedBy === "agent" ? ("mcp" as const) : ("web" as const),
+    };
+    const dispatch = (step: Parameters<typeof threads.dispatch>[0]) =>
+      threads.dispatch(step).pipe(Effect.mapError(startFailed));
 
-      // A side chat shares the thread's checkout without snapshotting it; the tag marks it a review.
-      yield* dispatch({
-        type: "thread.fork",
-        ...origin,
-        commandId: command("fork"),
-        sourceThreadId: input.threadId,
-        targetThreadId: reviewThreadId,
-        sourcePoint: { type: "latest_stable" },
-        sideChat: true,
-        title: `Review by ${input.modelSelection.model}`,
-      });
-      yield* dispatch({
-        type: "thread.tag.set",
-        commandId: command("tag"),
-        threadId: reviewThreadId,
-        tag: THREAD_REVIEW_TAG,
-        tagged: true,
-      });
-      yield* dispatch({
-        type: "thread.runtime-mode.set",
-        commandId: command("runtime-mode"),
-        threadId: reviewThreadId,
-        runtimeMode,
-      });
-      // Fresh context: the reviewer judges the diff, not the conversation that produced it.
-      yield* dispatch({
-        type: "message.dispatch",
-        ...origin,
-        commandId: command("message"),
-        threadId: reviewThreadId,
-        messageId: MessageId.make(`message:thread-review:${id}`),
-        text: reviewPrompt(patch),
-        attachments: [],
-        modelSelection: input.modelSelection,
-        freshContext: true,
-        dispatchMode: { type: "start_immediately" },
-      });
-      return { reviewThreadId };
-    },
-  );
+    // A side chat shares the thread's checkout without snapshotting it; the tag marks it a review.
+    yield* dispatch({
+      type: "thread.fork",
+      ...origin,
+      commandId: command("fork"),
+      sourceThreadId: input.threadId,
+      targetThreadId: reviewThreadId,
+      sourcePoint: { type: "latest_stable" },
+      sideChat: true,
+      title: `Review by ${input.modelSelection.model}`,
+    });
+    yield* dispatch({
+      type: "thread.tag.set",
+      commandId: command("tag"),
+      threadId: reviewThreadId,
+      tag: THREAD_REVIEW_TAG,
+      tagged: true,
+    });
+    yield* dispatch({
+      type: "thread.runtime-mode.set",
+      commandId: command("runtime-mode"),
+      threadId: reviewThreadId,
+      runtimeMode,
+    });
+    // Fresh context: the reviewer judges the diff, not the conversation that produced it.
+    yield* dispatch({
+      type: "message.dispatch",
+      ...origin,
+      commandId: command("message"),
+      threadId: reviewThreadId,
+      messageId: MessageId.make(`message:thread-review:${id}`),
+      text: reviewPrompt(patch, input.instructions),
+      attachments: [],
+      modelSelection: input.modelSelection,
+      freshContext: true,
+      dispatchMode: { type: "start_immediately" },
+    });
+    return { reviewThreadId };
+  });
 
   return ThreadReview.of({ start });
 });
