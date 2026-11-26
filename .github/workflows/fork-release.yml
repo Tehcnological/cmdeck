@@ -207,7 +207,12 @@ jobs:
         run: |
           shopt -s nullglob
           if [[ "$RELEASE_TAG" == *-beta.* ]]; then feed=beta other=latest; else feed=latest other=beta; fi
-          stray=("$other".yml "$other"-*.yml)
+          # A name without a wildcard stays in the list even when nullglob is on, so keep only files
+          # that exist.
+          stray=()
+          for candidate in "$other".yml "$other"-*.yml; do
+            [ -e "$candidate" ] && stray+=("$candidate")
+          done
           [ "${#stray[@]}" -eq 0 ] || { echo "::error::$RELEASE_TAG must not carry ${stray[*]}." >&2; exit 1; }
           for pattern in '*.exe' '*.exe.blockmap' "$feed.yml" '*.dmg' '*.zip' '*.zip.blockmap' \
             "$feed-mac.yml" '*.AppImage' '*.deb' "$feed-linux.yml"; do
