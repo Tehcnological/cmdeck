@@ -254,6 +254,22 @@ cover readiness and discovery, including OpenCode server startup. Usage and
 config enrichment retain their own shorter limits. Turn execution, package
 installation, update checks, and shutdown limits keep their existing behavior.
 
+### Data folder on a network or synced drive
+
+CMDeck memory-maps up to 256 MiB of its database for faster reads. Memory
+mapping is unsafe when the data folder is on a network share (SMB, NFS) or in a
+cloud-synced folder (OneDrive, Dropbox, iCloud Drive, Google Drive): a dropped
+connection or a sync can crash the server or damage the database. CMDeck turns
+it off for UNC paths and those sync folders on its own. For any other network
+mount, turn it off yourself and restart the server:
+
+```bash
+T3CODE_SQLITE_MMAP_BYTES=0 cmdeck serve
+```
+
+The value is the mapping size in bytes; `0` turns it off. A value that is not a
+whole number also turns it off.
+
 ## Uninstall CMDeck
 
 In the desktop app, open **Settings → About** and choose **Uninstall…**. The dialog lists exactly

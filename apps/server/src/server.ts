@@ -788,7 +788,8 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
   layerProviderInstallationRefresh,
   ProviderInstallation.layer,
   ReplayMarkers.layer,
-  Layer.effectDiscard(ProjectSettingsOverrideSweep.sweep),
+  // Cleanup only; it must not hold up startup.
+  Layer.effectDiscard(ServerActivation.forkParked(ProjectSettingsOverrideSweep.sweep)),
 )
   .pipe(
     Layer.provideMerge(layerOrchestrationApplication),

@@ -35,6 +35,8 @@ export interface SqliteClientConfig {
   readonly spanAttributes?: Record<string, unknown> | undefined;
   /** Ignored for in-memory databases, which cannot share a second connection. */
   readonly readerWorker?: boolean | undefined;
+  /** Run by each reader worker after it opens, e.g. `PRAGMA mmap_size = 0;`. */
+  readonly readerPragmas?: string | undefined;
   /** Runs the writer and WAL checkpoints off the event loop. Ignored for in-memory databases. */
   readonly writerWorker?: boolean | undefined;
 }
@@ -214,6 +216,7 @@ try {
     allowExtension: workerData.allowExtension,
   });
   next.exec("PRAGMA busy_timeout = 5000;");
+  if (workerData.pragmas) next.exec(workerData.pragmas);
   // Reads the header, so a file that is not a database fails here rather than on first use.
   const mode = String(next.prepare("PRAGMA journal_mode").get().journal_mode).toLowerCase();
   // Without WAL a reader's shared lock blocks the writer's commits, so refuse.
@@ -363,6 +366,7 @@ const makeWorkerConnection = Effect.fnUntraced(function* (options: {
   readonly role: "reader" | "writer";
   readonly readOnly: boolean;
   readonly onReply?: () => void;
+  readonly pragmas?: string | undefined;
 }) {
   const label = options.role === "reader" ? "Database reader" : "Database writer";
   const readOnly = options.readOnly;
@@ -388,6 +392,7 @@ const makeWorkerConnection = Effect.fnUntraced(function* (options: {
         requireWal: options.role === "reader",
         allowExtension: false,
         prepareCacheSize: 200,
+        pragmas: options.pragmas,
       },
     });
     let announce: (startup: WorkerStartup) => void = () => {};
@@ -614,8 +619,17 @@ const startFailure = (error: SqlError) => {
 
 // A reader that cannot start turns off the whole pool, so routing never picks a dead slot, until
 // one background retry starts it again.
-const makeReader = Effect.fnUntraced(function* (filename: string, pool: { unavailable: boolean }) {
-  const acquire = yield* makeWorkerConnection({ filename, role: "reader", readOnly: true });
+const makeReader = Effect.fnUntraced(function* (
+  filename: string,
+  pool: { unavailable: boolean },
+  pragmas: string | undefined,
+) {
+  const acquire = yield* makeWorkerConnection({
+    filename,
+    role: "reader",
+    readOnly: true,
+    pragmas,
+  });
   const scope = yield* Effect.scope;
   const context = yield* Effect.context<never>();
 
@@ -955,7 +969,10 @@ const make = Effect.fn("makeWithDatabase")(function* (
     options.readerWorker && isFileDatabase
       ? yield* Effect.forEach(Array.from({ length: READER_POOL_SIZE }), () =>
           Effect.map(
-            Effect.all([makeReader(options.filename, readerPool), Semaphore.make(1)]),
+            Effect.all([
+              makeReader(options.filename, readerPool, options.readerPragmas),
+              Semaphore.make(1),
+            ]),
             ([acquire, lock]) => ({
               acquire,
               lock,
