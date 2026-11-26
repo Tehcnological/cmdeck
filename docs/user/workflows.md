@@ -6,7 +6,7 @@ For one prompt on a timer or webhook, use a scheduled task. Use a workflow when 
 
 ## Turn on workflows
 
-Workflows are a Labs feature, off by default. Turn on **Settings → Labs → Workflows** for the server that runs them. On a server without a desktop, set `"workflowsEnabled": true` in `userdata/settings.json` in its T3 home (`~/.cmdeck` by default). While off, nothing in the workflows folder runs and `t3 workflow` says how to turn it on; runs are kept and continue once it is on again.
+Workflows are a Labs feature, off by default. Turn on **Settings → Labs → Workflows** for the server that runs them. On a server without a desktop, set `"workflowsEnabled": true` in `userdata/settings.json` in its CMDeck data folder (`~/.cmdeck` by default). While off, nothing in the workflows folder runs and `t3 workflow` says how to turn it on; runs are kept and continue once it is on again.
 
 ## Create a workflow
 

@@ -32,7 +32,7 @@ export const OmpSettings = makeProviderSettingsSchema(
     toolProfile: Schema.Literals(["auto", "full", "lean"]).pipe(
       Schema.withDecodingDefault(Effect.succeed("auto")),
       Schema.annotateKey({
-        title: "T3 tools",
+        title: "CMDeck tools",
         description:
           "Lean offers only orchestration, thread, project and worktree tools, which leaves more context for local models.",
         providerSettingsForm: {

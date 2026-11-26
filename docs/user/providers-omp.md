@@ -2,7 +2,7 @@
 
 [Oh My Pi](https://github.com/can1357/oh-my-pi) is a fork of the Pi coding agent. CMDeck runs it
 through the same integration as [Pi](./providers-pi.md), so models, auth, extensions, launch
-arguments, and T3 tools behave as described there. OMP keeps its own state in `~/.omp/agent`.
+arguments, and CMDeck tools behave as described there. OMP keeps its own state in `~/.omp/agent`.
 
 ## Set Up OMP
 

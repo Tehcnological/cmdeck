@@ -127,3 +127,15 @@ it("shows Boring sidebar device preferences read-only while a project is selecte
     expect(screen.getByRole("switch", { name }).element().closest("[inert]")).not.toBeNull();
   }
 });
+
+it("hides Guest links without T3 Connect, which guests arrive through", async () => {
+  await using screen = await render(
+    <SettingsScopeProvider search={{}} onChange={() => {}}>
+      <LabsSettingsPanel />
+    </SettingsScopeProvider>,
+    { router: "/settings/labs" },
+  );
+
+  await expect.element(screen.getByRole("switch", { name: "Linked environments" })).toBeVisible();
+  expect(screen.getByRole("switch", { name: "Guest links" }).query()).toBeNull();
+});

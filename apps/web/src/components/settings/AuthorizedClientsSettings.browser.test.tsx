@@ -77,4 +77,12 @@ describe("AuthorizedClientsHeaderAction", () => {
     await expect.element(screen.getByRole("button", { name: "Create link" })).toBeEnabled();
     expect(screen.getByRole("group", { name: denial }).query()).toBeNull();
   });
+
+  it("offers no Use in another app (MCP) wizard without T3 Connect", async () => {
+    setup([]);
+    await using screen = await renderHeader(localId);
+
+    await expect.element(screen.getByRole("button", { name: "Create link" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Use in another app (MCP)" }).query()).toBeNull();
+  });
 });
