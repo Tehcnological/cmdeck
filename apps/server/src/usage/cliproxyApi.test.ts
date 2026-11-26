@@ -532,6 +532,7 @@ describe("CLIProxyAPI built-in management API", () => {
       const test = fixture({
         accounts: [
           { id: "kiro.json", auth_index: "k", provider: "kiro", email: "k@example.com" },
+          // Antigravity only allows ACP clients, so its internal quota API is never called.
           { id: "antigravity.json", auth_index: "g", provider: "antigravity" },
           { ...accounts[0]!, provider: "claude" },
         ],

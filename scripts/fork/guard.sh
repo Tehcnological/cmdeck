@@ -34,6 +34,10 @@ forbidden=(
   'relay\.t3\.codes'
   '@opentelemetry/exporter'
   'OTLPTraceExporter'
+  # A1: local tracing only; no OTLP exporter may be wired back in.
+  'effect/(unstable/)?observability'
+  'Otlp(Exporter|Serialization|Logger)'
+  'Otlp(Tracer|Metrics)\.'
   'github\.com/\$\{CLI_RELEASE_REPOSITORY\}/releases/download'
   'AnalyticsService'
   'telemetryId'
@@ -97,8 +101,7 @@ required=(
   'apps/server/src/cloud/npmRelease.ts:Effect\.fn\("NpmRelease\.get"\)\(function\* \(\) \{ +return null;'
   'packages/contracts/src/settings.ts:requireConnectDeviceApproval: Schema\.Boolean\.pipe\( +Schema\.withDecodingDefault\(Effect\.succeed\(true\)\)'
   'apps/mobile/app.config.ts:updates: \{ +enabled: false,'
-  'apps/server/src/provider/acp/AntigravityAcpSupport.ts:ANTIGRAVITY_CLIENT_INFO = \{ +name: "t3-code",'
-  'apps/server/src/provider/acp/AntigravityAcpSupport.ts:clientInfo: ANTIGRAVITY_CLIENT_INFO,'
+  'apps/server/src/provider/acp/AntigravityAcpSupport.ts:clientInfo: \{ name: "t3-code",'
 )
 for entry in "${required[@]}"; do
   file="${entry%%:*}"

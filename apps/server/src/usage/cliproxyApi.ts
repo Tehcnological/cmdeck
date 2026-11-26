@@ -200,7 +200,7 @@ interface HubProvider {
     readonly account: AuthFile;
     readonly call: HubCall;
     readonly checkedAt: string;
-  }) => Effect.Effect<HubReading, UsageLimitSourceError | Schema.SchemaError, Digest.Digest>;
+  }) => Effect.Effect<HubReading, UsageLimitSourceError | Schema.SchemaError>;
 }
 
 const listedIdentity = (account: AuthFile) => ({
@@ -433,7 +433,6 @@ export const makeCliproxyApi = Effect.gen(function* () {
     const checkedAt = DateTime.formatIso(yield* DateTime.now);
     const call: HubCall = (url, data) => apiCall(hub, account, provider.header(account), url, data);
     const reading = yield* provider.read({ account, call, checkedAt }).pipe(
-      Effect.provideService(Digest.Digest, digest),
       Effect.catch((error) =>
         Effect.succeed({
           ...listedIdentity(account),

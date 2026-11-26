@@ -2,7 +2,7 @@
 
 An MCP client that cannot do the [OAuth sign-in](./outside-agents.md), or that you
 want to set up once from a config file, can reach an environment's MCP server with a
-bearer token instead. It gets the same tools as any [outside agent](./outside-agents.md#what-outside-agents-can-call):
+bearer token instead. It gets the same tools as any [outside agent](./outside-agents.md#available-tools-and-limits):
 list projects and threads, start, read, wait on, message, queue to and stop threads.
 
 The environment serves it at its own address, so you reach it however you reach the

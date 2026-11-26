@@ -826,7 +826,10 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
     ),
     Layer.provideMerge(ProviderRegistry.layer),
     Layer.provideMerge(
-      ProviderInstanceRegistryHydration.layer.pipe(Layer.provide(SqlitePersistence.layerConfig)),
+      ProviderInstanceRegistryHydration.layer.pipe(
+        Layer.provide(SqlitePersistence.layerConfig),
+        Layer.provide(layerNativeTelemetry),
+      ),
     ),
     // Below provider hydration: Pi instances reach a linked server through the gateway from here.
     Layer.provideMerge(
