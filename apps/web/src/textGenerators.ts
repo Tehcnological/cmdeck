@@ -30,7 +30,7 @@ import { formatEnvironmentQueryError } from "./state/query";
 import { serverEnvironment } from "./state/server";
 
 export interface TextGeneratorPreset {
-  readonly id: "openai" | "openrouter" | "anthropic" | "custom";
+  readonly id: "openai" | "openrouter" | "llmgateway" | "anthropic" | "custom";
   readonly label: string;
   readonly kind: TextGeneratorKind;
   /** Empty for a custom server, whose URL the user enters. */
@@ -44,6 +44,12 @@ export const TEXT_GENERATOR_PRESETS: ReadonlyArray<TextGeneratorPreset> = [
     label: "OpenRouter",
     kind: "openaiCompatible",
     baseUrl: "https://openrouter.ai/api/v1",
+  },
+  {
+    id: "llmgateway",
+    label: "LLM Gateway",
+    kind: "openaiCompatible",
+    baseUrl: "https://api.llmgateway.io/v1",
   },
   {
     id: "anthropic",
@@ -88,6 +94,9 @@ export function textGeneratorBrand(config: Pick<TextGeneratorConfig, "kind" | "b
   const host = url?.hostname ?? "";
   if (host === "openrouter.ai" || host.endsWith(".openrouter.ai")) {
     return ProviderDriverKind.make("openrouter");
+  }
+  if (host === "llmgateway.io" || host.endsWith(".llmgateway.io")) {
+    return ProviderDriverKind.make("llmgateway");
   }
   if (host === "api.openai.com") return ProviderDriverKind.make("openai");
   if (url?.port === "11434" || host.includes("ollama")) return ProviderDriverKind.make("ollama");

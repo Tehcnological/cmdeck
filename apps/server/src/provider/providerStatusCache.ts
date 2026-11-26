@@ -30,6 +30,7 @@ const mergeProviderModels = (
 // Harnesses that can run local models lead; the user's local mark outranks driver order.
 const BUILT_IN_DRIVER_ORDER: ReadonlyArray<string> = [
   "pi",
+  "omp",
   "opencode",
   "codex",
   "claudeAgent",

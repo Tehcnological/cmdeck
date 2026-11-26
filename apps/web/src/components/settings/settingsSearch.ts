@@ -1142,7 +1142,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/providers",
     searchTerms: [
       msg(
-        "model api api key openai openrouter anthropic ollama lm studio custom endpoint base url thread titles commit messages",
+        "model api api key openai openrouter llm gateway anthropic ollama lm studio custom endpoint base url thread titles commit messages",
       ),
     ],
     providerSettingsOnly: true,
@@ -1301,7 +1301,11 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: msg("Issue trackers"),
     to: "/settings/source-control",
     scope: "environment-defaults",
-    searchTerms: [msg("linear jira issues tracker team api key connect bind project")],
+    searchTerms: [
+      msg(
+        "linear vikunja jira issues tracker team project api key server url self-hosted connect bind project",
+      ),
+    ],
   },
   {
     id: "source-control",

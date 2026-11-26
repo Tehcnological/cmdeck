@@ -584,6 +584,10 @@ export const StandaloneIssueTrackerDescriptor = Schema.Struct({
   host: TrimmedNonEmptyString,
   /** What the tracker calls its container, in the singular: "team" on Linear, "project" on Jira. */
   scopeNoun: TrimmedNonEmptyString,
+  /** True for self-hosted trackers where the user supplies their instance's base URL. */
+  requiresBaseUrl: Schema.optional(Schema.Boolean),
+  /** Placeholder shown in the base URL input for self-hosted trackers. */
+  baseUrlPlaceholder: Schema.optional(TrimmedNonEmptyString),
   credential: Schema.Struct({
     /** What the tracker calls the credential: "Personal API key", "API token". */
     label: TrimmedNonEmptyString,
@@ -638,6 +642,8 @@ export const IssueTrackerConnection = Schema.Struct({
   account: Schema.NullOr(TrimmedNonEmptyString),
   /** Why a stored credential did not work, when it did not. */
   detail: Schema.NullOr(TrimmedNonEmptyString),
+  /** Configured instance base URL for self-hosted trackers. */
+  baseUrl: Schema.optional(TrimmedNonEmptyString),
   /** The workspace the credential reaches, as its issue URLs name it; links elsewhere are foreign. */
   workspace: Schema.optional(TrimmedNonEmptyString),
   scopes: Schema.Array(IssueTrackerScope),
@@ -669,6 +675,8 @@ export const IssueTrackerConnectInput = Schema.Struct({
   accountId: Schema.optional(IssueTrackerAccountId),
   addAccount: Schema.optional(Schema.Boolean),
   token: Schema.NullOr(TrimmedNonEmptyString.check(Schema.isMaxLength(4_096))),
+  /** Required for self-hosted trackers when connecting; ignored on disconnect. */
+  baseUrl: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(2_048))),
 });
 export type IssueTrackerConnectInput = typeof IssueTrackerConnectInput.Type;
 

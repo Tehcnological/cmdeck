@@ -41,11 +41,13 @@ import {
   isStandaloneIssueTracker,
   type IssueInvolvementFilter,
   type IssueTrackerApi,
-  type StandaloneIssueTrackerApi,
   type TrackerIssueDetail,
   type TrackerIssueLink,
 } from "@t3tools/source-control-core/server/IssueTracker";
-import { asIssueTrackerAccount } from "@t3tools/source-control-core/server/IssueTrackerHost";
+import {
+  IssueTrackerAccount,
+  asIssueTrackerAccount,
+} from "@t3tools/source-control-core/server/IssueTrackerHost";
 import { parseUrl } from "@t3tools/shared/url";
 
 import * as IssueTrackerBindings from "../persistence/IssueTrackerBindings.ts";
@@ -99,16 +101,6 @@ function resolveGitHostBindings(
     tracker: IssueTrackerKind.make(binding.tracker),
     accountId: null,
   }));
-}
-
-function findStandaloneIssueUrl(trackers: ReadonlyArray<StandaloneIssueTrackerApi>, value: string) {
-  const url = parseUrl(value);
-  if (url === null) return null;
-  for (const api of trackers) {
-    const link = api.parseIssueUrl(url);
-    if (link !== null) return { api, tracker: api.kind, link };
-  }
-  return null;
 }
 
 /** Lower case, so a scope keeps its cursor whichever project's spelling is read. Clients group by the leading host. */
@@ -211,18 +203,28 @@ const make = Effect.gen(function* () {
 
   const resolveStandaloneBindings = (
     binding: IssueTrackerProjectBinding | undefined,
-  ): ReadonlyArray<ProjectTrackerBinding> => {
-    if (binding === undefined) return [];
+  ): Effect.Effect<ReadonlyArray<ProjectTrackerBinding>> => {
+    if (binding === undefined) return Effect.succeed([]);
     const api = registry.get(binding.tracker);
-    if (api === null || !isStandaloneIssueTracker(api)) return [];
-    const host = api.standalone.host;
+    if (api === null || !isStandaloneIssueTracker(api)) return Effect.succeed([]);
     const accountId = binding.accountId ?? null;
-    return issueTrackerBindingScopes(binding).map((scope) => ({
-      tracker: binding.tracker,
-      host,
-      scope,
-      accountId,
-    }));
+    return (
+      api.resolveHost
+        ? api.resolveHost().pipe(
+            Effect.provideService(IssueTrackerAccount, accountId),
+            Effect.orElseSucceed(() => api.standalone.host),
+          )
+        : Effect.succeed(api.standalone.host)
+    ).pipe(
+      Effect.map((host) =>
+        issueTrackerBindingScopes(binding).map((scope) => ({
+          tracker: binding.tracker,
+          host,
+          scope,
+          accountId,
+        })),
+      ),
+    );
   };
 
   /**
@@ -233,13 +235,16 @@ const make = Effect.gen(function* () {
     project: OrchestrationProjectShell,
     binding: IssueTrackerProjectBinding | undefined,
   ) =>
-    (project.repositoryIdentity != null
-      ? Effect.succeed(project.repositoryIdentity)
-      : repositoryIdentities.resolve(project.workspaceRoot)
-    ).pipe(
-      Effect.map((repositoryIdentity) => {
+    Effect.all({
+      standalone: resolveStandaloneBindings(binding),
+      repositoryIdentity:
+        project.repositoryIdentity != null
+          ? Effect.succeed(project.repositoryIdentity)
+          : repositoryIdentities.resolve(project.workspaceRoot),
+    }).pipe(
+      Effect.map(({ standalone, repositoryIdentity }) => {
         const gitHost = resolveGitHostBindings({ ...project, repositoryIdentity });
-        return [...resolveStandaloneBindings(binding), ...gitHost];
+        return [...standalone, ...gitHost];
       }),
     );
 
@@ -780,11 +785,47 @@ const make = Effect.gen(function* () {
     );
   };
 
+  const findStandaloneIssueUrl = Effect.fn("IssueService.findStandaloneIssueUrl")(function* (
+    value: string,
+  ) {
+    const url = parseUrl(value);
+    if (url === null) return null;
+    let savedAccounts: ReadonlyArray<{
+      readonly tracker: IssueTrackerKind;
+      readonly accountId: IssueTrackerAccountId;
+    }> | null = null;
+    for (const api of registry.standalone) {
+      if (api.resolveBaseUrl === undefined) {
+        const link = api.parseIssueUrl(url);
+        if (link !== null) return { api, tracker: api.kind, link, baseUrl: undefined };
+        continue;
+      }
+      if (savedAccounts === null) {
+        savedAccounts = yield* bindings.listAccounts.pipe(Effect.orElseSucceed(() => []));
+      }
+      const accountIds: ReadonlyArray<IssueTrackerAccountId | null> = [
+        null,
+        ...savedAccounts
+          .filter((account) => account.tracker === api.kind)
+          .map((account) => account.accountId),
+      ];
+      for (const accountId of accountIds) {
+        const baseUrl = yield* api.resolveBaseUrl().pipe(
+          Effect.provideService(IssueTrackerAccount, accountId),
+          Effect.orElseSucceed(() => null),
+        );
+        if (baseUrl === null) continue;
+        const link = api.parseIssueUrl(url, baseUrl);
+        if (link !== null) return { api, tracker: api.kind, link, baseUrl };
+      }
+    }
+    return null;
+  });
+
   const resolveUrl: IssueService["Service"]["resolveUrl"] = Effect.fn("IssueService.resolveUrl")(
     function* (url, preferredProjectId) {
       const recognized = sourceControlDefinitions.parseIssueUrl(url);
-      const standalone =
-        recognized === null ? findStandaloneIssueUrl(registry.standalone, url) : null;
+      const standalone = recognized === null ? yield* findStandaloneIssueUrl(url) : null;
       const gitHost = recognized ?? (standalone === null ? yield* parseOnProjectHost(url) : null);
       const parsed =
         gitHost === null
@@ -809,17 +850,19 @@ const make = Effect.gen(function* () {
       const scope = link.scope.toLowerCase();
       const serve = (candidates: ReadonlyArray<SupportedProject>) => {
         const own =
-          preferFirst(candidates.filter((project) => project.scope.toLowerCase() === scope)) ??
-          preferFirst(
-            candidates.filter(
-              (project) => project.scope.toLowerCase() === gitHost?.link.scopeAlias,
-            ),
-          );
+          scope.length > 0
+            ? (preferFirst(candidates.filter((project) => project.scope.toLowerCase() === scope)) ??
+              preferFirst(
+                candidates.filter(
+                  (project) => project.scope.toLowerCase() === gitHost?.link.scopeAlias,
+                ),
+              ))
+            : preferFirst(candidates);
         const lender = own ?? preferFirst(candidates);
         if (lender === undefined) return null;
         const served = {
           ...lender,
-          scope: own === undefined ? link.scope : lender.scope,
+          scope: own === undefined ? link.scope || lender.scope : lender.scope,
           writable: own !== undefined,
         };
         const resolved = {
@@ -845,7 +888,10 @@ const make = Effect.gen(function* () {
       // Team keys repeat across workspaces, and each account reaches one: try the accounts in
       // preference order, and keep the one whose canonical issue URL names the link's workspace.
       // The exact team before a fallback, as `serve` and the client resolver pick it.
-      const exact = onTracker.filter((project) => project.scope.toLowerCase() === scope);
+      const exact =
+        scope.length > 0
+          ? onTracker.filter((project) => project.scope.toLowerCase() === scope)
+          : onTracker;
       const preferred = (projects: ReadonlyArray<SupportedProject>) => [
         ...projects.filter((project) => project.project.id === preferredProjectId),
         ...projects,
@@ -863,7 +909,7 @@ const make = Effect.gen(function* () {
           .getIssue({
             cwd: found.lender.project.workspaceRoot,
             host: found.lender.host,
-            scope: link.scope,
+            scope: found.served.scope,
             key: link.key,
           })
           .pipe(Effect.mapError(toIssueError("resolveUrl")), Effect.result);
@@ -873,7 +919,10 @@ const make = Effect.gen(function* () {
           continue;
         }
         const canonicalUrl = parseUrl(read.success.url);
-        const canonical = canonicalUrl === null ? null : standalone.api.parseIssueUrl(canonicalUrl);
+        const canonical =
+          canonicalUrl === null
+            ? null
+            : standalone.api.parseIssueUrl(canonicalUrl, standalone.baseUrl);
         if (canonical !== null && canonical.workspace === standalone.link.workspace) {
           return { ...found.resolved, issue: toDetail(found.served, read.success) };
         }

@@ -160,6 +160,64 @@ describe("resolveIssueLinkTarget", () => {
     ]).toEqual(["p2", "p1"]);
   });
 
+  it("reads self-hosted Vikunja links per account base URL and ignores other hosts", () => {
+    const accountId = IssueTrackerAccountId.make("home");
+    const [p1, p2] = [ProjectId.make("p1"), ProjectId.make("p2")];
+    const vikunjaBase = {
+      tracker: IssueTrackerKind.make("vikunja"),
+      displayName: "Vikunja",
+      scopeNoun: "project",
+      requiresBaseUrl: true,
+      baseUrlPlaceholder: "https://vikunja.example.com",
+      credential: { label: "API token", helpUrl: null },
+      connected: true,
+      account: "alice",
+      detail: null,
+      scopes: [],
+    };
+    const trackers = {
+      trackers: [
+        {
+          ...vikunjaBase,
+          host: "work.vikunja.example",
+          baseUrl: "https://work.vikunja.example",
+          workspace: "https://work.vikunja.example",
+        },
+      ],
+      accounts: [
+        {
+          ...vikunjaBase,
+          accountId,
+          host: "home.vikunja.example:8443",
+          baseUrl: "https://home.vikunja.example:8443",
+          workspace: "https://home.vikunja.example:8443",
+        },
+      ],
+      bindings: {
+        [p1]: { tracker: IssueTrackerKind.make("vikunja"), scope: "7" },
+      },
+      accountBindings: {
+        [p2]: { tracker: IssueTrackerKind.make("vikunja"), accountId, scope: "12" },
+      },
+    };
+    const resolve = (url: string) => resolveIssueLinkTarget({ url, projects, trackers });
+    expect(resolve("https://work.vikunja.example/tasks/42")?.ref).toEqual({
+      projectId: "p1",
+      tracker: "vikunja",
+      host: "work.vikunja.example",
+      scope: "7",
+      key: "42",
+    });
+    expect(resolve("https://home.vikunja.example:8443/tasks/99")?.ref).toEqual({
+      projectId: "p2",
+      tracker: "vikunja",
+      host: "home.vikunja.example:8443",
+      scope: "12",
+      key: "99",
+    });
+    expect(resolve("https://other.example.com/tasks/42")).toBeNull();
+  });
+
   it.each([
     "https://github.com.evil.example/acme/web/issues/7",
     "https://github.com/acme/web/pull/7",

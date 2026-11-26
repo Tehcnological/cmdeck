@@ -77,6 +77,13 @@ On a desktop host, open **Settings → Sharing & access**, enable **Network acce
 then create a pairing link using an address the other device can reach. Changing
 network access restarts the desktop app. You can turn it off in the same place.
 
+Besides the local network and Tailscale, the desktop app lists an address for
+each WireGuard or mesh VPN interface on the host (`wg*`, `tun*`, `tap*`,
+`nebula*`, ZeroTier `zt*`, and macOS `utun*`) as **Direct mesh**. On macOS,
+`utun` also names other VPN clients' tunnels, so pick the one that matches the
+network the other device is on. These are plain `http` addresses; only use them
+over a network you trust.
+
 For a command-line host, choose the local network in `t3 up`, or run:
 
 ```bash

@@ -42,6 +42,7 @@ import { readLocalApi } from "~/localApi";
 import { appAtomRegistry } from "~/rpc/atomRegistry";
 import {
   type EnvironmentPresentation,
+  useEnvironmentHttpBaseUrl,
   useEnvironmentIdentities,
   usePrimaryEnvironmentId,
 } from "~/state/environments";
@@ -90,19 +91,13 @@ function UseInAnotherAppDialog({ requested }: { readonly requested: EnvironmentI
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : close())}>
       <WizardPopup>
-        {environment !== null && hasCloudPublicConfig() ? (
+        {environment !== null ? (
           <Wizard key={environment.environmentId} environment={environment} title={title} />
         ) : (
           <>
             <WizardHeader title={title} />
             <WizardPanel>
-              <GateMessage
-                title={
-                  environment === null
-                    ? gt("Connect to an environment first.")
-                    : gt("T3 Connect is not available in this build.")
-                }
-              />
+              <GateMessage title={gt("Connect to an environment first.")} />
             </WizardPanel>
           </>
         )}
@@ -138,7 +133,7 @@ function Wizard({
   const open = gate.gate.kind === "open";
   // The level is picked on the sign-in page, so the wizard neither asks for it nor needs a code.
   const hostedApproval =
-    environment.serverConfig?.environment.capabilities.mcpHostedApproval === true;
+    !gate.direct && environment.serverConfig?.environment.capabilities.mcpHostedApproval === true;
   const steps = hostedApproval ? HOSTED_APPROVAL_STEPS : STEPS;
   const shownStep = hostedApproval && step === 2 ? 1 : step;
   const next = () => setStep(step === 0 ? (hostedApproval ? 2 : 1) : 2);
@@ -266,6 +261,12 @@ function useGate(environment: EnvironmentPresentation) {
   const thisMachine =
     environmentId === usePrimaryEnvironmentId() ||
     isDesktopLocalConnectionTarget(environment.entry.target);
+  // Without T3 Connect, apps use the environment's own address; its sign-in page takes a code.
+  const httpBaseUrl = useEnvironmentHttpBaseUrl(environmentId);
+  const directBase = hasCloudPublicConfig()
+    ? null
+    : (httpBaseUrl ?? (thisMachine ? window.location.origin : null));
+  const directMcpUrl = directBase === null ? null : `${directBase.replace(/\/+$/, "")}/mcp`;
   const discovery = useAtomValue(relayEnvironmentDiscovery.stateValueAtom);
   const refreshDiscovery = useAtomCommand(relayEnvironmentDiscovery.refresh, {
     reportFailure: false,
@@ -298,6 +299,7 @@ function useGate(environment: EnvironmentPresentation) {
       linkState,
       linkStateError: controller.linkState.error,
       thisMachine,
+      directMcpUrl,
       relay:
         !discovery.refreshing && (discovery.offline || Option.isSome(discovery.error))
           ? { status: "failed" }
@@ -373,6 +375,7 @@ function useGate(environment: EnvironmentPresentation) {
   }, [connecting]);
   return {
     gate,
+    direct: directMcpUrl !== null,
     connecting: connecting && gate.kind !== "open",
     check: runReachabilityCheck,
     // A disconnected machine cannot be checked; its list entry says when it is back.

@@ -69,23 +69,26 @@ custom server name as GitHub once it has a credential for that host.
 
 ### Forgejo and Gitea
 
-Install [Forgejo CLI (`fj`)](https://codeberg.org/forgejo-contrib/forgejo-cli) or
-[Gitea CLI (`tea`)](https://gitea.com/gitea/tea) 0.16 or later on your CMDeck server.
-Sign in with `fj --host https://your-server auth add-token` or `tea login add`.
-Repeat for each server you use, including Codeberg.
+Install [Forgejo CLI (`fj`)](https://codeberg.org/forgejo-contrib/forgejo-cli) or Gitea's
+official [Gitea CLI (`gt`)](https://gitea.com/gitea/cli) on your CMDeck server. Sign in with
+`fj --host https://your-server auth add-token` or `gt auth login`. Repeat for each server you
+use, including Codeberg. The older [`tea`](https://gitea.com/gitea/tea) 0.16 or later still
+works (`tea login add`) when `gt` is not installed.
 
-CMDeck prefers a matching `fj` login and falls back to `tea` when `fj` is unavailable
-or has no login for that server. Once an account is selected, failed actions stay on that
-account. Settings shows the detected CLI. Forgejo and Gitea share one integration entry.
-Servers hosted under a URL subpath, such as `https://example.com/forgejo`, use `tea` because
-fj does not preserve the subpath when checking its account.
+CMDeck prefers a matching `fj` login and falls back to `gt`, then `tea`, when `fj` is
+unavailable or has no login for that server. Graphite's stacking tool is also called `gt`; CMDeck
+uses `gt` only when `gt version` shows it is the Gitea CLI, and otherwise uses `tea`. Once an
+account is selected, failed actions stay on that account. Settings shows the detected CLI.
+Forgejo and Gitea share one integration entry. Servers hosted under a URL subpath, such as
+`https://example.com/forgejo`, use `gt` or `tea` because fj does not preserve the subpath when
+checking its account.
 
 When cloning or publishing, use a full repository URL to select a specific server.
-You can use `owner/repo` when only one fj server is configured, or with your default `tea`
-login when fj is unavailable or unconfigured. With multiple fj servers, use the full URL.
-If you have multiple `tea` accounts on one server, select one with
-`tea login default <login-name>`. Git push and clone also need Git credentials or an SSH key
-for that server.
+You can use `owner/repo` when only one fj server is configured, or with your active `gt`
+account (or default `tea` login) when fj is unavailable or unconfigured. With multiple
+servers, use the full URL. If you have several accounts on one server, choose one with
+`gt auth switch` (or `tea login default <login-name>`). Git push and clone also need Git
+credentials or an SSH key for that server.
 
 ### GitLab
 
@@ -443,6 +446,13 @@ issues appear in the Linear group of the issue list, sorted with the rest by las
 each can be loaded further on its own. Agents file new issues in the first team picked unless you name another bound team. To
 connect another Linear workspace or user, add another account in the same place; each project
 reads its teams through the account you picked them under.
+
+A self-hosted [Vikunja](https://vikunja.io) server works the same way: under Settings → Source
+control & issues, enter its URL (for example `https://vikunja.example.com`) and an API token
+created in Vikunja, then pick its projects for a CMDeck project. CMDeck talks only to the server
+you entered. Task links such as `https://vikunja.example.com/tasks/42` open in CMDeck when that
+server is connected. Where a Vikunja project has a Kanban view, its buckets are the states you
+move between.
 
 Select an issue to open it beside the list: description, comments, state changes, linked pull
 requests, labels, assignees, and reactions. Linked pull requests open in the same panel. You can

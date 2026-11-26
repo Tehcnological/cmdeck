@@ -10,16 +10,19 @@ in once, and you choose what it may do.
 
 Open the command palette (`Cmd/Ctrl+K`) and choose **Use CMDeck in another
 app (MCP)**, or use the button in **Settings → Sharing & access**. Pick the
-app and follow the step for that app. Assistants like
-Poke and Claude run in the cloud, so the wizard first asks you to sign in to T3
-Connect and turn it on for the environment. To reach your other machines through
-the same connection, turn on **Linked environments** in Labs and
-[link them](./remote-access.md#link-another-environment).
+app, choose what it may do, and follow the step for that app.
 
-When the app opens the sign-in page, choose what it may do and approve with your
-T3 Connect account. On an older environment, the wizard asks for the level and
-gives you a code to paste instead. A code works once, for 5 minutes, and
-approves only that level.
+The wizard gives the app the environment's own address followed by `/mcp`: the
+address this device is connected over, or this computer's when the environment
+runs here. Nothing goes through T3 Connect. An app in the cloud, such as Poke or
+Claude, can only use it if that address is reachable from the internet, for
+example through a [Cloudflare Tunnel](./cloudflare-tunnel.md) you run. For a
+plain-`http` LAN or Tailscale address, see [Get the MCP URL](#get-the-mcp-url).
+
+When the app opens the sign-in page, paste the code the wizard gives you. A code
+works once, for 5 minutes, and approves only the level you picked. A client that
+cannot sign in can use a [remote MCP token](./remote-mcp.md) from **Settings →
+Sharing & access** or `cmdeck auth mcp-token create` instead.
 
 For an app that is not listed, choose **Something else…**, add a remote MCP
 server with OAuth in that app, and paste the URL. Apps that require their own

@@ -141,4 +141,150 @@ describe("IssueTrackerConnections", () => {
       expect(secrets.size).toBe(1);
     }).pipe(Effect.provide(layer));
   });
+
+  it.effect("stores and removes self-hosted base URLs per account", () => {
+    const VIKUNJA = IssueTrackerKind.make("vikunja");
+    const secrets = new Map<string, string>();
+    let random = 0;
+    const tracker = {
+      kind: VIKUNJA,
+      standalone: {
+        tracker: VIKUNJA,
+        displayName: "Vikunja",
+        host: "vikunja.io",
+        scopeNoun: "project",
+        requiresBaseUrl: true,
+        baseUrlPlaceholder: "https://vikunja.example.com",
+        credential: { label: "API token", helpUrl: null },
+      },
+      probeCredential: (token: string, baseUrl?: string) => {
+        if (!baseUrl) {
+          return Effect.fail(
+            new IssueTrackerError({
+              tracker: VIKUNJA,
+              operation: "probeCredential",
+              reason: "failed",
+              detail: "Enter a valid Vikunja server URL.",
+            }),
+          );
+        }
+        const normalized = baseUrl.replace(/\/+$/u, "");
+        return Effect.succeed({
+          account: `user-${token}`,
+          host: new URL(normalized).host.toLowerCase(),
+          baseUrl: normalized,
+          workspace: normalized,
+          scopes: [{ key: "7", name: "Core" }],
+        });
+      },
+    } as unknown as StandaloneIssueTrackerApi;
+    const layer = IssueTrackerConnections.layer.pipe(
+      Layer.provideMerge(IssueTrackerBindings.layer),
+      Layer.provideMerge(
+        Layer.mergeAll(
+          SqlitePersistence.layerMemory,
+          Layer.succeed(
+            IssueTrackerRegistry.IssueTrackerRegistry,
+            IssueTrackerRegistry.fromTrackers([tracker]),
+          ),
+          Layer.mock(ServerSecretStore.ServerSecretStore)({
+            get: (name) =>
+              Effect.succeed(
+                Option.map(Option.fromNullishOr(secrets.get(name)), (value) =>
+                  new TextEncoder().encode(value),
+                ),
+              ),
+            set: (name, value) =>
+              Effect.sync(() => void secrets.set(name, new TextDecoder().decode(value))),
+            remove: (name) => Effect.sync(() => void secrets.delete(name)),
+          }),
+          Layer.succeed(
+            SecureRandom.SecureRandom,
+            SecureRandom.make((size) => new Uint8Array(size).fill(++random)),
+          ),
+        ),
+      ),
+    );
+    return Effect.gen(function* () {
+      const connections = yield* IssueTrackerConnections.IssueTrackerConnections;
+      const first = yield* connections.connect({
+        tracker: VIKUNJA,
+        token: "tok-1",
+        baseUrl: "https://work.vikunja.example/",
+      });
+      expect(first).toMatchObject({
+        host: "work.vikunja.example",
+        baseUrl: "https://work.vikunja.example",
+        workspace: "https://work.vikunja.example",
+      });
+
+      // Adding a second account with a different instance URL stores its own baseUrl secret,
+      // even if the token string happens to match.
+      const second = yield* connections.connect({
+        tracker: VIKUNJA,
+        token: "tok-1",
+        baseUrl: "https://home.vikunja.example:8443/",
+        addAccount: true,
+      });
+      expect(second).toMatchObject({
+        host: "home.vikunja.example:8443",
+        baseUrl: "https://home.vikunja.example:8443",
+        workspace: "https://home.vikunja.example:8443",
+      });
+      expect(Object.fromEntries(secrets)).toEqual({
+        "issue-tracker-dmlrdW5qYQ-token": "tok-1",
+        "issue-tracker-dmlrdW5qYQ-base-url": "https://work.vikunja.example",
+        [`issue-tracker-dmlrdW5qYQ-account-${second.accountId}-token`]: "tok-1",
+        [`issue-tracker-dmlrdW5qYQ-account-${second.accountId}-base-url`]:
+          "https://home.vikunja.example:8443",
+      });
+
+      // Duplicate token on the same baseUrl is still rejected.
+      expect(
+        yield* Effect.flip(
+          connections.connect({
+            tracker: VIKUNJA,
+            token: "tok-1",
+            baseUrl: "https://home.vikunja.example:8443",
+            addAccount: true,
+          }),
+        ),
+      ).toMatchObject({ detail: "This credential is already connected as another account." });
+
+      // Replacing the second account's token without re-sending baseUrl preserves its stored URL.
+      const replaced = yield* connections.connect({
+        tracker: VIKUNJA,
+        accountId: second.accountId,
+        token: "tok-2",
+      });
+      expect(replaced).toMatchObject({
+        accountId: second.accountId,
+        account: "user-tok-2",
+        baseUrl: "https://home.vikunja.example:8443",
+      });
+
+      // Listing returns each account with its own host and baseUrl.
+      const listed = yield* connections.list;
+      expect(listed.trackers[0]).toMatchObject({
+        host: "work.vikunja.example",
+        baseUrl: "https://work.vikunja.example",
+      });
+      expect(listed.accounts?.[0]).toMatchObject({
+        accountId: second.accountId,
+        host: "home.vikunja.example:8443",
+        baseUrl: "https://home.vikunja.example:8443",
+      });
+
+      // Disconnecting the second account removes only its token and baseUrl secrets.
+      yield* connections.connect({
+        tracker: VIKUNJA,
+        accountId: second.accountId,
+        token: null,
+      });
+      expect(Object.fromEntries(secrets)).toEqual({
+        "issue-tracker-dmlrdW5qYQ-token": "tok-1",
+        "issue-tracker-dmlrdW5qYQ-base-url": "https://work.vikunja.example",
+      });
+    }).pipe(Effect.provide(layer));
+  });
 });

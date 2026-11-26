@@ -68,7 +68,47 @@ export const discovery = {
       : null;
   },
   installHint:
-    "Install `fj` 0.6 or later from https://codeberg.org/forgejo-contrib/forgejo-cli and run `fj --host <server-url> auth add-token`, or install `tea` 0.16 or later from https://gitea.com/gitea/tea and run `tea login add` for each Forgejo or Gitea server.",
+    "Install `fj` 0.6 or later from https://codeberg.org/forgejo-contrib/forgejo-cli and run `fj --host <server-url> auth add-token`, or install `gt` from https://gitea.com/gitea/cli (or `tea` 0.16 or later) and run `gt auth login` for each Forgejo or Gitea server.",
+} satisfies SourceControlCliDiscoverySpec;
+
+/** Gitea's `gt`, used in place of tea once `gt version` proves it is not Graphite's `gt`. */
+const gtDiscovery = {
+  ...discovery,
+  executable: "gt",
+  versionArgs: ["version"],
+  authArgs: [
+    "auth",
+    "status",
+    "--verify",
+    "--json",
+    "host,user,active,credential_available,verified",
+  ],
+  remoteRefinementArgs: () => ["auth", "status", "--json", "host,user,active,credential_available"],
+  parseAuth: (input) => {
+    const logins = ForgejoCli.parseGtLogins(input.stdout);
+    const login = logins.find((entry) => entry.default === "true") ?? logins[0];
+    return login
+      ? providerAuth({
+          status: login.valid === "true" ? "authenticated" : "unauthenticated",
+          account: login.user,
+          host: ForgejoCli.parseForgejoRemote(login.url)?.host,
+        })
+      : providerAuth({
+          status: "unauthenticated",
+          detail: "Run `gt auth login` to authenticate a Forgejo or Gitea server.",
+        });
+  },
+  refineUnknownRemote: (input) => {
+    const remote = ForgejoCli.parseForgejoRemote(input.context.remoteUrl);
+    const login =
+      remote &&
+      ForgejoCli.matchForgejoLogin(
+        ForgejoCli.parseGtLogins(input.auth.stdout),
+        remote,
+        input.context.requestedHost,
+      );
+    return login ? { kind: discovery.kind, name: "Forgejo / Gitea", baseUrl: login.url } : null;
+  },
 } satisfies SourceControlCliDiscoverySpec;
 
 export const makeDiscovery = Effect.gen(function* () {
@@ -134,7 +174,7 @@ export const makeDiscovery = Effect.gen(function* () {
                   : providerAuth({
                       status: "unauthenticated",
                       detail:
-                        "Authenticate this server with `fj --host <server-url> auth add-token`. For a server under a URL subpath, such as `https://example.com/forgejo`, use `tea login add` instead.",
+                        "Authenticate this server with `fj --host <server-url> auth add-token`. For a server under a URL subpath, such as `https://example.com/forgejo`, use `gt auth login` or `tea login add` instead.",
                     }),
         },
       });
@@ -158,11 +198,16 @@ export const makeDiscovery = Effect.gen(function* () {
         }
         return fj;
       }
-      const tea = yield* probeSourceControlProvider({ cwd, process, spec: discovery });
+      const gitea = yield* ForgejoCli.detectGiteaCommand(process, cwd);
+      const fallback = yield* probeSourceControlProvider({
+        cwd,
+        process,
+        spec: gitea === "gt" ? gtDiscovery : discovery,
+      });
       // Discovery keeps the install hint only for an absent executable; a slow or broken fj
-      // explains itself better than tea's install advice.
+      // explains itself better than gt's or tea's install advice.
       const fjAbsent = fj.status === "missing" && fj.installHint === discovery.installHint;
-      return tea.status === "available" || fjAbsent ? tea : fj;
+      return fallback.status === "available" || fjAbsent ? fallback : fj;
     }),
     refineUnknownRemote: Effect.fn("ForgejoSourceControlProvider.refineUnknownRemote")(
       function* (input: {
@@ -172,7 +217,8 @@ export const makeDiscovery = Effect.gen(function* () {
         const remote = ForgejoCli.parseForgejoRemote(input.context.remoteUrl);
         if (!remote) return null;
         let failure: ForgejoCli.ForgejoCliError | undefined;
-        for (const command of ["fj", "tea"] as const) {
+        const gitea = yield* ForgejoCli.detectGiteaCommand(process, input.cwd);
+        for (const command of ["fj", gitea] as const) {
           const logins = yield* listLogins({
             cwd: input.cwd,
             command,
@@ -616,19 +662,36 @@ export const make = Effect.gen(function* () {
                 : ["checkout", "-b", branch, "FETCH_HEAD"],
           });
         } else
-          yield* cli.execute({
-            cwd: input.cwd,
-            args: [
-              "pulls",
-              "checkout",
-              "--login",
-              repo.login,
-              "--repo",
-              repo.repository,
-              "--branch",
-              String(pull.number),
-            ],
-          });
+          yield* cli.execute(
+            repo.command === "gt"
+              ? {
+                  command: "gt",
+                  cwd: input.cwd,
+                  args: [
+                    "pr",
+                    "checkout",
+                    "--host",
+                    repo.baseUrl,
+                    ...(repo.user ? ["--user", repo.user] : []),
+                    "--repo",
+                    repo.repository,
+                    String(pull.number),
+                  ],
+                }
+              : {
+                  cwd: input.cwd,
+                  args: [
+                    "pulls",
+                    "checkout",
+                    "--login",
+                    repo.login,
+                    "--repo",
+                    repo.repository,
+                    "--branch",
+                    String(pull.number),
+                  ],
+                },
+          );
         if (input.force) {
           // Non-commit server input could become git options.
           if (!/^[0-9a-f]{7,64}$/i.test(pull.head.sha))
@@ -638,7 +701,7 @@ export const make = Effect.gen(function* () {
               detail: "Forgejo reported a pull request head that is not a commit.",
               reason: "invalid-response",
             });
-          // tea leaves PR branches stale; `--keep` updates them without discarding dirty files.
+          // The CLI can leave PR branches stale; `--keep` updates them without discarding dirty files.
           yield* process.run({
             operation: "ForgejoSourceControlProvider.checkoutChangeRequest",
             command: "git",

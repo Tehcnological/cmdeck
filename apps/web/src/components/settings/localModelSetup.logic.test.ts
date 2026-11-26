@@ -62,6 +62,21 @@ describe("localModelAgentChoices", () => {
       ]),
     ).toBe("Codex");
   });
+
+  it("offers OMP only once the user has set it up, after Pi and OpenCode", () => {
+    const omp = ProviderDriverKind.make("omp");
+    const labels = (providers: Parameters<typeof localModelAgentChoices>[1]) =>
+      localModelAgentChoices({ apiProtocols: ["chat-completions"] }, providers, "rtx").map(
+        (choice) => choice.label,
+      );
+    expect(labels([])).toEqual(["Pi", "OpenCode", "Codex"]);
+    expect(labels([{ driver: omp, installed: true, enabled: false }])).toEqual([
+      "Pi",
+      "OpenCode",
+      "OMP",
+      "Codex",
+    ]);
+  });
 });
 
 describe("planLocalModelSetup", () => {

@@ -10,6 +10,7 @@ import {
   LINEAR_KIND,
   parseLinearIssueUrl,
 } from "@t3tools/issue-tracker-linear/shared/issueUrl";
+import { VIKUNJA_KIND, parseVikunjaIssueUrl } from "@t3tools/issue-tracker-vikunja/shared/issueUrl";
 
 import { sourceControlClients } from "./sourceControlClients.ts";
 import type { EnvironmentProject } from "./state/shell.ts";
@@ -61,13 +62,28 @@ function parseIssueLink(
   return null;
 }
 
-function parseStandaloneIssueLink(url: string) {
+function parseStandaloneIssueLink(url: string, trackers?: IssueTrackerConnectionList) {
+  let parsedUrl: URL;
   try {
-    const link = parseLinearIssueUrl(new URL(url));
-    return link === null ? null : { tracker: LINEAR_KIND, link };
+    parsedUrl = new URL(url);
   } catch {
     return null;
   }
+  const linear = parseLinearIssueUrl(parsedUrl);
+  if (linear !== null) return { tracker: LINEAR_KIND, link: linear };
+  if (trackers !== undefined) {
+    for (const connection of [...trackers.trackers, ...(trackers.accounts ?? [])]) {
+      if (
+        connection.tracker !== VIKUNJA_KIND ||
+        connection.account === null ||
+        connection.baseUrl === undefined
+      )
+        continue;
+      const vikunja = parseVikunjaIssueUrl(parsedUrl, connection.baseUrl);
+      if (vikunja !== null) return { tracker: VIKUNJA_KIND, link: vikunja };
+    }
+  }
+  return null;
 }
 
 /** Whether `url` is a standalone tracker's issue link, which only bindings can resolve. */
@@ -77,7 +93,7 @@ export function isStandaloneIssueLink(url: string): boolean {
 
 /** A cheap pre-check, so text without such a link never asks for the bindings. */
 export function mayContainStandaloneIssueLink(text: string): boolean {
-  return text.includes(`${LINEAR_HOST}/`);
+  return text.includes(`${LINEAR_HOST}/`) || /\/tasks\/[1-9]\d*/u.test(text);
 }
 
 /**
@@ -91,7 +107,7 @@ function resolveStandaloneIssueLink<Project extends LinkProject>(
   trackers: IssueTrackerConnectionList | undefined,
   preferredProjectId: string | undefined,
 ): { readonly project: Project; readonly ref: IssueRef } | null {
-  const parsed = trackers === undefined ? null : parseStandaloneIssueLink(url);
+  const parsed = trackers === undefined ? null : parseStandaloneIssueLink(url, trackers);
   if (parsed === null || trackers === undefined) return null;
   const { tracker, link } = parsed;
   const accounts = new Set(
@@ -117,7 +133,10 @@ function resolveStandaloneIssueLink<Project extends LinkProject>(
   const scope = link.scope.toLowerCase();
   const boundScope = (candidate: (typeof onTracker)[number]) =>
     issueTrackerBindingScopes(candidate.binding).find((key) => key.toLowerCase() === scope);
-  const own = preferFirst(onTracker.filter((candidate) => boundScope(candidate) !== undefined));
+  const own =
+    scope.length > 0
+      ? preferFirst(onTracker.filter((candidate) => boundScope(candidate) !== undefined))
+      : preferFirst(onTracker);
   const lender = own ?? preferFirst(onTracker);
   if (lender === undefined) return null;
   return {
@@ -126,7 +145,7 @@ function resolveStandaloneIssueLink<Project extends LinkProject>(
       projectId: lender.project.id,
       tracker: lender.binding.tracker,
       host: link.host,
-      scope: (own && boundScope(own)) ?? link.scope,
+      scope: (own && boundScope(own)) ?? (link.scope || lender.binding.scope),
       key: link.key,
     },
   };

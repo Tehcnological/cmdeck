@@ -22,12 +22,20 @@ const decodeInstanceId = Schema.decodeOption(ProviderInstanceId);
 const LOCAL_MODEL_AGENTS = [
   { driver: ProviderDriverKind.make("pi"), label: "Pi", protocol: "chat-completions" },
   { driver: ProviderDriverKind.make("opencode"), label: "OpenCode", protocol: "chat-completions" },
+  // OMP is off until the user adds it, so it is offered only once an OMP instance exists.
+  {
+    driver: ProviderDriverKind.make("omp"),
+    label: "OMP",
+    protocol: "chat-completions",
+    onlyWhenConfigured: true,
+  },
   // Experimental on local servers: Codex sends T3's tools as a group some servers reject.
   { driver: ProviderDriverKind.make("codex"), label: "Codex", protocol: "responses" },
 ] as const satisfies ReadonlyArray<{
   readonly driver: ProviderDriverKind;
   readonly label: string;
   readonly protocol: InferenceApiProtocol;
+  readonly onlyWhenConfigured?: true;
 }>;
 
 const PROTOCOL_LABELS: Partial<Record<InferenceApiProtocol, string>> = {
@@ -56,7 +64,12 @@ export function localModelAgentChoices(
   providers: ReadonlyArray<Pick<ServerProvider, "driver" | "installed" | "enabled">>,
   machineLabel: string,
 ): ReadonlyArray<LocalModelAgentChoice> {
-  const choices = LOCAL_MODEL_AGENTS.map((agent) => {
+  const offered = LOCAL_MODEL_AGENTS.filter(
+    (agent) =>
+      !("onlyWhenConfigured" in agent) ||
+      providers.some((provider) => provider.driver === agent.driver),
+  );
+  const choices = offered.map((agent) => {
     // A turned-off instance is not checked, so only enabled ones can say the agent is missing.
     const checked = providers.filter(
       (provider) => provider.driver === agent.driver && provider.enabled,

@@ -315,7 +315,7 @@ function TextGeneratorWizard({
   const showBaseUrl =
     existing === null
       ? preset.id === "custom"
-      : !["openai", "anthropic", "openrouter"].includes(textGeneratorBrand(existing));
+      : !["openai", "anthropic", "openrouter", "llmgateway"].includes(textGeneratorBrand(existing));
   const canConnect = keyValid && Option.isSome(config) && (!keyRequired || apiKey !== "");
   const name = Option.isSome(config)
     ? textGeneratorDisplayName(config.value, messages)
@@ -383,7 +383,7 @@ function TextGeneratorWizard({
                     <div
                       role="radiogroup"
                       aria-label={gt("Service")}
-                      className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+                      className="grid grid-cols-2 gap-2 sm:grid-cols-5"
                     >
                       {TEXT_GENERATOR_PRESETS.map((candidate) => {
                         const selected = candidate.id === preset.id;
@@ -418,6 +418,14 @@ function TextGeneratorWizard({
                         );
                       })}
                     </div>
+                    {preset.id === "custom" ? null : (
+                      <p className="text-xs text-muted-foreground">
+                        {gt(
+                          "{service} is a paid hosted service. The text each task needs, such as staged diffs, is sent to it.",
+                          { service: preset.label },
+                        )}
+                      </p>
+                    )}
                   </div>
                 ) : null}
                 {showBaseUrl ? (

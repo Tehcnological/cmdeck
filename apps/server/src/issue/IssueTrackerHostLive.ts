@@ -24,27 +24,53 @@ export function issueTrackerSecretName(
     : `issue-tracker-${kind}-account-${accountId}-token`;
 }
 
+export function issueTrackerBaseUrlSecretName(
+  tracker: IssueTrackerKind,
+  accountId: IssueTrackerAccountId | null = null,
+): string {
+  const kind = Buffer.from(tracker, "utf8").toString("base64url");
+  return accountId === null
+    ? `issue-tracker-${kind}-base-url`
+    : `issue-tracker-${kind}-account-${accountId}-base-url`;
+}
+
 const decoder = new TextDecoder();
 
 const make = Effect.gen(function* () {
   const secrets = yield* ServerSecretStore.ServerSecretStore;
+  const readSecret = (
+    tracker: IssueTrackerKind,
+    nameFor: (accountId: IssueTrackerAccountId | null) => string,
+    operation: string,
+  ) =>
+    Effect.flatMap(IssueTrackerHost.IssueTrackerAccount, (accountId) =>
+      secrets.get(nameFor(accountId)),
+    ).pipe(
+      Effect.map(Option.map((bytes) => decoder.decode(bytes))),
+      Effect.mapError(
+        (cause) =>
+          new IssueTrackerError({
+            tracker,
+            operation,
+            reason: "failed",
+            detail: "The stored credential could not be read.",
+            cause,
+          }),
+      ),
+    );
   return IssueTrackerHost.IssueTrackerHost.of({
     credentials: {
       get: (tracker) =>
-        Effect.flatMap(IssueTrackerHost.IssueTrackerAccount, (accountId) =>
-          secrets.get(issueTrackerSecretName(tracker, accountId)),
-        ).pipe(
-          Effect.map(Option.map((bytes) => decoder.decode(bytes))),
-          Effect.mapError(
-            (cause) =>
-              new IssueTrackerError({
-                tracker,
-                operation: "readCredential",
-                reason: "failed",
-                detail: "The stored credential could not be read.",
-                cause,
-              }),
-          ),
+        readSecret(
+          tracker,
+          (accountId) => issueTrackerSecretName(tracker, accountId),
+          "readCredential",
+        ),
+      getBaseUrl: (tracker) =>
+        readSecret(
+          tracker,
+          (accountId) => issueTrackerBaseUrlSecretName(tracker, accountId),
+          "readBaseUrl",
         ),
     },
   });

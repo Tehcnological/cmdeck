@@ -31,6 +31,8 @@ describe("textGeneratorBrand", () => {
   it.each([
     ["anthropic", "https://proxy.example/v1", "anthropic"],
     ["openaiCompatible", "https://openrouter.ai/api/v1", "openrouter"],
+    ["openaiCompatible", "https://api.llmgateway.io/v1", "llmgateway"],
+    ["openaiCompatible", "https://notllmgateway.io/v1", "openaiCompatible"],
     ["openaiCompatible", "https://api.openai.com/v1", "openai"],
     ["openaiCompatible", "http://localhost:11434/v1", "ollama"],
     ["openaiCompatible", "http://localhost:1234/v1", "openaiCompatible"],

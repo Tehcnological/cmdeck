@@ -83,6 +83,7 @@ import {
 } from "./mcpInjection.ts";
 import { PI_FILE_CHANGE_TOOLS, PI_T3_SERVICE_TIER_COMMAND } from "./mcpExtensionSource.ts";
 import { PI_STANDARD_SERVICE_TIER } from "./modelCapabilities.ts";
+import { PI_FLAVOR, type PiFlavor } from "./flavor.ts";
 
 export const PI_PROVIDER = ProviderDriverKind.make("pi");
 const PI_DRIVER_KIND = PI_PROVIDER;
@@ -206,6 +207,8 @@ export interface PiAdapterV2Options {
   /** Routes a linked inference server through T3's gateway; absent means unmanaged. */
   readonly gateway?: PiGatewaySource;
   readonly linkedToInferenceServer?: boolean;
+  readonly driverKind?: ProviderDriverKind;
+  readonly defaultBinary?: string;
   readonly continuationRequests?: {
     readonly offer: (
       request: ProviderContinuationRequests.ProviderContinuationRequest,
@@ -316,13 +319,6 @@ function piToolOutput(result: unknown, toolName: string): unknown {
     content,
     ...(structured === undefined ? {} : { structuredContent: structured }),
   };
-}
-
-function providerRef(
-  nativeId: string,
-  strength: "strong" | "weak" = "strong",
-): OrchestrationV2ProviderRef {
-  return { driver: PI_PROVIDER, nativeId, strength };
 }
 
 const PI_THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
@@ -472,6 +468,12 @@ interface PiWake {
 export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
   options: PiAdapterV2Options,
 ) {
+  const PI_PROVIDER = options.driverKind ?? PI_DRIVER_KIND;
+  const defaultBinary = options.defaultBinary ?? "pi";
+  const providerRef = (
+    nativeId: string,
+    strength: "strong" | "weak" = "strong",
+  ): OrchestrationV2ProviderRef => ({ driver: PI_PROVIDER, nativeId, strength });
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const agentScope = yield* AgentScope;
   const fileSystem = yield* FileSystem.FileSystem;
@@ -564,9 +566,9 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
             toolProfile: resolvedToolProfile,
           });
           const scopedLaunch = yield* agentScope.wrap({
-            command: options.settings.binaryPath || "pi",
+            command: options.settings.binaryPath || defaultBinary,
             args: launch.args,
-            name: "pi",
+            name: defaultBinary,
             threadId: input.threadId,
             env: launch.env,
           });
@@ -2999,7 +3001,7 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
         return yield* Effect.scoped(
           Effect.gen(function* () {
             const forkConnection = yield* makePiRpcConnection({
-              command: options.settings.binaryPath || "pi",
+              command: options.settings.binaryPath || defaultBinary,
               args: [...forkLaunch.args, "--fork", sourceFile],
               cwd,
               env: forkLaunch.env,
@@ -4951,35 +4953,52 @@ export type PiAdapterV2DriverEnv =
   | McpProviderSessions.McpProviderSessions
   | ProviderHost.ProviderHost;
 
-export const PiAdapterV2Driver: ProviderAdapterDriver<PiSettings, PiAdapterV2DriverEnv> = {
-  driverKind: PI_DRIVER_KIND,
-  configSchema: PiSettings,
-  defaultConfig: (): PiSettings => DEFAULT_PI_SETTINGS,
-  create: Effect.fn("PiAdapterV2Driver.create")(
-    function* (input: ProviderAdapterDriverCreateInput<PiSettings>) {
-      const hostEnvironment = yield* HostProcess.Environment;
-      const continuationRequests = yield* ProviderContinuationRequests.ProviderContinuationRequests;
-      const host = yield* ProviderHost.ProviderHost;
-      return yield* makePiAdapterV2({
-        instanceId: input.instanceId,
-        gateway: yield* makePiGatewaySource(input.instanceId, host.paths.providerStatusCacheDir),
-        settings: { ...input.config, enabled: input.enabled },
-        environment: yield* mergeProviderInstanceEnvironment(input.environment, hostEnvironment),
-        linkedToInferenceServer: input.inferenceServerId !== undefined,
-        continuationRequests,
-      });
-    },
-    (effect, input) =>
-      effect.pipe(
-        Effect.mapError(
-          (cause) =>
-            new ProviderAdapterDriverCreateError({
-              driver: PI_DRIVER_KIND,
-              instanceId: input.instanceId,
-              detail: "Failed to create Pi adapter.",
-              cause,
-            }),
+export function createPiAdapterV2Driver(options: {
+  readonly flavor: PiFlavor;
+  readonly configSchema: typeof PiSettings;
+  readonly defaultConfig: () => PiSettings;
+}): ProviderAdapterDriver<PiSettings, PiAdapterV2DriverEnv> {
+  const { flavor, configSchema, defaultConfig } = options;
+  return {
+    driverKind: flavor.driverKind,
+    configSchema,
+    defaultConfig,
+    create: Effect.fn(`${flavor.displayName}AdapterV2Driver.create`)(
+      function* (input: ProviderAdapterDriverCreateInput<PiSettings>) {
+        const hostEnvironment = yield* HostProcess.Environment;
+        const continuationRequests =
+          yield* ProviderContinuationRequests.ProviderContinuationRequests;
+        const host = yield* ProviderHost.ProviderHost;
+        return yield* makePiAdapterV2({
+          instanceId: input.instanceId,
+          gateway: yield* makePiGatewaySource(input.instanceId, host.paths.providerStatusCacheDir),
+          settings: { ...input.config, enabled: input.enabled },
+          environment: yield* mergeProviderInstanceEnvironment(input.environment, hostEnvironment),
+          linkedToInferenceServer: input.inferenceServerId !== undefined,
+          driverKind: flavor.driverKind,
+          defaultBinary: flavor.binaryName,
+          continuationRequests,
+        });
+      },
+      (effect, input) =>
+        effect.pipe(
+          Effect.mapError(
+            (cause) =>
+              new ProviderAdapterDriverCreateError({
+                driver: flavor.driverKind,
+                instanceId: input.instanceId,
+                detail: `Failed to create ${flavor.displayName} adapter.`,
+                cause,
+              }),
+          ),
         ),
-      ),
-  ),
-};
+    ),
+  };
+}
+
+export const PiAdapterV2Driver: ProviderAdapterDriver<PiSettings, PiAdapterV2DriverEnv> =
+  createPiAdapterV2Driver({
+    flavor: PI_FLAVOR,
+    configSchema: PiSettings,
+    defaultConfig: () => DEFAULT_PI_SETTINGS,
+  });

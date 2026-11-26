@@ -17,7 +17,7 @@ import { AsyncResult } from "effect/reactivity";
 import { useNavigation } from "@react-navigation/native";
 import { useGT, useMessages } from "gt-react-native";
 import { useState } from "react";
-import { Platform, View } from "react-native";
+import { Platform, TextInput, View } from "react-native";
 import { tryOpenExternalUrl } from "../../../lib/openExternalUrl";
 import Svg, { Path } from "react-native-svg";
 import { withUniwind } from "uniwind";
@@ -44,6 +44,7 @@ const ICON_SIZE = Platform.OS === "android" ? 20 : 18;
 const TRACKER_MARKS: Partial<Record<string, string>> = {
   linear:
     "M1.225 61.523c-.222-.949.908-1.546 1.597-.857l36.512 36.512c.69.69.092 1.82-.857 1.597C20.15 94.612 5.388 79.85 1.225 61.523ZM.002 46.889a.99.99 0 0 0 .29.76l52.062 52.061a.99.99 0 0 0 .76.29c2.765-.169 5.47-.559 8.1-1.152.75-.169 1.014-1.084.47-1.63L2.784 38.32c-.545-.545-1.46-.28-1.63.47A50.229 50.229 0 0 0 .002 46.89ZM4.472 29.34a.99.99 0 0 0 .208 1.104l64.878 64.877a.99.99 0 0 0 1.104.208 50.293 50.293 0 0 0 5.807-3.132.99.99 0 0 0 .154-1.53L9.135 23.38a.99.99 0 0 0-1.53.154 50.29 50.29 0 0 0-3.132 5.807ZM12.293 18.229c-.309-.309-.334-.803-.045-1.13C21.376 6.626 34.637 0 49.45 0 76.869 0 99.1 22.231 99.1 49.65c0 14.813-6.626 28.074-17.099 37.202-.327.29-.821.264-1.13-.045L12.293 18.23Z",
+  vikunja: "M14 20h17l19 44 19-44h17L58 84H42L14 20Zm36 22a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z",
 };
 
 /**
@@ -150,21 +151,32 @@ export function IssueTrackerCredentialForm(props: {
   const gt = useGT();
   const { environmentId, tracker } = props;
   const connect = useAtomCommand(issueTrackerEnvironment.connect, { reportFailure: false });
+  const [baseUrlDraft, setBaseUrlDraft] = useState(props.addAccount ? "" : (tracker.baseUrl ?? ""));
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const submit = async (token: string | null) => {
+    const trimmedBaseUrl = baseUrlDraft.trim();
+    if (token !== null && tracker.requiresBaseUrl && !trimmedBaseUrl) {
+      setFailure(gt("Enter your {tracker} server URL first.", { tracker: tracker.displayName }));
+      return;
+    }
     setBusy(true);
     setFailure(null);
+    const baseUrlField =
+      tracker.requiresBaseUrl && token !== null && trimmedBaseUrl
+        ? { baseUrl: trimmedBaseUrl }
+        : {};
     const result = await connect({
       environmentId,
       input: props.addAccount
-        ? { tracker: tracker.tracker, token, addAccount: true }
-        : { tracker: tracker.tracker, accountId: tracker.accountId, token },
+        ? { tracker: tracker.tracker, token, addAccount: true, ...baseUrlField }
+        : { tracker: tracker.tracker, accountId: tracker.accountId, token, ...baseUrlField },
     });
     setBusy(false);
     if (!AsyncResult.isFailure(result)) {
       setDraft("");
+      if (props.addAccount) setBaseUrlDraft("");
       return;
     }
     const error = squashAtomCommandFailure(result);
@@ -175,6 +187,19 @@ export function IssueTrackerCredentialForm(props: {
   const replacing = tracker.connected && !props.addAccount;
   return (
     <View className="gap-3 p-4">
+      {tracker.requiresBaseUrl ? (
+        <TextInput
+          accessibilityLabel={gt("Server URL")}
+          placeholder={tracker.baseUrlPlaceholder ?? "https://example.com"}
+          value={baseUrlDraft}
+          onChangeText={setBaseUrlDraft}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+          editable={!locked}
+          className="rounded-lg border border-border bg-surface-elevated px-3 py-2.5 text-sm text-foreground"
+        />
+      ) : null}
       <SecretTextInput
         accessibilityLabel={tracker.credential.label}
         placeholder={

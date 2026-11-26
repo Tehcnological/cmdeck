@@ -517,4 +517,40 @@ describe("DesktopServerExposure", () => {
       },
     ),
   );
+
+  it.effect("advertises WireGuard and mesh addresses once, leaving tailnet ones to Tailscale", () =>
+    withHarness(
+      {
+        ...lanNetworkInterfaces,
+        wg0: [{ address: "10.88.0.3", family: "IPv4", internal: false }],
+        // macOS runs Tailscale on a utun interface too.
+        utun4: [{ address: "100.90.1.2", family: "IPv4", internal: false }],
+        utun5: [{ address: "10.88.0.3", family: "IPv4", internal: false }],
+      },
+      Effect.gen(function* () {
+        const serverExposure = yield* DesktopServerExposure.DesktopServerExposure;
+        yield* serverExposure.configureFromSettings({ port: 4173 });
+        yield* serverExposure.setMode("network-accessible");
+
+        const endpoints = yield* serverExposure.getAdvertisedEndpoints;
+        const mesh = endpoints.filter((endpoint) => endpoint.provider.id === "direct-mesh");
+        assert.deepEqual(
+          mesh.map((endpoint) => [endpoint.label, endpoint.httpBaseUrl]),
+          [["Direct mesh (wg0)", "http://10.88.0.3:4173/"]],
+        );
+      }),
+    ),
+  );
+
+  it.effect("advertises no mesh addresses while local-only", () =>
+    withHarness(
+      { ...lanNetworkInterfaces, wg0: [{ address: "10.88.0.3", family: "IPv4", internal: false }] },
+      Effect.gen(function* () {
+        const serverExposure = yield* DesktopServerExposure.DesktopServerExposure;
+        yield* serverExposure.configureFromSettings({ port: 4173 });
+        const endpoints = yield* serverExposure.getAdvertisedEndpoints;
+        assert.isFalse(endpoints.some((endpoint) => endpoint.provider.id === "direct-mesh"));
+      }),
+    ),
+  );
 });

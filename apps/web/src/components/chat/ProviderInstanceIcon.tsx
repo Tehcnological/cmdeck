@@ -12,6 +12,7 @@ import {
   AntigravityIcon,
   ClaudeAI,
   Icon,
+  LlmGatewayIcon,
   OllamaIcon,
   OpenAI,
   OpenRouterIcon,
@@ -34,6 +35,7 @@ const PROVIDER_ICON_BY_PROVIDER: Partial<Record<ProviderDriverKind, Icon>> = {
   [ProviderDriverKind.make("openai")]: OpenAI,
   [ProviderDriverKind.make("anthropic")]: AnthropicIcon,
   [ProviderDriverKind.make("openrouter")]: OpenRouterIcon,
+  [ProviderDriverKind.make("llmgateway")]: LlmGatewayIcon,
   [ProviderDriverKind.make("ollama")]: OllamaIcon,
 };
 
@@ -44,6 +46,7 @@ const PROVIDER_TEXT_COLOR_BY_PROVIDER: Partial<Record<ProviderDriverKind, string
   [ProviderDriverKind.make("openai")]: "text-black dark:text-white",
   [ProviderDriverKind.make("anthropic")]: "text-black dark:text-white",
   [ProviderDriverKind.make("openrouter")]: "text-black dark:text-white",
+  [ProviderDriverKind.make("llmgateway")]: "text-black dark:text-white",
   [ProviderDriverKind.make("ollama")]: "text-black dark:text-white",
 };
 

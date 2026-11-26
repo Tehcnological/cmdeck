@@ -25,6 +25,9 @@ import * as ForgejoPullRequestProvider from "./ForgejoPullRequestProvider.ts";
 import * as ForgejoSourceControlProvider from "./ForgejoSourceControlProvider.ts";
 import { markRequiredForgejoChecks } from "./forgejoRequiredChecks.ts";
 
+// Graphite ships a `gt` too; only Gitea's names gitea.com/gitea/cli.
+const GRAPHITE_GT_VERSION = "1.7.4";
+
 const onPath = (command: string) => `/usr/bin/${command}`;
 
 const processOutput = TestSourceControlHost.processOutput;
@@ -1230,6 +1233,8 @@ it.effect(
               TestSourceControlHost.layer({
                 process: {
                   run: (input) => {
+                    if (input.command === "gt")
+                      return Effect.succeed(processOutput(GRAPHITE_GT_VERSION));
                     if (input.args[0] === "login")
                       return Effect.succeed(
                         processOutput(
@@ -1744,6 +1749,130 @@ it.effect("rejects HTTP failures even when tea exits successfully", () =>
   ),
 );
 
+it("tells Gitea's gt from Graphite's and reads its accounts in tea's shape", () => {
+  assert.isTrue(
+    ForgejoCli.isGiteaGtVersion(
+      "gt version 1.2.0 (2026-11-01)\nhttps://gitea.com/gitea/cli/releases/tag/v1.2.0\n",
+    ),
+  );
+  assert.isFalse(ForgejoCli.isGiteaGtVersion(GRAPHITE_GT_VERSION));
+  assert.deepStrictEqual(
+    ForgejoCli.parseGtLogins(
+      encodeJson([
+        { host: "https://gitea.example", user: "maria", active: true, credential_available: true },
+        { host: "https://gitea.example", user: "bot", active: false, credential_available: false },
+      ]),
+    ),
+    [
+      {
+        name: "maria@https://gitea.example",
+        url: "https://gitea.example",
+        user: "maria",
+        default: "true",
+        valid: "true",
+      },
+      {
+        name: "bot@https://gitea.example",
+        url: "https://gitea.example",
+        user: "bot",
+        default: "false",
+        valid: "false",
+      },
+    ],
+  );
+});
+
+it.effect("uses Gitea's gt by host and account, and reads HTTP errors from its non-zero exit", () =>
+  Effect.gen(function* () {
+    const cli = yield* ForgejoCli.make;
+    const result = yield* cli
+      .api({
+        cwd: "/repo",
+        repository: "https://gitea.example/maria/project",
+        path: "repos/maria/project/pulls/42",
+        method: "PATCH",
+        body: { state: "closed" },
+      })
+      .pipe(Effect.result);
+    assert.strictEqual(result._tag, "Failure");
+    if (result._tag === "Failure") {
+      assert.strictEqual(result.failure.command, "gt");
+      assert.strictEqual(result.failure.reason, "not-found");
+    }
+  }).pipe(
+    Effect.provideService(
+      FileSystem.FileSystem,
+      FileSystem.makeNoop({ exists: () => Effect.succeed(false) }),
+    ),
+    Effect.provideService(
+      HttpClient.HttpClient,
+      HttpClient.make(() => {
+        throw new Error("gt must handle its own HTTP request");
+      }),
+    ),
+    Effect.provide(
+      TestSourceControlHost.layer({
+        process: {
+          run: (input) => {
+            if (input.command === "fj")
+              return Effect.fail(
+                new VcsProcessSpawnError({
+                  operation: input.operation,
+                  command: input.command,
+                  cwd: input.cwd,
+                  cause: new Error("fj not found"),
+                }),
+              );
+            assert.strictEqual(input.command, "gt");
+            if (input.args[0] === "version")
+              return Effect.succeed(
+                processOutput(
+                  "gt version 1.2.0\nhttps://gitea.com/gitea/cli/releases/tag/v1.2.0\n",
+                ),
+              );
+            if (input.args[0] === "auth")
+              return Effect.succeed(
+                processOutput(
+                  encodeJson([
+                    {
+                      host: "https://gitea.example",
+                      user: "maria",
+                      active: true,
+                      credential_available: true,
+                    },
+                  ]),
+                ),
+              );
+            assert.deepStrictEqual(input.args, [
+              "api",
+              "--include",
+              "--host",
+              "https://gitea.example",
+              "--user",
+              "maria",
+              "--repo",
+              "maria/project",
+              "--method",
+              "PATCH",
+              "--input",
+              "-",
+              "https://gitea.example/api/v1/repos/maria/project/pulls/42",
+            ]);
+            assert.strictEqual(input.stdin, '{"state":"closed"}');
+            assert.isTrue(input.allowNonZeroExit);
+            return Effect.succeed(
+              processOutput('{"message":"not found"}', {
+                stderr: "HTTP/1.1 404 Not Found\n",
+                exitCode: ChildProcessSpawner.ExitCode(1),
+              }),
+            );
+          },
+        },
+      }),
+    ),
+  ),
+);
+
 it.effect("keeps Gitea's failure reason when tea reports an HTTP error", () =>
   Effect.gen(function* () {
     const cli = yield* ForgejoCli.make;
@@ -1876,6 +2005,7 @@ it.effect("routes mounted Forgejo repositories without repeating the mount in AP
       TestSourceControlHost.layer({
         process: {
           run: (input) => {
+            if (input.command === "gt") return Effect.succeed(processOutput(GRAPHITE_GT_VERSION));
             if (input.command === "git")
               return Effect.succeed(
                 processOutput("", { exitCode: ChildProcessSpawner.ExitCode(2) }),
@@ -2405,6 +2535,8 @@ it.effect(
                         }),
                       );
                     }
+                    if (input.command === "gt")
+                      return Effect.succeed(processOutput(GRAPHITE_GT_VERSION));
                     assert.strictEqual(input.command, "tea");
                     return Effect.succeed(
                       input.args[0] === "--version"

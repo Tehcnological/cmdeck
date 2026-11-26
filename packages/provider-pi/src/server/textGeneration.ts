@@ -4,7 +4,7 @@ import * as Queue from "effect/Queue";
 import * as Schema from "effect/Schema";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
-import { ProviderDriverKind, TextGenerationError } from "@t3tools/contracts";
+import { TextGenerationError } from "@t3tools/contracts";
 import { getModelSelectionStringOptionValue } from "@t3tools/shared/model";
 import {
   brokenVersionDetail,
@@ -19,6 +19,7 @@ import { buildPiRpcLaunch, resolvePiLaunchArgs } from "./mcpInjection.ts";
 import { type PiGatewaySource, unmanagedPiGatewaySource } from "./gateway.ts";
 import * as TextGenerationOperations from "@t3tools/provider-core/server/textGenerationOperations";
 import { isPiThinkingLevel } from "./modelCapabilities.ts";
+import { PI_FLAVOR, type PiFlavor } from "./flavor.ts";
 import { runPiVersionCommand } from "./status.ts";
 
 const PI_TIMEOUT_MS = 180_000;
@@ -39,6 +40,7 @@ export const makePiTextGeneration = Effect.fn("makePiTextGeneration")(function* 
   environment: NodeJS.ProcessEnv = process.env,
   gatewaySource: PiGatewaySource = unmanagedPiGatewaySource,
   compatibility: ProviderCompatibilityLookup = noCompatibilityPolicy,
+  flavor: PiFlavor = PI_FLAVOR,
 ) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 
@@ -47,7 +49,7 @@ export const makePiTextGeneration = Effect.fn("makePiTextGeneration")(function* 
       const { operation, cwd, prompt, modelSelection } = request;
       const thinking = getModelSelectionStringOptionValue(modelSelection, "thinking");
       if (thinking !== undefined && isPiThinkingLevel(thinking)) {
-        const output = yield* runPiVersionCommand(piSettings, environment, cwd).pipe(
+        const output = yield* runPiVersionCommand(piSettings, environment, cwd, flavor).pipe(
           Effect.timeoutOption(4_000),
           Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
         );
@@ -57,11 +59,11 @@ export const makePiTextGeneration = Effect.fn("makePiTextGeneration")(function* 
             : null;
         const broken =
           version === null
-            ? "CMDeck could not determine the Pi version. Update Pi and try again."
+            ? `CMDeck could not determine the ${flavor.displayName} version. Update ${flavor.displayName} and try again.`
             : brokenVersionDetail({
-                name: "Pi",
+                name: flavor.displayName,
                 version,
-                advisory: yield* compatibility(ProviderDriverKind.make("pi"), version),
+                advisory: yield* compatibility(flavor.driverKind, version),
               });
         if (broken !== undefined) {
           return yield* new TextGenerationError({ operation, detail: broken });
@@ -91,7 +93,7 @@ export const makePiTextGeneration = Effect.fn("makePiTextGeneration")(function* 
         disableTools: true,
       });
       const connection = yield* makePiRpcConnection({
-        command: piSettings.binaryPath || "pi",
+        command: piSettings.binaryPath || flavor.binaryName,
         args: launch.args,
         cwd,
         env: launch.env,
