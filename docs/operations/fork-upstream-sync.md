@@ -17,7 +17,10 @@ The script:
 1. Refuses to run on a dirty tree.
 2. Adds the `upstream` remote if missing and makes it fetch-only (push URL `DISABLED`).
 3. Creates `upstream-sync/<date>-<sha>` from `origin/main` and merges upstream into it.
-4. Runs `scripts/fork/guard.sh`.
+4. Resolves the mechanical conflicts: a file the fork deleted stays deleted, and a `package.json`
+   whose only conflict is its `version` line keeps the fork's version.
+5. Runs `scripts/fork/guard.sh` and `vp run typecheck`. The typecheck matters: upstream code can merge
+   cleanly and still import a module the fork deleted, which the guard cannot see.
 
 It never pushes, never touches `main`, and never builds or installs. When it finishes:
 
@@ -30,17 +33,19 @@ Review the PR (the diff from upstream is the part to read), let CI pass, then me
 
 ## When the merge conflicts
 
-The script stops and lists the files. Resolve, `git add -A && git commit --no-edit`, then run
-`scripts/fork/guard.sh` yourself. The usual conflicts:
+The script stops and lists the files it could not resolve. Resolve them, `git add -A && git commit
+--no-edit`, then run `scripts/fork/sync-upstream.sh --verify <upstream-ref>` (guard plus typecheck). The
+usual conflicts:
 
 - **Telemetry, Antigravity quota probing, T3 Connect/relay.** The fork deleted these. If upstream
   edited a deleted file, keep it deleted (`git rm <file>`). If upstream added a new call site, remove
   it. The guard's forbidden-pattern list catches the common ones.
-- **Migrations.** Always take upstream's `apps/server/src/persistence/Migrations.ts` and
-  `Migrations/` exactly. Fork-only tables live in `apps/server/src/persistence/ForkSchema.ts`
-  (idempotent `CREATE ... IF NOT EXISTS`), never in a numbered migration: the migrator skips every
-  id at or below the highest one recorded, so a fork id would make later upstream migrations
-  silently never run.
+- **Migrations.** Take upstream's numbered files in `apps/server/src/persistence/Migrations/` exactly,
+  and upstream's changes to `Migrations.ts`, but keep the fork's `ensureForkSchema` import and its call
+  at the end of the migrator (the guard checks both). Fork-only tables live in
+  `apps/server/src/persistence/ForkSchema.ts` (idempotent `CREATE ... IF NOT EXISTS`), never in a
+  numbered migration: the migrator skips every id at or below the highest one recorded, so a fork id
+  would make later upstream migrations silently never run.
 - **Protocol version.** Always take upstream's `ORCHESTRATION_PROTOCOL_VERSION`. The official T3
   mobile app pairs only when it matches.
 - **Settings defaults.** Keep the fork's defaults (device approval on, remote MCP off) when upstream
