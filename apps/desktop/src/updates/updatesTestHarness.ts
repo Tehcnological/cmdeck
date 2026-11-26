@@ -53,7 +53,9 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
   let allowDowngrade = false;
   const checkAllowedDowngrade: boolean[] = [];
   let fullChangelog = false;
+  let allowPrerelease = false;
   const feedUrls: ElectronUpdater.ElectronUpdaterFeedUrl[] = [];
+  const updaterChannels: string[] = [];
   const listeners = new Map<string, Set<(...args: readonly unknown[]) => void>>();
   const sentStates: DesktopUpdateState[] = [];
   const installSteps: string[] = [];
@@ -82,8 +84,14 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
       }),
     setAutoDownload: () => Effect.void,
     setAutoInstallOnAppQuit: () => Effect.void,
-    setChannel: () => Effect.void,
-    setAllowPrerelease: () => Effect.void,
+    setChannel: (channel) =>
+      Effect.sync(() => {
+        updaterChannels.push(channel);
+      }),
+    setAllowPrerelease: (value) =>
+      Effect.sync(() => {
+        allowPrerelease = value;
+      }),
     allowDowngrade: Effect.sync(() => allowDowngrade),
     setAllowDowngrade: (value) =>
       Effect.sync(() => {
@@ -328,7 +336,9 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
     previousInstallRecord: () => previousInstallRecord,
     downloadCount: () => downloadCount,
     feedUrls: (): ElectronUpdater.ElectronUpdaterFeedUrl[] => feedUrls,
+    updaterChannels: (): ReadonlyArray<string> => updaterChannels,
     fullChangelog: () => fullChangelog,
+    allowPrerelease: () => allowPrerelease,
     /** Whether each feed check could offer an older release, and the flag now. */
     checkAllowedDowngrade,
     allowDowngrade: () => allowDowngrade,

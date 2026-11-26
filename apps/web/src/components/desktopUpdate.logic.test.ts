@@ -114,18 +114,22 @@ describe("desktop update button state", () => {
     expect(listeners.size).toBe(0);
   });
 
-  it("never calls a build on the other track up to date", () => {
-    // A Stable build whose switch to Nightly did not finish; the updater discards every release.
+  it("calls a build off its saved track up to date, since it still moves to that track's next release", () => {
+    // A stable build on Beta takes the next beta; a beta build on Stable takes the next stable.
     const state: DesktopUpdateState = {
       ...baseState,
       status: "up-to-date",
       channel: "nightly",
-      currentVersion: "0.1.5",
+      currentVersion: "3.0.0",
       checkedAt: "2026-11-18T00:00:00.000Z",
     };
-    expect(getDesktopUpdateButtonTooltip(state)).not.toBe("Up to date");
+    expect(getDesktopUpdateButtonTooltip(state)).toBe("Up to date");
     expect(
-      getDesktopUpdateButtonTooltip({ ...state, currentVersion: "0.1.6-nightly.20261118.1" }),
+      getDesktopUpdateButtonTooltip({
+        ...state,
+        channel: "latest",
+        currentVersion: "4.0.0-beta.1",
+      }),
     ).toBe("Up to date");
   });
 

@@ -1,6 +1,6 @@
 import type { DesktopUpdateChannel, DesktopUpdateReleaseNote } from "@t3tools/contracts";
 
-import { desktopUpdateChannelOf } from "@t3tools/shared/cliRelease";
+import { desktopTrackOffers } from "@t3tools/shared/cliRelease";
 
 interface ElectronReleaseNoteInfo {
   readonly version: string;
@@ -200,7 +200,7 @@ export function normalizeDesktopUpdateReleaseNotes(
       : Array.isArray(releaseNotes)
         ? releaseNotes.filter(isElectronReleaseNoteInfo)
         : []
-  ).filter((entry) => desktopUpdateChannelOf(entry.version) === channel);
+  ).filter((entry) => desktopTrackOffers(channel, entry.version));
 
   const normalizedNotes = rawNotes.flatMap((entry) => {
     const note = extractReleaseNoteItems(entry.note);

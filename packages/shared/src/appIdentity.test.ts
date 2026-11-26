@@ -58,6 +58,14 @@ describe("formatAppVersion", () => {
     expect(formatAppVersion("0.0.0")).toBe("0.0.0");
   });
 
+  it("shows beta N.0.0-beta.M as its tag vN-beta.M", () => {
+    expect(formatAppVersion("3.0.0-beta.1")).toBe("v3-beta.1");
+    expect(formatAppVersion("12.0.0-beta.10")).toBe("v12-beta.10");
+    expect(formatAppVersion("3.0.0-beta.0")).toBe("3.0.0-beta.0");
+    expect(formatAppVersion("3.1.0-beta.1")).toBe("3.1.0-beta.1");
+    expect(appReleaseTag("3.0.0-beta.2")).toBe("v3-beta.2");
+  });
+
   it("names the release tag", () => {
     expect(appReleaseTag("2.0.0")).toBe("v2");
     expect(appReleaseTag("0.1.12")).toBe("v0.1.12");

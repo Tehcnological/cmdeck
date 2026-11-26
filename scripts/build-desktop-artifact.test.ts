@@ -522,6 +522,18 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         { provider: "github", owner: "Tehcnological", repo: "cmdeck", releaseType: "release" },
       ]);
       assert.deepStrictEqual((release.mac as { target: unknown }).target, ["dmg", "zip"]);
+      // A beta keeps production branding and writes beta*.yml, which Stable apps never read.
+      const beta = yield* config("3.0.0-beta.2");
+      assert.deepStrictEqual(beta.publish, [
+        {
+          provider: "github",
+          owner: "Tehcnological",
+          repo: "cmdeck",
+          releaseType: "prerelease",
+          channel: "beta",
+        },
+      ]);
+      assert.equal(beta.productName, release.productName);
     }).pipe(
       Effect.provide(
         ConfigProvider.layer(

@@ -3,22 +3,39 @@
 ## CMDeck releases (this fork)
 
 CMDeck ships desktop installers from this repository's GitHub releases, and installed apps update
-from them (stable only; no nightly or preview feed). Release `vN` is app version `N.0.0`; the app
-shows it as `vN`.
+from them. Stable release `vN` is app version `N.0.0`, shown as `vN`. Beta release `vN-beta.M` is
+app version `N.0.0-beta.M`, shown as `vN-beta.M`. There is no nightly or preview feed.
 
-1. On a branch, set `version` to `N.0.0` in `apps/desktop`, `apps/server`, `apps/web` and
-   `packages/contracts` `package.json`, merge to `main`.
-2. Tag the merge commit and push the tag: `git tag vN && git push origin vN`.
+1. On a branch, set `version` in `apps/desktop`, `apps/server`, `apps/web` and
+   `packages/contracts` `package.json` to `N.0.0` (stable) or `N.0.0-beta.M` (beta), merge to
+   `main`.
+2. Tag the merge commit and push the tag: `git tag vN && git push origin vN`, or
+   `git tag vN-beta.M && git push origin vN-beta.M`.
 3. `.github/workflows/fork-release.yml` checks that the tag matches the version, builds unsigned
-   Windows x64, macOS arm64 and Linux x64 installers, then publishes release `vN` with the
-   installers, `latest*.yml`, blockmaps, the macOS zip and `SHA256SUMS.txt`. To rebuild an existing
-   tag, run the workflow by hand with that tag.
-4. Install the previous release on each platform and check that it offers and installs `vN`.
+   Windows x64, macOS arm64 and Linux x64 installers, then publishes the release with the
+   installers, blockmaps, the macOS zip, `SHA256SUMS.txt` and the update feed files: `latest*.yml`
+   for a stable tag, `beta*.yml` for a beta tag. To rebuild an existing tag, run the workflow by
+   hand with that tag.
+4. Install the previous release on each platform and check that it offers and installs the new
+   one (for a beta, on the Beta track).
 
-The release stays a draft until every file is uploaded, because installed apps read the newest
-published release. `scripts/fork/guard.sh` fails if the build points its feed anywhere but
-`Tehcnological/cmdeck`. macOS builds are ad-hoc signed, so the app installs its own updates there
-(`apps/desktop/src/updates/MacBundleUpdater.ts`) instead of Squirrel.Mac.
+Betas for version N come before `vN`: cut `vN-beta.1`, `vN-beta.2`, ..., then `vN` from a later
+commit, which Beta apps also install. After `vN`, the next betas are `vN+1-beta.M`. Never cut a
+beta of a version that already shipped (`v3-beta.3` after `v3`): every app has moved past it.
+
+A beta is published as a GitHub prerelease and never as the latest release. Stable apps read only
+the latest release, so they never see a beta; a stable release is published as the latest. Beta
+apps (`apps/desktop/src/updates/CmdeckGitHubProvider.ts`) take the newest `vN` or `vN-beta.M` from
+the releases API, because electron-updater's own prerelease lookup skips tags that are not semver.
+The release stays a draft until every file is uploaded, because installed apps read published
+releases. The build gives a beta CMDeck's normal name and icons. `scripts/fork/guard.sh` fails if
+the build points its feed anywhere but `Tehcnological/cmdeck`. macOS builds are ad-hoc signed, so
+the app installs its own updates there (`apps/desktop/src/updates/MacBundleUpdater.ts`) instead of
+Squirrel.Mac.
+
+The Beta track is stored as `nightly`, the value official T3 Code clients and servers know, so a
+saved Nightly setting is Beta. Track switches move only the desktop app: CMDeck has no npm release
+for the multi-machine switch, and servers update through `t3 update` only from a managed mirror.
 
 The rest of this runbook describes upstream T3 Code's release pipeline, which this fork does not
 run.

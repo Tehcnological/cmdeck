@@ -108,7 +108,7 @@ async function downloadVerified(
     NodeFS.createWriteStream(destination),
   );
   if (!sha512Matches(hash.digest(), file.sha512)) {
-    throw fail("The downloaded macOS update does not match the checksum in latest-mac.yml.");
+    throw fail("The downloaded macOS update does not match the checksum in its update feed.");
   }
 }
 

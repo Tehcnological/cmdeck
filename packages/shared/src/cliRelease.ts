@@ -101,9 +101,26 @@ export function crossesReleaseTrack(fromVersion: string, toVersion: string): boo
   return from !== to && from !== "preview" && to !== "preview";
 }
 
-/** The desktop update track a build belongs to. Preview builds have no feed and read as Stable. */
+/** A CMDeck beta release, `N.0.0-beta.M` (tag `vN-beta.M`). */
+const isBetaVersion = (version: string): boolean => /^\d+\.\d+\.\d+-beta\.\d+$/.test(version);
+
+/**
+ * The desktop update track a build belongs to. CMDeck's Beta track keeps the stored and wire value
+ * "nightly", so saved settings and official T3 Code peers still decode it; it holds beta builds
+ * (and upstream-style nightlies). Preview builds have no feed and read as Stable.
+ */
 export function desktopUpdateChannelOf(version: string): "latest" | "nightly" {
-  return cliReleaseChannelOf(version) === "nightly" ? "nightly" : "latest";
+  return isBetaVersion(version) || cliReleaseChannelOf(version) === "nightly"
+    ? "nightly"
+    : "latest";
+}
+
+/** Whether a desktop on `channel` may be offered `version`: Stable takes only stable releases,
+ * Beta takes every release but previews, so it also moves on to the next stable one. */
+export function desktopTrackOffers(channel: "latest" | "nightly", version: string): boolean {
+  return channel === "nightly"
+    ? cliReleaseChannelOf(version) !== "preview"
+    : desktopUpdateChannelOf(version) === "latest";
 }
 
 /**

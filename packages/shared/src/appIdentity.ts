@@ -38,12 +38,13 @@ export const APP_RELEASE_OWNER = "Tehcnological";
 export const APP_RELEASE_REPO = "cmdeck";
 export const APP_RELEASE_REPOSITORY = `${APP_RELEASE_OWNER}/${APP_RELEASE_REPO}`;
 
-const RELEASE_VERSION = /^([1-9]\d*)\.0\.0$/u;
+const RELEASE_VERSION = /^([1-9]\d*)\.0\.0(-beta\.[1-9]\d*)?$/u;
 
-/** Shows release N.0.0 as `vN`; any other version (dev, nightly) unchanged. */
+/** Shows release N.0.0 as `vN` and beta N.0.0-beta.M as `vN-beta.M`, which are also their tags;
+ * any other version (dev, nightly) unchanged. */
 export const formatAppVersion = (version: string): string => {
-  const major = RELEASE_VERSION.exec(version)?.[1];
-  return major === undefined ? version : `v${major}`;
+  const match = RELEASE_VERSION.exec(version);
+  return match === null ? version : `v${match[1]}${match[2] ?? ""}`;
 };
 
 /** The git tag of a version's release: `vN` for N.0.0, else `v<version>`. */

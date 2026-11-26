@@ -1,6 +1,8 @@
-# Builds unsigned Windows, macOS and Linux installers for a release tag vN and publishes them, with
-# the update feeds the desktop app reads (latest*.yml and blockmaps), as GitHub release vN of this
-# repository. Release vN must be app version N.0.0. No secrets besides the run's own token.
+# Builds unsigned Windows, macOS and Linux installers for a release tag and publishes them, with the
+# update feeds the desktop app reads and their blockmaps, as a GitHub release of this repository.
+# Stable tag vN is app version N.0.0, carries latest*.yml and becomes the latest release. Beta tag
+# vN-beta.M is app version N.0.0-beta.M, carries beta*.yml and is published as a prerelease, which
+# GitHub never makes the latest release, so Stable apps never see it. No secrets besides the token.
 name: Fork release
 
 on:
@@ -9,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag to build and publish (vN)
+        description: Existing release tag to build and publish (vN or vN-beta.M)
         required: true
 
 permissions:
@@ -37,13 +39,13 @@ jobs:
             apps/server/package.json
           sparse-checkout-cone-mode: false
 
-      - name: Tag vN matches version N.0.0
+      - name: Tag vN matches N.0.0, vN-beta.M matches N.0.0-beta.M
         run: |
-          if [[ ! "$RELEASE_TAG" =~ ^v[1-9][0-9]*$ ]]; then
-            echo "::error::Release tags are vN (v1, v2, ...); got '$RELEASE_TAG'." >&2
+          if [[ ! "$RELEASE_TAG" =~ ^v([1-9][0-9]*)(-beta\.[1-9][0-9]*)?$ ]]; then
+            echo "::error::Release tags are vN (v1, v2, ...) or vN-beta.M (v3-beta.1, ...); got '$RELEASE_TAG'." >&2
             exit 1
           fi
-          expected="${RELEASE_TAG#v}.0.0"
+          expected="${BASH_REMATCH[1]}.0.0${BASH_REMATCH[2]}"
           for manifest in apps/desktop/package.json apps/server/package.json; do
             version="$(jq -r .version "$manifest")"
             if [ "$version" != "$expected" ]; then
@@ -94,6 +96,7 @@ jobs:
             release/*.exe
             release/*.exe.blockmap
             release/latest.yml
+            release/beta.yml
           if-no-files-found: error
           retention-days: 7
 
@@ -135,6 +138,7 @@ jobs:
             release/*.zip
             release/*.zip.blockmap
             release/latest-mac.yml
+            release/beta-mac.yml
           if-no-files-found: error
           retention-days: 7
 
@@ -178,6 +182,7 @@ jobs:
             release/*.AppImage
             release/*.deb
             release/latest-linux.yml
+            release/beta-linux.yml
           if-no-files-found: error
           retention-days: 7
 
@@ -198,24 +203,34 @@ jobs:
 
       - name: Check release assets
         working-directory: release-assets
+        # A beta carries only beta*.yml feeds and a stable release only latest*.yml.
         run: |
           shopt -s nullglob
-          for pattern in '*.exe' '*.exe.blockmap' latest.yml '*.dmg' '*.zip' '*.zip.blockmap' \
-            latest-mac.yml '*.AppImage' '*.deb' latest-linux.yml; do
+          if [[ "$RELEASE_TAG" == *-beta.* ]]; then feed=beta other=latest; else feed=latest other=beta; fi
+          stray=("$other".yml "$other"-*.yml)
+          [ "${#stray[@]}" -eq 0 ] || { echo "::error::$RELEASE_TAG must not carry ${stray[*]}." >&2; exit 1; }
+          for pattern in '*.exe' '*.exe.blockmap' "$feed.yml" '*.dmg' '*.zip' '*.zip.blockmap' \
+            "$feed-mac.yml" '*.AppImage' '*.deb' "$feed-linux.yml"; do
             files=($pattern)
             [ "${#files[@]}" -gt 0 ] || { echo "::error::No release asset matches $pattern." >&2; exit 1; }
           done
           sha256sum -- * > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-      # A draft hides the release from the update feed until every asset is uploaded.
+      # A draft hides the release from the update feed until every asset is uploaded. A beta is a
+      # prerelease and never latest: Stable apps read only the latest release, so they never see it.
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          if [[ "$RELEASE_TAG" == *-beta.* ]]; then
+            kind=(--prerelease=true --latest=false)
+          else
+            kind=(--prerelease=false --latest)
+          fi
           if ! gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
-            gh release create "$RELEASE_TAG" --verify-tag --draft --title "CMDeck $RELEASE_TAG" --generate-notes
+            gh release create "$RELEASE_TAG" --verify-tag --draft "${kind[@]}" --title "CMDeck $RELEASE_TAG" --generate-notes
           fi
           gh release upload "$RELEASE_TAG" release-assets/* --clobber
-          gh release edit "$RELEASE_TAG" --draft=false --prerelease=false --latest
+          gh release edit "$RELEASE_TAG" --draft=false "${kind[@]}"
