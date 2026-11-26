@@ -62,6 +62,61 @@ export function remoteMcpEndpointUrl(baseUrl: string | null): string | null {
   return baseUrl === null ? null : `${baseUrl}/mcp`;
 }
 
+export interface RemoteMcpAddress {
+  readonly url: string;
+  /** Null for the fallback, the one address this client happens to use. */
+  readonly label: string | null;
+  readonly localNetworkOnly: boolean;
+}
+
+function originOf(url: string): string | null {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Every advertised way to reach this machine's `/mcp`: the tunnel, then Tailscale (Serve's https
+ * name when it answers, else the tailnet IP), then the local network. Falls back to
+ * `fallbackBaseUrl` when nothing is advertised, as on the web app, which has no endpoint list.
+ */
+export function remoteMcpAddresses(
+  publicBaseUrl: string,
+  endpoints: readonly AdvertisedEndpoint[],
+  fallbackBaseUrl: string | null,
+  resolve: MessageResolver = m,
+): readonly RemoteMcpAddress[] {
+  const tunnel = tunnelPairingEndpoint(publicBaseUrl);
+  const tailscale =
+    endpoints.find((e) => e.id.startsWith("tailscale-magicdns:") && e.status !== "unavailable") ??
+    endpoints.find((e) => e.id.startsWith("tailscale-ip:"));
+  const candidates = [
+    { endpoint: tunnel, label: CLOUDFLARE_TUNNEL_LABEL, localNetworkOnly: false },
+    { endpoint: tailscale, label: "Tailscale", localNetworkOnly: false },
+    ...endpoints
+      .filter((e) => e.reachability === "lan")
+      .map((endpoint) => ({
+        endpoint,
+        label: resolve(msg("Local network only")),
+        localNetworkOnly: true,
+      })),
+  ];
+  const addresses: RemoteMcpAddress[] = [];
+  for (const { endpoint, label, localNetworkOnly } of candidates) {
+    const origin = endpoint ? originOf(endpoint.httpBaseUrl) : null;
+    const url = remoteMcpEndpointUrl(origin);
+    if (url !== null && !addresses.some((address) => address.url === url)) {
+      addresses.push({ url, label, localNetworkOnly });
+    }
+  }
+  const fallback = remoteMcpEndpointUrl(fallbackBaseUrl);
+  return addresses.length > 0 || fallback === null
+    ? addresses
+    : [{ url: fallback, label: null, localNetworkOnly: false }];
+}
+
 export function publicBaseUrlProblemLabel(
   value: string,
   resolve: MessageResolver = m,

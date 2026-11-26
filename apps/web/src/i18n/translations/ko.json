@@ -9926,6 +9926,7 @@
   "5c0c973276a61fdb": "풀 리퀘스트 라우팅 권한을 저장할 수 없습니다",
   "1bfcffe8411e2439": "{environment} 풀 리퀘스트 라우팅",
   "ae4761ddc038b102": "여기서 신뢰하는 머신은 서로의 소스 제어 액세스를 통해 PR 데이터를 읽을 수 있습니다. 두 머신 모두에서 사용하도록 설정하세요. 읽기 및 작업은 해당 권한을 소유한 머신보다 넓은 권한을 사용할 수 있습니다. 이 기기에만 적용됩니다.",
+  "7e646ee82d9ab4ac": "로컬 네트워크 전용",
   "e9c0ee67a79f1b4a": "Remove the spaces around the address.",
   "73577f8c319d8615": "Use an https:// address.",
   "612d2019838f58b9": "Leave the user name and password out.",

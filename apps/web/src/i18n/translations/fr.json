@@ -9968,6 +9968,7 @@
   "5c0c973276a61fdb": "Impossible d’enregistrer l’autorisation de routage des pull requests",
   "1bfcffe8411e2439": "Routage des pull requests de {environment}",
   "ae4761ddc038b102": "Les machines auxquelles vous faites confiance ici peuvent lire les données des PR via l’accès à la gestion de versions des unes et des autres. Activez les deux machines. Lire et agir peut utiliser des autorisations plus larges que celles de la machine qui les possède. Ne s’applique qu’à cet appareil.",
+  "7e646ee82d9ab4ac": "Réseau local uniquement",
   "e9c0ee67a79f1b4a": "Remove the spaces around the address.",
   "73577f8c319d8615": "Use an https:// address.",
   "612d2019838f58b9": "Leave the user name and password out.",

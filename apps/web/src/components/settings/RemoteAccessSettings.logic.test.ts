@@ -1,3 +1,4 @@
+import type { AdvertisedEndpoint } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -10,6 +11,7 @@ import {
   externalBaseUrl,
   publicAddressCheckLabel,
   publicBaseUrlProblemLabel,
+  remoteMcpAddresses,
   remoteMcpEndpointUrl,
   remoteMcpSwitchState,
   tunnelPairingEndpoint,
@@ -59,6 +61,63 @@ describe("remote MCP address", () => {
       "https://cmdeck.example.com/mcp",
     );
     expect(remoteMcpEndpointUrl(null)).toBeNull();
+  });
+
+  const endpoint = (
+    id: string,
+    httpBaseUrl: string,
+    reachability: AdvertisedEndpoint["reachability"],
+    status: AdvertisedEndpoint["status"] = "available",
+  ): AdvertisedEndpoint => ({
+    ...tunnelPairingEndpoint("https://x.example.com")!,
+    id,
+    httpBaseUrl,
+    reachability,
+    status,
+  });
+  const loopback = endpoint("desktop-loopback:3783", "http://127.0.0.1:3783", "loopback");
+  const lan = endpoint("desktop-lan:http://192.168.4.176:3783", "http://192.168.4.176:3783", "lan");
+  const tailscaleIp = endpoint(
+    "tailscale-ip:http://100.64.0.1:3783",
+    "http://100.64.0.1:3783",
+    "private-network",
+  );
+  const serve = (status: AdvertisedEndpoint["status"]) =>
+    endpoint(
+      "tailscale-magicdns:https://desk.tail1.ts.net",
+      "https://desk.tail1.ts.net/",
+      "private-network",
+      status,
+    );
+
+  it("lists the tunnel, then Tailscale Serve, then the local network, each once", () => {
+    const addresses = remoteMcpAddresses(
+      "https://cmdeck.example.com",
+      [loopback, lan, tailscaleIp, serve("available"), lan],
+      "http://192.168.4.176:3783",
+    );
+    expect(addresses).toEqual([
+      {
+        url: "https://cmdeck.example.com/mcp",
+        label: "Cloudflare Tunnel",
+        localNetworkOnly: false,
+      },
+      { url: "https://desk.tail1.ts.net/mcp", label: "Tailscale", localNetworkOnly: false },
+      { url: "http://192.168.4.176:3783/mcp", label: "Local network only", localNetworkOnly: true },
+    ]);
+  });
+
+  it("uses the tailnet IP while Tailscale Serve does not answer", () => {
+    expect(
+      remoteMcpAddresses("", [serve("unavailable"), tailscaleIp], null).map((a) => a.url),
+    ).toEqual(["http://100.64.0.1:3783/mcp"]);
+  });
+
+  it("falls back to the address this client uses when nothing is advertised", () => {
+    expect(remoteMcpAddresses("", [loopback], "http://192.168.4.176:3783")).toEqual([
+      { url: "http://192.168.4.176:3783/mcp", label: null, localNetworkOnly: false },
+    ]);
+    expect(remoteMcpAddresses("http://not-https.example.com", [], null)).toEqual([]);
   });
 
   it("locks the switch to T3CODE_REMOTE_MCP when the server started with it", () => {

@@ -9976,6 +9976,7 @@
   "5c0c973276a61fdb": "Could not save pull request routing permission",
   "1bfcffe8411e2439": "{environment} pull request routing",
   "ae4761ddc038b102": "Machines you trust here can read PR data through each other's source control access. Enable both machines. Read and act may use broader permissions than the machine that owns them. This applies only to this device.",
+  "7e646ee82d9ab4ac": "Local network only",
   "e9c0ee67a79f1b4a": "Remove the spaces around the address.",
   "73577f8c319d8615": "Use an https:// address.",
   "612d2019838f58b9": "Leave the user name and password out.",

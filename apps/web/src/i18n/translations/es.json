@@ -9966,6 +9966,7 @@
   "5c0c973276a61fdb": "No se pudo guardar el permiso de enrutamiento de pull requests",
   "1bfcffe8411e2439": "Enrutamiento de pull requests de {environment}",
   "ae4761ddc038b102": "Las máquinas en las que confías aquí pueden leer datos de PR a través del acceso al control de versiones de las otras. Activa ambas máquinas. Leer y actuar puede usar permisos más amplios que los de la máquina propietaria. Solo se aplica a este dispositivo.",
+  "7e646ee82d9ab4ac": "Solo en la red local",
   "e9c0ee67a79f1b4a": "Remove the spaces around the address.",
   "73577f8c319d8615": "Use an https:// address.",
   "612d2019838f58b9": "Leave the user name and password out.",

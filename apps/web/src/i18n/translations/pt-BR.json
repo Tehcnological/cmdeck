@@ -9968,6 +9968,7 @@
   "5c0c973276a61fdb": "Não foi possível salvar a permissão de roteamento de pull requests",
   "1bfcffe8411e2439": "Roteamento de pull requests de {environment}",
   "ae4761ddc038b102": "As máquinas em que você confia aqui podem ler dados de PRs pelo acesso ao controle de versão umas das outras. Ative nas duas máquinas. \"Ler e agir\" pode usar permissões mais amplas que as da máquina dona delas. Isso vale só para este dispositivo.",
+  "7e646ee82d9ab4ac": "Somente na rede local",
   "e9c0ee67a79f1b4a": "Remove the spaces around the address.",
   "73577f8c319d8615": "Use an https:// address.",
   "612d2019838f58b9": "Leave the user name and password out.",

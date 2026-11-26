@@ -9984,6 +9984,7 @@
   "5c0c973276a61fdb": "无法保存 pull request 路由权限",
   "1bfcffe8411e2439": "{environment} 的 PR 路由",
   "ae4761ddc038b102": "此处信任的机器可借助彼此的版本控制访问权限读取 PR 数据。需要在两台机器上都启用。“读取并操作”可能使用比权限所属机器更广的权限。此设置仅适用于当前设备。",
+  "7e646ee82d9ab4ac": "仅限本地网络",
   "e9c0ee67a79f1b4a": "Remove the spaces around the address.",
   "73577f8c319d8615": "Use an https:// address.",
   "612d2019838f58b9": "Leave the user name and password out.",

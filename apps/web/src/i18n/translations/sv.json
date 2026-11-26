@@ -9974,6 +9974,7 @@
   "5c0c973276a61fdb": "Kunde inte spara behörigheten för routning av pull requests",
   "1bfcffe8411e2439": "Routning av pull requests för {environment}",
   "ae4761ddc038b102": "Datorer du litar på här kan läsa PR-data via varandras åtkomst till versionshantering. Aktivera på båda datorerna. Läs och agera kan använda bredare behörigheter än den dator som äger dem. Gäller bara den här enheten.",
+  "7e646ee82d9ab4ac": "Endast lokalt nätverk",
   "e9c0ee67a79f1b4a": "Remove the spaces around the address.",
   "73577f8c319d8615": "Use an https:// address.",
   "612d2019838f58b9": "Leave the user name and password out.",
