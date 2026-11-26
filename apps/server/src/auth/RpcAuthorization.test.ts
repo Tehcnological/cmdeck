@@ -43,6 +43,16 @@ import {
 import * as RpcAuthorization from "./RpcAuthorization.ts";
 
 describe("RPC authorization scopes", () => {
+  it("asks the same scopes to move attachment bytes as to mint their signed URLs", () => {
+    expect(requiredScopeForRpcMethod(WS_METHODS.assetsRead)).toBe(AuthOrchestrationReadScope);
+    expect(requiredScopeForRpcMethod(WS_METHODS.attachmentsUploadChunk)).toBe(
+      requiredScopeForRpcMethod(WS_METHODS.attachmentsCreateUploadUrl),
+    );
+    expect(requiredScopeForRpcMethod(WS_METHODS.attachmentsUploadChunk)).toBe(
+      AuthOrchestrationOperateScope,
+    );
+  });
+
   it("declares exactly one scope for every RPC in the server group", () => {
     expect(new Set(Object.keys(RPC_REQUIRED_SCOPES))).toEqual(new Set(WsRpcGroup.requests.keys()));
   });

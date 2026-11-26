@@ -50,6 +50,9 @@ import {
   MCP_HTTP_PATH,
 } from "./httpCors.ts";
 import { requestUrl } from "./requestUrl.ts";
+import * as ServerSettings from "./serverSettings.ts";
+import { classifyRequestTransport } from "./auth/transportSecurity.ts";
+import { E2EE_REQUIRED_CODE } from "@t3tools/shared/socketE2ee";
 
 const LOOPBACK_HOSTNAMES = new Set(["127.0.0.1", "::1", "localhost"]);
 const SVG_CONTENT_SECURITY_POLICY = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
@@ -396,10 +399,35 @@ export const layerDesktopReadinessProofRoute = HttpRouter.add(
 // Signed URLs carry their bearer token in the path; spans and request logs record it as REDACTED.
 const SIGNED_URL_ROUTE_OPTIONS = { redactedParams: ["*"] };
 
+/**
+ * Under `e2eeMode: "require"` attachment bytes travel only inside the encrypted RPC socket
+ * (`assets.read`, `attachments.uploadChunk`), so a remote hop cannot use the plain routes.
+ */
+const refuseUnencryptedRemoteTransfer = Effect.gen(function* () {
+  const request = yield* HttpServerRequest.HttpServerRequest;
+  const settings = yield* Effect.flatMap(
+    ServerSettings.ServerSettingsService,
+    (service) => service.getSettings,
+  ).pipe(Effect.orDie);
+  if (settings.e2eeMode !== "require" || classifyRequestTransport(request) === "loopback") {
+    return null;
+  }
+  return HttpServerResponse.jsonUnsafe(
+    {
+      code: E2EE_REQUIRED_CODE,
+      message:
+        "This host requires end-to-end encryption, so files are only sent inside an encrypted session.",
+    },
+    { status: 403, headers: { "cache-control": "no-store" } },
+  );
+});
+
 export const layerAssetRoute = HttpRouter.add(
   "GET",
   `${ASSET_ROUTE_PREFIX}/*`,
   Effect.gen(function* () {
+    const refused = yield* refuseUnencryptedRemoteTransfer;
+    if (refused) return refused;
     const request = yield* HttpServerRequest.HttpServerRequest;
     const url = requestUrl(request);
     if (Option.isNone(url)) {
@@ -459,6 +487,8 @@ export const layerAttachmentUploadRoute = HttpRouter.add(
   "POST",
   `${ATTACHMENT_UPLOAD_ROUTE_PREFIX}/*`,
   Effect.gen(function* () {
+    const refused = yield* refuseUnencryptedRemoteTransfer;
+    if (refused) return refused;
     const request = yield* HttpServerRequest.HttpServerRequest;
     const url = requestUrl(request);
     if (Option.isNone(url)) {

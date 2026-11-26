@@ -28,6 +28,8 @@ const BYTE_WINDOWED_STREAMS: ReadonlySet<string> = new Set([
 ]);
 // One ACK round trip per chunk stalls sync on high-latency links.
 const COUNT_WINDOWED_STREAMS: ReadonlySet<string> = new Set([
+  // Asset chunks are at most ASSET_TRANSFER_CHUNK_BYTES, so this bounds each read to ~1 MiB queued.
+  WS_METHODS.assetsRead,
   WS_METHODS.subscribeServerConfig,
   ORCHESTRATION_V2_WS_METHODS.subscribeShell,
   ORCHESTRATION_V2_WS_METHODS.subscribeThread,

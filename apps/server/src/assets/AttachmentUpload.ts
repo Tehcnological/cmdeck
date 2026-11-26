@@ -16,7 +16,7 @@ import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
-import type * as HttpServerRequest from "effect/http/HttpServerRequest";
+import type { HttpServerError } from "effect/http/HttpServerError";
 
 import {
   attachmentFileExtension,
@@ -149,7 +149,8 @@ export type StoreAttachmentUploadResult =
 
 export const storeAttachmentUpload = Effect.fn("AttachmentUpload.store")(function* (
   claims: AttachmentUploadClaims,
-  body: Uint8Array | HttpServerRequest.HttpServerRequest["stream"],
+  // The HTTP request body, or a staged file for chunked RPC uploads.
+  body: Uint8Array | Stream.Stream<Uint8Array, HttpServerError | PlatformError.PlatformError>,
 ) {
   if (body instanceof Uint8Array && body.byteLength !== claims.sizeBytes) {
     return {

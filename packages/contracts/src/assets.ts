@@ -143,6 +143,65 @@ export const AttachmentCreateUploadUrlResult = Schema.Struct({
 });
 export type AttachmentCreateUploadUrlResult = typeof AttachmentCreateUploadUrlResult.Type;
 
+/**
+ * Encrypted-session transfers (CMDeck): the bytes of a signed asset or upload URL travel inside
+ * the RPC socket, which an E2EE session encrypts end to end, instead of over plain HTTP. The
+ * signed URL stays the only authorization, exactly as on the HTTP routes.
+ */
+export const ASSET_TRANSFER_CHUNK_BYTES = 128 * 1024;
+
+const AssetRelativeUrl = AssetCreateUrlResult.fields.relativeUrl;
+
+export const AssetReadInput = Schema.Struct({
+  relativeUrl: AssetRelativeUrl,
+});
+export type AssetReadInput = typeof AssetReadInput.Type;
+
+/** The first chunk carries the content type and total size; every chunk carries bytes. */
+export const AssetReadChunk = Schema.Struct({
+  data: Schema.Uint8ArrayFromBase64,
+  contentType: Schema.optionalKey(TrimmedNonEmptyString.check(Schema.isMaxLength(255))),
+  totalBytes: Schema.optionalKey(NonNegativeInt),
+});
+export type AssetReadChunk = typeof AssetReadChunk.Type;
+
+export class AssetReadError extends Schema.TaggedError<AssetReadError>()("AssetReadError", {
+  reason: Schema.Literals(["not-found", "unsupported", "failed"]),
+}) {
+  override get message(): string {
+    return this.reason === "not-found"
+      ? "The asset was not found or its link expired."
+      : this.reason === "unsupported"
+        ? "This asset cannot be read over the session."
+        : "Failed to read the asset.";
+  }
+}
+
+export const AttachmentUploadChunkInput = Schema.Struct({
+  relativeUrl: AttachmentCreateUploadUrlResult.fields.relativeUrl,
+  offset: NonNegativeInt,
+  data: Schema.Uint8ArrayFromBase64,
+});
+export type AttachmentUploadChunkInput = typeof AttachmentUploadChunkInput.Type;
+
+export const AttachmentUploadChunkResult = Schema.Struct({
+  receivedBytes: NonNegativeInt,
+  complete: Schema.Boolean,
+});
+export type AttachmentUploadChunkResult = typeof AttachmentUploadChunkResult.Type;
+
+export class AttachmentUploadChunkError extends Schema.TaggedError<AttachmentUploadChunkError>()(
+  "AttachmentUploadChunkError",
+  {
+    status: NonNegativeInt,
+    detail: Schema.String,
+  },
+) {
+  override get message(): string {
+    return this.detail;
+  }
+}
+
 export const AttachmentDeleteInput = Schema.Struct({
   attachmentId: TrimmedNonEmptyString.check(Schema.isMaxLength(256)),
 });
