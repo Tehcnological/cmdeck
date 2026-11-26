@@ -16,6 +16,7 @@ import {
 import {
   deletePendingAttachmentUpload,
   runAttachmentUploadCycle,
+  uploadAttachmentOverRpc,
   verifyPersistedAttachmentUpload,
   type PersistedAttachmentVerification,
 } from "@t3tools/client-runtime/state/attachments";
@@ -259,6 +260,19 @@ const uploadJob = Effect.fn("WebAttachmentUploads.upload")(function* (job: Uploa
   }
 
   let lastStep = -1;
+  const reportProgress = (progress: number, signal?: AbortSignal) => {
+    const step = Math.floor(progress * 20);
+    if (step === lastStep || signal?.aborted) return;
+    lastStep = step;
+    setUploadState(job.image.id, {
+      status: "uploading",
+      environmentId: job.environmentId,
+      progress,
+      ...(job.previous ? { previous: job.previous } : {}),
+    });
+  };
+  // A pinned E2EE session must not send the bytes over HTTP, where a TLS-terminating hop sees them.
+  const encrypted = readPreparedConnection(job.environmentId)?.e2eeServerIdentityKey !== undefined;
   const result = yield* runAttachmentUploadCycle({
     registry: appAtomRegistry,
     createUploadUrl: attachmentEnvironment.createUploadUrl,
@@ -273,30 +287,37 @@ const uploadJob = Effect.fn("WebAttachmentUploads.upload")(function* (job: Uploa
     resolveUploadUrl: (relativeUrl) => {
       if (!canOperate(job.environmentId)) return null;
       const connection = readPreparedConnection(job.environmentId);
-      return connection ? resolveAssetUrl(connection.httpBaseUrl, relativeUrl) : null;
+      if (!connection) return null;
+      return encrypted ? relativeUrl : resolveAssetUrl(connection.httpBaseUrl, relativeUrl);
     },
     transport: (url) =>
-      Effect.tryPromise({
-        try: (signal) =>
-          uploadBytes({
-            url,
-            file,
-            mimeType,
-            signal,
-            onProgress: (progress) => {
-              const step = Math.floor(progress * 20);
-              if (step === lastStep || signal.aborted) return;
-              lastStep = step;
-              setUploadState(job.image.id, {
-                status: "uploading",
-                environmentId: job.environmentId,
-                progress,
-                ...(job.previous ? { previous: job.previous } : {}),
-              });
-            },
+      encrypted
+        ? uploadAttachmentOverRpc({
+            registry: appAtomRegistry,
+            uploadChunk: attachmentEnvironment.uploadChunk,
+            environmentId: job.environmentId,
+            relativeUrl: url,
+            sizeBytes: file.size,
+            readBytes: (start, end) =>
+              Effect.promise(() =>
+                file
+                  .slice(start, end)
+                  .arrayBuffer()
+                  .then((buffer) => new Uint8Array(buffer)),
+              ),
+            onProgress: (progress) => reportProgress(progress),
+          }).pipe(Effect.timeout(UPLOAD_TIMEOUT_MS), Effect.mapError(attachmentUploadError))
+        : Effect.tryPromise({
+            try: (signal) =>
+              uploadBytes({
+                url,
+                file,
+                mimeType,
+                signal,
+                onProgress: (progress) => reportProgress(progress, signal),
+              }),
+            catch: attachmentUploadError,
           }),
-        catch: attachmentUploadError,
-      }),
   });
   if (result.status === "uploaded") {
     setUploadState(job.image.id, {

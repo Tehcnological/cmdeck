@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { useAssetUrlState } from "~/assets/assetUrls";
+import { useEncryptedAssetSrc } from "~/assets/encryptedAssetSrc";
 import { documentChipKindForFileName } from "~/pierre-icons";
 
 import { PULL_REQUEST_STATE_PRESENTATION } from "~/components/pullRequest/pullRequestIcons";
@@ -285,13 +286,16 @@ function SvgFileChip(props: ComponentProps<typeof FileChip>) {
     setLocal({ file, url });
     return () => URL.revokeObjectURL(url);
   }, [preview?.file]);
+  const encrypted = useEncryptedAssetSrc(
+    preview?.file ? null : (preview?.environmentId ?? null),
+    `attachment:${preview?.attachmentId}`,
+    asset._tag === "Success" ? asset.url : null,
+  );
   const url = preview?.file
     ? local?.file === preview.file
       ? local.url
       : undefined
-    : asset._tag === "Success"
-      ? asset.url
-      : undefined;
+    : (encrypted.src ?? undefined);
   if (url !== undefined && failedPreviewUrl === url) {
     return <FileChip {...props} svgPreview={undefined} />;
   }

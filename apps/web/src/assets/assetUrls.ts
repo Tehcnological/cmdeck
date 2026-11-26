@@ -12,6 +12,7 @@ import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime"
 import { AssetResource, EnvironmentId } from "@t3tools/contracts";
 import { AsyncResult } from "effect/reactivity";
 
+import { useEncryptedAssetSrcs } from "~/assets/encryptedAssetSrc";
 import { assetEnvironment } from "~/state/assets";
 import { useFilesystemReadAccess } from "~/state/filesystem";
 import { usePreparedConnection } from "~/state/session";
@@ -87,11 +88,10 @@ export function useAssetUrls(
       resources: allowedResources,
     }),
   );
-  if (preparedConnection._tag === "None") return resources.map(() => null);
   const urls: Array<string | null> = [];
   let resultIndex = 0;
   for (const resource of resources) {
-    if (!canReadFiles && isFileResource(resource)) {
+    if (preparedConnection._tag === "None" || (!canReadFiles && isFileResource(resource))) {
       urls.push(null);
       continue;
     }
@@ -103,7 +103,14 @@ export function useAssetUrls(
         : null,
     );
   }
-  return urls;
+  // Images in a list are immutable attachments, so the resource alone names their bytes.
+  return useEncryptedAssetSrcs(
+    environmentId,
+    resources.map((resource, index) => ({
+      key: JSON.stringify(resource),
+      url: urls[index] ?? null,
+    })),
+  ).map((state) => state.src);
 }
 
 function isFileResource(resource: AssetResource): boolean {

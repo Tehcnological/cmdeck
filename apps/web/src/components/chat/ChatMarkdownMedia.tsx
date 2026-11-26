@@ -14,6 +14,7 @@ import {
 } from "react";
 
 import { useAssetUrlRefresh, useAssetUrlState } from "../../assets/assetUrls";
+import { useEncryptedAssetSrc } from "../../assets/encryptedAssetSrc";
 import type { MessageResolver } from "../../i18n/messages";
 import { cn } from "../../lib/utils";
 import { useRightPanelStore } from "../../rightPanelStore";
@@ -432,16 +433,20 @@ export const ChatMarkdownAssetImage = memo(function ChatMarkdownAssetImage(props
   const resource = props.resource;
   const threadWorkspaceMutationId = use(WorkspaceMutationIdContext);
   const workspaceMutationId = props.workspaceMutationId ?? threadWorkspaceMutationId;
-  const assetUrl = useAssetUrlState(
-    props.environmentId,
-    props.pending ? null : resource,
+  const revision =
     workspaceMutationId !== undefined &&
-      props.kind !== "video" &&
-      (resource._tag === "media-file" || resource._tag === "workspace-file")
+    props.kind !== "video" &&
+    (resource._tag === "media-file" || resource._tag === "workspace-file")
       ? workspaceMutationId
-      : undefined,
-  );
+      : undefined;
+  const assetUrl = useAssetUrlState(props.environmentId, props.pending ? null : resource, revision);
   const refreshAssetUrl = useAssetUrlRefresh(props.environmentId, resource);
+  // Video streams by range over HTTP; images read whole through an E2EE session when pinned.
+  const encryptedImage = useEncryptedAssetSrc(
+    props.environmentId,
+    JSON.stringify([resource, revision ?? null]),
+    props.kind !== "video" && assetUrl._tag === "Success" ? assetUrl.url : null,
+  );
   const fallbackSrc = assetUrl._tag === "Failure" ? props.fallbackSrc : undefined;
   const missingFileAccess =
     assetUrl._tag === "Failure" &&
@@ -450,15 +455,24 @@ export const ChatMarkdownAssetImage = memo(function ChatMarkdownAssetImage(props
   const unavailableDetail = missingFileAccess
     ? gt("This connection cannot read host files. Pair again with a new link to view it.")
     : undefined;
+  const assetSrc =
+    props.kind === "video"
+      ? assetUrl._tag === "Success"
+        ? assetUrl.url
+        : null
+      : encryptedImage.src;
   const src =
     assetUrl._tag === "Success"
-      ? assetUrl.url + (props.srcFragment ?? "")
+      ? assetSrc === null
+        ? null
+        : assetSrc + (props.srcFragment ?? "")
       : fallbackSrc === undefined
         ? null
         : fallbackSrc + (props.srcFragment ?? "");
   const knownSize = assetUrl._tag === "Success" ? assetUrl.imageDimensions : undefined;
   const maxHeightRem = props.maxHeightRem ?? 30;
-  const unavailable = assetUrl._tag === "Failure" && fallbackSrc === undefined;
+  const unavailable =
+    (assetUrl._tag === "Failure" && fallbackSrc === undefined) || encryptedImage.failed;
   const style =
     props.style ??
     (knownSize
