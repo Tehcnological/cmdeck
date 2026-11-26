@@ -154,6 +154,12 @@ import {
   AttachmentCreateUploadUrlResult,
   AttachmentDeleteInput,
   AttachmentUploadSigningKeyError,
+  AssetReadChunk,
+  AssetReadError,
+  AssetReadInput,
+  AttachmentUploadChunkError,
+  AttachmentUploadChunkInput,
+  AttachmentUploadChunkResult,
 } from "./assets.ts";
 import {
   PersistChatAttachmentsError,
@@ -538,6 +544,9 @@ export const WS_METHODS = {
   assetsPersistChatAttachments: "assets.persistChatAttachments",
   attachmentsCreateUploadUrl: "attachments.createUploadUrl",
   attachmentsDelete: "attachments.delete",
+  // CMDeck: attachment bytes inside the (optionally end-to-end encrypted) RPC socket.
+  assetsRead: "assets.read",
+  attachmentsUploadChunk: "attachments.uploadChunk",
 
   mcpAppsCallTool: "mcpApps.callTool",
   mcpAppsToolInfo: "mcpApps.toolInfo",
@@ -1867,6 +1876,19 @@ const WsAttachmentsDeleteRpc = Rpc.make(WS_METHODS.attachmentsDelete, {
   error: EnvironmentAuthorizationError,
 });
 
+const WsAssetsReadRpc = Rpc.make(WS_METHODS.assetsRead, {
+  payload: AssetReadInput,
+  success: AssetReadChunk,
+  error: Schema.Union([AssetReadError, EnvironmentAuthorizationError]),
+  stream: true,
+});
+
+const WsAttachmentsUploadChunkRpc = Rpc.make(WS_METHODS.attachmentsUploadChunk, {
+  payload: AttachmentUploadChunkInput,
+  success: AttachmentUploadChunkResult,
+  error: Schema.Union([AttachmentUploadChunkError, EnvironmentAuthorizationError]),
+});
+
 const WsMcpAppsCallToolRpc = Rpc.make(WS_METHODS.mcpAppsCallTool, {
   payload: McpAppCallToolInput,
   success: McpAppCallToolResult,
@@ -2750,6 +2772,8 @@ export const WsRpcGroup = RpcGroup.make(
   WsAssetsPersistChatAttachmentsRpc,
   WsAttachmentsCreateUploadUrlRpc,
   WsAttachmentsDeleteRpc,
+  WsAssetsReadRpc,
+  WsAttachmentsUploadChunkRpc,
   WsMcpAppsCallToolRpc,
   WsMcpAppsToolInfoRpc,
   WsMcpAppsReadResourceRpc,

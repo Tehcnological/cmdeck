@@ -1542,6 +1542,7 @@
   "10348092dfed8b11": "Ce thème VS Code n’a pas de couleur « editor.background » ; impossible d’en dériver une palette.",
   "206811f6f441bfc7": "Ce projet prépare ses worktrees avec sa propre commande, que personne n’a approuvée telle qu’elle est écrite actuellement. Cette connexion ne peut pas l’approuver : approuvez-la depuis un client qui peut utiliser le terminal.",
   "b8087c9a70c26da9": "Impossible d’approuver la commande de disposition des worktrees.",
+  "7be30cab449b0530": "Impossible de lire ce fichier via la connexion chiffrée.",
   "6dff8d487001c6cf": "Adaptatif",
   "f5f61c338cc5aeb5": "Barre d’outils des appareils du navigateur",
   "3b4eb5b5ec5e60cb": "Préréglage d’appareil du navigateur",

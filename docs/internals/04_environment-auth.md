@@ -114,3 +114,10 @@ Signed asset URLs are bearer credentials for a single canonical file, rechecked 
 identity on serve ([`AssetAccess.ts`](../../apps/server/src/assets/AssetAccess.ts)). They never
 grant access to sibling files, and because `filesystem:read` is checked only at mint time, an issued
 URL remains valid until it expires even if the session or grant is revoked.
+
+The same signed URLs also travel inside the RPC socket: `assets.read` streams the bytes a URL names
+and `attachments.uploadChunk` fills an upload URL
+([`AssetTransfer.ts`](../../apps/server/src/assets/AssetTransfer.ts)). CMDeck clients pinned to the
+host's E2EE key use them instead of HTTP so a TLS-terminating hop never sees attachment bytes; the
+signed URL stays the only grant, so add new asset kinds to `resolveAsset`, not to the RPCs. Under
+`e2eeMode: "require"` the plain asset and upload routes refuse non-loopback requests.

@@ -34,6 +34,7 @@ import { useAtomQueryRunner } from "../../state/use-atom-query-runner";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { downloadMedia, readMediaPng } from "./mediaContent";
+import { encryptedAssetActionUrl } from "~/assets/encryptedAssetSrc";
 
 export interface MediaActionSource {
   readonly kind: "image" | "video";
@@ -97,7 +98,9 @@ export function useMediaActions(source: MediaActionSource) {
     assertCanReadMedia();
     const url = resolveAssetUrl(connection.httpBaseUrl, result.value.relativeUrl);
     if (!url) throw new Error(m(msg("The environment returned an invalid media URL.")));
-    return url;
+    return connection.e2eeServerIdentityKey === undefined
+      ? url
+      : encryptedAssetActionUrl(environmentId, url);
   };
   const save = async () => {
     await downloadMedia(await actionUrl(), mediaFileName(source));

@@ -7,6 +7,7 @@ import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import {
+  ASSET_TRANSFER_CHUNK_BYTES,
   AuthAccessReadScope,
   AuthEnvironmentScope,
   AuthOrchestrationOperateScope,
@@ -50,7 +51,10 @@ import {
   type ServerConfigStreamEvent,
   type ServerProvider,
 } from "@t3tools/contracts";
-import { SOCKET_FRAME_PARTS_QUERY_PARAM } from "@t3tools/shared/socketFrameParts";
+import {
+  joinSocketFrameParts,
+  SOCKET_FRAME_PARTS_QUERY_PARAM,
+} from "@t3tools/shared/socketFrameParts";
 import {
   E2EE_REQUIRED_CODE,
   SOCKET_E2EE_QUERY_PARAM,
@@ -91,6 +95,7 @@ import { vi } from "vite-plus/test";
 
 import * as AssetSigner from "./assets/AssetSigner.ts";
 import * as WorkspacePreviewRevisions from "./assets/WorkspacePreviewRevisions.ts";
+import * as NativeAppIconResolver from "./assets/NativeAppIconResolver.ts";
 import * as PreviewAutomationBroker from "./mcp/PreviewAutomationBroker.ts";
 import * as ServerBrowser from "./preview/ServerBrowser.ts";
 import * as AcpRegistryRuntimeCoordinator from "@t3tools/provider-acp-registry/server/AcpRegistryRuntimeCoordinator";
@@ -984,6 +989,7 @@ const layerConfigSources = Layer.mergeAll(
   Keybindings.layer,
   AssetSigner.layer.pipe(Layer.provide(ServerSecretStore.layer)),
   WorkspacePreviewRevisions.layer,
+  NativeAppIconResolver.layer,
   ServerSettings.layer.pipe(
     Layer.provide(Layer.merge(ServerSecretStore.layer, ManagedPolicy.layerTest())),
   ),
@@ -1096,6 +1102,10 @@ const E2EE_ENVIRONMENT_ID = "ws-e2ee-test";
 /** The real `/ws` route on a loopback port, with a fixed E2EE identity. */
 const startE2eeWsServer = Effect.fn("test.startE2eeWsServer")(function* (
   identity: E2eeIdentityKeypair,
+  options: {
+    readonly scopes?: ReadonlyArray<AuthEnvironmentScope>;
+    readonly services?: Layer.Layer<DocumentText.DocumentText>;
+  } = {},
 ) {
   const descriptor = {
     publicKeyBase64Url: encodeIdentityKey(identity.publicKey),
@@ -1117,7 +1127,7 @@ const startE2eeWsServer = Effect.fn("test.startE2eeWsServer")(function* (
           sessionId: AuthSessionId.make("e2ee-test"),
           subject: "one-time-token",
           method: "bearer-access-token",
-          scopes: [],
+          scopes: options.scopes ?? [],
         }),
     }),
     Layer.mock(SessionStore.SessionStore)({
@@ -1150,6 +1160,7 @@ const startE2eeWsServer = Effect.fn("test.startE2eeWsServer")(function* (
     }),
     ProviderInstallationGate.layer,
     FetchHttpClient.layer,
+    options.services ?? Layer.empty,
   );
   const context = yield* Layer.build(
     HttpRouter.serve(Ws.layer, { disableListenLog: true }).pipe(
@@ -1254,6 +1265,136 @@ it.live("a pinned client runs E2EE end to end against the real /ws route", () =>
       String((mismatch.reason as { readonly cause?: unknown }).cause),
       "E2EE_IDENTITY_MISMATCH",
     );
+  }).pipe(Effect.scoped),
+);
+
+/**
+ * Speaks the RPC wire protocol over a pinned E2EE socket, one request at a time;
+ * `frames` records every raw frame in both directions.
+ */
+const e2eeRpc = (url: string, pinned: Uint8Array, frames: Array<Uint8Array | string>) =>
+  Effect.gen(function* () {
+    const raw = yield* Socket.makeWebSocket(url);
+    const recorded = Socket.make({
+      reader: Effect.map(raw.reader, (reader) => ({
+        upgrade: reader.upgrade,
+        pull: Effect.tap(reader.pull, (batch) => Effect.sync(() => frames.push(...batch))),
+      })),
+      writer: Effect.map(raw.writer, (writer) => ({
+        write: (chunk: Uint8Array | string | Socket.CloseEvent) => {
+          if (!(chunk instanceof Socket.CloseEvent)) frames.push(chunk);
+          return writer.write(chunk);
+        },
+        writeAll: (chunks: readonly [Uint8Array | string, ...Array<Uint8Array | string>]) => {
+          frames.push(...chunks);
+          return writer.writeAll(chunks);
+        },
+      })),
+    });
+    const socket = joinSocketFrameParts(
+      yield* wrapClientSocketWithE2ee(recorded, {
+        environmentId: E2EE_ENVIRONMENT_ID,
+        expectedServerIdentityKey: pinned,
+      }),
+    );
+    const reader = yield* socket.reader;
+    const writer = yield* socket.writer;
+    let nextId = 0;
+    type Message = {
+      readonly _tag: string;
+      readonly requestId?: string;
+      readonly values?: ReadonlyArray<unknown>;
+      readonly exit?: { readonly _tag: string; readonly value?: unknown; readonly cause?: unknown };
+    };
+    /** Sends one request; acks and collects stream chunks until its exit. */
+    const call = (tag: string, payload: unknown) =>
+      Effect.gen(function* () {
+        const id = String(nextId++);
+        yield* writer.write(JSON.stringify({ _tag: "Request", id, tag, payload, headers: [] }));
+        const values: Array<unknown> = [];
+        while (true) {
+          for (const frame of yield* reader.pull) {
+            const decoded: Message | ReadonlyArray<Message> = JSON.parse(
+              typeof frame === "string" ? frame : new TextDecoder().decode(frame),
+            );
+            for (const message of Array.isArray(decoded) ? decoded : [decoded]) {
+              if (message.requestId !== id) continue;
+              if (message._tag === "Chunk") {
+                values.push(...(message.values ?? []));
+                yield* writer.write(JSON.stringify({ _tag: "Ack", requestId: id }));
+              } else if (message._tag === "Exit") {
+                if (message.exit?._tag !== "Success") {
+                  return yield* Effect.die(new Error(JSON.stringify(message.exit)));
+                }
+                return { value: message.exit.value, values };
+              }
+            }
+          }
+        }
+      });
+    return { call };
+  }).pipe(
+    Effect.provide(layerE2eeCrypto),
+    Effect.provideService(
+      Socket.WebSocketConstructor,
+      (url) => new WebSocket(url, { origin: "t3code://app" }) as unknown as globalThis.WebSocket,
+    ),
+  );
+
+it.live("attachment uploads and downloads cross an E2EE session only as ciphertext", () =>
+  Effect.gen(function* () {
+    const identity = yield* generateIdentityKeypair().pipe(Effect.provide(layerE2eeCrypto));
+    const host = yield* startE2eeWsServer(identity, {
+      scopes: [AuthOrchestrationReadScope, AuthOrchestrationOperateScope],
+      services: Layer.mock(DocumentText.DocumentText)({ ensure: () => Effect.undefined }),
+    });
+    yield* host.settings.updateSettings({ e2eeMode: "require" });
+    const frames: Array<Uint8Array | string> = [];
+    const rpc = yield* e2eeRpc(host.wsUrl(true), identity.publicKey, frames);
+
+    // 24 bytes repeat, a multiple of 3, so its base64 repeats too and is searchable.
+    const marker = "CMDECK-PLAINTEXT-MARKER ";
+    const secret = Buffer.from(marker.repeat(12_000));
+    const upload = (yield* rpc.call(WS_METHODS.attachmentsCreateUploadUrl, {
+      type: "file",
+      name: "secret.txt",
+      mimeType: "text/plain",
+      sizeBytes: secret.byteLength,
+    })).value as { readonly attachmentId: string; readonly relativeUrl: string };
+    for (let offset = 0; offset < secret.byteLength; offset += ASSET_TRANSFER_CHUNK_BYTES) {
+      yield* rpc.call(WS_METHODS.attachmentsUploadChunk, {
+        relativeUrl: upload.relativeUrl,
+        offset,
+        data: secret.subarray(offset, offset + ASSET_TRANSFER_CHUNK_BYTES).toString("base64"),
+      });
+    }
+    const asset = (yield* rpc.call(WS_METHODS.assetsCreateUrl, {
+      resource: { _tag: "attachment", attachmentId: upload.attachmentId },
+    })).value as { readonly relativeUrl: string };
+    const read = yield* rpc.call(WS_METHODS.assetsRead, { relativeUrl: asset.relativeUrl });
+    assert.isAbove(read.values.length, 1);
+    assert.deepEqual(
+      Buffer.concat(
+        read.values.map((chunk) =>
+          Buffer.from((chunk as { readonly data: string }).data, "base64"),
+        ),
+      ),
+      secret,
+    );
+
+    const wire = frames
+      .map((frame) => (typeof frame === "string" ? frame : Buffer.from(frame).toString("latin1")))
+      .join("");
+    assert.isAbove(wire.length, secret.byteLength * 2);
+    for (const plaintext of [
+      marker,
+      Buffer.from(marker.repeat(4)).toString("base64").slice(0, 32),
+      "/api/attachments/upload",
+      "/api/assets",
+      "secret.txt",
+    ]) {
+      assert.notInclude(wire, plaintext);
+    }
   }).pipe(Effect.scoped),
 );
 

@@ -1542,6 +1542,7 @@
   "10348092dfed8b11": "VS Code-temat har ingen ”editor.background”-färg, så det finns inget att bygga en palett från.",
   "206811f6f441bfc7": "Det här projektet förbereder worktrees med ett eget kommando, som ingen har godkänt som det är skrivet nu. Den här anslutningen kan inte godkänna det: godkänn det från en klient som får använda terminalen.",
   "b8087c9a70c26da9": "Det gick inte att godkänna layoutkommandot för worktrees.",
+  "7be30cab449b0530": "Det gick inte att läsa filen via den krypterade anslutningen.",
   "6dff8d487001c6cf": "Responsiv",
   "f5f61c338cc5aeb5": "Enhetsverktygsfält för webbläsaren",
   "3b4eb5b5ec5e60cb": "Enhetsförval för webbläsaren",

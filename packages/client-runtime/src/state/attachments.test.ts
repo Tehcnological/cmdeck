@@ -1,9 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
 import {
+  ASSET_TRANSFER_CHUNK_BYTES,
   EnvironmentId,
   type AttachmentCreateUploadUrlInput,
   type AttachmentCreateUploadUrlResult,
   type AttachmentDeleteInput,
+  type AttachmentUploadChunkInput,
+  type AttachmentUploadChunkResult,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -13,6 +16,7 @@ import type { AtomCommand } from "./runtime.ts";
 import {
   formatAttachmentSize,
   runAttachmentUploadCycle,
+  uploadAttachmentOverRpc,
   verifyPersistedAttachmentUpload,
 } from "./attachments.ts";
 
@@ -109,6 +113,49 @@ describe("runAttachmentUploadCycle", () => {
         attachmentId: "pending-failed",
       });
       expect(removeCalls).toEqual([]);
+    }),
+  );
+});
+
+describe("uploadAttachmentOverRpc", () => {
+  it.effect("sends ordered chunks one at a time and reports progress", () =>
+    Effect.gen(function* () {
+      const size = ASSET_TRANSFER_CHUNK_BYTES * 2 + 5;
+      const sent: Array<{ offset: number; length: number }> = [];
+      let inFlight = 0;
+      const uploadChunk: AtomCommand<
+        { readonly environmentId: EnvironmentId; readonly input: AttachmentUploadChunkInput },
+        AttachmentUploadChunkResult,
+        never
+      > = {
+        label: "test:upload-chunk",
+        run: (_registry, { input }) =>
+          Effect.gen(function* () {
+            inFlight++;
+            expect(inFlight).toBe(1);
+            sent.push({ offset: input.offset, length: input.data.byteLength });
+            yield* Effect.yieldNow;
+            inFlight--;
+            const receivedBytes = input.offset + input.data.byteLength;
+            return { receivedBytes, complete: receivedBytes === size };
+          }),
+      };
+      const progress: Array<number> = [];
+      yield* uploadAttachmentOverRpc({
+        registry,
+        uploadChunk,
+        environmentId,
+        relativeUrl: "/api/attachments/upload/token",
+        sizeBytes: size,
+        readBytes: (start, end) => Effect.succeed(new Uint8Array(end - start)),
+        onProgress: (value) => progress.push(value),
+      });
+      expect(sent).toEqual([
+        { offset: 0, length: ASSET_TRANSFER_CHUNK_BYTES },
+        { offset: ASSET_TRANSFER_CHUNK_BYTES, length: ASSET_TRANSFER_CHUNK_BYTES },
+        { offset: ASSET_TRANSFER_CHUNK_BYTES * 2, length: 5 },
+      ]);
+      expect(progress.at(-1)).toBe(1);
     }),
   );
 });

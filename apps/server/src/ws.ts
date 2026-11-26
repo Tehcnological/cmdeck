@@ -214,6 +214,7 @@ import * as DeviceService from "./device/DeviceService.ts";
 import { remoteSshDeviceHosts } from "./device/localSshDeviceHost.ts";
 import * as PreviewManager from "./preview/Manager.ts";
 import { issueAssetUrl } from "./assets/AssetAccess.ts";
+import { readAssetStream, uploadAttachmentChunk } from "./assets/AssetTransfer.ts";
 import {
   attachmentRelativePath,
   chatAttachmentStableKey,
@@ -3158,6 +3159,8 @@ export const layerWsRpc = (
           ).pipe(Effect.andThen(taskFolders.layoutCommands(input.projectId))),
         [WS_METHODS.attachmentsCreateUploadUrl]: (input) => issueAttachmentUploadUrl(input),
         [WS_METHODS.attachmentsDelete]: (input) => deletePendingAttachment(input.attachmentId),
+        [WS_METHODS.attachmentsUploadChunk]: (input) => uploadAttachmentChunk(input),
+        [WS_METHODS.assetsRead]: (input) => readAssetStream(input.relativeUrl),
         [WS_METHODS.agentSessionsScan]: () => agentSessionScanner.scan,
         [WS_METHODS.agentSessionsImport]: (input) =>
           agentSessionImporter.importRecentAgentThreads(input),

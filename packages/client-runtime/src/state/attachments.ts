@@ -1,9 +1,12 @@
 import {
+  ASSET_TRANSFER_CHUNK_BYTES,
   PROVIDER_SEND_TURN_MAX_FILE_BYTES,
   WS_METHODS,
   type AttachmentCreateUploadUrlInput,
   type AttachmentCreateUploadUrlResult,
   type AttachmentDeleteInput,
+  type AttachmentUploadChunkInput,
+  type AttachmentUploadChunkResult,
   type EnvironmentId,
 } from "@t3tools/contracts";
 import * as Cause from "effect/Cause";
@@ -32,6 +35,10 @@ export function createAttachmentEnvironmentAtoms<R, E>(
     remove: createEnvironmentRpcCommand(runtime, {
       label: "environment-command:attachments:delete",
       tag: WS_METHODS.attachmentsDelete,
+    }),
+    uploadChunk: createEnvironmentRpcCommand(runtime, {
+      label: "environment-command:attachments:upload-chunk",
+      tag: WS_METHODS.attachmentsUploadChunk,
     }),
   };
 }
@@ -195,6 +202,42 @@ export function runAttachmentUploadCycle<E, RE, TE>(input: {
     }),
   ).pipe(Effect.withSpan("Attachments.runUploadCycle"));
 }
+
+type AttachmentUploadChunkCommand<E> = AtomCommand<
+  { readonly environmentId: EnvironmentId; readonly input: AttachmentUploadChunkInput },
+  AttachmentUploadChunkResult,
+  E
+>;
+
+/**
+ * Sends an upload's bytes inside the RPC socket instead of over HTTP, so an E2EE session
+ * encrypts them end to end. One chunk in flight at a time: the socket also carries chat.
+ */
+export const uploadAttachmentOverRpc = Effect.fn("Attachments.uploadOverRpc")(function* <
+  E,
+  RE,
+>(input: {
+  readonly registry: AtomRegistry.AtomRegistry;
+  readonly uploadChunk: AttachmentUploadChunkCommand<E>;
+  readonly environmentId: EnvironmentId;
+  /** The `relativeUrl` that `attachments.createUploadUrl` minted. */
+  readonly relativeUrl: string;
+  readonly sizeBytes: number;
+  readonly readBytes: (start: number, end: number) => Effect.Effect<Uint8Array, RE>;
+  readonly onProgress?: (progress: number) => void;
+}) {
+  for (let offset = 0; offset < input.sizeBytes; offset += ASSET_TRANSFER_CHUNK_BYTES) {
+    const data = yield* input.readBytes(
+      offset,
+      Math.min(offset + ASSET_TRANSFER_CHUNK_BYTES, input.sizeBytes),
+    );
+    const result = yield* input.uploadChunk.run(input.registry, {
+      environmentId: input.environmentId,
+      input: { relativeUrl: input.relativeUrl, offset, data },
+    });
+    input.onProgress?.(result.receivedBytes / input.sizeBytes);
+  }
+});
 
 /**
  * The contract caps what a turn may reference, so a larger advertised value must not admit

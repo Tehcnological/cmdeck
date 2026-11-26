@@ -43,13 +43,20 @@ between you and the host is impersonating it. Pair again only if you know which.
 ## What it protects, and what it does not
 
 Protected: everything sent over the session's connection after pairing, such as
-threads, messages, terminal output, settings and approvals.
+threads, messages, terminal output, settings and approvals. On web and desktop
+this also covers attachments: files and images you attach (picked, pasted or
+dropped) are uploaded through the encrypted session, and images shown in a
+thread, image and app icons in messages, and **Save** or **Copy** on an image
+are downloaded through it too.
 
 Not protected by it, so they still rely on the transport (Tailscale, SSH or
 TLS):
 
-- **Attachments and files.** Images, uploads, downloads, previews and other HTTP
-  endpoints are not end-to-end encrypted.
+- **Other files and previews.** Videos and audio, file previews (PDF, HTML and
+  other documents), app previews, the browser and simulator panes, and images
+  from pull requests still load over plain HTTP requests.
+- **The mobile app's attachments.** The mobile app encrypts the session but
+  still uploads and shows attachments over plain HTTP requests.
 - **Pairing itself.** The pairing link and the first exchange that turns it into
   a session use plain HTTP requests. Send links over a channel you trust.
 - **The web app's code.** A browser that loads CMDeck through a tunnel or proxy
@@ -89,4 +96,7 @@ CMDeck:
 ```
 
 Connections from this machine itself are still allowed without encryption.
+In this mode the host also refuses remote file downloads and uploads over plain
+HTTP, so remote devices can no longer play videos or open the previews listed
+above.
 Change it back to `"prefer"` (on) or `"off"` to let the official apps in again.

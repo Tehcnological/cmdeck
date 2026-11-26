@@ -1542,6 +1542,7 @@
   "10348092dfed8b11": "Dieses VS-Code-Design hat keine Farbe „editor.background“, daher lässt sich keine Palette daraus erstellen.",
   "206811f6f441bfc7": "Dieses Projekt richtet Worktrees mit einem eigenen Befehl ein, den in seiner jetzigen Form niemand genehmigt hat. Über diese Verbindung lässt er sich nicht genehmigen: Genehmige ihn in einem Client, der das Terminal verwenden darf.",
   "b8087c9a70c26da9": "Der Worktree-Layout-Befehl konnte nicht genehmigt werden.",
+  "7be30cab449b0530": "Diese Datei konnte über die verschlüsselte Verbindung nicht gelesen werden.",
   "6dff8d487001c6cf": "Responsiv",
   "f5f61c338cc5aeb5": "Browser-Gerätesymbolleiste",
   "3b4eb5b5ec5e60cb": "Browser-Gerätevorlage",

@@ -1,5 +1,6 @@
 import { useNativeFileDrag } from "../../useNativeFileDrag";
 import { useAssetUrlState } from "../../assets/assetUrls";
+import { useEncryptedAssetSrc } from "../../assets/encryptedAssetSrc";
 import { formatFilePathForClipboard } from "@t3tools/client-runtime/media-actions";
 import {
   isAtomCommandInterrupted,
@@ -447,7 +448,12 @@ function AppBundleIcon(props: { environmentId: EnvironmentId | null; path: strin
   });
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
-  const url = asset._tag === "Success" && asset.url !== failedUrl ? asset.url : null;
+  const shown = useEncryptedAssetSrc(
+    props.environmentId,
+    `app-icon:${props.path}`,
+    asset._tag === "Success" ? asset.url : null,
+  ).src;
+  const url = shown !== null && shown !== failedUrl ? shown : null;
   const loaded = url !== null && loadedUrl === url;
   return (
     <span

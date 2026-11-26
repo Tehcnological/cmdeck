@@ -1,5 +1,6 @@
 import {
   type AssetCreateUrlInput,
+  type AssetReadInput,
   type AssetCreateUrlResult,
   type AssetImageDimensions,
   AssetResource,
@@ -19,17 +20,25 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
+import * as Stream from "effect/Stream";
 import { AsyncResult, Atom, AtomRegistry } from "effect/reactivity";
 
 import * as EnvironmentRegistry from "../connection/registry.ts";
 import * as EnvironmentSupervisor from "../connection/supervisor.ts";
-import { request } from "../rpc/client.ts";
+import { request, runStreamGuarded } from "../rpc/client.ts";
 import type { ProjectFaviconCache, ProjectFaviconTarget } from "../projectFaviconCache.ts";
-import { createEnvironmentQueryAtomFamily } from "./runtime.ts";
+import { createEnvironmentCommand, createEnvironmentQueryAtomFamily } from "./runtime.ts";
 
 const ASSET_URL_REFRESH_INTERVAL_MS = 30 * 60_000;
 const ASSET_URL_IDLE_TTL_MS = 60 * 60_000;
 export const ASSET_URL_MAX_IN_FLIGHT = 6;
+/** Each read keeps up to a window of chunks queued on the shared socket; few at a time keeps chat responsive. */
+const ASSET_READ_MAX_IN_FLIGHT = 2;
+
+export interface AssetBytes {
+  readonly contentType: string;
+  readonly chunks: ReadonlyArray<Uint8Array>;
+}
 
 export class InvalidAssetCollectionKeyError extends Schema.TaggedError<InvalidAssetCollectionKeyError>()(
   "InvalidAssetCollectionKeyError",
@@ -314,8 +323,37 @@ export function createAssetEnvironmentAtoms<R, E>(
     );
   });
 
+  const readLimits = new Map<EnvironmentId, Semaphore.Semaphore>();
+  /** The bytes behind a signed asset URL, read inside the RPC socket (encrypted on E2EE sessions). */
+  const read = createEnvironmentCommand(runtime, {
+    label: "environment-command:assets:read",
+    execute: (input: AssetReadInput, _registry, environmentId) => {
+      let limit = readLimits.get(environmentId);
+      if (limit === undefined) {
+        limit = Semaphore.makeUnsafe(ASSET_READ_MAX_IN_FLIGHT);
+        readLimits.set(environmentId, limit);
+      }
+      return runStreamGuarded(WS_METHODS.assetsRead, input).pipe(
+        Stream.runFold(
+          (): { contentType: string; chunks: Array<Uint8Array> } => ({
+            contentType: "application/octet-stream",
+            chunks: [],
+          }),
+          (bytes, chunk) => {
+            if (chunk.contentType !== undefined) bytes.contentType = chunk.contentType;
+            bytes.chunks.push(chunk.data);
+            return bytes;
+          },
+        ),
+        Effect.map((bytes): AssetBytes => bytes),
+        limit.withPermit,
+      );
+    },
+  });
+
   return {
     createUrl,
+    read,
     createUrls: (target: {
       readonly environmentId: EnvironmentId;
       readonly resources: ReadonlyArray<AssetResource>;

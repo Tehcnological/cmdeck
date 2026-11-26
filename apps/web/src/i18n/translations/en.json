@@ -1542,6 +1542,7 @@
   "10348092dfed8b11": "That VS Code theme has no \"editor.background\" color, so there is nothing to build a palette from.",
   "206811f6f441bfc7": "This project sets up worktrees with its own command, which nobody has approved as it is written now. This connection cannot approve it: approve it from a client that can use the terminal.",
   "b8087c9a70c26da9": "Could not approve the worktree layout command.",
+  "7be30cab449b0530": "Could not read this file over the encrypted connection.",
   "6dff8d487001c6cf": "Responsive",
   "f5f61c338cc5aeb5": "Browser device toolbar",
   "3b4eb5b5ec5e60cb": "Browser device preset",

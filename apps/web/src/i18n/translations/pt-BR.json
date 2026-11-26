@@ -1542,6 +1542,7 @@
   "10348092dfed8b11": "Esse tema do VS Code não tem a cor \"editor.background\", então não há base para criar uma paleta.",
   "206811f6f441bfc7": "Este projeto prepara os worktrees com um comando próprio, que ninguém aprovou como está escrito agora. Esta conexão não pode aprová-lo: aprove-o em um cliente que possa usar o terminal.",
   "b8087c9a70c26da9": "Não foi possível aprovar o comando de layout de worktree.",
+  "7be30cab449b0530": "Não foi possível ler este arquivo pela conexão criptografada.",
   "6dff8d487001c6cf": "Responsivo",
   "f5f61c338cc5aeb5": "Barra de dispositivos do navegador",
   "3b4eb5b5ec5e60cb": "Predefinição de dispositivo do navegador",
