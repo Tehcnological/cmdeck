@@ -172,6 +172,12 @@ export interface PreparedConnection {
   readonly target: ConnectionTarget;
   /** What the server said about itself while this connection was prepared. */
   readonly descriptor?: ExecutionEnvironmentDescriptor;
+  /**
+   * The server's E2EE identity key (base64url) pinned at pairing. Set means
+   * the socket must complete the E2EE handshake; a server that refuses fails
+   * the connection instead of falling back to plaintext.
+   */
+  readonly e2eeServerIdentityKey?: string;
 }
 
 export type SupervisorConnectionPhase =

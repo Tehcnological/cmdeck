@@ -23,6 +23,7 @@
 - [Secrets](./user/secrets.md)
 - [Telemetry and network calls](./user/telemetry.md)
 - [Remote access](./user/remote-access.md)
+- [Encrypted remote control](./user/encrypted-remote-control.md)
 - [Guest links](./user/guest-links.md)
 - [Cloudflare Tunnel](./user/cloudflare-tunnel.md)
 - [T3 Connect troubleshooting (removed)](./user/t3-connect-troubleshooting.md)

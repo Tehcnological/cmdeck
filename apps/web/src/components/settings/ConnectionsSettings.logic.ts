@@ -3,7 +3,11 @@ import * as DateTime from "effect/DateTime";
 import { msg } from "gt-react";
 
 import { resolveDesktopPairingUrl, resolveHostedPairingUrl } from "./pairingUrls";
-import { getPairingTokenFromUrl, setPairingTokenOnUrl } from "@t3tools/shared/remote";
+import {
+  getPairingTokenFromUrl,
+  setPairingServerKeyOnUrl,
+  setPairingTokenOnUrl,
+} from "@t3tools/shared/remote";
 import { readHostedPairingRequest } from "../../hostedPairing";
 import { m, type MessageResolver } from "../../i18n/messages";
 import { isPickOnlyEndpointId } from "./RemoteAccessSettings.logic";
@@ -444,26 +448,31 @@ export function endpointDefaultPreferenceKey(endpoint: AdvertisedEndpoint): stri
 export function resolveAdvertisedEndpointPairingUrl(
   endpoint: AdvertisedEndpoint,
   credential: string,
+  serverIdentityKey?: string | null,
 ): string {
   if (endpoint.compatibility.hostedHttpsApp === "compatible") {
     return (
       resolveHostedPairingUrl(endpoint.httpBaseUrl, credential) ??
-      resolveDesktopPairingUrl(endpoint.httpBaseUrl, credential)
+      resolveDesktopPairingUrl(endpoint.httpBaseUrl, credential, serverIdentityKey)
     );
   }
-  return resolveDesktopPairingUrl(endpoint.httpBaseUrl, credential);
+  return resolveDesktopPairingUrl(endpoint.httpBaseUrl, credential, serverIdentityKey);
 }
 
 export function resolveCurrentOriginPairingUrl(
   credential: string,
   currentHref: string = window.location.href,
+  serverIdentityKey?: string | null,
 ): string | null {
   const url = new URL("/pair", currentHref);
   // The packaged desktop window loads from t3code://app, which no other device can open.
   if ((url.protocol !== "http:" && url.protocol !== "https:") || isLoopbackHostname(url.hostname)) {
     return null;
   }
-  return setPairingTokenOnUrl(url, credential).toString();
+  const withToken = setPairingTokenOnUrl(url, credential);
+  return serverIdentityKey
+    ? setPairingServerKeyOnUrl(withToken, serverIdentityKey).toString()
+    : withToken.toString();
 }
 
 export function isHostedAppPairingUrl(value: string): boolean {

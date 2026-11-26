@@ -148,6 +148,7 @@ import {
 import { ITEM_ROW_CLASSNAME } from "./itemRows";
 import {
   CloudLinkRow,
+  TransportSecurityRows,
   CloudRemoteEnvironmentRows,
   SavedBackendListRow,
 } from "./SavedEnvironmentRows";
@@ -1201,6 +1202,12 @@ function ConnectionsSettingsContent({
   ) => (
     <PairingClientsList
       servedByEnvironment={isPrimaryAccess}
+      serverIdentityKey={
+        // A pin makes the client demand E2EE, which a host with it off refuses.
+        accessServerConfig?.transportSecurity?.e2eeMode === "off"
+          ? null
+          : (accessServerConfig?.transportSecurity?.identityPublicKey ?? null)
+      }
       endpointUrl={desktopServerExposureState?.endpointUrl}
       endpoints={pairingEndpoints}
       defaultEndpointKey={defaultDesktopAdvertisedEndpointKey}
@@ -1418,6 +1425,20 @@ function ConnectionsSettingsContent({
             ) : canManageLocalBackend ? (
               renderDisabledNetworkAccessRow()
             ) : null}
+            <TransportSecurityRows
+              environmentId={accessEnvironmentId}
+              transportSecurity={
+                accessServerConfig?.settings.remoteTransportPolicy === undefined
+                  ? null
+                  : {
+                      policy: accessServerConfig.settings.remoteTransportPolicy,
+                      e2eeMode: accessServerConfig.settings.e2eeMode,
+                      fingerprint:
+                        accessServerConfig.transportSecurity?.identityPublicKeyFingerprint ?? null,
+                      canManage: canWriteAccess,
+                    }
+              }
+            />
             {canReadRelay || canManageRelay ? (
               <CloudLinkRow
                 environmentId={accessEnvironmentId}

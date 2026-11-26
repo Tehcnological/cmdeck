@@ -14,6 +14,7 @@ import {
   type SupervisorConnectionState,
 } from "./model.ts";
 import {
+  connectionSecurityBadge,
   connectionStatusText,
   connectionStatusTitle,
   environmentMcpUrl,
@@ -201,5 +202,91 @@ describe("connection presentation", () => {
       error: null,
       traceId: null,
     });
+  });
+});
+
+describe("connectionSecurityBadge", () => {
+  const entryFor = (httpBaseUrl: string, serverIdentityKey?: string): ConnectionCatalogEntry => ({
+    ...ENTRY,
+    profile: Option.some(
+      new BearerConnectionProfile({
+        connectionId: TARGET.connectionId,
+        environmentId: TARGET.environmentId,
+        label: TARGET.label,
+        httpBaseUrl,
+        wsBaseUrl: httpBaseUrl.replace(/^http/, "ws"),
+        ...(serverIdentityKey ? { serverIdentityKey } : {}),
+      }),
+    ),
+  });
+
+  it("marks loopback origins as local", () => {
+    expect(
+      connectionSecurityBadge({ entry: entryFor("http://127.0.0.1:3773"), connectedTarget: null }),
+    ).toEqual({
+      kind: "local",
+    });
+    expect(
+      connectionSecurityBadge({ entry: entryFor("http://localhost:3773"), connectedTarget: null }),
+    ).toEqual({
+      kind: "local",
+    });
+  });
+
+  it("marks tailnet origins as end-to-end-encrypted transports", () => {
+    expect(
+      connectionSecurityBadge({
+        entry: entryFor("http://100.72.10.4:3773"),
+        connectedTarget: null,
+      }),
+    ).toEqual({ kind: "e2ee-transport" });
+    expect(
+      connectionSecurityBadge({
+        entry: entryFor("https://host.tail-scale.ts.net"),
+        connectedTarget: null,
+      }),
+    ).toEqual({ kind: "e2ee-transport" });
+  });
+
+  it("marks plain LAN origins as unencrypted and https ones as TLS only", () => {
+    expect(
+      connectionSecurityBadge({
+        entry: entryFor("http://192.168.1.20:3773"),
+        connectedTarget: null,
+      }),
+    ).toEqual({
+      kind: "unencrypted",
+    });
+    expect(
+      connectionSecurityBadge({
+        entry: entryFor("https://192.168.1.20:3773"),
+        connectedTarget: null,
+      }),
+    ).toEqual({
+      kind: "tls-tunnel",
+    });
+  });
+
+  it("marks relay routes as TLS terminated at the tunnel", () => {
+    const entry: ConnectionCatalogEntry = {
+      ...ENTRY,
+      target: new RelayConnectionTarget({
+        environmentId: TARGET.environmentId,
+        label: TARGET.label,
+      }),
+      profile: Option.none(),
+    };
+    expect(connectionSecurityBadge({ entry, connectedTarget: null })).toEqual({
+      kind: "tls-tunnel",
+    });
+  });
+
+  it("the pinned app layer wins over the transport badge", () => {
+    expect(
+      connectionSecurityBadge({
+        entry: entryFor("http://192.168.1.20:3773", "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHw"),
+        connectedTarget: null,
+      }),
+    ).toEqual({ kind: "e2ee-app" });
   });
 });

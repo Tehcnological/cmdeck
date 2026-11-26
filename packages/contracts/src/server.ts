@@ -624,6 +624,21 @@ export const ServerFeatureFlags = Schema.Struct({
 });
 export type ServerFeatureFlags = typeof ServerFeatureFlags.Type;
 
+/**
+ * The server's remote-access security posture, sent additively so older
+ * clients ignore it. The identity key backs the WebSocket E2EE handshake; the
+ * fingerprint is what a human verifies out of band.
+ */
+export const TransportSecurity = Schema.Struct({
+  remoteTransportPolicy: Schema.Literals(["any", "private-e2ee-only"]),
+  e2eeMode: Schema.Literals(["off", "prefer", "require"]),
+  /** base64url Ed25519 public key of this environment's E2EE identity. */
+  identityPublicKey: Schema.optionalKey(TrimmedNonEmptyString),
+  /** SHA-256 of the identity public key, as `XXXX-XXXX-...` (16 groups). */
+  identityPublicKeyFingerprint: Schema.optionalKey(TrimmedNonEmptyString),
+});
+export type TransportSecurity = typeof TransportSecurity.Type;
+
 export const ServerConfig = Schema.Struct({
   environment: ExecutionEnvironmentDescriptor,
   auth: ServerAuthDescriptor,
@@ -677,6 +692,7 @@ export const ServerConfig = Schema.Struct({
    * answering. Clients do not cache it, since it describes the host at connect.
    */
   lastEventLoopStall: Schema.optionalKey(ServerEventLoopStall),
+  transportSecurity: Schema.optionalKey(TransportSecurity),
   /**
    * The host's clock when it built the config, so clients can count live
    * elapsed times against host timestamps despite clock skew. Only a

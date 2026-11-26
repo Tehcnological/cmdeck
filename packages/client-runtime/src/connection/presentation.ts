@@ -3,6 +3,13 @@ import * as Option from "effect/Option";
 import { mFallback, msg } from "gt-i18n";
 import type { MFunctionType } from "gt-i18n/types";
 
+import {
+  isLocalLoopbackHost,
+  isSharedAddressSpaceHost,
+  isTailnetHost,
+} from "@t3tools/shared/hostClassification";
+import { decodeIdentityKey, identityFingerprint } from "@t3tools/shared/socketE2ee";
+
 import { type MarkedText, resolveMarkedText } from "../errors/translatable.ts";
 import type { ConnectionCatalogEntry } from "./catalog.ts";
 import type { ConnectionTarget, SupervisorConnectionState } from "./model.ts";
@@ -43,6 +50,99 @@ export interface EnvironmentPresentation {
   readonly serverConfig: EnvironmentServerConfig | null;
   /** See `SupervisorConnectionState.refusedRouteIds`. */
   readonly refusedRouteIds: ReadonlyArray<string>;
+}
+
+/** How the active connection reaches the server, shown as a security badge. */
+export type ConnectionSecurityBadgeKind =
+  | "local"
+  | "e2ee-transport"
+  | "e2ee-app"
+  | "tls-tunnel"
+  | "unencrypted";
+
+export interface ConnectionSecurityBadge {
+  readonly kind: ConnectionSecurityBadgeKind;
+}
+
+const isTailscaleUrlHost = (url: URL): boolean =>
+  isTailnetHost(url.hostname) || isSharedAddressSpaceHost(url.hostname);
+
+/**
+ * Derives the security badge for an environment's active connection. The app
+ * layer wins over the transport: a verified E2EE session protects the traffic
+ * no matter which transport carries it.
+ */
+export function connectionSecurityBadge(input: {
+  readonly entry: ConnectionCatalogEntry;
+  readonly connectedTarget: ConnectionTarget | null;
+}): ConnectionSecurityBadge | null {
+  const connectedRoute = input.connectedTarget
+    ? connectionRoutes(input.entry).find(
+        (route) => connectionRouteId(route.target) === connectionRouteId(input.connectedTarget!),
+      )
+    : undefined;
+  const profile = Option.getOrUndefined(connectedRoute?.profile ?? input.entry.profile);
+  if (
+    profile !== undefined &&
+    profile._tag === "BearerConnectionProfile" &&
+    profile.serverIdentityKey !== undefined
+  ) {
+    return { kind: "e2ee-app" };
+  }
+  const target = input.connectedTarget ?? input.entry.target;
+  switch (target._tag) {
+    case "SshConnectionTarget":
+      return { kind: "e2ee-transport" };
+    case "RelayConnectionTarget":
+      return { kind: "tls-tunnel" };
+    case "PrimaryConnectionTarget":
+    case "BearerConnectionTarget": {
+      const httpBaseUrl =
+        target._tag === "PrimaryConnectionTarget"
+          ? target.httpBaseUrl
+          : profile?._tag === "BearerConnectionProfile"
+            ? profile.httpBaseUrl
+            : null;
+      if (httpBaseUrl === null) return null;
+      let url: URL;
+      try {
+        url = new URL(httpBaseUrl);
+      } catch {
+        return null;
+      }
+      if (isLocalLoopbackHost(url.hostname)) return { kind: "local" };
+      if (isTailscaleUrlHost(url)) return { kind: "e2ee-transport" };
+      return url.protocol === "https:" ? { kind: "tls-tunnel" } : { kind: "unencrypted" };
+    }
+  }
+}
+
+/** The full fingerprint of the host key this environment pinned at pairing, for comparing by eye. */
+export function pinnedServerIdentityFingerprint(entry: ConnectionCatalogEntry): string | null {
+  const profile = Option.getOrUndefined(entry.profile);
+  const key =
+    profile?._tag === "BearerConnectionProfile" && profile.serverIdentityKey !== undefined
+      ? decodeIdentityKey(profile.serverIdentityKey)
+      : undefined;
+  return key === undefined ? null : identityFingerprint(key);
+}
+
+export function connectionSecurityBadgeText(
+  badge: ConnectionSecurityBadge,
+  resolve: MFunctionType = mFallback,
+): string {
+  switch (badge.kind) {
+    case "local":
+      return resolve(msg("Local", { $context: "connection security" }));
+    case "e2ee-transport":
+      return resolve(msg("E2EE (Tailscale / SSH)"));
+    case "e2ee-app":
+      return resolve(msg("E2EE"));
+    case "tls-tunnel":
+      return resolve(msg("TLS only"));
+    case "unencrypted":
+      return resolve(msg("Unencrypted"));
+  }
 }
 
 function failureError(
