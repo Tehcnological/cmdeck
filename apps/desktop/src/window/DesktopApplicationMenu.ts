@@ -71,7 +71,7 @@ const runMainContentsCommand = Effect.fn("desktop.menu.runMainContentsCommand")(
 
 const trackLabel = (channel: DesktopUpdateChannel) =>
   channel === "nightly"
-    ? m(msg("Nightly", { $context: "release track" }))
+    ? m(msg("Beta", { $context: "release track" }))
     : m(msg("Stable", { $context: "release track" }));
 
 const checkForUpdatesFromMenu = Effect.gen(function* () {

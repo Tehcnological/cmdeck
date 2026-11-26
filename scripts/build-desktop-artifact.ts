@@ -2737,6 +2737,11 @@ export function resolveDesktopUpdateChannel(version: string): "latest" | "nightl
   return /-nightly\.\d{8}\.\d+$/.test(version) ? "nightly" : "latest";
 }
 
+/** A beta release N.0.0-beta.M: production branding, published as a prerelease with beta*.yml. */
+export function isDesktopBetaVersion(version: string): boolean {
+  return /^[1-9]\d*\.0\.0-beta\.[1-9]\d*$/.test(version);
+}
+
 export function isDesktopPreviewVersion(version: string): boolean {
   return /-pr\./.test(version) || /-preview\.\d{8}\.\d+$/.test(version);
 }
@@ -2829,8 +2834,9 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     ],
   };
   const updateChannel = resolveDesktopUpdateChannel(version);
-  // CMDeck updates only from its own stable releases (tags vN), never from upstream; previews and
-  // nightlies carry no feed. Upstream arrives through scripts/fork/sync-upstream.sh and a release.
+  // CMDeck updates only from its own releases (tags vN, and vN-beta.M prereleases with beta*.yml
+  // feeds), never from upstream; previews and nightlies carry no feed. Upstream arrives through
+  // scripts/fork/sync-upstream.sh and a release.
   buildConfig.publish =
     isDesktopPreviewVersion(version) || updateChannel === "nightly"
       ? null
@@ -2839,7 +2845,9 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
             provider: "github",
             owner: APP_RELEASE_OWNER,
             repo: APP_RELEASE_REPO,
-            releaseType: "release",
+            releaseType: isDesktopBetaVersion(version) ? "prerelease" : "release",
+            // electron-builder does not infer the channel for GitHub, so name it.
+            ...(isDesktopBetaVersion(version) ? { channel: "beta" } : {}),
           },
         ];
   if (!isDesktopPreviewVersion(version) && mockUpdates) {

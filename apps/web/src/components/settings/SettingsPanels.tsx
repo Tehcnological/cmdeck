@@ -32,13 +32,12 @@ import {
   managedUpdatesDenial,
   managedUpdatesMessage,
 } from "@t3tools/client-runtime/contract-labels";
-import { desktopUpdateChannelOf } from "@t3tools/shared/cliRelease";
 import { createModelSelection, pickModelSelection } from "@t3tools/shared/model";
 import { resolvePastedPath } from "@t3tools/shared/path";
 import { effectiveTextGenerationFallback } from "@t3tools/shared/serverSettings";
 import * as Equal from "effect/Equal";
 import * as Schema from "effect/Schema";
-import { APP_VERSION, HOSTED_APP_CHANNEL, HOSTED_APP_CHANNEL_LABEL } from "../../branding";
+import { HOSTED_APP_CHANNEL, HOSTED_APP_CHANNEL_LABEL } from "../../branding";
 import { AboutVersionTitle } from "./AboutVersionTitle";
 import { CliCommandSettingsRow } from "./CliCommandSettingsRow";
 import { UninstallSettingsSection } from "./UninstallSettingsSection";
@@ -203,24 +202,37 @@ function AboutVersionSection() {
       ? primaryPolicy.organization
       : undefined;
   const selectedHostedAppChannel = hasDesktopBridge ? null : HOSTED_APP_CHANNEL;
-  // A switch that failed part way leaves this app or a server on the other track.
-  // With its updater off, a switch cannot move this app, so it is not counted.
-  const appOffTrack =
-    updateState?.enabled !== false && desktopUpdateChannelOf(APP_VERSION) !== selectedUpdateChannel;
-  const unswitchedMachines =
-    (appOffTrack ? 1 : 0) +
-    environments.filter(
-      (environment, index) =>
-        environment.connection.phase === "connected" &&
-        canUpdateServer(sessionStates[index]!) &&
-        awaitsTrackSwitch(
-          {
-            serverConfig: environment.serverConfig,
-            hostedByThisApp: isHostedByThisApp(environment),
-          },
-          selectedUpdateChannel,
-        ),
-    ).length;
+  // This app switches on its own (a beta build on Stable waits for the next Stable release), so
+  // only connected servers can still run the other track.
+  const unswitchedMachines = environments.filter(
+    (environment, index) =>
+      environment.connection.phase === "connected" &&
+      canUpdateServer(sessionStates[index]!) &&
+      awaitsTrackSwitch(
+        {
+          serverConfig: environment.serverConfig,
+          hostedByThisApp: isHostedByThisApp(environment),
+        },
+        selectedUpdateChannel,
+      ),
+  ).length;
+
+  const switchLocalTrack = (channel: DesktopUpdateChannel) => {
+    const bridge = window.desktopBridge;
+    if (!bridge) return;
+    void bridge.setUpdateChannel(channel).catch((error: unknown) => {
+      toastManager.add(
+        stackedThreadToast({
+          type: "error",
+          title: gt("Could not change the update track"),
+          description:
+            error instanceof Error
+              ? (thrownErrorMessage(error, resolveMessage) ?? error.message)
+              : gt("The update track did not change."),
+        }),
+      );
+    });
+  };
 
   const handleButtonClick = async () => {
     const bridge = window.desktopBridge;
@@ -333,8 +345,7 @@ function AboutVersionSection() {
   const statusLabel: Record<string, string> = {
     checking: gt("Checking…"),
     downloading: gt("Downloading…"),
-    // Off its track, "up to date" only means no switch is pending; Review moves it.
-    ...(appOffTrack ? {} : { "up-to-date": gt("Up to Date") }),
+    "up-to-date": gt("Up to Date"),
   };
   const buttonLabel =
     actionLabel[action] ?? statusLabel[updateState?.status ?? ""] ?? gt("Check for Updates");
@@ -376,11 +387,11 @@ function AboutVersionSection() {
             nightlyDeniedBy !== undefined ? (
               selectedUpdateChannel === "nightly" ? (
                 gt(
-                  "{policy} Nightly builds are not available; switch to Stable to keep getting updates.",
+                  "{policy} Beta builds are not available; switch to Stable to keep getting updates.",
                   { policy: managedUpdatesMessage(nightlyDeniedBy, messages) },
                 )
               ) : (
-                gt("{policy} Nightly builds are not available.", {
+                gt("{policy} Beta builds are not available.", {
                   policy: managedUpdatesMessage(nightlyDeniedBy, messages),
                 })
               )
@@ -408,7 +419,7 @@ function AboutVersionSection() {
               </>
             ) : (
               gt(
-                "Switches this app and every connected machine whose database the target release supports.",
+                "Beta gets new versions before Stable, plus every Stable release. Switches only this app.",
               )
             )
           }
@@ -418,7 +429,7 @@ function AboutVersionSection() {
               value={selectedUpdateChannel}
               onValueChange={(value) => {
                 if (value !== selectedUpdateChannel) {
-                  setSwitchChannel(value as DesktopUpdateChannel);
+                  switchLocalTrack(value as DesktopUpdateChannel);
                 }
               }}
             >
@@ -439,7 +450,7 @@ function AboutVersionSection() {
                   value="nightly"
                   disabled={nightlyDeniedBy !== undefined && selectedUpdateChannel !== "nightly"}
                 >
-                  <T>Nightly</T>
+                  <T>Beta</T>
                 </SelectItem>
               </SelectPopup>
             </Select>

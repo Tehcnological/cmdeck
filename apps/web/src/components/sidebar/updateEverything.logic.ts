@@ -182,7 +182,7 @@ export interface ChannelSwitchRelease {
 /** Components pass `useMessages()` so labels follow a language switch. */
 export const channelSwitchLabel = (channel: DesktopUpdateChannel, resolve: MessageResolver = m) =>
   channel === "nightly"
-    ? resolve(msg("Nightly", { $context: "release track" }))
+    ? resolve(msg("Beta", { $context: "release track" }))
     : resolve(msg("Stable", { $context: "release track" }));
 
 /** Stable and Nightly each build their own commits, so either can hold migrations the other lacks.

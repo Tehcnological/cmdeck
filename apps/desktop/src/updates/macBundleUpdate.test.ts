@@ -64,6 +64,22 @@ describe("resolveMacUpdateFileUrl", () => {
     ).toBe("https://github.com/Tehcnological/cmdeck/releases/download/v3/CMDeck-3.0.0-arm64.zip");
   });
 
+  it("downloads a beta from its vN-beta.M release", () => {
+    const beta = { version: "3.0.0-beta.2", files: [] };
+    const url =
+      "https://github.com/Tehcnological/cmdeck/releases/download/v3-beta.2/CMDeck-3.0.0-beta.2-arm64.zip";
+    expect(resolveMacUpdateFileUrl(beta, file("CMDeck-3.0.0-beta.2-arm64.zip"), undefined)).toBe(
+      url,
+    );
+    expect(
+      resolveMacUpdateFileUrl(
+        { ...beta, tag: "v3-beta.2" },
+        file("CMDeck-3.0.0-beta.2-arm64.zip"),
+        undefined,
+      ),
+    ).toBe(url);
+  });
+
   it("downloads from a generic feed beside its latest-mac.yml", () => {
     expect(resolveMacUpdateFileUrl(info, file("a.zip"), "http://localhost:3000")).toBe(
       "http://localhost:3000/a.zip",

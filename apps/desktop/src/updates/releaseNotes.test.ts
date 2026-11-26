@@ -161,6 +161,20 @@ describe("normalizeDesktopUpdateReleaseNotes", () => {
     ]);
   });
 
+  it("keeps stable and beta releases but drops previews on Beta", () => {
+    const result = normalizeDesktopUpdateReleaseNotes(
+      [
+        { version: "4.0.0-beta.1", note: "- Beta change" },
+        { version: "4.0.0-preview.20261125.1", note: "- Maintainer test build" },
+        { version: "3.0.0", note: "- Stable change" },
+      ],
+      "4.0.0-beta.1",
+      "nightly",
+    );
+
+    expect(result.releaseNotes.map(({ version }) => version)).toEqual(["4.0.0-beta.1", "3.0.0"]);
+  });
+
   it("drops releases from other trains before grouping on nightly", () => {
     const releaseNotes = [
       { version: "0.0.41-preview.20260914.1683", note: "- Maintainer test build" },

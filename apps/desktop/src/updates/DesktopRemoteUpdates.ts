@@ -10,7 +10,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Queue from "effect/Queue";
 import * as Ref from "effect/Ref";
-import { desktopUpdateChannelOf } from "@t3tools/shared/cliRelease";
+import { desktopTrackOffers } from "@t3tools/shared/cliRelease";
 import { compareSemverVersions } from "@t3tools/shared/semver";
 import type * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
@@ -213,7 +213,7 @@ export const listen: Effect.Effect<
           // database. A WSL backend keeps its own, so cross tracks only where all can be checked.
           const current = yield* updates.getState;
           if (
-            desktopUpdateChannelOf(current.currentVersion) !== request.channel &&
+            !desktopTrackOffers(request.channel, current.currentVersion) &&
             (yield* backends.list).length > 1
           ) {
             yield* publishReport(
@@ -271,7 +271,7 @@ export const listen: Effect.Effect<
         const crossing = (state: DesktopUpdateState) =>
           request.channel !== undefined &&
           request.targetVersion !== undefined &&
-          desktopUpdateChannelOf(state.currentVersion) !== request.channel;
+          !desktopTrackOffers(request.channel, state.currentVersion);
         const step = Effect.fn("DesktopRemoteUpdates.step")(function* (
           state: DesktopUpdateState,
         ): Effect.fn.Return<boolean, never, Scope.Scope> {

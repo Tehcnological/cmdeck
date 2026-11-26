@@ -40,11 +40,12 @@ import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
 import * as DesktopSshEnvironment from "../ssh/DesktopSshEnvironment.ts";
 import * as DesktopUpdatePolicy from "./DesktopUpdatePolicy.ts";
 import { MacBundleUpdateError } from "./macBundleUpdate.ts";
+import { CmdeckGitHubProvider } from "./CmdeckGitHubProvider.ts";
 import {
   normalizeDesktopUpdateReleaseNotes,
   releaseNotesOfOfferedVersion,
 } from "./releaseNotes.ts";
-import { desktopUpdateChannelOf } from "@t3tools/shared/cliRelease";
+import { desktopTrackOffers } from "@t3tools/shared/cliRelease";
 import { compareSemverVersions } from "@t3tools/shared/semver";
 import {
   createInitialDesktopUpdateState,
@@ -376,13 +377,6 @@ function getAutoUpdateDisabledReason(args: {
   return null;
 }
 
-const trackLabel = (channel: DesktopUpdateChannel) =>
-  channel === "nightly" ? "Nightly" : "Stable";
-
-// Clients localize `trackMismatch`; this English text serves older renderers and remote reports.
-const trackMismatchMessage = (build: DesktopUpdateChannel, saved: DesktopUpdateChannel) =>
-  `This ${trackLabel(build)} build can't update from the ${trackLabel(saved)} track on its own. Switch the update track back to ${trackLabel(build)}, or use Review beside Update track to retry the switch to ${trackLabel(saved)}.`;
-
 function isArm64HostRunningIntelBuild(runtimeInfo: DesktopRuntimeInfo): boolean {
   return runtimeInfo.hostArch === "arm64" && runtimeInfo.appArch === "x64";
 }
@@ -412,18 +406,19 @@ export const make = Effect.gen(function* () {
   const lastLoggedDownloadMilestoneRef = yield* Ref.make(-1);
   const notAppliedVersionRef = yield* Ref.make(Option.none<string>());
   const downloadedFileRef = yield* Ref.make(Option.none<string>());
-  // The release a track switch's database check cleared. A build crosses to another track only
-  // through such a switch, and never below that release: version order alone cannot tell whether
-  // a Stable knows a Nightly's migrations.
+  // The release a track switch's database check cleared; nothing below it is offered. Without
+  // one, a build off its saved track (a beta on Stable) only moves up: CMDeck cuts betas and
+  // stable releases from one line, so a newer release knows every migration of an older one.
   const releaseFloorRef = yield* Ref.make(Option.none<string>());
   const offerable = (version: string, state: DesktopUpdateState) =>
     Ref.get(releaseFloorRef).pipe(
       Effect.map(
         (floor) =>
-          desktopUpdateChannelOf(version) === state.channel &&
+          desktopTrackOffers(state.channel, version) &&
           (Option.isSome(floor)
             ? compareSemverVersions(version, floor.value) >= 0
-            : desktopUpdateChannelOf(environment.appVersion) === state.channel),
+            : desktopTrackOffers(state.channel, environment.appVersion) ||
+              compareSemverVersions(version, environment.appVersion) > 0),
       ),
     );
   const updateStateRef = yield* Ref.make<DesktopUpdateState>(
@@ -508,29 +503,13 @@ export const make = Effect.gen(function* () {
   const channelBlockedReason = (channel: DesktopUpdateChannel): Option.Option<string> =>
     channel === "nightly" && !policy.allowNightly
       ? Option.some(
-          `${policy.message ?? "Nightly updates are turned off on this machine."} Switch to the stable channel to keep getting updates.`,
+          `${policy.message ?? "Beta updates are turned off on this machine."} Switch to the stable channel to keep getting updates.`,
         )
       : Option.none();
 
-  // Without a release floor, a build on another track than its saved one never offers anything.
-  // A track the policy blocks is never named as the one to switch to.
+  // A build off its saved track still moves up to that track's next release, so it is up to date.
   const noOfferState = (state: DesktopUpdateState, checkedAt: string) =>
-    Effect.map(Ref.get(releaseFloorRef), (floor) => {
-      const buildChannel = desktopUpdateChannelOf(environment.appVersion);
-      if (Option.isSome(floor) || buildChannel === state.channel) {
-        return reduceDesktopUpdateStateOnNoUpdate(state, checkedAt);
-      }
-      const blocked = channelBlockedReason(buildChannel);
-      if (Option.isSome(blocked)) {
-        return reduceDesktopUpdateStateOnCheckFailure(state, blocked.value, checkedAt);
-      }
-      return reduceDesktopUpdateStateOnCheckFailure(
-        state,
-        trackMismatchMessage(buildChannel, state.channel),
-        checkedAt,
-        { buildChannel },
-      );
-    });
+    Effect.succeed(reduceDesktopUpdateStateOnNoUpdate(state, checkedAt));
 
   const resolveStateDisabledReason = (channel: DesktopUpdateChannel) =>
     resolveDisabledReason.pipe(Effect.map(Option.orElse(() => channelBlockedReason(channel))));
@@ -579,8 +558,9 @@ export const make = Effect.gen(function* () {
     channel: DesktopUpdateChannel,
   ) {
     yield* Effect.annotateCurrentSpan({ channel });
+    // The stored "nightly" value is CMDeck's Beta track, whose feed files are beta*.yml.
     const allowsPrerelease = channel === "nightly";
-    yield* electronUpdater.setChannel(channel);
+    yield* electronUpdater.setChannel(allowsPrerelease ? "beta" : "latest");
     yield* electronUpdater.setAllowPrerelease(allowsPrerelease);
     // An older build can lack migrations this one ran. Only a guarded track switch's own check
     // may offer one.
@@ -695,9 +675,7 @@ export const make = Effect.gen(function* () {
       if (refresh) {
         // electron-updater downloads what its last check found, which can be hours old.
         yield* logUpdaterInfo("checking for updates", { reason: "download" });
-        yield* runUpdaterCheck(
-          offered.channel !== desktopUpdateChannelOf(environment.appVersion),
-        ).pipe(
+        yield* runUpdaterCheck(!desktopTrackOffers(offered.channel, environment.appVersion)).pipe(
           // A failed check keeps electron-updater's earlier result, so the known offer still downloads.
           Effect.catchTags({
             ElectronUpdaterCheckForUpdatesError: (error) =>
@@ -1061,7 +1039,7 @@ export const make = Effect.gen(function* () {
       (yield* checkForUpdates(
         "install",
         "acquire",
-        retained.channel !== desktopUpdateChannelOf(environment.appVersion),
+        !desktopTrackOffers(retained.channel, environment.appVersion),
       )) &&
       (yield* Ref.get(updateStateRef)).status === "available"
     ) {
@@ -1357,6 +1335,16 @@ export const make = Effect.gen(function* () {
           provider: "generic",
           url: policy.feedUrl,
         } as ElectronUpdater.ElectronUpdaterFeedUrl);
+      } else if (
+        Option.isSome(appUpdateYmlConfig) &&
+        appUpdateYmlConfig.value.provider === "github"
+      ) {
+        // The same GitHub repository, read by CMDeck's provider so the Beta track can find its tags.
+        yield* electronUpdater.setFeedURL({
+          ...appUpdateYmlConfig.value,
+          provider: "custom",
+          updateProvider: CmdeckGitHubProvider,
+        } as ElectronUpdater.ElectronUpdaterFeedUrl);
       }
 
       const settings = yield* desktopSettings.get;
@@ -1449,7 +1437,7 @@ export const make = Effect.gen(function* () {
         // So does a retained offer below the new floor, which must not install.
         if (
           nextChannel === state.channel &&
-          nextChannel === desktopUpdateChannelOf(environment.appVersion) &&
+          desktopTrackOffers(nextChannel, environment.appVersion) &&
           (retained === null || (yield* offerable(retained, state)))
         ) {
           return state;
@@ -1474,7 +1462,7 @@ export const make = Effect.gen(function* () {
         yield* checkForUpdates(
           "channel-change",
           "held",
-          nextChannel !== desktopUpdateChannelOf(environment.appVersion),
+          !desktopTrackOffers(nextChannel, environment.appVersion),
         );
         return yield* Ref.get(updateStateRef);
       }).pipe(Effect.ensuring(finishUpdateAction("channel")));

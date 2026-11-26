@@ -56,28 +56,19 @@ The confirmation counts the running threads that the restarts will interrupt,
 and how many can resume afterwards. See **Continue threads after restarts**
 below.
 
-## Switch between Stable and Nightly
+## Stable and Beta
 
-In the desktop app, change **Settings → About → Update track**. CMDeck shows each
-connected machine it will move and each one it skips, then moves them in one
-step. Remote servers install the latest release on the new track. Remote desktop
-apps reinstall on the new track. This app reinstalls last. Your threads,
-settings, and data stay.
+The desktop app follows one of two update tracks:
 
-A background service cannot move to an older release remotely. When Stable is
-older than its Nightly, run `t3 update --channel stable --allow-downgrade` on
-that machine.
+- **Stable** installs releases v1, v2, v3. It never installs a beta.
+- **Beta** installs betas, such as v3-beta.1, as soon as they are out, and every Stable release
+  too, so after v3-beta.2 it moves on to v3 and then to v4-beta.1. Betas get less testing than
+  Stable releases and can have bugs.
 
-A switch is blocked for a machine whose database already has changes the
-target release does not support, or when CMDeck cannot confirm that it does.
-The dialog says why: update a machine on its current track first when its
-release is too old to check, or wait until the target track includes the
-changes. A Mac running the desktop app must switch on that Mac.
-
-Each machine keeps the new track even if its switch did not finish, but it
-moves to that track only through a switch. **Update track** shows how many
-machines still run the other track. **Review** opens the same dialog with fresh
-checks.
+To switch, change **Settings → About → Update track**. Only this app switches; connected machines
+keep the version they run. Moving to Beta offers the newest beta at the next check. Moving back to
+Stable keeps the beta you run and installs the next Stable release that is newer, so CMDeck never
+goes back to an older version. An app that was on the old Nightly track is on Beta.
 
 ## Before you update
 
