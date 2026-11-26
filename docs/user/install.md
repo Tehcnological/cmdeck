@@ -52,7 +52,7 @@ one alone and stops.
 | Keep it running in the background     | `t3 service install` ([details](./background-service.md))               |
 | Move to the newest release            | `t3 update`                                                             |
 | Reclaim database space                | `t3 doctor` ([details](./background-service.md#reclaim-database-space)) |
-| Remove it again                       | `t3 uninstall`                                                          |
+| Remove it again                       | `t3 uninstall` ([details](#uninstall-cmdeck))                           |
 
 Run `t3 help` or `t3 --help` for the full reference. To start in a new working
 directory, use an explicit path such as `t3 ./my-project`. A bare directory name
@@ -253,6 +253,32 @@ Longer deadlines also take longer to report a stalled check. These overrides
 cover readiness and discovery, including OpenCode server startup. Usage and
 config enrichment retain their own shorter limits. Turn execution, package
 installation, update checks, and shutdown limits keep their existing behavior.
+
+## Uninstall CMDeck
+
+In the desktop app, open **Settings → About** and choose **Uninstall…**. The dialog lists exactly
+what will go. **Remove app only** keeps your threads, settings and sign-ins, so a later install
+picks up where you left off; tick **Also remove all CMDeck data** to delete those too. CMDeck then
+quits and finishes on its own. On Windows the app's own uninstaller opens to remove the program.
+
+From a terminal:
+
+| Removes                                                         | Command                  |
+| --------------------------------------------------------------- | ------------------------ |
+| The background service, launchers and downloaded versions       | `cmdeck uninstall`       |
+| That, plus the desktop app, its `cmdeck`/`t3` commands and PATH | `cmdeck uninstall --app` |
+| That, plus all CMDeck data (threads, settings, sign-ins)        | `cmdeck uninstall --all` |
+| Nothing; lists what the command would remove                    | add `--dry-run`          |
+
+Uninstall only removes CMDeck's own files: its data folder (`~/.cmdeck`, or `CMDECK_HOME`), its
+app profile, service and commands. The official T3 Code (`~/.t3` and its app), your projects,
+worktrees outside CMDeck's data folder, and your providers' settings such as `~/.claude` or
+`~/.codex` are never touched. A data folder that might not be CMDeck's, such as one set only
+through `T3CODE_HOME` or one outside your home folder, is kept and listed; delete it yourself if
+it is.
+
+On Linux, CMDeck does not remove the app itself: delete the AppImage, or run
+`sudo apt remove cmdeck` if you installed the `.deb`.
 
 ## Next steps
 

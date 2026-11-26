@@ -41,6 +41,7 @@ import * as Schema from "effect/Schema";
 import { APP_VERSION, HOSTED_APP_CHANNEL, HOSTED_APP_CHANNEL_LABEL } from "../../branding";
 import { AboutVersionTitle } from "./AboutVersionTitle";
 import { CliCommandSettingsRow } from "./CliCommandSettingsRow";
+import { UninstallSettingsSection } from "./UninstallSettingsSection";
 import { DesktopTraySettings } from "./DesktopTraySettings";
 import { getDesktopTrayBridge } from "~/state/desktopTraySettings";
 import { MobileAppSettingsRow } from "./MobileAppSettingsRow";
@@ -2677,6 +2678,8 @@ export function AboutSettingsPanel() {
           }
         />
       </SettingsSection>
+
+      <UninstallSettingsSection />
     </SettingsPageContainer>
   );
 }

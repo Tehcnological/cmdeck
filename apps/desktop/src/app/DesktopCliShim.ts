@@ -1,3 +1,4 @@
+import { CLI_SHIM_MARKER } from "@t3tools/shared/appIdentity";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -10,9 +11,9 @@ import { makeComponentLogger } from "./DesktopObservability.ts";
 // AppImage mounts change each run; the launcher must mount the image itself.
 const { logInfo, logWarning } = makeComponentLogger("desktop-cli-shim");
 
-export const MARKER = "Written by CMDeck: runs the desktop app's bundled t3 CLI.";
+export const MARKER = CLI_SHIM_MARKER;
 
-const SERVER_ENTRY = "apps/server/dist/bin.mjs";
+export const SERVER_ENTRY = "apps/server/dist/bin.mjs";
 
 const shellWord = (value: string) => `'${value.replaceAll("'", `'"'"'`)}'`;
 /** cmd.exe expands `%` even inside quotes; Windows paths cannot contain `"`. */

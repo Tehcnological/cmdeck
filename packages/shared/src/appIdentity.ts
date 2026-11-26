@@ -20,6 +20,10 @@ export const DESKTOP_APP_ID = "com.tehcnological.cmdeck";
 export const DESKTOP_DEV_APP_ID = "com.tehcnological.cmdeck.dev";
 /** Electron profile folders under the OS app-data directory. */
 export const DESKTOP_USER_DATA_DIR_NAME = "cmdeck";
+/** Staged package name: NSIS installs to `%LOCALAPPDATA%\Programs\<name>`; electron-updater caches in `<name>-updater`. */
+export const DESKTOP_PACKAGE_NAME = "cmdeck";
+/** Carried by every `cmdeck`/`t3` launcher the desktop app writes; uninstall removes only launchers with it. */
+export const CLI_SHIM_MARKER = "Written by CMDeck: runs the desktop app's bundled t3 CLI.";
 export const DESKTOP_DEV_USER_DATA_DIR_NAME = "cmdeck-dev";
 
 /** systemd unit, Task Scheduler task and folder stem of the background service. */
