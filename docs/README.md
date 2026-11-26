@@ -24,7 +24,7 @@
 - [Telemetry and network calls](./user/telemetry.md)
 - [Remote access](./user/remote-access.md)
 - [Encrypted remote control](./user/encrypted-remote-control.md)
-- [Guest links](./user/guest-links.md)
+- [Guest links (needs T3 Connect, removed)](./user/guest-links.md)
 - [Cloudflare Tunnel](./user/cloudflare-tunnel.md)
 - [T3 Connect troubleshooting (removed)](./user/t3-connect-troubleshooting.md)
 - [Outside agents (MCP)](./user/outside-agents.md)

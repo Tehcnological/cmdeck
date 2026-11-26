@@ -8,25 +8,18 @@ in once, and you choose what it may do.
 
 ## Add CMDeck to an assistant app
 
-Open the command palette (`Cmd/Ctrl+K`) and choose **Use CMDeck in another
-app (MCP)**, or use the button in **Settings → Sharing & access**. Pick the
-app, choose what it may do, and follow the step for that app.
+In the app, add a remote MCP server with OAuth and paste the environment's
+[MCP URL](#get-the-mcp-url). Nothing goes through T3 Connect. An app in the cloud,
+such as Poke or Claude, can only use it if that address is reachable from the
+internet, for example through a [Cloudflare Tunnel](./cloudflare-tunnel.md) you run.
+When the app opens the sign-in page, [approve it](#approve-a-sign-in). Apps that
+require their own client ID cannot connect.
 
-The wizard gives the app the environment's own address followed by `/mcp`: the
-address this device is connected over, or this computer's when the environment
-runs here. Nothing goes through T3 Connect. An app in the cloud, such as Poke or
-Claude, can only use it if that address is reachable from the internet, for
-example through a [Cloudflare Tunnel](./cloudflare-tunnel.md) you run. For a
-plain-`http` LAN or Tailscale address, see [Get the MCP URL](#get-the-mcp-url).
+A client that cannot sign in can use a [remote MCP token](./remote-mcp.md) from
+**Settings → Sharing & access** or `cmdeck auth mcp-token create` instead.
 
-When the app opens the sign-in page, paste the code the wizard gives you. A code
-works once, for 5 minutes, and approves only the level you picked. A client that
-cannot sign in can use a [remote MCP token](./remote-mcp.md) from **Settings →
-Sharing & access** or `cmdeck auth mcp-token create` instead.
-
-For an app that is not listed, choose **Something else…**, add a remote MCP
-server with OAuth in that app, and paste the URL. Apps that require their own
-client ID cannot connect.
+(The official T3 Code app also has a **Use T3 Code in another app (MCP)** wizard.
+It needs T3 Connect, so CMDeck does not show it.)
 
 ## Get the MCP URL
 
@@ -67,13 +60,12 @@ Either page names the agent and where its access goes:
   Anyone who runs that service gets the access.
 
 Only approve a sign-in you just started. On the environment's own page, enter a
-code from **Use CMDeck in another app (MCP)**, **Settings → Sharing & access**,
-or `t3 auth pairing create` on the host. A browser already signed in to the
+code from **Settings → Sharing & access** or `t3 auth pairing create` on the
+host. A browser already signed in to the
 environment with permission to manage access can approve without a code. On the
 web app, **Use a sign-in code instead** opens the environment's own page.
 
-A code from **Use CMDeck in another app (MCP)** already carries the level you
-picked there. With another code, choose what the agent may do here: **Auto** is
+Choose what the agent may do here: **Auto** is
 selected by default, or the closest lower mode allowed by your organization’s
 policy. Approving without a code starts at **Read only**:
 

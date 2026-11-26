@@ -49,7 +49,7 @@ import {
   REMOTE_MCP_GUIDE_URL,
   publicAddressCheckLabel,
   publicBaseUrlProblemLabel,
-  remoteMcpEndpointUrl,
+  type RemoteMcpAddress,
   remoteMcpSwitchState,
 } from "./RemoteAccessSettings.logic";
 import { SettingsRow, SettingsSection } from "./settingsLayout";
@@ -394,18 +394,51 @@ function RemoteMcpTokenRow({
   );
 }
 
+function McpAddressLine({ address }: { readonly address: RemoteMcpAddress }) {
+  const gt = useGT();
+  const { copyToClipboard, isCopied } = useCopyToClipboard({
+    target: {
+      target: "MCP address",
+      unavailableMessage: msg("Clipboard API is unavailable while copying the MCP address."),
+      failureMessage: msg("Failed to copy the MCP address to the clipboard."),
+    },
+  });
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <span className="flex min-w-0 flex-1 flex-col">
+        {address.label === null ? null : (
+          <span className={address.localNetworkOnly ? "text-warning-foreground" : undefined}>
+            {address.label}
+          </span>
+        )}
+        <code className="break-all">{address.url}</code>
+      </span>
+      <Button
+        type="button"
+        size="xs"
+        variant="outline"
+        aria-label={gt("Copy {label}", { label: address.label ?? address.url })}
+        onClick={() => copyToClipboard(address.url, undefined)}
+      >
+        <CopyIcon />
+        {isCopied ? gt("Copied") : gt("Copy")}
+      </Button>
+    </span>
+  );
+}
+
 /** Bearer tokens on `/mcp` for MCP clients that cannot do the OAuth sign-in. */
 export function RemoteMcpSettings({
   environmentId,
   serverConfig,
-  externalBaseUrl,
+  addresses,
   canRead,
   canWrite,
 }: {
   readonly environmentId: EnvironmentId;
   readonly serverConfig: Pick<ServerConfig, "settings" | "managedPolicy"> | null;
-  /** The tunnel's address when set, else the address this client uses. */
-  readonly externalBaseUrl: string | null;
+  /** Every way to reach this machine's `/mcp`, from `remoteMcpAddresses`. */
+  readonly addresses: readonly RemoteMcpAddress[];
   readonly canRead: boolean;
   readonly canWrite: boolean;
 }) {
@@ -425,19 +458,11 @@ export function RemoteMcpSettings({
     serverEnvironment.createRemoteMcpToken.permissionAtom(environmentId),
   );
   const [creating, setCreating] = useState(false);
-  const { copyToClipboard, isCopied } = useCopyToClipboard({
-    target: {
-      target: "MCP address",
-      unavailableMessage: msg("Clipboard API is unavailable while copying the MCP address."),
-      failureMessage: msg("Failed to copy the MCP address to the clipboard."),
-    },
-  });
   const switchState = remoteMcpSwitchState(
     status.data?.envOverride,
     serverConfig?.settings.remoteMcpEnabled ?? false,
   );
   const denial = managedCapabilityDenial(serverConfig?.managedPolicy, "remoteClients", m);
-  const endpoint = remoteMcpEndpointUrl(externalBaseUrl);
   const tokens = status.data?.tokens ?? [];
 
   const createToken = async (input: RemoteMcpTokenCreateInput) => {
@@ -485,23 +510,14 @@ export function RemoteMcpSettings({
       <SettingsRow
         title={gt("MCP address")}
         description={
-          endpoint === null ? (
+          addresses.length === 0 ? (
             <T>Set your tunnel address above, or connect over Tailscale, to see it.</T>
           ) : (
-            <code className="break-all">{endpoint}</code>
-          )
-        }
-        control={
-          endpoint === null ? undefined : (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => copyToClipboard(endpoint, undefined)}
-            >
-              <CopyIcon />
-              {isCopied ? gt("Copied") : gt("Copy")}
-            </Button>
+            <span className="mt-1 flex flex-col gap-1.5">
+              {addresses.map((address) => (
+                <McpAddressLine key={address.url} address={address} />
+              ))}
+            </span>
           )
         }
       />

@@ -40,7 +40,7 @@ installing one.
 `t3 uninstall` removes the background service, the `t3` launcher, and the
 downloaded versions after showing you the list and asking once. Your projects,
 threads, and settings under `~/.cmdeck/userdata` are kept, along with `service.env`
-under T3 home. Pass `--yes` from a script.
+under the CMDeck data folder. Pass `--yes` from a script.
 
 ## Local network access
 
@@ -60,7 +60,7 @@ network. `t3 status` says so, and `t3 up --no-lan` turns it off. Any
 
 ## Configure the service environment
 
-Put custom environment variables in `service.env` under the service's T3 home
+Put custom environment variables in `service.env` under the service's CMDeck data folder
 directory, normally `~/.cmdeck/service.env`. This file survives service installation
 and updates. For example:
 
@@ -80,7 +80,7 @@ For a service installed before env-file support, run `t3 service install` once
 with an up-to-date CLI.
 A missing file is ignored; other read failures stop service startup.
 If the file contains credentials, restrict access to that file with `chmod 600`
-(for the default T3 home, `chmod 600 ~/.cmdeck/service.env`).
+(for the default CMDeck data folder, `chmod 600 ~/.cmdeck/service.env`).
 
 ## Platform support
 

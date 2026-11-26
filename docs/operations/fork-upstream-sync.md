@@ -117,7 +117,10 @@ Release builds show the plain name; Dev and Nightly keep their stage suffix.
 **Deliberately kept:**
 
 - Internal names: the `t3` package and CLI (still works), `@t3tools/*` imports, `T3CODE_*`
-  environment variables, `t3code://` deep links, `t3.json` project files, the "T3 home" wording.
+  environment variables, `t3code://` deep links, `t3.json` project files. User-visible text calls
+  the data folder (`~/.cmdeck` or `CMDECK_HOME`) the "CMDeck data folder" instead of upstream's
+  "T3 home", and "T3 tools" are "CMDeck tools"; code comments, test names and identifiers keep
+  "T3 home".
 - Wire and compatibility identifiers listed above.
 - Model-facing text: agent system prompts and runtime notes (`packages/provider-core`), MCP tool
   descriptions and the MCP server name, agent-to-agent message prefixes (`[T3 Code: …]` in

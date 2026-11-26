@@ -45,8 +45,8 @@ If CMDeck already has data, the import stops. `--force` moves CMDeck's current `
   side without confusing your devices. Every browser, desktop app and phone must pair with CMDeck
   again. In the official T3 Code iPhone app, add CMDeck as a new environment with a fresh pairing
   link (`cmdeck pair`); its T3 Code environment keeps working as before.
-- **Linked environments and guest links.** Link other environments to CMDeck again, and share new
-  guest links.
+- **Linked environments and guest links.** Link other environments to CMDeck again. Guest links
+  need T3 Connect, which CMDeck removes.
 - **Remote connections saved in the desktop app.** The desktop app encrypts them with a key tied to
   the app, so add them again in CMDeck.
 - Worktrees stay where they are: imported threads keep using them from T3 Code's folder. Don't

@@ -330,7 +330,7 @@ anyone who can use the host's browser tabs can still view its `localhost` pages
 there. An administrator can also turn it off with a
 [managed policy](./managed-policy.md#other-capabilities).
 
-The first tab downloads a headless Chrome, about 120 MB, into the T3 home. It
+The first tab downloads a headless Chrome, about 120 MB, into the CMDeck data folder. It
 is the same browser [HTML renders](html-renders.md) use, so a host downloads it
 only once. Some Linux hosts need [setup](#browser-host-setup) before it can
 start.
@@ -631,7 +631,7 @@ desktop app, open **Settings → Environments** and switch off **Local
 environment**. CMDeck restarts without a local server: no local agents or terminals run, WSL
 backends stay off, and other devices can no longer connect to this computer. Your projects,
 history, and saved connections are kept, and you keep working through pairing or SSH.
-If a [background service](./background-service.md) on this computer uses the same T3 home, the
+If a [background service](./background-service.md) on this computer uses the same CMDeck data folder, the
 app still treats it as this computer: **Open in** and file reveal for its projects run here,
 whichever connection you reach it through.
 
