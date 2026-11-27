@@ -196,6 +196,10 @@ required=(
   'apps/server/src/orchestration-v2/ProviderTurnStartService.ts:const forkContext = yield\* forkTurnContext\('
   'apps/server/src/orchestration-v2/ProviderTurnStartService.ts:const carriesPendingContext = +forkContext !== "" \|\|'
   'apps/server/src/orchestration-v2/ProviderTurnStartService.ts:const context = \[ +compact \? "" : forkContext,'
+  # WI-2.14: usage alert state table, and the thresholds row beside Usage providers.
+  'apps/server/src/persistence/ForkSchema.ts:yield\* ensureUsageAlertsSchema\(\)'
+  'apps/web/src/components/settings/ProviderSettingsPanel.tsx:import \{ UsageAlertsSection \} from "~/fork/UsageAlertsSection";'
+  'apps/web/src/components/settings/ProviderSettingsPanel.tsx:<UsageAlertsSection environmentId=\{environmentId\} settings=\{settings\} readOnly=\{readOnly\} />'
   # Open beside: an unrelated project's thread never runs code blocks in the host's terminal,
   # and a thread hidden by a tag filter leaves the panel.
   'apps/web/src/components/ChatView.tsx:activeThread\?\.projectId !== panelHostShell\?\.projectId'
