@@ -1,5 +1,8 @@
 // Fork-only. A workflow file runs in the server with its rights, so it is imported only once a
 // person approved its exact bytes (WI-1.06). Approved code is not sandboxed: approval is the boundary.
+import * as NodeModule from "node:module";
+import * as NodeURL from "node:url";
+
 import {
   type PendingWorkflowFile,
   type WorkflowDefinitionProblem,
@@ -24,6 +27,20 @@ export const NEEDS_APPROVAL = WORKFLOW_NEEDS_APPROVAL;
 
 export type TrustSource = "preset" | "user";
 
+// Approved bytes by file address, served in place of what is on disk while that file loads.
+const serving = new Map<string, Uint8Array>();
+let hooked = false;
+const serveApproved = () => {
+  if (hooked) return;
+  hooked = true;
+  NodeModule.registerHooks({
+    load(url, context, next) {
+      const source = serving.size === 0 ? undefined : serving.get(url.replace(/[?#].*$/s, ""));
+      return source === undefined ? next(url, context) : { ...next(url, context), source };
+    },
+  });
+};
+
 /** What a file that is not approved loads as. Shaped like a failed load, so the runtime reports it. */
 export interface Withheld {
   readonly problem: WorkflowDefinitionProblem;
@@ -34,8 +51,8 @@ export class WorkflowTrust extends Context.Service<
   WorkflowTrust,
   {
     /**
-     * `load` the bytes of `file` when they are approved, from a copy beside it so a write after
-     * the check cannot swap what is imported. A changed file loses its approval.
+     * `load` `file` when its bytes are approved. While `load` runs, importing `file` gets the
+     * approved bytes, so a write after the check cannot swap what runs. A change loses approval.
      */
     readonly gated: <A>(
       file: string,
@@ -65,7 +82,6 @@ const make = Effect.gen(function* () {
   const audit = yield* AuditLog.AuditLog;
   const approved = yield* PubSub.unbounded<string>();
   const held = new Set<string>();
-  let copies = 0;
 
   const hash = (bytes: Uint8Array) =>
     digester.digest(Digest.sha256, bytes).pipe(Effect.orDie, Effect.map(Hex.encode));
@@ -98,13 +114,10 @@ const make = Effect.gen(function* () {
       const trusted = yield* approvalOf(file);
       if (trusted === sha256) {
         held.delete(file);
-        const copy = path.join(
-          path.dirname(file),
-          `.${path.basename(file)}.trusted-${++copies}${path.extname(file)}`,
-        );
-        const written = yield* fileSystem.writeFile(copy, bytes.value).pipe(Effect.result);
-        if (written._tag === "Failure") return withheld(`It could not be copied to load it.`);
-        return yield* load(copy).pipe(Effect.ensuring(Effect.ignore(fileSystem.remove(copy))));
+        serveApproved();
+        const address = NodeURL.pathToFileURL(path.resolve(file)).href;
+        serving.set(address, bytes.value);
+        return yield* load(file).pipe(Effect.ensuring(Effect.sync(() => serving.delete(address))));
       }
       if (trusted !== undefined) {
         yield* sql`DELETE FROM workflow_trust WHERE path = ${file}`;

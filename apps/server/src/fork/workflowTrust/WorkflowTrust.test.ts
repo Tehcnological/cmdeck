@@ -1,3 +1,5 @@
+import * as NodeModule from "node:module";
+
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
@@ -27,32 +29,42 @@ it.effect(
       const audit = Context.get(services, AuditLog.AuditLog);
       const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-trust-" });
       const file = path.join(directory, "flow.ts");
-      // What `load` was handed, and what that file held when it was.
-      const loaded: Array<[string, string]> = [];
+      const v1 = `import { tag } from "./lib/tag.ts";
+export default tag("v1");
+`;
+      const v2 = `export default "v2";
+`;
+      yield* fileSystem.makeDirectory(path.join(directory, "lib"));
+      yield* fileSystem.writeFileString(
+        path.join(directory, "lib", "tag.ts"),
+        `export const tag = (text: string): string => "approved " + text;
+`,
+      );
+      // What each load imported. An agent's write lands between the check and the import.
+      const loaded: Array<unknown> = [];
       const load = (from: string) =>
-        Effect.map(fileSystem.readFileString(from), (text) => {
-          loaded.push([from, text]);
+        Effect.gen(function* () {
+          yield* fileSystem.writeFileString(from, v2);
+          // Node's own loader: the test runner's `import()` skips Node's module hooks.
+          const imported = NodeModule.createRequire(from)(from) as { default: unknown };
+          loaded.push(imported.default);
           return { definitions: [], problem: undefined };
         }).pipe(Effect.orDie);
 
-      yield* fileSystem.writeFileString(file, "v1");
+      yield* fileSystem.writeFileString(file, v1);
       const withheld = yield* trust.gated(file, load);
       assert.equal(withheld.problem?.message, WorkflowTrust.NEEDS_APPROVAL);
       assert.deepStrictEqual(loaded, []);
       const [shown] = yield* trust.pending;
-      assert.equal(shown?.source, "v1");
+      assert.equal(shown?.source, v1);
       yield* trust.approve(shown!.path, shown!.sha256);
 
       yield* trust.gated(file, load);
-      // A copy of the approved bytes, never the file another write could have changed since.
-      assert.deepStrictEqual(
-        loaded.map(([from, text]) => [from === file, text]),
-        [[false, "v1"]],
-      );
+      // The approved bytes ran, still able to import beside them, though the file changed first.
+      assert.deepStrictEqual(loaded, ["approved v1"]);
 
-      yield* fileSystem.writeFileString(file, "v2");
       assert.equal((yield* trust.gated(file, load)).problem?.message, WorkflowTrust.NEEDS_APPROVAL);
-      yield* fileSystem.writeFileString(file, "v1");
+      yield* fileSystem.writeFileString(file, v1);
       assert.equal((yield* trust.gated(file, load)).problem?.message, WorkflowTrust.NEEDS_APPROVAL);
       assert.equal(loaded.length, 1);
       assert.include(
@@ -61,8 +73,8 @@ it.effect(
       );
 
       // Saved in the editor: approved as a person's, once.
-      yield* trust.record(directory, "flow.ts", "v1", "user");
-      yield* trust.record(directory, "flow.ts", "v1", "user");
+      yield* trust.record(directory, "flow.ts", v1, "user");
+      yield* trust.record(directory, "flow.ts", v1, "user");
       assert.deepStrictEqual(yield* trust.pending, []);
 
       const kinds = (yield* audit.list({})).entries.map((entry) => entry.kind).toReversed();
