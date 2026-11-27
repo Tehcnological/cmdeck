@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import { ModelSelection } from "../modelSelection.ts";
+import { ApprovalPolicyRules } from "./approvalPolicy.ts";
 import { DecisionModelSetting } from "./decisions.ts";
 
 /** Models a scheduled task's new thread runs on for each routing tier; an unset tier keeps the task's model. */
@@ -24,10 +25,13 @@ export const CmdeckSettings = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed(null)),
   ),
   routingTierModels: RoutingTierModels.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
+  /** Deny rules for provider approvals; a managed policy can set and lock them. */
+  approvalPolicy: ApprovalPolicyRules.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
 });
 
 export const CmdeckSettingsPatch = Schema.Struct({
   memoryEnabled: Schema.optionalKey(Schema.Boolean),
   decisionModel: Schema.optionalKey(Schema.NullOr(DecisionModelSetting)),
   routingTierModels: Schema.optionalKey(RoutingTierModels),
+  approvalPolicy: Schema.optionalKey(ApprovalPolicyRules),
 });

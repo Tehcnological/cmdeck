@@ -3,6 +3,7 @@ import * as Layer from "effect/Layer";
 import * as RemoteMcpTokens from "../auth/RemoteMcpTokens.ts";
 import * as PublicAddressCheck from "../environment/PublicAddressCheck.ts";
 import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
+import * as ApprovalPolicy from "./approvalPolicy/ApprovalPolicy.ts";
 import * as AuditLog from "./audit/AuditLog.ts";
 import * as Decisions from "./decisions/Decisions.ts";
 import * as Notifications from "./notifications/Notifications.ts";
@@ -17,8 +18,12 @@ import * as TurnContext from "./memory/TurnContext.ts";
 export const layer = Layer.mergeAll(
   RemoteMcpTokens.layer,
   PublicAddressCheck.layer,
-  // Notifications writes channel changes and delivery failures to the audit log.
-  Notifications.layer.pipe(Layer.provideMerge(AuditLog.layer)),
+  // The approval policy audits and alerts on each decline; Notifications audits its own changes.
+  ApprovalPolicy.layer.pipe(
+    Layer.provide(ProjectionStore.layer),
+    Layer.provideMerge(Notifications.layer),
+    Layer.provideMerge(AuditLog.layer),
+  ),
 );
 
 /**
