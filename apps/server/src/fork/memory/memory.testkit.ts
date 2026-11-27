@@ -29,12 +29,28 @@ const REPOSITORIES: Record<string, string> = {
   "project-other": "github.com/acme/other",
 };
 
-/** Threads in the test world: two worktrees of one project, a clone, and an unrelated project. */
+const thread = (id: string, projectId: string, parentId: string | null = null) => ({
+  id: ThreadId.make(id),
+  projectId: ProjectId.make(projectId),
+  lineage: {
+    parentThreadId: parentId === null ? null : ThreadId.make(parentId),
+    relationshipToParent: parentId === null ? null : ("fork" as const),
+    rootThreadId: ThreadId.make(parentId ?? id),
+  },
+});
+
+/**
+ * Threads in the test world: two worktrees of one project, a clone, an unrelated project, and
+ * a chain of forks (a fork of a fork) for memory-mode inheritance.
+ */
 export const threads = {
-  main: { id: ThreadId.make("thread-main"), projectId: ProjectId.make("project-app") },
-  worktree: { id: ThreadId.make("thread-worktree"), projectId: ProjectId.make("project-app") },
-  clone: { id: ThreadId.make("thread-clone"), projectId: ProjectId.make("project-app-clone") },
-  other: { id: ThreadId.make("thread-other"), projectId: ProjectId.make("project-other") },
+  main: thread("thread-main", "project-app"),
+  worktree: thread("thread-worktree", "project-app"),
+  clone: thread("thread-clone", "project-app-clone"),
+  other: thread("thread-other", "project-other"),
+  parent: thread("thread-parent", "project-app"),
+  fork: thread("thread-fork", "project-app", "thread-parent"),
+  forkOfFork: thread("thread-fork-of-fork", "project-app", "thread-fork"),
 } as const;
 
 const shell = (projectId: string): OrchestrationProjectShell => {

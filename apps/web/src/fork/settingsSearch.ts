@@ -10,4 +10,10 @@ export const FORK_SETTINGS_SEARCH_ITEMS = [
     to: "/settings/threads",
     searchTerms: [msg("new threads machine server host start remote local")],
   },
+  {
+    id: "memory",
+    title: msg("Memory", { $context: "what CMDeck remembers for agents" }),
+    to: "/settings/memory",
+    searchTerms: [msg("remember incognito temporary proposals rules facts revisions")],
+  },
 ] as const satisfies ReadonlyArray<SettingsSearchItem>;

@@ -202,6 +202,28 @@ required=(
   'apps/web/src/components/chat/SideThreadPane.tsx:useCloseWhenHidden\(threadRef, props\.onClose\)'
   # WI-2.10: scheduled tasks start new threads on the decision service's routed model.
   'apps/server/src/scheduledTasks/ScheduledTaskService.ts:modelSelection: yield\* Decisions\.routeScheduledTask\(active\),'
+  # WI-2.05: the right panel's fork surface, the composer's memory chip, /remember and Settings > Memory.
+  'apps/web/src/rightPanelStore.ts:"linked-thread", +"cmdeck", +\] as const;'
+  'apps/web/src/rightPanelStore.ts:\| \{ id: "cmdeck"; kind: "cmdeck" \}'
+  'apps/web/src/rightPanelStore.ts:case "cmdeck": +return \{ id: "cmdeck", kind \};'
+  'apps/web/src/closedViewStore.ts:case "pull-requests": +case "cmdeck":'
+  'apps/web/src/components/RightPanelTabs.tsx:case "cmdeck": +return forkPanelTitle\(resolve\);'
+  'apps/web/src/components/RightPanelTabs.tsx:case "cmdeck": +return <ForkPanelIcon />;'
+  'apps/web/src/components/chat/RightPanelSurfaceContent.tsx:case "cmdeck": +return <ForkPanel threadRef=\{threadRef\} />;'
+  'apps/web/src/components/chat/ChatComposer.tsx:<MemoryModeChip +environmentId=\{environmentId\}'
+  'apps/web/src/components/chat/ChatComposer.tsx:if \(item\.command === "remember"\)'
+  'apps/web/src/composer-logic.ts:ComposerSlashCommand = "model" \| "side" \| "btw" \| "clear" \| "remember";'
+  'apps/web/src/components/chat/composerSlashCommandSearch.ts:item\.command !== "remember"'
+  'apps/web/src/components/chat/useComposerMenuItems.ts:const forkSlashCommandItems = useForkSlashCommandItems\(environmentId\);'
+  'apps/web/src/components/chat/useComposerMenuItems.ts:\.\.\.forkSlashCommandItems,'
+  'apps/web/src/components/chat/useComposerSend.ts:const rememberFromComposer = useRememberCommand\(environmentId\);'
+  'apps/web/src/components/chat/useComposerSend.ts:rememberFromComposer\( +promptAtSend,'
+  'apps/web/src/components/settings/settingsSearch.ts:\| "/settings/memory";'
+  'apps/web/src/components/settings/settingsSearch.ts:"/settings/memory": msg\("Memory",'
+  'apps/web/src/components/settings/settingsSearch.ts:"/settings/scheduled-tasks", +"/settings/memory",'
+  'apps/web/src/components/settings/settingsSearch.ts:"/settings/memory": "environment",'
+  'apps/web/src/components/settings/SettingsSidebarNav.tsx:"/settings/memory": BrainIcon,'
+  'apps/web/src/routeTree.gen.ts:ChatSettingsMemoryRouteImport'
 )
 # 6. Only a person approves a workflow file: no MCP tool may reach the trust gate (WI-1.06).
 hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts)"

@@ -412,6 +412,7 @@ describe("memory", () => {
           ["memory_search", { query: "pnpm" }],
           ["memory_remember", { content: "Never saved" }],
           ["memory_forget", { id: "any" }],
+          ["memory_mode", { mode: "temporary" }],
         ] as const) {
           const result = yield* McpServer.McpServer.pipe(
             Effect.flatMap((server) => server.callTool({ name, arguments: args })),
