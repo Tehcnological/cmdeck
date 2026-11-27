@@ -1007,6 +1007,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: [msg("about check for updates download install upgrade release")],
   },
   {
+    id: "update-auto-check",
+    title: msg("Check for updates automatically"),
+    to: "/settings/about",
+    searchTerms: [msg("automatic update check background poll network privacy")],
+  },
+  {
     id: "update-track",
     title: msg("Update track"),
     to: "/settings/about",

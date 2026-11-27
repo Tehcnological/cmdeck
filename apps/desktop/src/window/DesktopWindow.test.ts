@@ -294,6 +294,7 @@ function layerTest(input: {
     setWslBackendEnabled: () => Effect.die("unexpected WSL backend toggle"),
     setWslDistro: () => Effect.die("unexpected WSL distro change"),
     setWslOnly: () => Effect.die("unexpected WSL-only toggle"),
+    setUpdateAutoCheck: () => Effect.die("unexpected update auto-check toggle"),
     setLocalEnvironmentEnabled: () => Effect.die("unexpected local environment toggle"),
     setTraySettings: () => Effect.die("unexpected tray settings change"),
     applyWslWindowsFallback: Effect.die("unexpected WSL Windows fallback"),

@@ -43,8 +43,9 @@ Besides the traffic you or your tools create, these are the outbound calls CMDec
   provider settings. Usage limits still come from Claude itself.
 - **Desktop app update checks**: the desktop app looks for a newer CMDeck release on
   `github.com/Tehcnological/cmdeck` about 15 seconds after it starts, every 4 hours, and when you
-  check by hand, and downloads the update from there when you choose to. See
-  [Updating CMDeck](./updating.md#desktop-app-updates) to turn this off.
+  check by hand, and downloads the update from there when you choose to. Turn off the automatic
+  checks with **Settings → About → Check for updates automatically**; see
+  [Updating CMDeck](./updating.md#desktop-app-updates).
 - **Server update checks**: `t3 update` and the mobile app's server update check look up the newest
   release on CMDeck's GitHub releases (`github.com/Tehcnological/cmdeck`, then `api.github.com` if
   needed). CMDeck installs updates only from a build mirror you configure.

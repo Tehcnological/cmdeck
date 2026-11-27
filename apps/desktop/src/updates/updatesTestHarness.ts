@@ -42,6 +42,8 @@ export interface UpdatesHarnessOptions {
   readonly appVersion?: string;
   /** Starts from in-memory settings with this track saved, as after a restart. */
   readonly savedChannel?: DesktopAppSettings.DesktopSettings["updateChannel"];
+  /** Starts from in-memory settings with automatic update checks set to this. */
+  readonly autoCheck?: boolean;
   /** Adds a WSL backend beside the primary, as on a Windows host with WSL enabled. */
   readonly wslBackend?: boolean;
 }
@@ -216,10 +218,14 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
     ...(options.savedChannel === undefined
       ? {}
       : { updateChannel: options.savedChannel, updateChannelConfiguredByUser: true }),
+    ...(options.autoCheck === undefined ? {} : { updateAutoCheck: options.autoCheck }),
   };
   const setUpdateChannelError = options.setUpdateChannelError;
   const layerSettings =
-    setUpdateChannelError || options.beforeSetUpdateChannel || options.savedChannel
+    setUpdateChannelError ||
+    options.beforeSetUpdateChannel ||
+    options.savedChannel ||
+    options.autoCheck !== undefined
       ? Layer.succeed(DesktopAppSettings.DesktopAppSettings, {
           get: Effect.sync(() => testSettings),
           load: Effect.sync(() => testSettings),
@@ -246,6 +252,12 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
           setWslDistro: () => Effect.die("unexpected WSL distro change"),
           setLocalEnvironmentEnabled: () => Effect.die("unexpected local environment toggle"),
           setWslOnly: () => Effect.die("unexpected WSL-only toggle"),
+          setUpdateAutoCheck: (enabled) =>
+            Effect.sync(() => {
+              const changed = testSettings.updateAutoCheck !== enabled;
+              testSettings = { ...testSettings, updateAutoCheck: enabled };
+              return { settings: testSettings, changed };
+            }),
           setTraySettings: () => Effect.die("unexpected tray settings change"),
           applyWslWindowsFallback: Effect.die("unexpected WSL Windows fallback"),
           applyWslWindowsFallbackInMemory: Effect.die("unexpected WSL Windows fallback"),

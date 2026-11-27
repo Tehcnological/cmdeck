@@ -1270,6 +1270,9 @@ export interface DesktopBridge {
     channel: DesktopUpdateChannel,
     minimumVersion?: string,
   ) => Promise<DesktopUpdateState>;
+  /** Startup and periodic update checks; resolves to the saved value. */
+  getUpdateAutoCheck: () => Promise<boolean>;
+  setUpdateAutoCheck: (enabled: boolean) => Promise<boolean>;
   checkForUpdate: () => Promise<DesktopUpdateCheckResult>;
   downloadUpdate: () => Promise<DesktopUpdateActionResult>;
   /** With a version, installs only that downloaded build. */
