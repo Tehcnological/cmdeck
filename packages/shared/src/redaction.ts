@@ -32,9 +32,9 @@ export const SECRET_PATTERNS: ReadonlyArray<RegExp> = [
   // A header serialized inside quotes ends at its own closing quote (an empty one matches nothing);
   // a bare header runs to the end of the line, quotes and all (`session="…"`, Digest's `response="…"`).
   /(\b(?:proxy-)?authorization["']?[ \t]*[:=][ \t]*(["'])(?:(?:basic|bearer|token|digest)[ \t]+)?)(?:\\.|(?!\2)[^\\\r\n])+/gi,
-  /(\b(?:proxy-)?authorization["']?[ \t]*[:=][ \t]*(?!["'])(?:(?:basic|bearer|token|digest)[ \t]+)?)[^\r\n]+/gi,
+  /(\b(?:proxy-)?authorization["']?[ \t]*[:=][ \t]*(?![ \t"'])(?:(?:basic|bearer|token|digest)[ \t]+)?)[^\r\n]+/gi,
   /(\b(?:set-)?cookie["']?[ \t]*[:=][ \t]*(["']))(?:\\.|(?!\2)[^\\\r\n])+/gi,
-  /(\b(?:set-)?cookie["']?[ \t]*[:=][ \t]*(?!["']))[^\r\n]+/gi,
+  /(\b(?:set-)?cookie["']?[ \t]*[:=][ \t]*(?![ \t"']))[^\r\n]+/gi,
   /(\b[Bb]earer[ \t]+)[A-Za-z0-9._~+/-]{16,}=*/g,
   // `name=value` / `"name": "value"` where the name ends in a secret word (not `max_tokens`).
   // A quoted value runs to its own closing quote (Node's inspect may use a backtick), past escapes.

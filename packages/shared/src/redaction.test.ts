@@ -131,8 +131,12 @@ describe("redactSecrets", () => {
     expect(redactSecrets(JSON.stringify({ cookie: 'a="b"', next: 1 }))).toBe(
       '{"cookie":"[redacted]","next":1}',
     );
-    const empty = '{"cookie":"","authorization":"","action":"deploy"}';
-    expect(redactSecrets(empty)).toBe(empty);
+    for (const empty of [
+      '{"cookie":"","authorization":"","action":"deploy"}',
+      '{ "cookie": "", "authorization": "", "action": "deploy" }',
+    ]) {
+      expect(redactSecrets(empty)).toBe(empty);
+    }
   });
 
   it("exempts only whole unquoted literals, not secrets that start with one", () => {
