@@ -134,6 +134,13 @@ describe("redactSecrets", () => {
     expect(redactSecrets("GET /hook\nCookie: a=b; c=d\nHost: example.com")).toBe(
       "GET /hook\nCookie: [redacted]\nHost: example.com",
     );
+    // The pretty logger prefixes a timestamp, level and fiber before the message.
+    expect(redactSecrets("[05:47:19] INFO (#12): Cookie: session=abcdef-secret; theme=dark")).toBe(
+      "[05:47:19] INFO (#12): Cookie: [redacted]",
+    );
+    expect(redactSecrets("[05:47:19] INFO (#12): Authorization: Basic dXNlcjpwYXNz")).toBe(
+      "[05:47:19] INFO (#12): Authorization: Basic [redacted]",
+    );
     for (const empty of [
       '{"cookie":"","authorization":"","action":"deploy"}',
       '{ "cookie": "", "authorization": "", "action": "deploy" }',
