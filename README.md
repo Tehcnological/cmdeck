@@ -40,10 +40,8 @@ Download the installer from [Releases](https://github.com/Tehcnological/cmdeck/r
 | macOS (Apple silicon) | `CMDeck-<version>-arm64.dmg`                             |
 | Linux x64             | `CMDeck-x86_64.AppImage` or `CMDeck-<version>-amd64.deb` |
 
-The builds are not signed: Windows SmartScreen asks before running the installer, and macOS blocks
-the first open until you allow it in **System Settings → Privacy & Security**. On macOS, move
-CMDeck to Applications so it can update itself. `SHA256SUMS.txt` on each release lists the
-checksums.
+Windows SmartScreen may ask before running the installer. `SHA256SUMS.txt` on each release lists
+the checksums.
 
 Coming from T3 Code? Quit both apps and run `cmdeck import-from-t3` to bring over your threads,
 projects, settings and sign-ins; see [Import from T3 Code](./docs/user/import-from-t3-code.md).
@@ -51,6 +49,17 @@ projects, settings and sign-ins; see [Import from T3 Code](./docs/user/import-fr
 The `t3.codes` installers, `npx t3`, and T3 Code's releases install the official T3 Code, not
 CMDeck. To install only the command-line server, or to build from source, see
 [docs/user/install.md](./docs/user/install.md) and the [user docs](./docs/README.md).
+
+### macOS first launch
+
+Drag CMDeck into **Applications** so it can update itself. macOS builds use an ad-hoc signature
+when Developer ID signing and notarization credentials are unavailable. If macOS still blocks a
+build from a CMDeck release you trust, verify the download against `SHA256SUMS.txt`, then remove
+quarantine from the installed app in Terminal:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/CMDeck.app
+```
 
 ## Staying current with upstream
 

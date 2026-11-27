@@ -49,6 +49,7 @@ import { loadRepoEnv } from "./lib/public-config.ts";
 import { selectDesktopRuntimeExternalDependencies } from "./lib/desktop-external-packages.ts";
 import { resolveCatalogDependencies } from "./lib/resolve-catalog.ts";
 import { resolveTaggedSourceVersion } from "./lib/tagged-source-version.ts";
+import { hasMacDeveloperIdCredentials } from "./fork/macos-signing.ts";
 
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -2802,6 +2803,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     | undefined,
   wslRuntimeBundled = false,
   arch?: typeof BuildArch.Type,
+  macDeveloperIdSigning = false,
 ) {
   const buildConfig: Record<string, unknown> = {
     afterPack: (yield* Path.Path).join(yield* RepoRoot, "scripts/prepare-server-compile-cache.cjs"),
@@ -2862,10 +2864,25 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   if (platform === "mac") {
     const path = yield* Path.Path;
     const repoRoot = yield* RepoRoot;
+    const adHocEntitlements = path.join(repoRoot, "scripts/fork/entitlements.adhoc.plist");
     buildConfig.mac = {
       target: target === "dmg" ? [target, "zip"] : [target],
       icon: "icon.icns",
       category: "public.app-category.developer-tools",
+      hardenedRuntime: true,
+      ...(macDeveloperIdSigning
+        ? { type: "distribution", forceCodeSigning: true, notarize: true }
+        : signed
+          ? { sign: path.join(repoRoot, "scripts/sign-macos.ts") }
+          : {
+              identity: "-",
+              timestamp: "none",
+              notarize: false,
+              preAutoEntitlements: false,
+              entitlements: adHocEntitlements,
+              entitlementsInherit: adHocEntitlements,
+              sign: path.join(repoRoot, "scripts/fork/macos-signing.ts"),
+            }),
       extendInfo: {
         // macOS 26 offers Messages/Mail codes in every text field unless opted out.
         NSAutoFillRequiresTextContentTypeForOneTimeCodeOnMac: true,
@@ -2909,7 +2926,6 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
           role: "Viewer",
         },
       ],
-      ...(signed ? { sign: path.join(repoRoot, "scripts/sign-macos.ts") } : {}),
       ...(macPasskeySigning
         ? {
             entitlements: macPasskeySigning.entitlementsPath,
@@ -2921,6 +2937,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
 
   if (platform === "mac" && target === "dmg") {
     buildConfig.dmg = {
+      ...(macDeveloperIdSigning ? { sign: true } : {}),
       // Finder caches DMG backgrounds by volume name; give each installer its own.
       title: `${resolveDesktopProductName(version)} ${version} Installer`,
       background: `dmg/dmg-background-${updateChannel}.png`,
@@ -3594,7 +3611,11 @@ export class MacPackagedAppMissingError extends Schema.TaggedError<MacPackagedAp
 }
 
 export const validateMacPackagedPayload = Effect.fn("desktopArtifact.validateMacPackagedPayload")(
-  function* (input: { readonly stageDistDir: string; readonly verbose?: boolean }) {
+  function* (input: {
+    readonly stageDistDir: string;
+    readonly verbose?: boolean;
+    readonly assessSignature?: "ad-hoc" | "developer-id";
+  }) {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const asarPaths: string[] = [];
@@ -3613,6 +3634,24 @@ export const validateMacPackagedPayload = Effect.fn("desktopArtifact.validateMac
     }
     for (const asarPath of asarPaths) {
       yield* verifyPackagedBundleIsSelfContained({ asarPath, verbose: input.verbose ?? false });
+      if (input.assessSignature) {
+        const appPath = path.resolve(asarPath, "../../..");
+        yield* runCommand(
+          ChildProcess.make("codesign", ["--verify", "--deep", "--strict", "--verbose=2", appPath]),
+          { label: "codesign --verify", verbose: true },
+        );
+        yield* runCommand(ChildProcess.make("spctl", ["-a", "-vv", appPath]), {
+          label: "spctl -a -vv",
+          verbose: true,
+        }).pipe(
+          Effect.catchTags({
+            BuildCommandFailedError: (error) =>
+              input.assessSignature === "developer-id"
+                ? Effect.fail(error)
+                : Effect.log("[desktop-artifact] Gatekeeper rejected the ad-hoc signed app."),
+          }),
+        );
+      }
     }
     yield* Effect.log(
       `[desktop-artifact] Validated macOS payload (${String(asarPaths.length)} app bundle(s)).`,
@@ -3893,6 +3932,8 @@ const buildDesktopArtifactUnlocked = Effect.fn("buildDesktopArtifactUnlocked")(f
   const stageProdResourcesDir = path.join(stageAppDir, "apps/desktop/prod-resources");
   yield* fs.copy(stageResourcesDir, stageProdResourcesDir);
 
+  const macDeveloperIdSigning =
+    options.platform === "mac" && hasMacDeveloperIdCredentials(process.env);
   const configuredMacPasskeySigning =
     options.platform === "mac" && options.signed
       ? yield* Effect.try({
@@ -3981,6 +4022,7 @@ const buildDesktopArtifactUnlocked = Effect.fn("buildDesktopArtifactUnlocked")(f
         : undefined,
       bundlesWslRuntime({ platform: options.platform, runtimeArchivePath: options.wslRuntime }),
       options.arch,
+      macDeveloperIdSigning,
     ),
     dependencies: stageDependencies,
     devDependencies: {
@@ -4074,7 +4116,9 @@ const buildDesktopArtifactUnlocked = Effect.fn("buildDesktopArtifactUnlocked")(f
     delete buildEnv.CSC_LINK;
     delete buildEnv.CSC_KEY_PASSWORD;
   }
-  if (!options.signed) {
+  if (macDeveloperIdSigning) {
+    buildEnv.CSC_IDENTITY_AUTO_DISCOVERY = "true";
+  } else if (!options.signed) {
     buildEnv.CSC_IDENTITY_AUTO_DISCOVERY = "false";
     delete buildEnv.CSC_LINK;
     delete buildEnv.CSC_KEY_PASSWORD;
@@ -4162,7 +4206,15 @@ const buildDesktopArtifactUnlocked = Effect.fn("buildDesktopArtifactUnlocked")(f
   }
   // x64 builds on arm64 runners; the arm64 check covers the shared JS bundle.
   if (options.platform === "mac" && options.arch === "arm64" && hostPlatform === "darwin") {
-    yield* validateMacPackagedPayload({ stageDistDir, verbose: options.verbose });
+    yield* validateMacPackagedPayload({
+      stageDistDir,
+      verbose: options.verbose,
+      ...(macDeveloperIdSigning
+        ? { assessSignature: "developer-id" }
+        : options.signed
+          ? {}
+          : { assessSignature: "ad-hoc" }),
+    });
   }
 
   const copiedArtifacts = yield* copyDesktopBuildArtifacts(

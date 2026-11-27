@@ -73,6 +73,7 @@ import {
 } from "./update-release-package-versions.ts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import { symlinksSupported } from "@t3tools/shared/testing/symlinks";
+import { hasMacDeveloperIdCredentials } from "./fork/macos-signing.ts";
 
 const encodeModuleUrl = Schema.encodeEffect(Schema.fromJsonString(Schema.String));
 const decodePackageVersion = Schema.decodeUnknownEffect(
@@ -541,6 +542,42 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         ),
       ),
     ),
+  );
+
+  it.effect("uses Developer ID and notarization only with the complete credential set", () =>
+    Effect.gen(function* () {
+      const credentials = {
+        CSC_LINK: "certificate.p12",
+        CSC_KEY_PASSWORD: "fixture-certificate-password",
+        APPLE_ID: "packaging@example.test",
+        APPLE_TEAM_ID: "EXAMPLE123",
+        APPLE_APP_SPECIFIC_PASSWORD: "fixture-notary-password",
+      };
+      const config = (env: Record<string, string>) =>
+        createBuildConfig(
+          "mac",
+          "dmg",
+          "3.0.0",
+          false,
+          false,
+          undefined,
+          undefined,
+          false,
+          "arm64",
+          hasMacDeveloperIdCredentials(env),
+        );
+
+      const adHoc = yield* config({ ...credentials, APPLE_APP_SPECIFIC_PASSWORD: "" });
+      assert.include(adHoc.mac, { identity: "-", hardenedRuntime: true, notarize: false });
+      const developerId = yield* config(credentials);
+      assert.include(developerId.mac, {
+        forceCodeSigning: true,
+        hardenedRuntime: true,
+        notarize: true,
+      });
+      assert.notProperty(developerId.mac, "identity");
+      assert.include(developerId.dmg, { sign: true });
+    }),
   );
 
   it.effect("names the Electron window class in the Linux desktop entry", () =>

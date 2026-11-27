@@ -11,7 +11,7 @@ app version `N.0.0-beta.M`, shown as `vN-beta.M`. There is no nightly or preview
    `main`.
 2. Tag the merge commit and push the tag: `git tag vN && git push origin vN`, or
    `git tag vN-beta.M && git push origin vN-beta.M`.
-3. `.github/workflows/fork-release.yml` checks that the tag matches the version, builds unsigned
+3. `.github/workflows/fork-release.yml` checks that the tag matches the version, builds
    Windows x64, macOS arm64 and Linux x64 installers, then publishes the release with the
    installers, blockmaps, the macOS zip, `SHA256SUMS.txt` and the update feed files: `latest*.yml`
    for a stable tag, `beta*.yml` for a beta tag. To rebuild an existing tag, run the workflow by
@@ -29,9 +29,15 @@ apps (`apps/desktop/src/updates/CmdeckGitHubProvider.ts`) take the newest `vN` o
 the releases API, because electron-updater's own prerelease lookup skips tags that are not semver.
 The release stays a draft until every file is uploaded, because installed apps read published
 releases. The build gives a beta CMDeck's normal name and icons. `scripts/fork/guard.sh` fails if
-the build points its feed anywhere but `Tehcnological/cmdeck`. macOS builds are ad-hoc signed, so
-the app installs its own updates there (`apps/desktop/src/updates/MacBundleUpdater.ts`) instead of
-Squirrel.Mac.
+the build points its feed anywhere but `Tehcnological/cmdeck`. The macOS app installs its own
+updates (`apps/desktop/src/updates/MacBundleUpdater.ts`) to support ad-hoc signed releases.
+
+For Developer ID signing in the fork release job, set `CSC_LINK` (a base64 Developer ID
+Application `.p12`), `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_TEAM_ID`, and
+`APPLE_APP_SPECIFIC_PASSWORD` as GitHub Actions secrets. All five are also accepted as environment
+variables for a local macOS build. When they are available, electron-builder notarizes and staples
+the app before creating the ZIP and DMG, and signs the DMG. Otherwise the app uses an ad-hoc
+signature.
 
 The Beta track is stored as `nightly`, the value official T3 Code clients and servers know, so a
 saved Nightly setting is Beta. Track switches move only the desktop app: CMDeck has no npm release
