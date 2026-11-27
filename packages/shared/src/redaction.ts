@@ -29,17 +29,18 @@ export const SECRET_PATTERNS: ReadonlyArray<RegExp> = [
   // The scheme starts only where a run of scheme characters starts and is capped, so a long run
   // like `a-a-a-…` is scanned once rather than from every word boundary.
   /((?<![a-z0-9+.-])[a-z][a-z0-9+.-]{0,31}:\/\/[^\s/?#@:]*:)[^\s/?#]+(?=@[^\s/?#@])/gi,
-  /(\b(?:proxy-)?authorization["']?[ \t]*[:=][ \t]*["']?(?:(?:basic|bearer|token|digest)[ \t]+)?)[^\r\n"']+/gi,
-  /(\b(?:set-)?cookie["']?[ \t]*[:=][ \t]*["']?)[^\r\n"']+/gi,
+  // A header serialized inside quotes ends at its own closing quote; a bare header runs to the end
+  // of the line, quotes and all (`session="…"`, Digest's `response="…"`).
+  /(\b(?:proxy-)?authorization["']?[ \t]*[:=][ \t]*(["']?)(?:(?:basic|bearer|token|digest)[ \t]+)?)(?:(?:\\.|(?!\2)[^\\\r\n])+|[^\r\n]+)/gi,
+  /(\b(?:set-)?cookie["']?[ \t]*[:=][ \t]*(["']?))(?:(?:\\.|(?!\2)[^\\\r\n])+|[^\r\n]+)/gi,
   /(\b[Bb]earer[ \t]+)[A-Za-z0-9._~+/-]{16,}=*/g,
-  // `name=value`, `name: value`, `"name": "value"` where the name ends in a secret word.
-  // `max_tokens: 4096` and `tokenCount=3` do not end in one.
-  // A quoted value runs to its own closing quote (`"`, `'`, or the backtick Node's inspect uses),
-  // skipping escaped characters, or to the end of the line when it never closes.
+  // `name=value` / `"name": "value"` where the name ends in a secret word (not `max_tokens`).
+  // A quoted value runs to its own closing quote (Node's inspect may use a backtick), past escapes.
+  // Only a whole unquoted `null`/`undefined`/`true`/`false` is exempt, never `true-horse-…`.
   new RegExp(
-    String.raw`((?<![\w.-])[\w.-]*?${LABEL_NAME}["']?[ \t]*[:=][ \t]*(["'\x60]?))` +
-      String.raw`(?!(?:null|undefined|true|false)\b|<redacted>)` +
-      String.raw`(?:(?<=["'\x60])(?:\\.|(?!\2)[^\\\r\n])+|(?<!["'\x60])[^\s"'\x60,;&]{3,})`,
+    String.raw`((?<![\w.-])[\w.-]*?${LABEL_NAME}["']?[ \t]*[:=][ \t]*(["'\x60]?))(?!<redacted>)` +
+      String.raw`(?:(?<=["'\x60])(?:\\.|(?!\2)[^\\\r\n])+|(?<!["'\x60])` +
+      String.raw`(?!(?:null|undefined|true|false)(?![^\s"'\x60,;&]))[^\s"'\x60,;&]{3,})`,
     "gi",
   ),
 ];

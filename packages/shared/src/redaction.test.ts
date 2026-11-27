@@ -121,6 +121,25 @@ describe("redactSecrets", () => {
     expect(redactSecrets(`{ password: \`it's "${suffix}"\` }`)).toBe("{ password: `[redacted]` }");
   });
 
+  it("redacts quoted parts of a bare credential header", () => {
+    expect(redactSecrets('Cookie: session="abcdef-secret-value"; theme=dark')).toBe(
+      "Cookie: [redacted]",
+    );
+    expect(redactSecrets('Authorization: Digest username="ana", response="6629fae49393a053"')).toBe(
+      "Authorization: Digest [redacted]",
+    );
+    expect(redactSecrets(JSON.stringify({ cookie: 'a="b"', next: 1 }))).toBe(
+      '{"cookie":"[redacted]","next":1}',
+    );
+  });
+
+  it("exempts only whole unquoted literals, not secrets that start with one", () => {
+    expect(redactSecrets("DB_PASSWORD=true-horse-battery-staple")).toBe("DB_PASSWORD=[redacted]");
+    expect(redactSecrets('{"password":"true-secret-suffix"}')).toBe('{"password":"[redacted]"}');
+    expect(redactSecrets('{"password":"false"}')).toBe('{"password":"[redacted]"}');
+    expect(redactSecrets("token=null, secret: undefined")).toBe("token=null, secret: undefined");
+  });
+
   // Quadratic scanning took about 5 s here, past the test timeout; linear takes milliseconds.
   it("scans long runs of scheme-like characters in linear time", () => {
     const run = "a-".repeat(100_000);
