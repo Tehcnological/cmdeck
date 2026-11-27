@@ -165,6 +165,9 @@ required=(
   'apps/web/src/components/settings/DiagnosticsSettings.tsx:<AuditLogSection environmentId=\{environmentId\} />'
   # WI-1.03: remote MCP tokens changed from the CLI are audited too.
   'apps/server/src/cli/auth.ts:AuditLog\.layerAtDatabase\(config\.dbPath\),'
+  # WI-1.03: a pairing approved from the CLI without a server is audited too.
+  'apps/server/src/cli/auth.ts:Effect\.tap\(AuditLog\.notePairingApprovedLocally\(flags\.id\)\)'
+  'apps/server/src/cli/auth.ts:Effect\.tap\(AuditLog\.notePairingApprovedLocally\(pairingLinkId\)\)'
   # Open beside: an unrelated project's thread never runs code blocks in the host's terminal,
   # and a thread hidden by a tag filter leaves the panel.
   'apps/web/src/components/ChatView.tsx:activeThread\?\.projectId !== panelHostShell\?\.projectId'

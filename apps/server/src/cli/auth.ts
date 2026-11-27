@@ -225,7 +225,9 @@ const pairingApproveCommand = Command.make("approve", {
             client.auth
               .approveConnectDevice({ headers: {}, payload: { pairingLinkId: flags.id } })
               .pipe(Effect.map((result) => result.approved)),
-          locally: environmentAuth.approveConnectDevice(flags.id),
+          locally: environmentAuth
+            .approveConnectDevice(flags.id)
+            .pipe(Effect.tap(AuditLog.notePairingApprovedLocally(flags.id))),
         });
         yield* Console.log(
           approved
@@ -321,7 +323,9 @@ const connectDeviceApproveCommand = Command.make("approve", {
               client.auth
                 .approveConnectDevice({ headers: {}, payload: { pairingLinkId } })
                 .pipe(Effect.map((result) => result.approved)),
-            locally: environmentAuth.approveConnectDevice(pairingLinkId),
+            locally: environmentAuth
+              .approveConnectDevice(pairingLinkId)
+              .pipe(Effect.tap(AuditLog.notePairingApprovedLocally(pairingLinkId))),
           }));
         yield* Console.log(
           approved
