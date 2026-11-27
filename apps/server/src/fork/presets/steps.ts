@@ -88,6 +88,50 @@ const presetUntilChecked = (name, options) =>
     }
   });
 
+/** The items of a list a person typed, one per line, without list markers or repeats. */
+const presetLines = (text) => {
+  const seen = new Set();
+  return String(text ?? "")
+    .split("\n")
+    .map((line) => line.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").trim())
+    .filter((line) => {
+      const key = line.toLowerCase().split(/\s+/).join(" ");
+      if (key === "" || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
+/**
+ * Asks a person to approve a list, edit it or stop. ask(list) gives the question's title and data;
+ * an edit sends the list they want instead, one item per line, which is asked about again.
+ * Returns the approved list, or stops the run.
+ */
+const presetEditableList = (name, items, ask) =>
+  Effect.gen(function* () {
+    let list = presetLines(items.join("\n"));
+    for (let n = 1; ; n++) {
+      const answer = yield* T3.ask(name + "-" + n, {
+        ...ask(list),
+        choices: [
+          "approve",
+          {
+            value: "edit",
+            description: "Send the list you want instead, one item per line.",
+            requireReason: true,
+          },
+          "stop",
+        ],
+      });
+      if (Option.isNone(answer) || answer.value.choice === "stop") {
+        return yield* T3.stop("The list was not approved.");
+      }
+      if (answer.value.choice === "approve") return list;
+      const edited = presetLines(answer.value.reason);
+      if (edited.length > 0) list = edited;
+    }
+  });
+
 const PresetReview = Schema.Struct({ approved: Schema.Boolean, notes: Schema.String });
 
 /** A review by an agent on the model a person picked, usually another provider's. */

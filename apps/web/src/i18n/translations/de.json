@@ -3034,6 +3034,8 @@
   "2ffc023296dd419d": "Gib dein AWS-Profil und deine Region ein. Lass ein Modell leer, um die Standardeinstellung von Claude Code zu verwenden.",
   "cdbeeaaa0371bb84": "Task-Runner-Workflow hinzufügen",
   "d11c0fe527862ae6": "Task Runner konnte nicht hinzugefügt werden",
+  "e9fdf016f1a52848": "Research-Lab-Workflow hinzufügen",
+  "dba121f5fe884dd7": "Research Lab konnte nicht hinzugefügt werden",
   "9b2f6da5bd526fb2": "Deine Standardumgebung ist nicht verbunden",
   "b52720786b8d772e": "{environment} ist nicht verbunden",
   "b8c9370425928547": "Dieser Thread startet auf {environment}.",
