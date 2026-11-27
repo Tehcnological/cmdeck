@@ -17,6 +17,12 @@ import {
   linkedThreadSurface,
   type LinkedThreadSurface,
 } from "./linkedThreadSurface";
+import {
+  type CmdeckPanelId,
+  type CmdeckSurface,
+  cmdeckSurface,
+  decodeCmdeckSurface,
+} from "./fork/panelSurface";
 import type { ThreadPanelPresentation } from "./rightPanelLayout";
 import type { ChatFileAttachment } from "./types";
 
@@ -32,6 +38,7 @@ const RIGHT_PANEL_KINDS = [
   "issue",
   "thread",
   "linked-thread",
+  "cmdeck",
 ] as const;
 export type RightPanelKind = (typeof RIGHT_PANEL_KINDS)[number];
 
@@ -109,7 +116,8 @@ export type RightPanelSurface =
    */
   | ThreadSurface
   /** A linked environment's thread, read through `viaEnvironmentId`; it has no thread here. */
-  | LinkedThreadSurface;
+  | LinkedThreadSurface
+  | CmdeckSurface;
 
 export type ThreadSurface = { id: `thread:${string}`; kind: "thread"; threadId: ThreadId };
 
@@ -187,12 +195,13 @@ interface RightPanelStoreState {
     ref: ScopedThreadRef,
     kind: Exclude<
       RightPanelKind,
-      "file" | "terminal" | "pull-request" | "issue" | "thread" | "linked-thread"
+      "file" | "terminal" | "pull-request" | "issue" | "thread" | "linked-thread" | "cmdeck"
     >,
   ) => void;
   /** Opens a side chat or subagent of `ref`'s environment as a tab; `ref` itself has no tab. */
   openThread: (ref: ScopedThreadRef, threadId: ThreadId) => void;
   openLinkedThread: (ref: ScopedThreadRef, target: LinkedThreadTarget) => void;
+  openCmdeck: (ref: ScopedThreadRef, panel: CmdeckPanelId) => void;
   /** Records the title the linked environment gave, so the tab and a reopened one show it. */
   setLinkedThreadTitle: (ref: ScopedThreadRef, surfaceId: string, title: string) => void;
   openDevice: (ref: ScopedThreadRef, target: DeviceTabTarget, automatic?: boolean) => void;
@@ -261,7 +270,7 @@ interface RightPanelStoreState {
     ref: ScopedThreadRef,
     kind: Exclude<
       RightPanelKind,
-      "file" | "terminal" | "pull-request" | "issue" | "thread" | "linked-thread"
+      "file" | "terminal" | "pull-request" | "issue" | "thread" | "linked-thread" | "cmdeck"
     >,
   ) => void;
   setThreadPanelOpen: (
@@ -287,7 +296,14 @@ const DEFAULT_THREAD_PANEL_VISIBILITY: ThreadPanelVisibility = {
 const singletonSurface = (
   kind: Exclude<
     RightPanelKind,
-    "file" | "preview" | "terminal" | "pull-request" | "issue" | "thread" | "linked-thread"
+    | "file"
+    | "preview"
+    | "terminal"
+    | "pull-request"
+    | "issue"
+    | "thread"
+    | "linked-thread"
+    | "cmdeck"
   >,
 ): RightPanelSurface => {
   switch (kind) {
@@ -614,6 +630,7 @@ export function migratePersistedRightPanelState(persistedState: unknown): {
                       const decoded = decodeThreadSurface(surface);
                       return decoded === null ? [] : [decoded];
                     }
+                    if (kind === "cmdeck") return decodeCmdeckSurface(surface);
                     // Also drops kinds this build does not know, such as one a newer build saved.
                     if (!(RIGHT_PANEL_KINDS as ReadonlyArray<unknown>).includes(kind)) return [];
                     if (surface.kind === "linked-thread") {
@@ -879,6 +896,12 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
             : userAction(state, scopedThreadKey(ref), (current) =>
                 upsertSurface(current, threadSurface(threadId)),
               ),
+        ),
+      openCmdeck: (ref, panel) =>
+        set((state) =>
+          userAction(state, scopedThreadKey(ref), (current) =>
+            upsertSurface(current, cmdeckSurface(panel)),
+          ),
         ),
       openLinkedThread: (ref, target) =>
         set((state) =>

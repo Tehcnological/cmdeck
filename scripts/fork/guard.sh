@@ -200,6 +200,19 @@ required=(
   # and a thread hidden by a tag filter leaves the panel.
   'apps/web/src/components/ChatView.tsx:activeThread\?\.projectId !== panelHostShell\?\.projectId'
   'apps/web/src/components/chat/SideThreadPane.tsx:useCloseWhenHidden\(threadRef, props\.onClose\)'
+  # WI-2.02: the work ledger's table, the fork right-panel surface, and the archive offer.
+  'apps/server/src/persistence/ForkSchema.ts:yield\* ensureWorkLedgerSchema\(\)'
+  'apps/web/src/rightPanelStore.ts:decodeCmdeckSurface, +\} from "\./fork/panelSurface"'
+  'apps/web/src/rightPanelStore.ts:"linked-thread", +"cmdeck", +\] as const;'
+  'apps/web/src/rightPanelStore.ts:\| LinkedThreadSurface +\| CmdeckSurface;'
+  'apps/web/src/rightPanelStore.ts:if \(kind === "cmdeck"\) return decodeCmdeckSurface\(surface\);'
+  'apps/web/src/rightPanelStore.ts:upsertSurface\(current, cmdeckSurface\(panel\)\)'
+  'apps/web/src/components/chat/RightPanelSurfaceContent.tsx:return <CmdeckPanelContent surface=\{surface\} threadRef=\{threadRef\} />;'
+  'apps/web/src/components/RightPanelTabs.tsx:return cmdeckPanelTitle\(surface, resolve\);'
+  'apps/web/src/components/RightPanelTabs.tsx:return <CmdeckPanelIcon surface=\{surface\} />;'
+  'apps/web/src/closedViewStore.ts:return decodeCmdeckSurface\(surface\)\[0\]\?\.id === surface\.id;'
+  'apps/web/src/reopenClosedView.ts:panels\.openCmdeck\(ref, surface\.panel\);'
+  'apps/web/src/hooks/useThreadActions.ts:await offerToStopConductorWorkers\(threadRef\);'
 )
 # 6. Only a person approves a workflow file: no MCP tool may reach the trust gate (WI-1.06).
 hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts)"

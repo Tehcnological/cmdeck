@@ -10,6 +10,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import { decodeLinkedThreadSurface } from "./linkedThreadSurface";
+import { decodeCmdeckSurface } from "./fork/panelSurface";
 import { resolveStorage } from "./lib/storage";
 import { randomUUID } from "./lib/utils";
 import { decodeThreadSurface, type RightPanelSurface } from "./rightPanelStore";
@@ -86,6 +87,8 @@ const isClosedViewEntry = (entry: unknown): entry is ClosedViewEntry => {
       );
     case "thread":
       return typeof surface.threadId === "string" && surface.id === `thread:${surface.threadId}`;
+    case "cmdeck":
+      return decodeCmdeckSurface(surface)[0]?.id === surface.id;
     case "linked-thread":
       return (
         (surface.title === null || typeof surface.title === "string") &&

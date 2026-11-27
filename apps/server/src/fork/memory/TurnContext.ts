@@ -10,6 +10,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
+import { conductorContributor } from "../workLedger/conductorBrief.ts";
 import * as MemoryStore from "./MemoryStore.ts";
 
 export interface TurnContextInput {
@@ -129,8 +130,12 @@ export class TurnContext extends Context.Service<
 >()("t3/fork/memory/TurnContext") {}
 
 const make = Effect.gen(function* () {
-  // Bots, notes and state cards append their contributors here, after memory.
-  const contributors: ReadonlyArray<Contributor> = [yield* memoryContributor];
+  // The conductor's role comes first so memory cannot crowd it out of the budget. Bots, notes and
+  // state cards append their contributors here, after memory.
+  const contributors: ReadonlyArray<Contributor> = [
+    yield* conductorContributor,
+    yield* memoryContributor,
+  ];
   return TurnContext.of({
     contribute: Effect.fn("TurnContext.contribute")(function* (input) {
       const sections = yield* Effect.forEach(contributors, (contribute) =>

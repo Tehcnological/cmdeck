@@ -5,6 +5,7 @@ import * as RpcGroup from "effect/rpc/RpcGroup";
 import {
   AuthAccessReadScope,
   AuthFilesystemReadScope,
+  AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
   AuthTerminalOperateScope,
   AuthSettingsWriteScope,
@@ -26,6 +27,13 @@ import {
   NotificationChannelIdInput,
   NotificationChannelSetEnabledInput,
 } from "./notifications.ts";
+import {
+  WorkLedgerError,
+  WorkLedgerListResult,
+  WorkLedgerSetConductorInput,
+  WorkLedgerStopWorkersResult,
+  WorkLedgerThreadInput,
+} from "./workLedger.ts";
 
 // The `cmdeck.` prefix keeps fork methods clear of upstream's names. Append new methods here.
 export const CMDECK_WS_METHODS = {
@@ -39,6 +47,9 @@ export const CMDECK_WS_METHODS = {
   notificationChannelsSetEnabled: "cmdeck.notifications.channels.setEnabled",
   notificationChannelsRemove: "cmdeck.notifications.channels.remove",
   notificationsSubscribeAlerts: "cmdeck.notifications.subscribeAlerts",
+  workLedgerList: "cmdeck.workLedger.list",
+  workLedgerSetConductor: "cmdeck.workLedger.setConductor",
+  workLedgerStopWorkers: "cmdeck.workLedger.stopWorkers",
 } as const;
 
 /** Fork stream methods the client runtime subscribes to like upstream's. */
@@ -113,6 +124,25 @@ const CmdeckNotificationsSubscribeAlertsRpc = Rpc.make(
   },
 );
 
+const WorkLedgerRpcError = Schema.Union([WorkLedgerError, EnvironmentAuthorizationError]);
+
+const CmdeckWorkLedgerListRpc = Rpc.make(CMDECK_WS_METHODS.workLedgerList, {
+  payload: WorkLedgerThreadInput,
+  success: WorkLedgerListResult,
+  error: WorkLedgerRpcError,
+});
+
+const CmdeckWorkLedgerSetConductorRpc = Rpc.make(CMDECK_WS_METHODS.workLedgerSetConductor, {
+  payload: WorkLedgerSetConductorInput,
+  error: WorkLedgerRpcError,
+});
+
+const CmdeckWorkLedgerStopWorkersRpc = Rpc.make(CMDECK_WS_METHODS.workLedgerStopWorkers, {
+  payload: WorkLedgerThreadInput,
+  success: WorkLedgerStopWorkersResult,
+  error: WorkLedgerRpcError,
+});
+
 /** Merged into `WsRpcGroup`, so fork methods share its scope middleware. */
 export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckStatusRpc,
@@ -125,6 +155,9 @@ export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckNotificationChannelsSetEnabledRpc,
   CmdeckNotificationChannelsRemoveRpc,
   CmdeckNotificationsSubscribeAlertsRpc,
+  CmdeckWorkLedgerListRpc,
+  CmdeckWorkLedgerSetConductorRpc,
+  CmdeckWorkLedgerStopWorkersRpc,
 );
 
 /** Spread into `CLIENT_GUARDED_RPC_SCOPES`; every fork method needs one. */
@@ -142,4 +175,8 @@ export const FORK_RPC_SCOPES = {
   [CMDECK_WS_METHODS.notificationChannelsSetEnabled]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.notificationChannelsRemove]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.notificationsSubscribeAlerts]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.workLedgerList]: AuthOrchestrationReadScope,
+  // Starting or ending a conductor changes what its agent is told on each turn.
+  [CMDECK_WS_METHODS.workLedgerSetConductor]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.workLedgerStopWorkers]: AuthOrchestrationOperateScope,
 } as const satisfies Record<RpcGroup.Rpcs<typeof ForkWsRpcGroup>["_tag"], AuthEnvironmentScope>;

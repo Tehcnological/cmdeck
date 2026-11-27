@@ -84,7 +84,10 @@ the guard. Adding a feature should not need another edit to a busy upstream file
 - **Turn context:** contributors in `apps/server/src/fork/memory/TurnContext.ts` add one fenced block to
   the provider prompt at turn start (`ProviderTurnStartService.ts`). The stored message never holds it,
   so events and the official mobile app are unchanged.
-- **Command palette:** `apps/web/src/fork/commands.ts`.
+- **Command palette:** `apps/web/src/fork/commands.tsx`.
+- **Right panel tabs:** a panel id in `apps/web/src/fork/panelSurface.ts` and its title, icon and
+  content in `apps/web/src/fork/panels.tsx`. Every fork panel is one `cmdeck` surface kind, so a new
+  panel needs no edit to `rightPanelStore.ts` or the tab components.
 
 Fork RPCs and settings are additive and never change `ORCHESTRATION_PROTOCOL_VERSION`. An optional
 module does nothing while it is off (no fibre, timer, subscription or request) and adds a case to

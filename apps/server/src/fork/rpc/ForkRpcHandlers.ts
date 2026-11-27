@@ -5,7 +5,9 @@ import {
   ForkWsRpcGroup,
   WorkflowTrustError,
   NotificationChannelError,
+  WorkLedgerError,
 } from "@t3tools/contracts";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
@@ -15,6 +17,9 @@ import * as AuditLog from "../audit/AuditLog.ts";
 import { installPreset } from "../presets/install.ts";
 import { WorkflowTrust } from "../workflowTrust/WorkflowTrust.ts";
 import * as Notifications from "../notifications/Notifications.ts";
+import * as ThreadManagement from "../../orchestration-v2/ThreadManagementService.ts";
+import * as WorkLedger from "../workLedger/WorkLedger.ts";
+import { stopWorkers } from "../workLedger/stopWorkers.ts";
 
 /** Spread into the server's WS handlers; each fork module adds its methods here. */
 export const make = Effect.gen(function* () {
@@ -26,6 +31,14 @@ export const make = Effect.gen(function* () {
   const noTrust = Effect.fail(new WorkflowTrustError({ reason: "Workflows are not available." }));
   const notifications = yield* Effect.serviceOption(Notifications.Notifications);
   const noNotifications = Effect.fail(new NotificationChannelError({}));
+  const ledger = yield* Effect.serviceOption(WorkLedger.WorkLedger);
+  const threads = yield* Effect.serviceOption(ThreadManagement.ThreadManagementService);
+  const random = yield* Effect.serviceOption(SecureRandom.SecureRandom);
+  const noLedger = Effect.fail(
+    new WorkLedgerError({ reason: "The work ledger is not available." }),
+  );
+  const ledgerFailure = (error: WorkLedger.WorkLedgerStoreError) =>
+    new WorkLedgerError({ reason: error.message });
   return ForkWsRpcGroup.of({
     [CMDECK_WS_METHODS.status]: () => Effect.succeed({ version: CMDECK_RPC_VERSION }),
     [CMDECK_WS_METHODS.auditList]: (input) =>
@@ -52,5 +65,22 @@ export const make = Effect.gen(function* () {
       Option.isSome(notifications)
         ? Stream.unwrap(notifications.value.subscribeAlerts)
         : Stream.empty,
+    [CMDECK_WS_METHODS.workLedgerList]: (input) =>
+      Option.isSome(ledger)
+        ? Effect.all({
+            conductor: ledger.value.isConductor(input.threadId),
+            items: ledger.value.list(input.threadId),
+          }).pipe(Effect.mapError(ledgerFailure))
+        : noLedger,
+    [CMDECK_WS_METHODS.workLedgerSetConductor]: (input) =>
+      Option.isSome(ledger)
+        ? ledger.value
+            .setConductor(input.threadId, input.conductor)
+            .pipe(Effect.mapError(ledgerFailure))
+        : noLedger,
+    [CMDECK_WS_METHODS.workLedgerStopWorkers]: (input) =>
+      Option.isSome(ledger) && Option.isSome(threads) && Option.isSome(random)
+        ? stopWorkers(ledger.value, threads.value, random.value, input.threadId)
+        : noLedger,
   });
 });

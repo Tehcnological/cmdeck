@@ -7,6 +7,7 @@ import * as AuditLog from "./audit/AuditLog.ts";
 import * as Notifications from "./notifications/Notifications.ts";
 import * as MemoryStore from "./memory/MemoryStore.ts";
 import * as TurnContext from "./memory/TurnContext.ts";
+import * as WorkLedger from "./workLedger/WorkLedger.ts";
 
 /**
  * Every fork service the server provides, in one place so `server.ts` carries a single fork line.
@@ -26,5 +27,6 @@ export const layer = Layer.mergeAll(
  */
 export const layerBeneathOrchestration = TurnContext.layer.pipe(
   Layer.provideMerge(MemoryStore.layer),
+  Layer.provideMerge(WorkLedger.layer),
   Layer.provide(ProjectionStore.layer),
 );

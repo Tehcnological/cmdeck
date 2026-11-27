@@ -70,6 +70,7 @@ import {
 import { isElectron } from "~/env";
 import type { DesktopPreviewOverlay } from "~/previewStateStore";
 import { linkedThreadTitle } from "~/linkedThreadSurface";
+import { CmdeckPanelIcon, cmdeckPanelTitle } from "~/fork/panels";
 import type { RightPanelSurface } from "~/rightPanelStore";
 import { cn } from "~/lib/utils";
 import { issueStatePresentation } from "~/components/issue/issuePresentation";
@@ -622,6 +623,8 @@ function surfaceTitle(
     case "thread":
       // Until the thread's own title loads.
       return resolve(msg("Thread"));
+    case "cmdeck":
+      return cmdeckPanelTitle(surface, resolve);
     case "linked-thread":
       return linkedThreadTitle(
         surface,
@@ -722,6 +725,8 @@ function SurfaceIcon({
       return <SideChatTabIcon environmentId={environmentId} threadId={surface.threadId} />;
     case "linked-thread":
       return <MessagesSquare className="size-3 shrink-0" />;
+    case "cmdeck":
+      return <CmdeckPanelIcon surface={surface} />;
     case "device":
       return surface.target?.platform === "ios" ? (
         <AppleIcon className="size-3 shrink-0" />
