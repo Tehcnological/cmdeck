@@ -47,6 +47,7 @@ import * as ProjectSetupScriptRunner from "../project/ProjectSetupScriptRunner.t
 import * as ProviderAuthService from "../provider/ProviderAuthService.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as InferenceServerRegistry from "../inference/InferenceServerRegistry.ts";
+import * as TurnContext from "../fork/memory/TurnContext.ts";
 import {
   makeRestoreMissingWorktree,
   ThreadWorktreeRestore,
@@ -372,6 +373,7 @@ export const layer: Layer.Layer<
     const inferenceServers = yield* Effect.serviceOption(
       InferenceServerRegistry.InferenceServerRegistry,
     );
+    const forkTurnContext = yield* TurnContext.forProviderTurnStart;
 
     const linkedServerModelWindow = Effect.fn("ProviderTurnStartService.linkedServerModelWindow")(
       function* (selection: ModelSelection) {
@@ -2109,7 +2111,14 @@ export const layer: Layer.Layer<
         budget,
       } = handoffContext;
       const retryHandoff = resumedRetryHandoff ?? (yield* prepareRetryHandoff(handoffContext));
+      const forkContext = yield* forkTurnContext({
+        thread: projection.thread,
+        runId: run.id,
+        message: providerMessage,
+        inject: !(slashCommand || manualResume),
+      });
       const carriesPendingContext =
+        forkContext !== "" ||
         effectiveHandoffs.length > 0 ||
         retryHandoff.handoffs.length > 0 ||
         retryHandoff.attachments.length > 0 ||
@@ -2345,7 +2354,12 @@ export const layer: Layer.Layer<
             ),
             ...(sideChatContext === "" || sideChatHandoff === undefined ? [] : [sideChatHandoff]),
           ];
-          const context = [delivery.context, sideChatContext, restartNote]
+          const context = [
+            compact ? "" : forkContext,
+            delivery.context,
+            sideChatContext,
+            restartNote,
+          ]
             .filter((part) => part !== "")
             .join("\n\n");
           const { restartContinuationOfRunId: _resumedRunId, ...promptedInput } = turnInput;
