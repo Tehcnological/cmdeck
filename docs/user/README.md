@@ -79,7 +79,8 @@ T3 Code is an open-source control plane for coding agents. It gives the coding a
 ### Providers
 
 - [Codex](./providers-codex.md) — ChatGPT sign-in, CLI/shadow-home multi-account, image generation, async questions, Daybreak.
-- [Claude](./providers-claude.md) — Multi-account `CLAUDE_CONFIG_DIR`, idle compaction, skills, MCP OAuth, Claude in Chrome, OpenRouter.
+- [Claude](./providers-claude.md) — Multi-account `CLAUDE_CONFIG_DIR`, idle compaction, skills, MCP OAuth, Claude in Chrome, Amazon Bedrock, OpenRouter.
+- [AWS](./aws.md) — Inference-only IAM role, AWS MCP servers as agent tools, tags and Budgets, and EC2 machines.
 - [Cursor](./cursor.md) — Local Cursor SDK sign-in, MCP/plugins, and Windows sandbox notes.
 - [Grok Build](./providers-grok.md) — Grok CLI setup, `XAI_API_KEY`, `GROK_HOME`, and permissions.
 - [Antigravity](./providers-antigravity.md) — Managed runtime, Google/Vertex sign-in methods, skills, and quotas.

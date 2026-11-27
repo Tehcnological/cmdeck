@@ -42,6 +42,32 @@ Add a second Claude instance in **Settings → Providers** (or **Add Claude acco
 
 To use the [Claude in Chrome extension](https://code.claude.com/docs/en/chrome) in CMDeck threads, add `--chrome` to **Launch arguments** in the Claude instance settings (applies to new sessions). Requires a direct Anthropic `/login` plan—not supported with API keys, `setup-token`, Bedrock/Vertex, or WSL.
 
+## Amazon Bedrock
+
+Claude Code talks to Bedrock itself; CMDeck only passes it the settings below. CMDeck never reads your AWS files or calls AWS.
+
+1. Sign in with the AWS CLI using a named profile, preferably IAM Identity Center (SSO) or `aws login`, with an [inference-only role](./aws.md#give-agents-an-inference-only-role).
+2. In **Settings → Providers**, add a Claude instance and click **Use Amazon Bedrock** on its configuration step. It fills these variables:
+
+| Variable                         | Value                                                               |
+| -------------------------------- | ------------------------------------------------------------------- |
+| `CLAUDE_CODE_USE_BEDROCK`        | `1`                                                                 |
+| `AWS_PROFILE`                    | Your profile name                                                   |
+| `AWS_REGION`                     | The Bedrock Region, such as `us-east-1`                             |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL`   | Optional: the Bedrock model or inference profile ID to use for Opus |
+| `ANTHROPIC_DEFAULT_SONNET_MODEL` | Optional: the same for Sonnet                                       |
+| `ANTHROPIC_DEFAULT_HAIKU_MODEL`  | Optional: the same for Haiku                                        |
+
+Rows you leave empty are not saved, and Claude Code uses its own default for them. Without `AWS_REGION`, Claude Code tries `AWS_DEFAULT_REGION`, then the profile's Region, then `us-east-1`.
+
+- **Pin model IDs** so a new Claude Code release does not move you to another model. A cross-Region ID starts with a prefix such as `us.`, `eu.`, `apac.` or `global.`; `global.` models may be processed in any commercial Region.
+- **Expiring sign-ins**: set `awsAuthRefresh` in Claude Code's settings to a command such as `aws sso login --profile <name>` and Claude Code runs it when the credentials expire.
+- **Bedrock API keys** work too: put a short-term key in `AWS_BEARER_TOKEN_BEDROCK` and mark it **Sensitive**. Short-term keys last up to 12 hours and work in one Region.
+- **More options**, such as application inference profiles, service tiers and Guardrails, are set the same way; see [Claude Code on Amazon Bedrock](https://code.claude.com/docs/en/amazon-bedrock). Its `/setup-bedrock` wizard also works.
+- **Keep AWS out of other agents**: agents inherit the environment CMDeck was started with, so don't export AWS credentials or `AWS_PROFILE` in that shell. Give AWS settings only to the instances that need them.
+
+The instance's status then shows **Amazon Bedrock**. For AWS tools, costs and remote machines, see [AWS](./aws.md).
+
 ## OpenRouter and local routers
 
 Create a separate Claude instance with its own config directory (e.g. `~/.claude_openrouter`, after running `/logout` if it had a cached Anthropic login) and set **Environment variables**:
