@@ -880,9 +880,25 @@ export const ClaudeSettings = makeProviderSettingsSchema(
         },
       }),
     ),
+    resetCreditsCheck: Schema.Boolean.pipe(
+      Schema.withDecodingDefault(Effect.succeed(true)),
+      Schema.annotateKey({
+        title: "Check reset credits",
+        description:
+          "Ask Anthropic how many reset credits your subscription has banked. Turn off to stop CMDeck's own requests to api.anthropic.com; usage limits still come from Claude.",
+        providerSettingsForm: { control: "switch", clearWhenEmpty: "omit" },
+      }),
+    ),
   },
   {
-    order: ["binaryPath", "homePath", "autoCompactWindow", "idleCompaction", "launchArgs"],
+    order: [
+      "binaryPath",
+      "homePath",
+      "autoCompactWindow",
+      "idleCompaction",
+      "launchArgs",
+      "resetCreditsCheck",
+    ],
   },
 );
 export type ClaudeSettings = typeof ClaudeSettings.Type;
@@ -1705,6 +1721,8 @@ export const ServerSettings = Schema.Struct({
   usageHistoryRetentionDays: UsageHistoryRetentionDays.pipe(
     Schema.withDecodingDefault(Effect.succeed(92)),
   ),
+  // Off: Usage prices only from the saved table and usagePriceOverrides, never LiteLLM's GitHub file.
+  usagePriceDownload: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
 
   usagePriceOverrides: Schema.Record(TrimmedNonEmptyString, UsageModelPriceOverride).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
@@ -2103,6 +2121,7 @@ export const ServerSettingsPatch = Schema.Struct({
   ),
 
   usageHistoryRetentionDays: Schema.optionalKey(UsageHistoryRetentionDays),
+  usagePriceDownload: Schema.optionalKey(Schema.Boolean),
 
   usagePriceOverrides: Schema.optionalKey(
     Schema.Record(TrimmedNonEmptyString, Schema.NullOr(UsageModelPriceOverride)),

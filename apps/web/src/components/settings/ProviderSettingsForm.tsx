@@ -110,6 +110,7 @@ const PACKAGE_FIELD_TEXT: ReadonlyMap<string, string> = new Map([
   ["CLAUDE_CONFIG_DIR path", msg("CLAUDE_CONFIG_DIR path")],
   ["Auto-compact after", msg("Auto-compact after")],
   ["Compact idle threads", msg("Compact idle threads")],
+  ["Check reset credits", msg("Check reset credits")],
   ["Sign-in method", msg("Sign-in method")],
   ["API key", msg("API key")],
   ["GCP project", msg("GCP project")],
@@ -154,6 +155,12 @@ const PACKAGE_FIELD_TEXT: ReadonlyMap<string, string> = new Map([
   [
     "Compact after 100,000 to 1,000,000 tokens. Leave empty to use Claude's default.",
     msg("Compact after 100,000 to 1,000,000 tokens. Leave empty to use Claude's default."),
+  ],
+  [
+    "Ask Anthropic how many reset credits your subscription has banked. Turn off to stop CMDeck's own requests to api.anthropic.com; usage limits still come from Claude.",
+    msg(
+      "Ask Anthropic how many reset credits your subscription has banked. Turn off to stop CMDeck's own requests to api.anthropic.com; usage limits still come from Claude.",
+    ),
   ],
   [
     "When to compact an idle thread over 200,000 tokens: after you return, just before its prompt cache expires, or never. Overrides the default in Providers > Advanced.",
