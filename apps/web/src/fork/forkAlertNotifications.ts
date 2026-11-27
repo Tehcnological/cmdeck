@@ -58,6 +58,7 @@ export function startForkAlertNotifications(): () => void {
       notification.addEventListener("click", () => {
         notification.close();
         window.focus();
+        void window.desktopBridge?.revealWindow().catch(() => undefined);
       });
     } catch {
       // Some browsers expose Notification but reject desktop presentation.
