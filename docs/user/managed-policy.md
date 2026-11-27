@@ -103,7 +103,7 @@ When `maxRuntimeMode` is set, users cannot modify provider launch settings (`bin
 `clients` allows any subset of `desktop`, `local-browser`, and `remote` (keep `desktop` on desktop machines).
 
 - Omitting `remote` restricts the server to loopback, revokes paired devices, disables LAN/Tailscale Serve/T3 Connect, and refuses startup if a Tailscale Serve route still forwards to CMDeck (or if a legacy service has LAN enabled—run `t3 up --no-lan`).
-- Set `"connect": false` to disable T3 Connect while allowing LAN/Tailscale remote access.
+- `connect` is accepted but has no effect: this build has no T3 Connect.
 
 ### Other capabilities
 

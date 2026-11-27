@@ -59,7 +59,7 @@ Yes, and this build puts them first. Point Pi, OpenCode, Claude, or Codex at Oll
 
 ## Does my code go to T3 servers?
 
-No. Your code and prompts go from your machine to your provider (Anthropic, OpenAI, etc.), not to us. With T3 Connect, traffic rides a Cloudflare tunnel (`cloudflared` on your machine). Our relay sets up the link. It does not proxy your HTTP or WebSocket sessions. CMDeck sends no telemetry: no usage events, crash reports, or traces, on Tailscale, LAN, or T3 Connect. [Telemetry and network calls](./telemetry.md) lists the calls CMDeck does make, such as model catalog and update checks.
+No. Your code and prompts go from your machine to your provider (Anthropic, OpenAI, etc.), not to us. CMDeck has no T3 Connect and never contacts T3's relay; remote traffic goes over Tailscale, your LAN, or your own Cloudflare Tunnel. CMDeck sends no telemetry: no usage events, crash reports, or traces, on any route. [Telemetry and network calls](./telemetry.md) lists the calls CMDeck does make, such as model catalog and update checks.
 
 ## Worktrees are eating my disk. How do I clean them up?
 
