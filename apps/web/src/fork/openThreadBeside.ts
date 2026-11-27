@@ -1,10 +1,12 @@
 import { useAtomValue } from "@effect/atom-react";
 import { threadKey } from "@t3tools/client-runtime/state/entities";
+import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import type { ScopedThreadRef } from "@t3tools/contracts";
 import { useEffect } from "react";
 
 import { canOpenThreadInPanel } from "../lib/sideChatPane";
 import { useRightPanelStore } from "../rightPanelStore";
+import { appAtomRegistry } from "../rpc/atomRegistry";
 import { environmentThreadShells } from "../state/threads";
 
 /**
@@ -21,12 +23,33 @@ export function useCloseWhenHidden(threadRef: ScopedThreadRef, onClose: () => vo
   }, [hidden, onClose]);
 }
 
+type CheckoutOf = Pick<EnvironmentThreadShell, "projectId" | "worktreePath">;
+
+/**
+ * The panel's terminal, file previews and Run buttons all work in its host thread's checkout, as
+ * a side chat or subagent shares it. Another thread may open there only when it shares it too.
+ */
+export function sharesCheckout(thread: CheckoutOf | null, host: CheckoutOf | null): boolean {
+  return (
+    thread !== null &&
+    host !== null &&
+    thread.projectId === host.projectId &&
+    (thread.worktreePath ?? null) === (host.worktreePath ?? null)
+  );
+}
+
+const quietShell = (ref: ScopedThreadRef) =>
+  appAtomRegistry.get(environmentThreadShells.quietThreadShellAtom(ref));
+
 /** Whether `threadRef` can open as a tab beside `panelRef`, the thread on screen. */
 export function canOpenThreadBeside(
   threadRef: ScopedThreadRef,
   panelRef: ScopedThreadRef | null,
 ): boolean {
-  return canOpenThreadInPanel(threadRef, panelRef);
+  return (
+    canOpenThreadInPanel(threadRef, panelRef) &&
+    sharesCheckout(quietShell(threadRef), quietShell(panelRef))
+  );
 }
 
 /**
