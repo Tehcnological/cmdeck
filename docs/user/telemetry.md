@@ -32,14 +32,24 @@ Besides the traffic you or your tools create, these are the outbound calls CMDec
   update checks**; new models may then not appear until you update CMDeck.
 - **Model prices** from LiteLLM's public price table on `raw.githubusercontent.com` (falling back
   to `api.github.com`), at most once a day, when you open **Usage**. Prices are cached on disk.
-  There is no switch; if you never open Usage, it is never fetched.
+  To stop it, set `"usagePriceDownload": false` in `~/.cmdeck/userdata/settings.json`; Usage then
+  prices only from the saved table and your [custom prices](./usage.md#custom-model-prices-and-filtering).
+- **Claude reset credits**: for a Claude instance signed in with a subscription, each provider
+  status check asks `api.anthropic.com` how many reset credits the subscription has banked, using
+  that instance's own sign-in. Turn it off per instance with **Check reset credits** in the Claude
+  provider settings. Usage limits still come from Claude itself.
 - **Desktop app update checks**: the desktop app looks for a newer CMDeck release on
   `github.com/Tehcnological/cmdeck` about 15 seconds after it starts, every 4 hours, and when you
   check by hand, and downloads the update from there when you choose to. See
   [Updating CMDeck](./updating.md#desktop-app-updates) to turn this off.
-- **Server update checks in the mobile app**: when you check a server for updates, the mobile app
-  looks up the newest release on T3 Code's GitHub releases page (`github.com`, then
-  `api.github.com` if needed). CMDeck installs updates only from a build mirror you configure.
+- **Server update checks**: `t3 update` and the mobile app's server update check look up the newest
+  release on CMDeck's GitHub releases (`github.com/Tehcnological/cmdeck`, then `api.github.com` if
+  needed). CMDeck installs updates only from a build mirror you configure.
+
+Agents run with their own telemetry off: CMDeck starts provider processes with `DO_NOT_TRACK`,
+`DISABLE_TELEMETRY`, `DISABLE_ERROR_REPORTING`, `OPENCODE_DISABLE_TELEMETRY` and
+`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` set (the last also stops Claude Code updating itself
+from inside CMDeck). A value you set in your own environment or a provider instance wins.
 
 CMDeck does not use T3 Connect or its relay, does not look up its own releases on the npm
 registry, and never checks T3 Code's releases for desktop updates.

@@ -307,6 +307,11 @@ export const make = Effect.gen(function* () {
     yield* loadSavedRates;
     if (ratesFetchedAtMs !== null && now - ratesFetchedAtMs < maxAgeMs) return;
     if (ratesLastFailedAtMs !== null && now - ratesLastFailedAtMs < RATES_REFRESH_FLOOR_MS) return;
+    const download = yield* settingsService.getSettings.pipe(
+      Effect.map((settings) => settings.usagePriceDownload),
+      Effect.orElseSucceed(() => false),
+    );
+    if (!download) return;
 
     let fetched = yield* fetchRates(LITELLM_RATES_URL);
     if (fetched === null) {

@@ -593,6 +593,28 @@ describe("UsageService", () => {
     }).pipe(Effect.scoped),
   );
 
+  it.effect("never downloads prices when usagePriceDownload is off", () =>
+    Effect.gen(function* () {
+      const { home, settings } = yield* setup;
+      const fetched: Array<string> = [];
+      const pricing = yield* Effect.gen(function* () {
+        const service = yield* UsageService.make;
+        return yield* service.refreshRates;
+      }).pipe(
+        Effect.provide(
+          layerService({
+            prefix: "no-price-download",
+            home,
+            settings: { ...settings, usagePriceDownload: false },
+            onRatesFetch: (request) => fetched.push(request.url),
+          }),
+        ),
+      );
+      assert.deepStrictEqual(fetched, []);
+      assert.strictEqual(pricing.status, "unavailable");
+    }).pipe(Effect.scoped),
+  );
+
   it.effect("counts compressed Codex rollouts across refresh, rewrites, and cache restarts", () =>
     Effect.gen(function* () {
       const { home, settings } = yield* setup;

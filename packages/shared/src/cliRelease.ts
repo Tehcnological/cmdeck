@@ -1,9 +1,11 @@
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
+import { APP_RELEASE_REPOSITORY } from "./appIdentity.ts";
 import { compareSemverVersions } from "./semver.ts";
 
-const CLI_RELEASE_REPOSITORY = "pingdotgg/t3code";
+// CMDeck installs and updates only from its own releases, never upstream's.
+const CLI_RELEASE_REPOSITORY = APP_RELEASE_REPOSITORY;
 export const CLI_RELEASES_PAGE_URL = `https://github.com/${CLI_RELEASE_REPOSITORY}/releases`;
 export const CLI_RELEASE_CHECKSUMS_FILE = "SHA256SUMS";
 export const CLI_RELEASE_BASE_URL_ENV = "T3CODE_RELEASE_BASE_URL";

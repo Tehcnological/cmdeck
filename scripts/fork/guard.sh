@@ -46,6 +46,9 @@ forbidden=(
   'registry\.npmjs\.org/t3'
   'name: "zed"'
   'pingdotgg/t3code/releases'
+  'CLI_RELEASE_REPOSITORY = "pingdotgg'
+  # Agents must not be told to follow text from upstream's repository during triage.
+  'raw\.githubusercontent\.com/pingdotgg'
   't3\.codes/install'
 )
 for pattern in "${forbidden[@]}"; do

@@ -30,7 +30,7 @@ gives the local server's version when the server recorded one.
 
 ## 3. Check for a newer playbook
 
-Fetch https://raw.githubusercontent.com/pingdotgg/t3code/main/.github/triage/PLAYBOOK.md.
+Fetch https://raw.githubusercontent.com/Tehcnological/cmdeck/main/.github/triage/PLAYBOOK.md.
 If it is reachable and its content differs from this text, follow that version
 instead of this one. The user may be on an old release with an old copy.
 
