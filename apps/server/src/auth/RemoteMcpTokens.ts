@@ -161,6 +161,12 @@ export const create = Effect.fn("RemoteMcpTokens.create")(function* (input: {
     sha256: yield* sha256(token),
   };
   yield* write([...tokens, record]);
+  // Here rather than in the service, so the CLI's create is audited too.
+  yield* AuditLog.note({
+    kind: "mcp_token.created",
+    subject: record.id,
+    detail: { label: record.label, access: record.access },
+  });
   return { record, token };
 }, withWriteLock);
 
@@ -170,6 +176,7 @@ export const revoke = Effect.fn("RemoteMcpTokens.revoke")(function* (id: string)
   const kept = tokens.filter((token) => token.id !== id);
   if (kept.length === tokens.length) return false;
   yield* write(kept);
+  yield* AuditLog.note({ kind: "mcp_token.revoked", subject: id });
   return true;
 }, withWriteLock);
 
@@ -260,11 +267,6 @@ const make = Effect.gen(function* () {
   const createToken = Effect.fn("RemoteMcpTokens.createToken")(
     function* (input: RemoteMcpTokenCreateInput) {
       const { record, token } = yield* create(input);
-      yield* AuditLog.note({
-        kind: "mcp_token.created",
-        subject: record.id,
-        detail: { label: record.label, access: record.access },
-      });
       return { token: toPublic(record), secret: token };
     },
     Effect.mapError(toServiceError),
@@ -274,7 +276,6 @@ const make = Effect.gen(function* () {
   const revokeToken = Effect.fn("RemoteMcpTokens.revokeToken")(
     function* (id: string) {
       const revoked = yield* revoke(id);
-      if (revoked) yield* AuditLog.note({ kind: "mcp_token.revoked", subject: id });
       return { revoked };
     },
     Effect.mapError(toServiceError),

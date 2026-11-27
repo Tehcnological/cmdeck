@@ -207,3 +207,32 @@ it.effect("the importer's entry starts a verifiable chain in the imported databa
     expect(verified).toEqual({ ok: true, checked: 2, brokenSeq: null, reason: null });
   }).pipe(Effect.scoped, Effect.provide(Layer.merge(NodeServices.layer, NodeCrypto.layer))),
 );
+
+it.effect("a CLI command records in an existing database and creates none that is missing", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const dir = yield* fs.makeTempDirectoryScoped({ prefix: "audit-cli-" });
+    const missing = path.join(dir, "missing.sqlite");
+    yield* AuditLog.note({ kind: "mcp_token.created", subject: "t1" }).pipe(
+      Effect.provide(AuditLog.layerAtDatabase(missing)),
+    );
+    expect(yield* fs.exists(missing)).toBe(false);
+
+    const dbPath = path.join(dir, "db.sqlite");
+    yield* AuditLog.appendToDatabase(dbPath, { kind: "import.run", actor: "cli", subject: "t3" });
+    yield* AuditLog.note({ kind: "mcp_token.revoked", subject: "t1" }).pipe(
+      Effect.provide(AuditLog.layerAtDatabase(dbPath)),
+    );
+    const { entries } = yield* Effect.gen(function* () {
+      return yield* (yield* AuditLog.AuditLog).list({});
+    }).pipe(
+      Effect.provide(
+        AuditLog.layerService.pipe(
+          Layer.provideMerge(NodeSqliteClient.layer({ filename: dbPath, readonly: true })),
+        ),
+      ),
+    );
+    expect(entries.map((entry) => entry.kind)).toEqual(["mcp_token.revoked", "import.run"]);
+  }).pipe(Effect.scoped, Effect.provide(Layer.merge(NodeServices.layer, NodeCrypto.layer))),
+);

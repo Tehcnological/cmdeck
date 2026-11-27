@@ -34,6 +34,7 @@ import {
   resolveCliAuthConfig,
 } from "./config.ts";
 import * as RunningServer from "./runningServer.ts";
+import * as AuditLog from "../fork/audit/AuditLog.ts";
 
 const runWithEnvironmentAuth = Effect.fn("auth.runWithEnvironmentAuth")(function* <A, E, R>(
   flags: CliAuthLocationFlags,
@@ -472,7 +473,12 @@ const runWithRemoteMcpTokens = Effect.fn("auth.runWithRemoteMcpTokens")(function
   const logLevel = yield* GlobalFlag.LogLevel;
   const config = yield* resolveCliAuthConfig(flags, logLevel, { quietLogs: true });
   return yield* run.pipe(
-    Effect.provide(ServerSecretStore.layer.pipe(Layer.provide(ServerConfig.layer(config)))),
+    Effect.provide(
+      Layer.merge(
+        ServerSecretStore.layer.pipe(Layer.provide(ServerConfig.layer(config))),
+        AuditLog.layerAtDatabase(config.dbPath),
+      ),
+    ),
   );
 });
 

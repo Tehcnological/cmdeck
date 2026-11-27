@@ -14,6 +14,7 @@ import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
 import * as Digest from "effect/crypto/Digest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Hex from "effect/encoding/Hex";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -207,7 +208,13 @@ const make = Effect.gen(function* () {
       }
     }
     return { ok: true, checked, brokenSeq: null, reason: null };
-  }).pipe(sql.withTransaction, Effect.mapError(toError), Effect.withSpan("AuditLog.verify"));
+  }).pipe(
+    sql.withTransaction,
+    // The reader connection: a snapshot without holding the server's single writer.
+    NodeSqliteClient.readOnly,
+    Effect.mapError(toError),
+    Effect.withSpan("AuditLog.verify"),
+  );
 
   const prune: AuditLog["Service"]["prune"] = Effect.gen(function* () {
     const cutoff = (yield* Clock.currentTimeMillis) - RETENTION_MS;
@@ -300,6 +307,25 @@ export const notePairingApproved = (pairingLinkId: string) =>
 /** A stored secret was handed out: as a one-use ref's value, or written to a file for commands. */
 export const noteSecretReveal = (via: "ref" | "file", subject: string) =>
   note({ kind: "secret.revealed", subject, detail: { via } });
+
+/**
+ * The log in the database at `dbPath`, for CLI commands that change what the log records while a
+ * server may or may not run. SQLite's write lock orders appends across processes. Nothing is
+ * created when that database does not exist yet.
+ */
+export const layerAtDatabase = (dbPath: string) =>
+  Layer.unwrap(
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      if (!(yield* fileSystem.exists(dbPath).pipe(Effect.orElseSucceed(() => false)))) {
+        return Layer.empty;
+      }
+      return Layer.effectDiscard(ensureAuditSchema()).pipe(
+        Layer.provideMerge(layerService),
+        Layer.provideMerge(NodeSqliteClient.layer({ filename: dbPath })),
+      );
+    }),
+  );
 
 /** Appends to the log in the database at `dbPath`, for CLI commands that run without a server. */
 export const appendToDatabase = Effect.fn("AuditLog.appendToDatabase")(
