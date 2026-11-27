@@ -1,6 +1,8 @@
 // Frame untrusted values with unpredictable per-request tags and break their mentions, preserving template mentions.
 // Whole-set placeholders redact credentials; named placeholders return raw values.
 
+import { redactSecrets } from "@t3tools/shared/redaction";
+
 export interface WebhookRequest {
   readonly method: string;
   readonly path: string;
@@ -126,9 +128,11 @@ export function webhookExpressionResolver(
     const [root, ...segments] = expression.split(".");
     switch (root) {
       case "request":
-        return segments.length === 0 ? formatWebhookRequest(request) : undefined;
+        return segments.length === 0 ? redactSecrets(formatWebhookRequest(request)) : undefined;
       case "body":
-        return segments.length === 0 ? request.bodyText : lookup(parsedBody(), segments);
+        return segments.length === 0
+          ? redactSecrets(request.bodyText)
+          : lookup(parsedBody(), segments);
       case "headers": {
         if (segments.length === 0) return redactHeaders(request.headers);
         const name = segments.join(".").toLowerCase();

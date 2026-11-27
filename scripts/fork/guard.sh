@@ -129,6 +129,12 @@ required=(
   'apps/web/src/components/CommandPalette.tsx:actionItems\.push\(\.\.\.forkCommandItems\);'
   # The star prompt stars CMDeck's repository, not upstream's.
   'apps/web/src/components/GitHubStarPrompt.tsx:const REPOSITORY = APP_RELEASE_REPOSITORY;'
+  # WI-1.02: the shared redactor applies at log, feedback and webhook-prompt egress.
+  'packages/shared/package.json:"\./redaction"'
+  'apps/server/src/serverLogger.ts:redactingSecrets\(redactingCredentials\(Logger\.consolePretty\(\)\)\)'
+  'apps/server/src/feedback/scrubFeedback.ts:\.\.\.SECRET_PATTERNS,'
+  'apps/server/src/scheduledTasks/webhookTemplate.ts:redactSecrets\(formatWebhookRequest\(request\)\)'
+  'apps/server/src/scheduledTasks/webhookTemplate.ts:redactSecrets\(request\.bodyText\)'
 )
 for entry in "${required[@]}"; do
   file="${entry%%:*}"

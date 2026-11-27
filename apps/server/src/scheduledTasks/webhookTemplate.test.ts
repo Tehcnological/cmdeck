@@ -164,6 +164,17 @@ describe("renderWebhookPrompt", () => {
     );
   });
 
+  it("redacts secrets in whole-body placeholders but not named fields", () => {
+    // Assembled at runtime so secret scanners do not flag the test.
+    const token = ["gh", "p_", "aB3dE5gH7jK9mN1pQ2rS4tU6vW8xY0z12345"].join("");
+    const request = { ...githubPullRequest, bodyText: JSON.stringify({ note: `use ${token}` }) };
+
+    const whole = renderWebhookPrompt("{{body}}|{{request}}", request, "id").prompt;
+    assert.notInclude(whole, token);
+    assert.include(whole, "use [redacted]");
+    assert.include(renderWebhookPrompt("{{body.note}}", request, "id").prompt, token);
+  });
+
   it("renders a [] wildcard as the list of matching values", () => {
     const rendered = renderWebhookPrompt(
       "Labels: {{body.pull_request.labels[]}} Names: {{body.reviewers[].login}}",
