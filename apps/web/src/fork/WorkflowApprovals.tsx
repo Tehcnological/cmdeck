@@ -102,7 +102,7 @@ export function WorkflowApprovals({ environmentId }: { readonly environmentId: E
         ) : null}
       </Alert>
       {files === null ? null : (
-        <ul className="mt-3 space-y-3">
+        <ul className="mt-3 max-h-[50dvh] space-y-3 overflow-y-auto overscroll-contain">
           {files.map((file) => (
             <li key={file.path} className="rounded-lg border">
               <div className="flex items-center gap-2 border-b px-3 py-2">
