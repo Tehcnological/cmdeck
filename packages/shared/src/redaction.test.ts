@@ -111,6 +111,21 @@ describe("redactSecrets", () => {
   it("redacts overlapping matches as one", () => {
     expect(redactSecrets(`GITHUB_TOKEN=${github}`)).toBe("GITHUB_TOKEN=[redacted]");
   });
+
+  it("redacts a quoted value up to its own closing quote, past escaped quotes", () => {
+    const suffix = "long-secret-suffix";
+    expect(redactSecrets(JSON.stringify({ password: `abc"${suffix}`, user: "ana" }))).toBe(
+      '{"password":"[redacted]","user":"ana"}',
+    );
+    // Node's inspect quotes a string holding both quote characters with backticks.
+    expect(redactSecrets(`{ password: \`it's "${suffix}"\` }`)).toBe("{ password: `[redacted]` }");
+  });
+
+  // Quadratic scanning took about 5 s here, past the test timeout; linear takes milliseconds.
+  it("scans long runs of scheme-like characters in linear time", () => {
+    const run = "a-".repeat(100_000);
+    expect(redactSecrets(run)).toBe(run);
+  });
 });
 
 describe("makeSecretRedactionStream", () => {
@@ -138,6 +153,17 @@ describe("makeSecretRedactionStream", () => {
     expect(stream.push(`ok\n${head}`)).toBe("ok\n");
     expect(stream.push(`${tail}\ndone\n`)).toBe("[redacted]\ndone\n");
     expect(stream.end()).toBe("");
+  });
+
+  it("keeps redacting a private key that outgrew the hold until its END line", () => {
+    const begin = fake("-----BEGIN ", "PRIVATE KEY-----\n");
+    const end = fake("-----END ", "PRIVATE KEY-----\n");
+    const body = "k".repeat(200);
+    const output = run([begin, body, "MATERIAL", "-----END PRIV", end.slice(13), "after\n"], 64);
+    expect(output).not.toContain("k");
+    expect(output).not.toContain("MATERIAL");
+    expect(output).toContain("[redacted]");
+    expect(output).toContain("after\n");
   });
 
   it("emits complete lines as they arrive", () => {

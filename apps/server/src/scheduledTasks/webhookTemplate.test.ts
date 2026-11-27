@@ -2,7 +2,11 @@ import { assert, describe, it } from "@effect/vitest";
 import { collectComposerContextReferences } from "@t3tools/shared/composerContextReferences";
 import { SKILL_MENTION_PATTERN } from "@t3tools/shared/composerInlineTokens";
 
-import { renderWebhookPrompt, type WebhookRequest } from "./webhookTemplate.ts";
+import {
+  renderWebhookPrompt,
+  type WebhookRequest,
+  webhookExpressionResolver,
+} from "./webhookTemplate.ts";
 
 const githubPullRequest: WebhookRequest = {
   method: "POST",
@@ -173,6 +177,9 @@ describe("renderWebhookPrompt", () => {
     assert.notInclude(whole, token);
     assert.include(whole, "use [redacted]");
     assert.include(renderWebhookPrompt("{{body.note}}", request, "id").prompt, token);
+    // Replay and coalescing keys render raw, so deliveries that differ only in a secret stay distinct.
+    assert.include(renderWebhookPrompt("{{body}}", request, "", true).prompt, token);
+    assert.include(webhookExpressionResolver(request)("body") as string, token);
   });
 
   it("renders a [] wildcard as the list of matching values", () => {

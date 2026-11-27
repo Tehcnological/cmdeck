@@ -5,12 +5,19 @@ import type * as Fiber from "effect/Fiber";
 import * as Logger from "effect/Logger";
 import * as NodeUtil from "node:util";
 
-// Formatting before redacting drops Node's colours on printed objects; ANSI codes inside a value
-// would otherwise hide it from the patterns.
+// The pretty logger colours labels (`password:`) with ANSI codes that would split them from their
+// values, so matching runs on the plain text; a line with nothing to redact keeps its colours.
+export const redactLine = (args: ReadonlyArray<unknown>): string => {
+  const line = NodeUtil.format(...args);
+  const plain = NodeUtil.stripVTControlCharacters(line);
+  const redacted = redactSecrets(plain);
+  return redacted === plain ? line : redacted;
+};
+
 const redactingConsole = (console: Console.Console): Console.Console => ({
   ...console,
-  log: (...args) => console.log(redactSecrets(NodeUtil.format(...args))),
-  error: (...args) => console.error(redactSecrets(NodeUtil.format(...args))),
+  log: (...args) => console.log(redactLine(args)),
+  error: (...args) => console.error(redactLine(args)),
 });
 
 /**

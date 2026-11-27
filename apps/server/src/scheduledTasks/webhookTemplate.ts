@@ -128,11 +128,9 @@ export function webhookExpressionResolver(
     const [root, ...segments] = expression.split(".");
     switch (root) {
       case "request":
-        return segments.length === 0 ? redactSecrets(formatWebhookRequest(request)) : undefined;
+        return segments.length === 0 ? formatWebhookRequest(request) : undefined;
       case "body":
-        return segments.length === 0
-          ? redactSecrets(request.bodyText)
-          : lookup(parsedBody(), segments);
+        return segments.length === 0 ? request.bodyText : lookup(parsedBody(), segments);
       case "headers": {
         if (segments.length === 0) return redactHeaders(request.headers);
         const name = segments.join(".").toLowerCase();
@@ -172,7 +170,9 @@ export function renderWebhookPrompt(
     if (text === "") return "";
     if (raw) return text;
     framed = true;
-    return `<${tag}>${text.replace(MENTION, "$&\u2060")}</${tag}>`;
+    // Fork: only the prompt is redacted; filters and replay keys read the raw request.
+    const shown = expression === "body" || expression === "request" ? redactSecrets(text) : text;
+    return `<${tag}>${shown.replace(MENTION, "$&\u2060")}</${tag}>`;
   });
   if (!framed) return { prompt, missing };
   return {
