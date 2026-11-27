@@ -8,3 +8,10 @@ it("redacts a labelled value even when the logger coloured its label", () => {
   expect(redactLine([coloured])).toBe("password: [redacted]");
   expect(redactLine(["\x1b[32mready\x1b[0m"])).toBe("\x1b[32mready\x1b[0m");
 });
+
+it("redacts a long multiline secret that inspect would split into joined pieces", () => {
+  const password = `${"a".repeat(100)}\n${"sensitive-tail".repeat(10)}`;
+  const line = redactLine([{ password, user: "ana" }]);
+  expect(line).not.toContain("sensitive-tail");
+  expect(line).toContain("user: 'ana'");
+});

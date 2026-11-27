@@ -5,11 +5,13 @@ import type * as Fiber from "effect/Fiber";
 import * as Logger from "effect/Logger";
 import * as NodeUtil from "node:util";
 
-// The pretty logger colours labels (`password:`) with ANSI codes that would split them from their
-// values, so matching runs on the plain text; a line with nothing to redact keeps its colours.
+// Matching runs on plain one-line text: ANSI colours would split a label from its value, and
+// inspect splits a long multiline string into `'…' +` pieces. Nothing to redact keeps the pretty form.
 export const redactLine = (args: ReadonlyArray<unknown>): string => {
   const line = NodeUtil.format(...args);
-  const plain = NodeUtil.stripVTControlCharacters(line);
+  const plain = NodeUtil.stripVTControlCharacters(
+    NodeUtil.formatWithOptions({ breakLength: Infinity }, ...args),
+  );
   const redacted = redactSecrets(plain);
   return redacted === plain ? line : redacted;
 };
