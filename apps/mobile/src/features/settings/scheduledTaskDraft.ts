@@ -5,6 +5,7 @@ import type {
   ProjectId,
   RuntimeMode,
   ScheduledTask,
+  ScheduledTaskSchedule,
   ScheduledTaskThreadMode,
   ScheduledTaskUpsertSchedule,
   ScheduledTaskWebhookSignature,
@@ -53,7 +54,9 @@ export function scheduledTaskDefaultModel(
 }
 
 export type ScheduleDraft = {
-  readonly mode: "fixed_time" | "once" | "interval" | "webhook";
+  readonly mode: "fixed_time" | "once" | "interval" | "webhook" | "cron";
+  /** A cron schedule is edited on web; here it is kept as stored. */
+  readonly cron: Extract<ScheduledTaskSchedule, { type: "cron" }> | null;
   readonly timeOfDay: string;
   /** ISO time for a one-time run. Empty until the user picks the "Once" mode. */
   readonly runAt: string;
@@ -71,6 +74,7 @@ export type ScheduleDraft = {
 
 export const DEFAULT_SCHEDULE: ScheduleDraft = {
   mode: "fixed_time",
+  cron: null,
   timeOfDay: "09:00",
   runAt: "",
   weekdays: [1, 2, 3, 4, 5],
@@ -96,6 +100,8 @@ export function scheduleDraftForTask(task: Pick<ScheduledTask, "schedule">): Sch
       };
     case "once":
       return { ...DEFAULT_SCHEDULE, mode: "once", runAt: task.schedule.runAt };
+    case "cron":
+      return { ...DEFAULT_SCHEDULE, mode: "cron", cron: task.schedule };
     case "interval":
       return {
         ...DEFAULT_SCHEDULE,
@@ -128,6 +134,7 @@ export function parseIntervalMinutes(value: string): number {
 }
 
 export function scheduleFromDraft(draft: ScheduleDraft): ScheduledTaskUpsertSchedule | null {
+  if (draft.mode === "cron") return draft.cron;
   if (draft.mode === "webhook") {
     const maxDeliveryAgeMinutes = parseMaxDeliveryAge(draft.maxDeliveryAgeMinutes);
     if (maxDeliveryAgeMinutes === undefined) return null;

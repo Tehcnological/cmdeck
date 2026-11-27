@@ -195,6 +195,8 @@ const EMPTY_DRAFT: DraftState = {
   runAt: "",
   savedRunAt: "",
   weekdays: new Set([1, 2, 3, 4, 5]),
+  cronExpression: "0 9 * * 1-5",
+  cronTimeZone: "",
   projectId: "",
   threadId: "",
   savedThreadId: "",
@@ -2044,7 +2046,8 @@ function ScheduledTaskEditorForm({
                     mode === "fixed" ||
                     mode === "once" ||
                     mode === "interval" ||
-                    mode === "webhook"
+                    mode === "webhook" ||
+                    mode === "cron"
                   )
                     setDraft((current) => {
                       const suggested =
@@ -2079,6 +2082,9 @@ function ScheduledTaskEditorForm({
                 ) : null}
                 <Toggle value="interval">
                   <T>Every interval</T>
+                </Toggle>
+                <Toggle value="cron">
+                  <T>Cron</T>
                 </Toggle>
                 <Toggle
                   value="webhook"
@@ -2300,6 +2306,40 @@ function ScheduledTaskEditorForm({
                     setDraft((current) => ({ ...current, runAt: event.target.value }))
                   }
                 />
+              </div>
+            ) : draft.scheduleMode === "cron" ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field
+                  label={gt("Cron expression")}
+                  hint={gt("minute hour day month weekday")}
+                  htmlFor="scheduled-task-cron"
+                >
+                  <Input
+                    id="scheduled-task-cron"
+                    spellCheck={false}
+                    autoComplete="off"
+                    value={draft.cronExpression}
+                    onChange={(event) =>
+                      setDraft((current) => ({ ...current, cronExpression: event.target.value }))
+                    }
+                  />
+                </Field>
+                <Field
+                  label={gt("Time zone")}
+                  hint={gt("optional")}
+                  htmlFor="scheduled-task-cron-time-zone"
+                >
+                  <Input
+                    id="scheduled-task-cron-time-zone"
+                    spellCheck={false}
+                    autoComplete="off"
+                    placeholder={tasksQuery.data?.timeZone}
+                    value={draft.cronTimeZone}
+                    onChange={(event) =>
+                      setDraft((current) => ({ ...current, cronTimeZone: event.target.value }))
+                    }
+                  />
+                </Field>
               </div>
             ) : draft.scheduleMode === "fixed" ? (
               <div className="flex flex-wrap items-center gap-3">

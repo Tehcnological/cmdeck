@@ -44,4 +44,9 @@ export const ensureForkSchema = Effect.fn("ensureForkSchema")(function* () {
     approved_at TEXT
   )`;
   yield* ensureMemorySchema();
+  // Failed runs in a row of a scheduled task, which pauses the task at a limit.
+  const taskColumns = yield* sql<{ name: string }>`PRAGMA table_info(scheduled_tasks)`;
+  if (!taskColumns.some((column) => column.name === "failure_streak")) {
+    yield* sql`ALTER TABLE scheduled_tasks ADD COLUMN failure_streak INTEGER NOT NULL DEFAULT 0`;
+  }
 });
