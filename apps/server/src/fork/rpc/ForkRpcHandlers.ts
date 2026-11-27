@@ -1,6 +1,7 @@
 import {
   AuditLogError,
   CMDECK_RPC_VERSION,
+  DecisionsError,
   CMDECK_WS_METHODS,
   ForkWsRpcGroup,
   WorkflowTrustError,
@@ -14,6 +15,7 @@ import * as Stream from "effect/Stream";
 
 import { WorkflowDefinitions } from "../../workflows/WorkflowRuntime.ts";
 import * as AuditLog from "../audit/AuditLog.ts";
+import { Decisions } from "../decisions/Decisions.ts";
 import { installPreset } from "../presets/install.ts";
 import { WorkflowTrust } from "../workflowTrust/WorkflowTrust.ts";
 import * as Notifications from "../notifications/Notifications.ts";
@@ -39,6 +41,10 @@ export const make = Effect.gen(function* () {
   );
   const ledgerFailure = (error: WorkLedger.WorkLedgerStoreError) =>
     new WorkLedgerError({ reason: error.message });
+  const decisions = yield* Effect.serviceOption(Decisions);
+  const noDecisions = Effect.fail(
+    new DecisionsError({ detail: "The decision service is not available." }),
+  );
   return ForkWsRpcGroup.of({
     [CMDECK_WS_METHODS.status]: () => Effect.succeed({ version: CMDECK_RPC_VERSION }),
     [CMDECK_WS_METHODS.auditList]: (input) =>
@@ -82,5 +88,9 @@ export const make = Effect.gen(function* () {
       Option.isSome(ledger) && Option.isSome(threads) && Option.isSome(random)
         ? stopWorkers(ledger.value, threads.value, random.value, input.threadId)
         : noLedger,
+    [CMDECK_WS_METHODS.decisionsStatus]: () =>
+      Option.isSome(decisions) ? decisions.value.status : noDecisions,
+    [CMDECK_WS_METHODS.decisionsSetConsent]: (input) =>
+      Option.isSome(decisions) ? decisions.value.setConsent(input) : noDecisions,
   });
 });

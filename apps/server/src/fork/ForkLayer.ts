@@ -4,6 +4,7 @@ import * as RemoteMcpTokens from "../auth/RemoteMcpTokens.ts";
 import * as PublicAddressCheck from "../environment/PublicAddressCheck.ts";
 import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
 import * as AuditLog from "./audit/AuditLog.ts";
+import * as Decisions from "./decisions/Decisions.ts";
 import * as Notifications from "./notifications/Notifications.ts";
 import * as MemoryStore from "./memory/MemoryStore.ts";
 import * as TurnContext from "./memory/TurnContext.ts";
@@ -28,5 +29,7 @@ export const layer = Layer.mergeAll(
 export const layerBeneathOrchestration = TurnContext.layer.pipe(
   Layer.provideMerge(MemoryStore.layer),
   Layer.provideMerge(WorkLedger.layer),
+  // TurnContext narrows memory and the scheduler routes models through it.
+  Layer.provideMerge(Decisions.layer),
   Layer.provide(ProjectionStore.layer),
 );

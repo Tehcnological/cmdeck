@@ -12,6 +12,7 @@ import * as Option from "effect/Option";
 
 import { conductorContributor } from "../workLedger/conductorBrief.ts";
 import * as MemoryStore from "./MemoryStore.ts";
+import { factNarrowing } from "./retrieval.ts";
 
 export interface TurnContextInput {
   readonly thread: { readonly id: ThreadId; readonly projectId: ProjectId };
@@ -88,6 +89,7 @@ export const renderBlock = (
 
 const memoryContributor = Effect.gen(function* () {
   const store = yield* MemoryStore.MemoryStore;
+  const narrow = yield* factNarrowing;
   return Effect.fn("TurnContext.memory")(function* (
     input: TurnContextInput,
   ): Effect.fn.Return<TurnContextSection | undefined, MemoryStore.MemoryStoreError> {
@@ -99,7 +101,13 @@ const memoryContributor = Effect.gen(function* () {
       text: input.message.text,
       factLimit: FACT_LIMIT,
     });
-    const items = [...rules, ...facts];
+    // Rules are the user's standing instructions; only facts are narrowed.
+    const kept = yield* narrow({
+      projectId: input.thread.projectId,
+      text: input.message.text,
+      facts,
+    });
+    const items = [...rules, ...kept];
     return {
       title: "Memory",
       // Only the content is cut, so a long item keeps the id memory_forget needs.

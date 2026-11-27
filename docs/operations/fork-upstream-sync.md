@@ -84,7 +84,11 @@ the guard. Adding a feature should not need another edit to a busy upstream file
 - **Turn context:** contributors in `apps/server/src/fork/memory/TurnContext.ts` add one fenced block to
   the provider prompt at turn start (`ProviderTurnStartService.ts`). The stored message never holds it,
   so events and the official mobile app are unchanged.
-- **Command palette:** `apps/web/src/fork/commands.tsx`.
+- **Command palette:** `apps/web/src/fork/commands.ts`.
+- **Secret store:** a file that builds `ServerSecretStore.layer` imports `ServerSecretStore` from
+  `apps/server/src/fork/secrets/EncryptedSecretStore.ts`, which re-exports the upstream module with an
+  encrypting `layer`. A builder that keeps the upstream import would read encrypted files as raw
+  bytes, so the guard fails on it; after a merge, point its import at the fork module.
 - **Right panel tabs:** a panel id in `apps/web/src/fork/panelSurface.ts` and its title, icon and
   content in `apps/web/src/fork/panels.tsx`. Every fork panel is one `cmdeck` surface kind, so a new
   panel needs no edit to `rightPanelStore.ts` or the tab components.

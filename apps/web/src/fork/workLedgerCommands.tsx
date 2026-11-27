@@ -12,7 +12,7 @@ import { useRightPanelStore } from "../rightPanelStore";
 import { useAtomCommand } from "../state/use-atom-command";
 import { setConductor } from "./workLedger";
 
-const NO_FORK_COMMANDS: ReadonlyArray<CommandPaletteActionItem> = [];
+const NO_COMMANDS: ReadonlyArray<CommandPaletteActionItem> = [];
 
 /** The open thread, or the thread a new-thread draft becomes once it is sent. */
 function useRouteThreadRef(): ScopedThreadRef | null {
@@ -24,12 +24,12 @@ function useRouteThreadRef(): ScopedThreadRef | null {
   return draft === null ? null : scopeThreadRef(draft.environmentId, draft.threadId);
 }
 
-/** Fork rows in the command palette's root list. A module adds its rows here, only while it is on. */
-export function useForkCommandItems(): ReadonlyArray<CommandPaletteActionItem> {
+/** Start conductor and Open work ledger for the open thread or new-thread draft (WI-2.02). */
+export function useWorkLedgerCommandItems(): ReadonlyArray<CommandPaletteActionItem> {
   const gt = useGT();
   const threadRef = useRouteThreadRef();
   const startConductor = useAtomCommand(setConductor, { reportFailure: false });
-  if (threadRef === null) return NO_FORK_COMMANDS;
+  if (threadRef === null) return NO_COMMANDS;
   const openLedger = () => useRightPanelStore.getState().openCmdeck(threadRef, "work-ledger");
   return [
     {

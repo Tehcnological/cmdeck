@@ -31,6 +31,7 @@ import * as DesktopShellEnvironment from "../shell/DesktopShellEnvironment.ts";
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
 import * as DesktopWslEnvironment from "../wsl/DesktopWslEnvironment.ts";
 import * as DesktopWslServerTree from "../wsl/DesktopWslServerTree.ts";
+import * as DesktopSecretsKey from "../fork/DesktopSecretsKey.ts";
 
 export class DesktopBackendConfiguration extends Context.Service<
   DesktopBackendConfiguration,
@@ -669,6 +670,7 @@ export const make = Effect.gen(function* () {
   const desktopState = yield* DesktopState.DesktopState;
   const mac = yield* Mac.Mac;
   const random = yield* SecureRandom.SecureRandom;
+  const secretsKey = yield* DesktopSecretsKey.DesktopSecretsKey; // Fork: WI-2.17.
   // Random generation yields; serialize it so concurrent backends cannot capture distinct bootstrap secrets.
   const secretRef = yield* SynchronizedRef.make(Option.none<string>());
   const hostScope = yield* Effect.cached(
@@ -758,6 +760,7 @@ export const make = Effect.gen(function* () {
     }).pipe(
       Effect.provideService(DesktopEnvironment.DesktopEnvironment, environment),
       Effect.provideService(DesktopServerExposure.DesktopServerExposure, serverExposure),
+      Effect.flatMap(DesktopSecretsKey.withSecretsKey(secretsKey, environment.baseDir)), // Fork: WI-2.17.
     );
   });
 

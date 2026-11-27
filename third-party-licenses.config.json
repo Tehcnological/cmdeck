@@ -13,6 +13,57 @@
       ]
     },
     {
+      "bundles": ["desktop"],
+      "license": "Apache-2.0",
+      "name": "KiroCrew task runner prompts (Task Runner preset)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."]
+        }
+      ]
+    },
+    {
+      "license": "Apache-2.0",
+      "name": "Kiro Crew decision points (question shapes, routing tiers, memory recall, wake and tool-risk rubrics)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/decisions",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "Ported to TypeScript for CMDeck's decision service (apps/server/src/fork/decisions). Changes: answers come from a configured local model API with a stated confidence instead of sampled probabilities, deterministic rules run first, and no hosted endpoint is used."
+          ]
+        }
+      ]
+    },
+    {
+      "license": "Apache-2.0",
+      "name": "Kiro Crew design-critique skill (heuristic evaluation procedure and checklist)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/apps/builtins/design_critique/skills/design-critique",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "Adapted for CMDeck's skills/design-critique. Changes: evidence comes from CMDeck's preview tools (three widths, light and dark, computed contrast, the accessibility tree) instead of the bundled Playwright scripts; Figma, widget and script steps removed; a responsive-layout and an appearance item added to the checklist; wording condensed."
+          ]
+        }
+      ]
+    },
+    {
+      "license": "MIT",
+      "name": "LiteLLM complexity router heuristic",
+      "sourceUrl": "https://github.com/BerriAI/litellm/tree/7351177434c7b9d19e0a53cd3e9bc63706af2ab2/litellm/router_strategy/complexity_router",
+      "generatedNotices": [
+        {
+          "licenseId": "MIT",
+          "copyrights": ["Copyright (c) 2023 Berri AI"]
+        }
+      ]
+    },
+    {
       "bundles": ["desktop", "mobile"],
       "license": "MIT",
       "name": "Apple Speech engine (adapted from @react-native-ai/apple)",
@@ -262,6 +313,21 @@
           ],
           "preamble": [
             "Unmodified KaTeX_* mathematical fonts. Reserved Font Names include KaTeX_Main, KaTeX_Math, KaTeX_AMS, and KaTeX_Caligraphic."
+          ]
+        }
+      ]
+    },
+    {
+      "bundles": ["desktop"],
+      "license": "Apache-2.0",
+      "name": "Kiro Crew secret envelope (adapted)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/blob/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/secrets/vault.py",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "The AES-256-GCM envelope and its name-bound AAD in apps/server/src/fork/secrets/envelope.ts are adapted from Kiro Crew's vault: one binary envelope per secret file instead of a JSON map, a \"cmdeck\" AAD scope, and no item types."
           ]
         }
       ]
