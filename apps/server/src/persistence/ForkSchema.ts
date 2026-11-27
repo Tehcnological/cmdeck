@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as SqlClient from "effect/sql/SqlClient";
 
 import { ensureAuditSchema } from "../fork/audit/schema.ts";
+import { ensureWorkflowTrustSchema } from "../fork/workflowTrust/schema.ts";
 
 // Fork-only tables stay outside the numbered ledger: the migrator skips every id at or below the
 // highest recorded one, so a fork id would make later upstream migrations silently never run.
@@ -44,4 +45,5 @@ export const ensureForkSchema = Effect.fn("ensureForkSchema")(function* () {
     approved_at TEXT
   )`;
   yield* ensureAuditSchema();
+  yield* ensureWorkflowTrustSchema();
 });

@@ -90,6 +90,10 @@ function AuditLog({ environmentId }: { readonly environmentId: EnvironmentId }) 
         return gt("Remote MCP token revoked");
       case "secret.revealed":
         return gt("Secret handed to an agent");
+      case "workflow.approved":
+        return gt("Workflow file approved");
+      case "workflow.approval_revoked":
+        return gt("Workflow file changed after approval");
       case "import.run":
         return gt("Data imported");
       case "audit.pruned":

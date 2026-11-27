@@ -6,6 +6,7 @@ import { FileCode2Icon } from "lucide-react";
 import { lazy, Suspense, useState, type MouseEvent } from "react";
 
 import { isElectron } from "~/env";
+import { WorkflowApprovals } from "~/fork/WorkflowApprovals";
 import { type FileContextMenuAction, useFileContextMenu } from "../../fileContextMenu";
 import { cn } from "../../lib/utils";
 import { readLocalApi } from "../../localApi";
@@ -252,6 +253,7 @@ export function WorkflowsPage() {
               </Button>
             )}
           </WorkspacePageHeader>
+          {environmentId === null ? null : <WorkflowApprovals environmentId={environmentId} />}
           {editing && fileEnvironmentId !== null ? (
             <Suspense
               fallback={

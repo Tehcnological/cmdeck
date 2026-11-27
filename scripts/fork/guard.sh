@@ -158,9 +158,27 @@ required=(
   'apps/server/src/secrets/SecretRequests.ts:yield\* AuditLog\.noteSecretReveal\("file", input\.threadId\);'
   'apps/web/src/components/settings/DiagnosticsSettings.tsx:import \{ AuditLogSection \} from "~/fork/AuditLogSection";'
   'apps/web/src/components/settings/DiagnosticsSettings.tsx:<AuditLogSection environmentId=\{environmentId\} />'
+  # WI-1.06: workflow files load only once their exact bytes are approved; workflows default on (A2).
+  'apps/server/src/workflows/WorkflowRuntime.ts:import \* as WorkflowTrust from "\.\./fork/workflowTrust/WorkflowTrust\.ts";'
+  'apps/server/src/workflows/WorkflowRuntime.ts:const trust = yield\* WorkflowTrust\.WorkflowTrust;'
+  'apps/server/src/workflows/WorkflowRuntime.ts:const loaded = yield\* trust\.gated\(file, \(from\) => load\(from, name\)\);'
+  'apps/server/src/workflows/WorkflowRuntime.ts:yield\* trust\.record\(directory, name, source, "user"\);'
+  'apps/server/src/workflows/WorkflowRuntime.ts:yield\* WorkflowTrust\.onApproved\(directory, seen, lock\.withPermits\(1\)\(reload\(\)\)\);'
+  'apps/server/src/workflows/WorkflowRuntime.test.ts:WorkflowTrustTestkit\.make\(gated, database\)'
+  'apps/server/src/workflows/WorkflowRuntime.test.ts:a file in the folder is not imported until its exact bytes are approved'
+  'apps/server/src/orchestration-v2/runtimeLayer.ts:import \* as WorkflowTrust from "\.\./fork/workflowTrust/WorkflowTrust\.ts";'
+  'apps/server/src/orchestration-v2/runtimeLayer.ts:Layer\.provideMerge\(WorkflowTrust\.layer\)'
+  'apps/server/src/persistence/ForkSchema.ts:yield\* ensureWorkflowTrustSchema\(\)'
+  'packages/contracts/src/settings.ts:workflowsEnabled: Schema\.Boolean\.pipe\(Schema\.withDecodingDefault\(Effect\.succeed\(true\)\)\)'
+  'apps/web/src/components/workflows/WorkflowsPage.tsx:import \{ WorkflowApprovals \} from "~/fork/WorkflowApprovals";'
+  'apps/web/src/components/workflows/WorkflowsPage.tsx:<WorkflowApprovals environmentId=\{environmentId\} />'
   # WI-1.03: remote MCP tokens changed from the CLI are audited too.
   'apps/server/src/cli/auth.ts:AuditLog\.layerAtDatabase\(config\.dbPath\),'
 )
+# 6. Only a person approves a workflow file: no MCP tool may reach the trust gate (WI-1.06).
+hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts)"
+[ -z "$hits" ] || bad "MCP code reaches the workflow trust gate: $hits"
+
 for entry in "${required[@]}"; do
   file="${entry%%:*}"
   { tr '\r\n' '  ' <"$file" | grep -q -E "${entry#*:}"; } 2>/dev/null ||

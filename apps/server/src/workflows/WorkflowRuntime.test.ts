@@ -17,6 +17,9 @@ import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
+import { installPreset } from "../fork/presets/install.ts";
+import * as WorkflowTrust from "../fork/workflowTrust/WorkflowTrust.ts";
+import * as WorkflowTrustTestkit from "../fork/workflowTrust/WorkflowTrust.testkit.ts";
 import WorkflowsMigration from "../persistence/Migrations/110_Workflows.ts";
 import WorkflowSkippedRunsMigration from "../persistence/Migrations/113_WorkflowSkippedRuns.ts";
 import WorkflowRunTagsMigration from "../persistence/Migrations/115_WorkflowRunTags.ts";
@@ -48,6 +51,7 @@ const setup = Effect.fn("setup")(function* (
   wrap: (fileSystem: FileSystem.FileSystem) => FileSystem.FileSystem = (fileSystem) => fileSystem,
   engine?: (definitions: ReadonlyArray<WorkflowDefinition>) => Layer.Layer<Workflows.Workflows>,
   agents?: WorkflowAgents["Service"],
+  gated = false,
 ) {
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -66,6 +70,7 @@ const setup = Effect.fn("setup")(function* (
     ),
     database,
   );
+  const trust = yield* WorkflowTrustTestkit.make(gated, database);
   const made = WorkflowRuntime.make(
     Effect.succeed(
       (definitions: ReadonlyArray<WorkflowDefinition>) =>
@@ -82,8 +87,11 @@ const setup = Effect.fn("setup")(function* (
     ),
     directory,
     Effect.succeed(true),
-  ).pipe(Effect.provideService(FileSystem.FileSystem, wrap(fileSystem)));
-  return { fileSystem, at, directory, made, runtime: Layer.effectContext(made) };
+  ).pipe(
+    Effect.provideService(FileSystem.FileSystem, wrap(fileSystem)),
+    Effect.provideService(WorkflowTrust.WorkflowTrust, trust),
+  );
+  return { fileSystem, at, directory, made, runtime: Layer.effectContext(made), trust };
 });
 
 it.effect(
@@ -566,5 +574,70 @@ it.effect(
         const freed = yield* workflows.waitFor(held.runId, (run) => run.status === "completed");
         assert.equal(freed.result, "go on");
       }).pipe(Effect.scoped, Effect.raceFirst(Effect.forever(TestClock.adjust("1 second"))));
+    }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+);
+
+it.effect(
+  "a file in the folder is not imported until its exact bytes are approved, and a change waits for approval again",
+  () =>
+    Effect.gen(function* () {
+      const { fileSystem, at, runtime, trust } = yield* setup(
+        undefined,
+        undefined,
+        undefined,
+        true,
+      );
+      // Each import of a file reports which version of it ran.
+      const imported = yield* Queue.unbounded<string>();
+      Object.assign(globalThis, {
+        t3TrustImported: (version: string) => Queue.offerUnsafe(imported, version),
+      });
+      const marked = (version: string) =>
+        `globalThis.t3TrustImported(${JSON.stringify(version)});\nexport default [];\n`;
+      yield* fileSystem.writeFileString(at("marked.ts"), marked("v1"));
+      const nothingImported = Effect.map(Queue.size(imported), (size) => assert.equal(size, 0));
+      const awaiting = Effect.map(trust.pending, (files) =>
+        files.find((file) => file.name === "marked.ts"),
+      );
+
+      yield* Effect.gen(function* () {
+        const definitions = yield* WorkflowRuntime.WorkflowDefinitions;
+        yield* nothingImported;
+        const problems = (yield* definitions.read).files.find(
+          (file) => file.name === "marked.ts",
+        )?.problems;
+        assert.deepStrictEqual(
+          problems?.map((problem) => problem.message),
+          [WorkflowTrust.NEEDS_APPROVAL],
+        );
+
+        const first = yield* awaiting;
+        assert.equal(first?.source, marked("v1"));
+        // Approval names the bytes that were shown; other bytes approve nothing.
+        const stale = yield* Effect.flip(trust.approve(first!.path, "0".repeat(64)));
+        assert.include(stale.message, "changed");
+        yield* nothingImported;
+        yield* trust.approve(first!.path, first!.sha256);
+        assert.equal(yield* Queue.take(imported), "v1");
+
+        // Changed on disk: the next reload (here, a save of another file) does not import it.
+        yield* fileSystem.writeFileString(at("marked.ts"), marked("v2"));
+        const saved = yield* definitions.save("other.ts", "export default [];\n");
+        assert.isTrue(saved.changed);
+        yield* nothingImported;
+        const second = yield* awaiting;
+        assert.equal(second?.source, marked("v2"));
+        yield* trust.approve(second!.path, second!.sha256);
+        assert.equal(yield* Queue.take(imported), "v2");
+
+        // A preset is copied in with its bytes approved, so it runs at once.
+        const installed = yield* installPreset(trust, definitions, "marker", [
+          { id: "marker", name: "preset.ts", title: "Marker", source: marked("preset") },
+        ]);
+        assert.isTrue(installed.changed);
+        assert.equal(yield* Queue.take(imported), "preset");
+        assert.equal(yield* fileSystem.readFileString(at("preset.ts")), marked("preset"));
+        assert.isUndefined((yield* trust.pending).find((file) => file.name === "preset.ts"));
+      }).pipe(Effect.provide(runtime), Effect.scoped);
     }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
 );
