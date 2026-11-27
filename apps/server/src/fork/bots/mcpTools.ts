@@ -17,6 +17,7 @@ import { Tool, Toolkit } from "effect/ai";
 
 import * as McpInvocationContext from "../../mcp/McpInvocationContext.ts";
 import * as McpToolAccess from "../../mcp/McpToolAccess.ts";
+import { assertTargetWithinLimits } from "../../mcp/threadAccess.ts";
 import * as ProjectionStore from "../../orchestration-v2/ProjectionStore.ts";
 import * as ThreadManagementService from "../../orchestration-v2/ThreadManagementService.ts";
 import { Bots, type BotActor } from "./Bots.ts";
@@ -198,6 +199,24 @@ export const layer = McpToolAccess.toLayer(
       return found.projectId;
     });
 
+    // A bot's thread and schedules run unattended, so a caller may change one only when every
+    // mode it runs at is within the caller's own limits, as for an ordinary scheduled task.
+    const requireWithinLimits = (
+      service: Bots["Service"],
+      id: string,
+      limits: McpToolAccess.StartedModes,
+    ) =>
+      service
+        .runModes(id)
+        .pipe(
+          Effect.flatMap(({ threadId, modes }) =>
+            Effect.forEach(modes, (mode) =>
+              assertTargetWithinLimits(limits, { id: threadId, ...mode }),
+            ),
+          ),
+        );
+    const refused = { refused: "change bots in this environment" };
+
     return {
       bot_list: McpToolAccess.reads(() =>
         withBots((service) => service.list.pipe(Effect.map((all) => ({ bots: all.map(toEntry) })))),
@@ -214,6 +233,7 @@ export const layer = McpToolAccess.toLayer(
                   projectId:
                     projectId === undefined ? yield* callerProject : ProjectId.make(projectId),
                   runtimeMode: modes.runtimeMode,
+                  interactionMode: modes.interactionMode,
                 },
                 asAgent,
               );
@@ -227,52 +247,63 @@ export const layer = McpToolAccess.toLayer(
         // A bot's later runs start long after its caller, with nothing to carry the link.
         { refused: "create bots in this environment" },
       ),
-      bot_update: McpToolAccess.writes(({ id, name, instructions, deleted }) =>
-        withBots((service) =>
-          Effect.gen(function* () {
-            if (deleted === true) {
-              return change(yield* service.delete(id), "Deleted. The user can restore it.");
-            }
-            const restored = deleted === false ? yield* service.restore(id) : undefined;
-            if (name !== undefined || instructions !== undefined) {
-              const bot = yield* service.update({
-                id,
-                ...(name === undefined ? {} : { name }),
-                ...(instructions === undefined ? {} : { instructions }),
+      bot_update: McpToolAccess.startsThreads(
+        () => ({}),
+        ({ id, name, instructions, deleted }, limits) =>
+          withBots((service) =>
+            Effect.gen(function* () {
+              yield* requireWithinLimits(service, id, limits);
+              if (deleted === true) {
+                return change(yield* service.delete(id), "Deleted. The user can restore it.");
+              }
+              const restored = deleted === false ? yield* service.restore(id) : undefined;
+              if (name !== undefined || instructions !== undefined) {
+                const bot = yield* service.update({
+                  id,
+                  ...(name === undefined ? {} : { name }),
+                  ...(instructions === undefined ? {} : { instructions }),
+                });
+                return change(bot, "Updated.");
+              }
+              if (restored !== undefined) return change(restored, "Restored.");
+              return yield* new OrchestratorMcpFailure({
+                code: "invalid_request",
+                message: "Pass name, instructions or deleted.",
               });
-              return change(bot, "Updated.");
-            }
-            if (restored !== undefined) return change(restored, "Restored.");
-            return yield* new OrchestratorMcpFailure({
-              code: "invalid_request",
-              message: "Pass name, instructions or deleted.",
-            });
-          }),
-        ),
+            }),
+          ),
+        refused,
       ),
-      bot_schedule: McpToolAccess.writes(({ id, prompt, schedule }) =>
-        withBots((service) =>
-          Effect.gen(function* () {
-            if (prompt.trim() === "") {
-              return yield* new OrchestratorMcpFailure({
-                code: "invalid_request",
-                message: "Give the bot a prompt for each run.",
-              });
-            }
-            const decoded = decodeSchedule(schedule);
-            if (Exit.isFailure(decoded)) {
-              return yield* new OrchestratorMcpFailure({
-                code: "invalid_request",
-                message: `That schedule is not valid: ${Cause.pretty(decoded.cause)}`,
-              });
-            }
-            const bot = yield* service.schedule(
-              { id, prompt: prompt.trim(), schedule: decoded.value },
-              asAgent,
-            );
-            return change(bot, `Scheduled. It now has ${bot.scheduledTaskIds.length} schedule(s).`);
-          }),
-        ),
+      bot_schedule: McpToolAccess.startsThreads(
+        () => ({}),
+        ({ id, prompt, schedule }, limits) =>
+          withBots((service) =>
+            Effect.gen(function* () {
+              yield* requireWithinLimits(service, id, limits);
+              if (prompt.trim() === "") {
+                return yield* new OrchestratorMcpFailure({
+                  code: "invalid_request",
+                  message: "Give the bot a prompt for each run.",
+                });
+              }
+              const decoded = decodeSchedule(schedule);
+              if (Exit.isFailure(decoded)) {
+                return yield* new OrchestratorMcpFailure({
+                  code: "invalid_request",
+                  message: `That schedule is not valid: ${Cause.pretty(decoded.cause)}`,
+                });
+              }
+              const bot = yield* service.schedule(
+                { id, prompt: prompt.trim(), schedule: decoded.value },
+                asAgent,
+              );
+              return change(
+                bot,
+                `Scheduled. It now has ${bot.scheduledTaskIds.length} schedule(s).`,
+              );
+            }),
+          ),
+        refused,
       ),
     } satisfies McpToolAccess.Handlers<typeof BotsToolkit.tools>;
   }),

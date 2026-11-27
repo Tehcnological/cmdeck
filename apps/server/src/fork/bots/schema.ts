@@ -13,12 +13,19 @@ export const ensureBotsSchema = Effect.fn("ensureBotsSchema")(function* () {
     thread_id TEXT NOT NULL UNIQUE,
     model_selection_json TEXT NOT NULL,
     runtime_mode TEXT NOT NULL,
+    interaction_mode TEXT NOT NULL DEFAULT 'default',
     channel_bindings_json TEXT NOT NULL DEFAULT '[]',
     status TEXT NOT NULL,
     deleted_state_json TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`;
+  // Tables made before bots kept an interaction mode run their bots in the default one.
+  const columns = yield* sql<{ name: string }>`PRAGMA table_info(bot_profiles)`;
+  if (!columns.some((column) => column.name === "interaction_mode")) {
+    yield* sql`ALTER TABLE bot_profiles
+      ADD COLUMN interaction_mode TEXT NOT NULL DEFAULT 'default'`;
+  }
 });
 
 export interface ActiveBotRow {

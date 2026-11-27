@@ -15,6 +15,7 @@ import {
   type OrchestrationV2CreationSource,
   type OrchestrationV2ServerCommand,
   ProjectId,
+  ProviderInteractionMode,
   RuntimeMode,
   type ScheduledTask,
   ScheduledTaskId,
@@ -50,6 +51,7 @@ interface BotRow {
   readonly threadId: string;
   readonly modelSelectionJson: string;
   readonly runtimeMode: string;
+  readonly interactionMode: string;
   readonly channelBindingsJson: string;
   readonly status: "active" | "deleted";
   readonly deletedStateJson: string | null;
@@ -69,6 +71,7 @@ const encodeDeletedState = Schema.encodeSync(DeletedStateJson);
 const decodeModelSelection = Schema.decodeUnknownSync(ModelSelectionJson);
 const encodeModelSelection = Schema.encodeSync(ModelSelectionJson);
 const decodeRuntimeMode = Schema.decodeUnknownSync(RuntimeMode);
+const decodeInteractionMode = Schema.decodeUnknownSync(ProviderInteractionMode);
 const decodeBindings = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Array(Schema.String)));
 
 const botMemoryScope = (botId: string): MemoryScope => `bot:${botId}`;
@@ -81,6 +84,7 @@ const toProfile = (row: BotRow, tasks: ReadonlyArray<ScheduledTask>): BotProfile
   threadId: ThreadId.make(row.threadId),
   modelSelection: decodeModelSelection(row.modelSelectionJson),
   runtimeMode: decodeRuntimeMode(row.runtimeMode),
+  interactionMode: decodeInteractionMode(row.interactionMode),
   memoryScope: botMemoryScope(row.id),
   scheduledTaskIds: tasks.filter((task) => task.threadId === row.threadId).map((task) => task.id),
   channelBindings: decodeBindings(row.channelBindingsJson),
@@ -117,6 +121,17 @@ export class Bots extends Context.Service<
     ) => Effect.Effect<BotProfile, BotsError>;
     /** Runs the bot's first scheduled task now, in its thread. */
     readonly wake: (id: string) => Effect.Effect<BotWakeResult, BotsError>;
+    /** Every mode set the bot's work runs at: its profile, its thread, and the tasks bound to it. */
+    readonly runModes: (id: string) => Effect.Effect<
+      {
+        readonly threadId: ThreadId;
+        readonly modes: ReadonlyArray<{
+          readonly runtimeMode: RuntimeMode;
+          readonly interactionMode: ProviderInteractionMode;
+        }>;
+      },
+      BotsError
+    >;
   }
 >()("t3/fork/bots/Bots") {}
 
@@ -145,7 +160,7 @@ const make = Effect.gen(function* () {
 
   const selectRows = sql.literal(`SELECT id, name, instructions, project_id AS "projectId",
     thread_id AS "threadId", model_selection_json AS "modelSelectionJson",
-    runtime_mode AS "runtimeMode", channel_bindings_json AS "channelBindingsJson", status,
+    runtime_mode AS "runtimeMode", interaction_mode AS "interactionMode", channel_bindings_json AS "channelBindingsJson", status,
     deleted_state_json AS "deletedStateJson", created_at AS "createdAt", updated_at AS "updatedAt"
     FROM bot_profiles`);
 
@@ -187,6 +202,7 @@ const make = Effect.gen(function* () {
     yield* checkName(input.name);
     const modelSelection = input.modelSelection ?? (yield* defaultModel(input.projectId));
     const runtimeMode = input.runtimeMode ?? DEFAULT_RUNTIME_MODE;
+    const interactionMode = input.interactionMode ?? DEFAULT_PROVIDER_INTERACTION_MODE;
     const id = yield* uuid;
     const threadId = ThreadId.make(yield* uuid);
     yield* dispatch(
@@ -198,7 +214,7 @@ const make = Effect.gen(function* () {
         title: input.name,
         modelSelection,
         runtimeMode,
-        interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+        interactionMode,
         branch: null,
         worktreePath: null,
         createdBy: actor.createdBy,
@@ -212,11 +228,10 @@ const make = Effect.gen(function* () {
     );
     const at = yield* now;
     yield* sql`INSERT INTO bot_profiles (id, name, instructions, project_id, thread_id,
-        model_selection_json, runtime_mode, status, created_at, updated_at)
+        model_selection_json, runtime_mode, interaction_mode, status, created_at, updated_at)
       VALUES (${id}, ${input.name}, ${input.instructions.trim()}, ${input.projectId}, ${threadId},
-        ${encodeModelSelection(modelSelection)}, ${runtimeMode}, 'active', ${at}, ${at})`.pipe(
-      failsTo("save the bot"),
-    );
+        ${encodeModelSelection(modelSelection)}, ${runtimeMode}, ${interactionMode}, 'active',
+        ${at}, ${at})`.pipe(failsTo("save the bot"));
     return yield* profileOf(id);
   });
 
@@ -318,7 +333,7 @@ const make = Effect.gen(function* () {
           workspaceStrategy: { type: "root" },
           modelSelection: decodeModelSelection(row.modelSelectionJson),
           runtimeMode: decodeRuntimeMode(row.runtimeMode),
-          interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+          interactionMode: decodeInteractionMode(row.interactionMode),
           createdBy: actor.createdBy,
           creationSource: actor.creationSource,
         })
@@ -338,6 +353,24 @@ const make = Effect.gen(function* () {
     return { threadId: result.threadId };
   });
 
+  const runModes: Bots["Service"]["runModes"] = Effect.fn("Bots.runModes")(function* (id) {
+    const row = yield* requireRow(id);
+    const threadId = ThreadId.make(row.threadId);
+    const shell = yield* threads.getThreadShell(threadId).pipe(failsTo("read the bot's thread"));
+    const bound = (yield* tasks).filter((task) => task.threadId === row.threadId);
+    return {
+      threadId,
+      modes: [
+        {
+          runtimeMode: decodeRuntimeMode(row.runtimeMode),
+          interactionMode: decodeInteractionMode(row.interactionMode),
+        },
+        ...(shell === null ? [] : [shell]),
+        ...bound,
+      ].map(({ runtimeMode, interactionMode }) => ({ runtimeMode, interactionMode })),
+    };
+  });
+
   return Bots.of({
     list: Effect.all([
       sql<BotRow>`${selectRows} ORDER BY created_at ASC`.pipe(failsTo("list the bots")),
@@ -352,6 +385,7 @@ const make = Effect.gen(function* () {
     restore,
     schedule,
     wake,
+    runModes,
   });
 });
 

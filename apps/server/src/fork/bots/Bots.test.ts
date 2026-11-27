@@ -6,8 +6,10 @@ import {
   type BotProfile,
   type OrchestrationV2ServerCommand,
   ProjectId,
+  type ProviderInteractionMode,
   ProviderInstanceId,
   RunId,
+  type RuntimeMode,
   type ScheduledTask,
   ScheduledTaskId,
   ScheduledTaskError,
@@ -17,25 +19,37 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
+import { McpServer } from "effect/ai";
 
+import * as McpHttpServer from "../../mcp/McpHttpServer.ts";
+import { liveThreadShell } from "../../mcp/McpToolAccess.testkit.ts";
 import * as ProjectStore from "../../orchestration-v2/ProjectStore.ts";
 import * as ThreadManagementService from "../../orchestration-v2/ThreadManagementService.ts";
 import * as ScheduledTaskService from "../../scheduledTasks/ScheduledTaskService.ts";
 import * as ServerSettings from "../../serverSettings.ts";
 import * as MemoryStore from "../memory/MemoryStore.ts";
-import { layerMemoryTest, threads } from "../memory/memory.testkit.ts";
+import { asAgentIn, layerMemoryTest, threads } from "../memory/memory.testkit.ts";
 import * as TurnContext from "../memory/TurnContext.ts";
+import * as ForkMcpToolkits from "../mcpToolkits.ts";
 import { Bots, layer as botsLayer } from "./Bots.ts";
 
 const modelSelection = { instanceId: ProviderInstanceId.make("codex"), model: "gpt-test" };
 const projectId = ProjectId.make("project-app");
 const asPerson = { createdBy: "user", creationSource: "web" } as const;
 
+interface Modes {
+  readonly runtimeMode: RuntimeMode;
+  readonly interactionMode: ProviderInteractionMode;
+}
+const FULL: Modes = { runtimeMode: "full-access", interactionMode: "default" };
+
 /** Bots over the memory test world, with the thread commands and scheduled tasks it made. */
 const makeWorld = Effect.gen(function* () {
   const commands = yield* Ref.make<ReadonlyArray<OrchestrationV2ServerCommand>>([]);
   const tasks = yield* Ref.make<ReadonlyArray<ScheduledTask>>([]);
   const ranNow = yield* Ref.make<ReadonlyArray<ScheduledTaskId>>([]);
+  // Each thread's modes; an MCP caller's limits are its own thread's modes.
+  const threadModes = yield* Ref.make<ReadonlyMap<string, Modes>>(new Map());
 
   const taskFrom = (input: ScheduledTaskUpsertInput, index: number): ScheduledTask => ({
     id: ScheduledTaskId.make(`task-${index}`),
@@ -71,16 +85,30 @@ const makeWorld = Effect.gen(function* () {
       }),
     );
 
+  const threadManagement = Layer.mock(ThreadManagementService.ThreadManagementService)({
+    dispatch: (command) =>
+      Ref.update(commands, (all) => [...all, command]).pipe(
+        Effect.andThen(
+          command.type === "thread.create"
+            ? Ref.update(threadModes, (all) =>
+                new Map(all).set(command.threadId, {
+                  runtimeMode: command.runtimeMode,
+                  interactionMode: command.interactionMode,
+                }),
+              )
+            : Effect.void,
+        ),
+        Effect.as({ sequence: 1, storedEvents: [] }),
+      ),
+    getThreadShell: (threadId) =>
+      Ref.get(threadModes).pipe(
+        Effect.map((all) => liveThreadShell(threadId, all.get(threadId) ?? FULL)),
+      ),
+  });
+
   const layer = botsLayer.pipe(
     Layer.provideMerge(layerMemoryTest({ memoryEnabled: true })),
-    Layer.provide(
-      Layer.mock(ThreadManagementService.ThreadManagementService)({
-        dispatch: (command) =>
-          Ref.update(commands, (all) => [...all, command]).pipe(
-            Effect.as({ sequence: 1, storedEvents: [] }),
-          ),
-      }),
-    ),
+    Layer.provideMerge(threadManagement),
     Layer.provide(
       Layer.mock(ScheduledTaskService.ScheduledTaskService)({
         list: () => Ref.get(tasks).pipe(Effect.map((all) => ({ tasks: all }))),
@@ -112,7 +140,7 @@ const makeWorld = Effect.gen(function* () {
             title: "App",
             workspaceRoot: "/home/user/app",
             repositoryIdentity: null,
-            defaultModelSelection: null,
+            defaultModelSelection: id === "project-bare" ? null : modelSelection,
             scripts: [],
             createdAt: "2026-11-27T00:00:00.000Z",
             updatedAt: "2026-11-27T00:00:00.000Z",
@@ -122,19 +150,44 @@ const makeWorld = Effect.gen(function* () {
     Layer.provide(NodeCrypto.layer),
     Layer.provide(ServerSettings.layerTest()),
   );
-  return { commands, tasks, ranNow, layer };
+  const mcpLayer = ForkMcpToolkits.layer(McpHttpServer.toolkitRegistration).pipe(
+    Layer.provideMerge(McpHttpServer.layerInProcessMcpServer),
+    Layer.provideMerge(layer),
+  );
+  return { commands, tasks, ranNow, threadModes, layer, mcpLayer };
 });
 
 /** Runs a test against a fresh world, with that world's records in reach. */
 const inWorld = <A, E>(
   test: (
-    world: Omit<Effect.Success<typeof makeWorld>, "layer">,
+    world: Omit<Effect.Success<typeof makeWorld>, "layer" | "mcpLayer">,
   ) => Effect.Effect<A, E, Bots | MemoryStore.MemoryStore | TurnContext.TurnContext>,
 ) =>
   Effect.gen(function* () {
-    const { layer, ...world } = yield* makeWorld;
+    const { layer, mcpLayer: _, ...world } = yield* makeWorld;
     return yield* test(world).pipe(Effect.provide(layer));
   });
+
+/** The same, with the fork MCP tools served in process. */
+const inMcpWorld = <A, E>(
+  test: (
+    world: Omit<Effect.Success<typeof makeWorld>, "layer" | "mcpLayer">,
+  ) => Effect.Effect<A, E, Bots | McpServer.McpServer>,
+) =>
+  Effect.gen(function* () {
+    const { layer: _, mcpLayer, ...world } = yield* makeWorld;
+    return yield* test(world).pipe(Effect.provide(mcpLayer));
+  });
+
+/** Calls a bot tool as an agent in `threads.main`, whose modes are the caller's limits. */
+const callTool = (name: string, args: Record<string, unknown>) =>
+  McpServer.McpServer.pipe(
+    Effect.flatMap((server) => server.callTool({ name, arguments: args })),
+    asAgentIn(threads.main.id),
+  );
+
+const setCallerModes = (threadModes: Ref.Ref<ReadonlyMap<string, Modes>>, modes: Modes) =>
+  Ref.update(threadModes, (all) => new Map(all).set(threads.main.id, modes));
 
 const createBot = (name = "Release Watcher", instructions = "Check for new releases.") =>
   Effect.gen(function* () {
@@ -175,7 +228,10 @@ describe("Bots", () => {
     inWorld(() =>
       Effect.gen(function* () {
         const error = yield* (yield* Bots)
-          .create({ name: "Bot", instructions: "", projectId }, asPerson)
+          .create(
+            { name: "Bot", instructions: "", projectId: ProjectId.make("project-bare") },
+            asPerson,
+          )
           .pipe(Effect.flip);
         expect(error.message).toContain("no default model");
       }),
@@ -383,6 +439,75 @@ describe("Bots", () => {
         expect(second.threadId).not.toBe(first.threadId);
         const context = yield* store.threadContext(botThread(second));
         expect(yield* store.search({ context, query: "release notes", limit: 5 })).toEqual([]);
+      }),
+    ),
+  );
+  it.effect("a narrower caller cannot schedule or change a broader bot", () =>
+    inMcpWorld(({ threadModes, tasks }) =>
+      Effect.gen(function* () {
+        const bot = yield* createBot();
+        yield* setCallerModes(threadModes, {
+          runtimeMode: "approval-required",
+          interactionMode: "default",
+        });
+
+        const scheduled = yield* callTool("bot_schedule", {
+          id: bot.id,
+          prompt: "Push the release.",
+          schedule: { type: "interval", everyMs: 3_600_000 },
+        });
+        const updated = yield* callTool("bot_update", {
+          id: bot.id,
+          instructions: "Push to main.",
+        });
+        for (const result of [scheduled, updated]) {
+          expect(result.isError).toBe(true);
+          expect(JSON.stringify(result.content)).toContain("above this caller's");
+        }
+        expect(yield* Ref.get(tasks)).toEqual([]);
+        const [after] = yield* (yield* Bots).list;
+        expect(after?.instructions).toBe("Check for new releases.");
+      }),
+    ),
+  );
+
+  it.effect("a plan-mode caller makes a plan-mode bot, and equal limits may schedule it", () =>
+    inMcpWorld(({ threadModes, commands, tasks }) =>
+      Effect.gen(function* () {
+        yield* setCallerModes(threadModes, { runtimeMode: "full-access", interactionMode: "plan" });
+        const created = yield* callTool("bot_create", {
+          name: "Planner",
+          instructions: "Plan the release.",
+          projectId: "project-app",
+        });
+        expect(created.isError).toBe(false);
+        expect((yield* Ref.get(commands))[0]).toMatchObject({
+          type: "thread.create",
+          interactionMode: "plan",
+        });
+        const { id } = created.structuredContent as { id: string };
+        const [bot] = yield* (yield* Bots).list;
+        expect(bot?.interactionMode).toBe("plan");
+
+        const scheduled = yield* callTool("bot_schedule", {
+          id,
+          prompt: "Plan the next release.",
+          schedule: { type: "interval", everyMs: 3_600_000 },
+        });
+        expect(scheduled.isError).toBe(false);
+        expect((yield* Ref.get(tasks))[0]?.interactionMode).toBe("plan");
+      }),
+    ),
+  );
+
+  it.effect("a caller with the bot's own limits may update it", () =>
+    inMcpWorld(() =>
+      Effect.gen(function* () {
+        const bot = yield* createBot();
+        const updated = yield* callTool("bot_update", { id: bot.id, instructions: "Watch tags." });
+        expect(updated.isError).toBe(false);
+        const [after] = yield* (yield* Bots).list;
+        expect(after?.instructions).toBe("Watch tags.");
       }),
     ),
   );

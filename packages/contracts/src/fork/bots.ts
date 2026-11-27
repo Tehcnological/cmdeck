@@ -11,7 +11,7 @@ import {
   TrimmedNonEmptyString,
 } from "../baseSchemas.ts";
 import { ModelSelection } from "../modelSelection.ts";
-import { RuntimeMode } from "../providerPolicy.ts";
+import { ProviderInteractionMode, RuntimeMode } from "../providerPolicy.ts";
 import { ScheduledTaskUpsertSchedule } from "../scheduledTask.ts";
 import { MemoryScope } from "./memory.ts";
 
@@ -55,6 +55,7 @@ export const BotProfile = Schema.Struct({
   threadId: ThreadId,
   modelSelection: ModelSelection,
   runtimeMode: RuntimeMode,
+  interactionMode: ProviderInteractionMode,
   memoryScope: MemoryScope,
   /** Scheduled tasks that run in the bot's thread. */
   scheduledTaskIds: Schema.Array(ScheduledTaskId),
@@ -73,6 +74,7 @@ export const BotCreateInput = Schema.Struct({
   /** Omitted: the project's default model. */
   modelSelection: Schema.optional(ModelSelection),
   runtimeMode: Schema.optional(RuntimeMode),
+  interactionMode: Schema.optional(ProviderInteractionMode),
 });
 export type BotCreateInput = typeof BotCreateInput.Type;
 
