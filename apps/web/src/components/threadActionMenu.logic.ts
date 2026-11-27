@@ -6,6 +6,7 @@ import { m, type MessageResolver } from "../i18n/messages";
 
 export type ThreadActionMenuId =
   | "find"
+  | "open-beside"
   | "new-thread-on-branch"
   | "filter-by-project"
   | "turn-into-project"
@@ -98,6 +99,8 @@ export interface ThreadActionMenuState {
   /** Settle, snooze and their undo stay available until the host denies the operate scope. */
   readonly canTriage?: boolean;
   readonly canFind?: boolean;
+  /** Whether the thread can open as a tab in the right panel of the thread on screen. */
+  readonly canOpenBeside?: boolean;
   /** False where no inline title editor is rendered, such as sidebar search results. */
   readonly canRename?: boolean;
   readonly branch: string | null;
@@ -133,6 +136,7 @@ export interface ThreadActionMenuState {
 export function threadActionRequiresOperate(action: ThreadActionMenuId): boolean {
   return ![
     "find",
+    "open-beside",
     "new-thread-on-branch",
     "project-settings",
     "mark-unread",
@@ -162,6 +166,9 @@ export function buildThreadActionMenuItems(
   const items: ReadonlyArray<ContextMenuItem<ThreadActionMenuId>> = [
     ...(state.canFind
       ? [{ id: "find" as const, label: resolve(msg("Find in thread")), icon: "text-search" }]
+      : []),
+    ...(state.canOpenBeside
+      ? [{ id: "open-beside" as const, label: resolve(msg("Open beside")), icon: "message-square" }]
       : []),
     ...(state.branch
       ? [

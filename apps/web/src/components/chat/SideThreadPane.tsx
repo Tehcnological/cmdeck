@@ -39,6 +39,7 @@ import { Button } from "../ui/button";
 import { toastManager } from "../ui/toast";
 import { BackgroundThreadContext } from "./backgroundThread";
 import { closeThreadFindIn } from "./threadFindStore";
+import { useCloseWhenHidden } from "../../fork/openThreadBeside";
 import { SharedTooltipTrigger } from "../ui/shared-tooltip";
 
 /**
@@ -70,6 +71,7 @@ export default function SideThreadPane(props: {
     };
   }, [parentRef, threadId]);
   const shell = useQuietThreadShell(threadRef);
+  useCloseWhenHidden(threadRef, props.onClose);
   const bootstrapComplete = isThreadRouteSnapshotAuthoritative(
     useEnvironmentShellStatus(parentRef.environmentId),
   );
