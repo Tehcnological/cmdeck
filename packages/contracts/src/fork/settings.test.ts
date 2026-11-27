@@ -11,7 +11,12 @@ const decodeUpstreamSettings = Schema.decodeSync(ServerSettings.mapFields(Struct
 
 describe("cmdeck settings key", () => {
   it("decodes settings without a cmdeck key to the fork defaults", () => {
-    const defaults = { memoryEnabled: false, decisionModel: null, routingTierModels: {} };
+    const defaults = {
+      memoryEnabled: false,
+      decisionModel: null,
+      routingTierModels: {},
+      memoryEmbedder: null,
+    };
     expect(decodeServerSettings({}).cmdeck).toEqual(defaults);
     expect(decodeServerSettings({ cmdeck: {} }).cmdeck).toEqual(defaults);
     expect(decodeServerSettingsPatch({ cmdeck: {} })).toEqual({ cmdeck: {} });

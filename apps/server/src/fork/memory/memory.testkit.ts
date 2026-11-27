@@ -10,6 +10,8 @@ import {
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { McpSchema } from "effect/ai";
+import { HttpClient } from "effect/http";
+import * as SecretResolver from "@t3tools/secret-provider-core/server/SecretResolver";
 
 import * as McpHttpServer from "../../mcp/McpHttpServer.ts";
 import * as McpInvocationContext from "../../mcp/McpInvocationContext.ts";
@@ -19,6 +21,7 @@ import * as ProjectStore from "../../orchestration-v2/ProjectStore.ts";
 import * as SqlitePersistence from "../../persistence/Sqlite.ts";
 import * as ServerSettings from "../../serverSettings.ts";
 import * as ForkMcpToolkits from "../mcpToolkits.ts";
+import * as MemoryEmbeddings from "./MemoryEmbeddings.ts";
 import * as MemoryStore from "./MemoryStore.ts";
 import * as TurnContext from "./TurnContext.ts";
 
@@ -61,12 +64,33 @@ const shell = (projectId: string): OrchestrationProjectShell => {
   };
 };
 
-/** MemoryStore and TurnContext over a fresh in-memory database with fork tables. */
-export const layerMemoryTest = (options: { readonly memoryEnabled: boolean }) =>
+// Without an embedder chosen in settings, MemoryEmbeddings never reaches this.
+const unreachable = HttpClient.make(() => Effect.die("memory tests make no request"));
+
+/**
+ * MemoryStore, MemoryEmbeddings and TurnContext over a fresh in-memory database with fork tables.
+ * `embedder` answers embeddings requests; `settings` merge under the memory switch.
+ */
+export const layerMemoryTest = (options: {
+  readonly memoryEnabled: boolean;
+  readonly settings?: Parameters<typeof ServerSettings.layerTest>[0];
+  readonly embedder?: HttpClient.HttpClient;
+}) =>
   TurnContext.layer.pipe(
     Layer.provideMerge(MemoryStore.layer),
+    Layer.provideMerge(
+      MemoryEmbeddings.layer.pipe(
+        Layer.provide(Layer.succeed(HttpClient.HttpClient, options.embedder ?? unreachable)),
+        Layer.provide(Layer.mock(SecretResolver.SecretResolver)({})),
+      ),
+    ),
     Layer.provideMerge(SqlitePersistence.layerMemory),
-    Layer.provide(ServerSettings.layerTest({ cmdeck: { memoryEnabled: options.memoryEnabled } })),
+    Layer.provideMerge(
+      ServerSettings.layerTest({
+        ...options.settings,
+        cmdeck: { ...options.settings?.cmdeck, memoryEnabled: options.memoryEnabled },
+      }),
+    ),
     Layer.provide(
       Layer.mock(ProjectStore.ProjectStoreV2)({
         getShell: (projectId) => Effect.succeedSome(shell(projectId)),
@@ -86,7 +110,7 @@ export const layerMemoryTest = (options: { readonly memoryEnabled: boolean }) =>
   );
 
 /** The fork MCP tools on an in-process server, over `layerMemoryTest`. */
-export const layerMemoryToolsTest = (options: { readonly memoryEnabled: boolean }) =>
+export const layerMemoryToolsTest = (options: Parameters<typeof layerMemoryTest>[0]) =>
   ForkMcpToolkits.layer(McpHttpServer.toolkitRegistration).pipe(
     Layer.provideMerge(McpHttpServer.layerInProcessMcpServer),
     Layer.provideMerge(McpToolAccessTestkit.liveThreadsLayer),

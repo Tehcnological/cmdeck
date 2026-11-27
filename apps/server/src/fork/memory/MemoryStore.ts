@@ -22,7 +22,13 @@ import * as ProjectionStore from "../../orchestration-v2/ProjectionStore.ts";
 import * as ProjectStore from "../../orchestration-v2/ProjectStore.ts";
 import * as ServerSettings from "../../serverSettings.ts";
 import * as MemoryAccess from "./MemoryAccess.ts";
-import { ftsQuery, rankByRelevance } from "./retrieval.ts";
+import * as MemoryEmbeddings from "./MemoryEmbeddings.ts";
+import {
+  CANDIDATE_MULTIPLIER,
+  ftsQuery,
+  type RankCandidate,
+  rankByRelevance,
+} from "./retrieval.ts";
 
 export class MemoryStoreError extends Schema.TaggedError<MemoryStoreError>()("MemoryStoreError", {
   operation: Schema.String,
@@ -158,6 +164,8 @@ const make = Effect.gen(function* () {
   const projections = yield* ProjectionStore.ProjectionStoreV2;
   const projects = yield* ProjectStore.ProjectStoreV2;
   const random = yield* SecureRandom.SecureRandom;
+  // Optional: without it, or without an embedder configured, search is keyword-only.
+  const embeddings = yield* Effect.serviceOption(MemoryEmbeddings.MemoryEmbeddings);
 
   const failsTo =
     (operation: string) =>
@@ -300,10 +308,14 @@ const make = Effect.gen(function* () {
     limit: number,
     kind?: MemoryKind,
   ) {
-    const query = ftsQuery(text);
     const scopes = MemoryAccess.readableScopes(context);
-    if (query === null || scopes.length === 0) return [];
-    const rows = yield* sql<ItemRow & { readonly bm25: number }>`
+    if (scopes.length === 0) return [];
+    const candidates = limit * CANDIDATE_MULTIPLIER;
+    const query = ftsQuery(text);
+    const rows =
+      query === null
+        ? []
+        : yield* sql<ItemRow & { readonly bm25: number }>`
         SELECT items.id, items.scope, items.kind, items.content, items.provenance, items.status,
           items.origin_thread_id AS "originThreadId", items.created_at AS "createdAt",
           items.updated_at AS "updatedAt", bm25(memory_fts) AS bm25
@@ -312,18 +324,41 @@ const make = Effect.gen(function* () {
           AND items.status = 'active'
           AND items.scope IN ${sql.in(scopes)}
           ${kind === undefined ? sql`` : sql`AND items.kind = ${kind}`}
-        ORDER BY bm25 LIMIT ${limit * 4}
+        ORDER BY bm25 LIMIT ${candidates}
       `.pipe(
-      Effect.catchTags({
-        SqlError: (cause) =>
-          Effect.logWarning("Memory search failed; using no matches.", cause).pipe(Effect.as([])),
-      }),
+            Effect.catchTags({
+              SqlError: (cause) =>
+                Effect.logWarning("Memory search failed; using no matches.", cause).pipe(
+                  Effect.as([]),
+                ),
+            }),
+          );
+    const vectors = Option.isNone(embeddings)
+      ? Option.none()
+      : yield* embeddings.value.match({
+          text,
+          scopes,
+          limit: candidates,
+          ...(kind === undefined ? {} : { kind }),
+        });
+    const matched = new Map<string, RankCandidate>(
+      rows.map((row) => [row.id, { item: toItem(row), bm25: row.bm25 }]),
     );
+    if (Option.isSome(vectors)) {
+      const unseen = vectors.value.filter(({ itemId }) => !matched.has(itemId));
+      const extra =
+        unseen.length === 0
+          ? []
+          : yield* sql<ItemRow>`${selectItems}
+              WHERE status = 'active' AND id IN ${sql.in(unseen.map(({ itemId }) => itemId))}`;
+      for (const row of extra) matched.set(row.id, { item: toItem(row) });
+      for (const { itemId, cosine } of vectors.value) {
+        const candidate = matched.get(itemId);
+        if (candidate !== undefined) matched.set(itemId, { ...candidate, cosine });
+      }
+    }
     const nowMs = DateTime.toEpochMillis(yield* DateTime.now);
-    return rankByRelevance(
-      rows.map((row) => ({ item: toItem(row), bm25: row.bm25 })),
-      nowMs,
-    ).slice(0, limit);
+    return rankByRelevance([...matched.values()], nowMs, Option.isSome(vectors)).slice(0, limit);
   });
 
   const search: MemoryStore["Service"]["search"] = Effect.fn("MemoryStore.search")(

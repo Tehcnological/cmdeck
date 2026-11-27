@@ -27,6 +27,7 @@ import {
   NotificationChannelSetEnabledInput,
 } from "./notifications.ts";
 import { DecisionConsentSetInput, DecisionsError, DecisionsStatus } from "./decisions.ts";
+import { MemoryEmbeddingsStatus } from "./memory.ts";
 
 // The `cmdeck.` prefix keeps fork methods clear of upstream's names. Append new methods here.
 export const CMDECK_WS_METHODS = {
@@ -42,6 +43,7 @@ export const CMDECK_WS_METHODS = {
   notificationsSubscribeAlerts: "cmdeck.notifications.subscribeAlerts",
   decisionsStatus: "cmdeck.decisions.status",
   decisionsSetConsent: "cmdeck.decisions.setConsent",
+  memoryEmbeddingsStatus: "cmdeck.memory.embeddingsStatus",
 } as const;
 
 /** Fork stream methods the client runtime subscribes to like upstream's. */
@@ -127,6 +129,12 @@ const CmdeckDecisionsSetConsentRpc = Rpc.make(CMDECK_WS_METHODS.decisionsSetCons
   error: Schema.Union([DecisionsError, EnvironmentAuthorizationError]),
 });
 
+const CmdeckMemoryEmbeddingsStatusRpc = Rpc.make(CMDECK_WS_METHODS.memoryEmbeddingsStatus, {
+  payload: Schema.Struct({}),
+  success: MemoryEmbeddingsStatus,
+  error: EnvironmentAuthorizationError,
+});
+
 /** Merged into `WsRpcGroup`, so fork methods share its scope middleware. */
 export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckStatusRpc,
@@ -141,6 +149,7 @@ export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckNotificationsSubscribeAlertsRpc,
   CmdeckDecisionsStatusRpc,
   CmdeckDecisionsSetConsentRpc,
+  CmdeckMemoryEmbeddingsStatusRpc,
 );
 
 /** Spread into `CLIENT_GUARDED_RPC_SCOPES`; every fork method needs one. */
@@ -161,4 +170,5 @@ export const FORK_RPC_SCOPES = {
   [CMDECK_WS_METHODS.decisionsStatus]: AuthOrchestrationReadScope,
   // Consent decides whether turn text may reach a model API, so only a settings writer grants it.
   [CMDECK_WS_METHODS.decisionsSetConsent]: AuthSettingsWriteScope,
+  [CMDECK_WS_METHODS.memoryEmbeddingsStatus]: AuthOrchestrationReadScope,
 } as const satisfies Record<RpcGroup.Rpcs<typeof ForkWsRpcGroup>["_tag"], AuthEnvironmentScope>;
