@@ -89,6 +89,7 @@ import {
 } from "./methods/legacyLocalStorage.ts";
 import { getWslState, setWslBackendEnabled, setWslDistro, setWslOnly } from "./methods/wsl.ts";
 import { getTraySettings, setTraySettings } from "./methods/tray.ts";
+import { getLinuxSpellcheck, setLinuxSpellcheck } from "./methods/spellcheck.ts";
 import {
   getCliCommandState,
   installCliCommand,
@@ -159,6 +160,8 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   yield* ipc.handle(setWslOnly);
   yield* ipc.handle(getTraySettings);
   yield* ipc.handle(setTraySettings);
+  yield* ipc.handle(getLinuxSpellcheck);
+  yield* ipc.handle(setLinuxSpellcheck);
 
   yield* ipc.handle(pickFolder);
   yield* ipc.handle(toLocalBackendPath);

@@ -318,6 +318,8 @@ export class BrowserSession extends Context.Service<
     readonly clearCache: (
       partitions?: ReadonlyArray<string>,
     ) => Effect.Effect<void, BrowserSessionCacheClearError>;
+    /** Linux only; also the default session, which the main window and picture-in-picture use. */
+    readonly setLinuxSpellcheck: (enabled: boolean) => Effect.Effect<void>;
   }
 >()("@t3tools/desktop/preview/BrowserSession") {}
 
@@ -682,6 +684,19 @@ export const make = Effect.gen(function* BrowserSessionMake() {
 
   const sessionsRef = yield* SynchronizedRef.make<ReadonlyMap<string, Session>>(new Map());
 
+  let linuxSpellcheck = false;
+  let spellcheckLanguages: ReadonlyArray<string> = [];
+  // Hunspell loads, and downloads, every listed dictionary even with the spellchecker
+  // disabled, so off clears the list. Electron refills an empty list from the locale at launch.
+  const applySpellcheck = (browserSession: Session): void => {
+    if (platform !== "linux") return;
+    const languages = browserSession.getSpellCheckerLanguages();
+    if (spellcheckLanguages.length === 0) spellcheckLanguages = languages;
+    if (!linuxSpellcheck) browserSession.setSpellCheckerLanguages([]);
+    else if (languages.length > 0) browserSession.setSpellCheckerEnabled(true);
+    else browserSession.setSpellCheckerLanguages([...spellcheckLanguages]);
+  };
+
   const getPartition = Effect.fn("BrowserSession.getPartition")(function* (
     scope = "shared",
     persistent = true,
@@ -712,6 +727,7 @@ export const make = Effect.gen(function* BrowserSessionMake() {
       return Effect.try({
         try: () => {
           const browserSession = session.fromPartition(partition);
+          applySpellcheck(browserSession);
           // Location and clipboard decisions are remembered separately for each origin.
           const permissionDecisions = {
             "clipboard-read": new Map<string, boolean>(),
@@ -960,6 +976,14 @@ export const make = Effect.gen(function* BrowserSessionMake() {
   });
 
   return BrowserSession.of({
+    setLinuxSpellcheck: Effect.fn("BrowserSession.setLinuxSpellcheck")(function* (enabled) {
+      if (platform !== "linux") return;
+      linuxSpellcheck = enabled;
+      applySpellcheck(session.defaultSession);
+      for (const browserSession of (yield* SynchronizedRef.get(sessionsRef)).values()) {
+        applySpellcheck(browserSession);
+      }
+    }),
     getPartition,
     isPartition: (partition) =>
       partition.startsWith(PREVIEW_PARTITION_PREFIX) ||

@@ -1,6 +1,11 @@
 import { HOSTED_APP_CHANNEL } from "~/branding";
 import { isElectron } from "~/env";
-import { isMacPlatform, isWindowsPlatform, normalizeSearchText } from "~/lib/utils";
+import {
+  isLinuxPlatform,
+  isMacPlatform,
+  isWindowsPlatform,
+  normalizeSearchText,
+} from "~/lib/utils";
 import { STATIC_KEYBINDING_COMMANDS, type KeybindingCommand } from "@t3tools/contracts";
 import type { EnvironmentId } from "@t3tools/contracts";
 import type { EnvironmentConnectionPhase } from "@t3tools/client-runtime/connection";
@@ -61,6 +66,7 @@ export interface SettingsSearchItem {
   readonly desktopOnly?: boolean;
   readonly macOnly?: boolean;
   readonly windowsOnly?: boolean;
+  readonly linuxOnly?: boolean;
   readonly releaseChannelOnly?: boolean;
   readonly secretProvidersOnly?: boolean;
   readonly cloudOnly?: boolean;
@@ -980,6 +986,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     desktopOnly: true,
   },
   {
+    id: "linux-spellcheck",
+    title: msg("Spellcheck"),
+    to: "/settings/general",
+    searchTerms: [msg("spelling spell check dictionary hunspell download network privacy")],
+    desktopOnly: true,
+    linuxOnly: true,
+  },
+  {
     id: "text-generation-model",
     title: msg("Text generation model"),
     to: "/settings/threads",
@@ -1767,7 +1781,8 @@ export function settingsForThisPlatform(
       (isElectron || item.desktopOnly !== true) &&
       (!item.releaseChannelOnly || isElectron || HOSTED_APP_CHANNEL !== null) &&
       (!item.macOnly || isMacPlatform(platform)) &&
-      (!item.windowsOnly || isWindowsPlatform(platform)),
+      (!item.windowsOnly || isWindowsPlatform(platform)) &&
+      (!item.linuxOnly || isLinuxPlatform(platform)),
   );
 }
 

@@ -46,6 +46,9 @@ Besides the traffic you or your tools create, these are the outbound calls CMDec
   check by hand, and downloads the update from there when you choose to. Turn off the automatic
   checks with **Settings → About → Check for updates automatically**; see
   [Updating CMDeck](./updating.md#desktop-app-updates).
+- **Spellcheck dictionaries (Linux desktop app)**: spellcheck is off by default on Linux, where
+  turning it on downloads spelling dictionaries from Google's servers. Turn it on with
+  **Settings → General → Spellcheck**. Windows and macOS use the system spellchecker instead.
 - **Server update checks**: `t3 update` and the mobile app's server update check look up the newest
   release on CMDeck's GitHub releases (`github.com/Tehcnological/cmdeck`, then `api.github.com` if
   needed). CMDeck installs updates only from a build mirror you configure.

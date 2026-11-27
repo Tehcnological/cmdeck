@@ -42,6 +42,7 @@ import * as ElectronApp from "../electron/ElectronApp.ts";
 import * as ElectronDialog from "../electron/ElectronDialog.ts";
 import * as ElectronProtocol from "../electron/ElectronProtocol.ts";
 import * as ElectronSafeStorage from "../electron/ElectronSafeStorage.ts";
+import * as BrowserSession from "../preview/BrowserSession.ts";
 import * as PreviewPasskeys from "../preview/Passkeys.ts";
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
 import * as DesktopShellEnvironment from "../shell/DesktopShellEnvironment.ts";
@@ -148,6 +149,9 @@ const runStubbedDesktop = (stub: StubbedDesktop) =>
         Effect.provideService(PreviewPasskeys.PreviewPasskeys, {
           configure: Effect.void,
         } as PreviewPasskeys.PreviewPasskeys["Service"]),
+        Effect.provideService(BrowserSession.BrowserSession, {
+          setLinuxSpellcheck: () => Effect.void,
+        } as unknown as BrowserSession.BrowserSession["Service"]),
         Effect.provideService(DesktopApplicationMenu.DesktopApplicationMenu, {
           configure: stub.record("menu"),
         }),
