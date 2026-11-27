@@ -131,9 +131,14 @@ describe("redactSecrets", () => {
     expect(redactSecrets(JSON.stringify({ cookie: 'a="b"', next: 1 }))).toBe(
       '{"cookie":"[redacted]","next":1}',
     );
+    expect(redactSecrets("GET /hook\nCookie: a=b; c=d\nHost: example.com")).toBe(
+      "GET /hook\nCookie: [redacted]\nHost: example.com",
+    );
     for (const empty of [
       '{"cookie":"","authorization":"","action":"deploy"}',
       '{ "cookie": "", "authorization": "", "action": "deploy" }',
+      '{"cookie":null,"authorization":null,"action":"deploy","target":"production"}',
+      "{ cookie: null, authorization: undefined, user: 'ana' }",
     ]) {
       expect(redactSecrets(empty)).toBe(empty);
     }
