@@ -4,6 +4,7 @@ import * as RemoteMcpTokens from "../auth/RemoteMcpTokens.ts";
 import * as PublicAddressCheck from "../environment/PublicAddressCheck.ts";
 import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
 import * as AuditLog from "./audit/AuditLog.ts";
+import * as Notifications from "./notifications/Notifications.ts";
 import * as MemoryStore from "./memory/MemoryStore.ts";
 import * as TurnContext from "./memory/TurnContext.ts";
 
@@ -15,7 +16,8 @@ import * as TurnContext from "./memory/TurnContext.ts";
 export const layer = Layer.mergeAll(
   RemoteMcpTokens.layer,
   PublicAddressCheck.layer,
-  AuditLog.layer,
+  // Notifications writes channel changes and delivery failures to the audit log.
+  Notifications.layer.pipe(Layer.provideMerge(AuditLog.layer)),
 );
 
 /**

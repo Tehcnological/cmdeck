@@ -3,6 +3,7 @@ import {
   AuthAccessReadScope,
   AuthDiagnosticsReadScope,
   AuthOrchestrationReadScope,
+  AuthSettingsWriteScope,
   AuthTerminalReadScope,
   CMDECK_RPC_VERSION,
   CMDECK_WS_METHODS,
@@ -15,8 +16,10 @@ import * as Layer from "effect/Layer";
 import * as RpcTest from "effect/rpc/RpcTest";
 
 import * as RpcAuthorization from "../../auth/RpcAuthorization.ts";
+import * as MilestoneHub from "../../milestones/MilestoneHub.ts";
 import * as Sqlite from "../../persistence/Sqlite.ts";
 import * as AuditLog from "../audit/AuditLog.ts";
+import * as Notifications from "../notifications/Notifications.ts";
 import * as ForkRpcHandlers from "./ForkRpcHandlers.ts";
 
 it.effect("serves fork methods behind the same scope middleware as upstream ones", () =>
@@ -69,5 +72,47 @@ it.effect("serves the audit log only to clients with access scope", () =>
     expect(
       yield* diagnosticsOnly[CMDECK_WS_METHODS.auditVerify]({}).pipe(Effect.flip),
     ).toMatchObject(refused);
+  }).pipe(Effect.scoped),
+);
+
+it.effect("lets readers list notification channels and only settings writers change them", () =>
+  Effect.gen(function* () {
+    const group = ForkWsRpcGroup.middleware(RpcScopeAuthorization);
+    const services = yield* Layer.build(
+      Notifications.layerWithDrivers([{ kind: "test", send: () => Effect.void }]).pipe(
+        Layer.provideMerge(MilestoneHub.layer),
+        Layer.provideMerge(Layer.merge(Sqlite.layerMemory, NodeCrypto.layer)),
+      ),
+    );
+    const channelId = yield* Notifications.Notifications.pipe(
+      Effect.flatMap((notifications) => notifications.addChannel({ kind: "test", name: "Test" })),
+      Effect.provide(services),
+    );
+    const handlers = group
+      .toLayer(ForkRpcHandlers.make)
+      .pipe(Layer.provide(Layer.succeedContext(services)));
+    const client = (scopes: Parameters<typeof RpcAuthorization.layer>[0]) =>
+      RpcTest.makeClient(group).pipe(
+        Effect.provide(Layer.merge(handlers, RpcAuthorization.layer(scopes))),
+      );
+
+    const reader = yield* client([AuthOrchestrationReadScope]);
+    expect(yield* reader[CMDECK_WS_METHODS.notificationChannelsList]({})).toMatchObject([
+      { id: channelId, name: "Test", enabled: true, lastError: null },
+    ]);
+    expect(
+      yield* reader[CMDECK_WS_METHODS.notificationChannelsRemove]({ channelId }).pipe(Effect.flip),
+    ).toMatchObject({
+      _tag: "EnvironmentAuthorizationError",
+      requiredPermission: AuthSettingsWriteScope,
+    });
+
+    const writer = yield* client([AuthOrchestrationReadScope, AuthSettingsWriteScope]);
+    yield* writer[CMDECK_WS_METHODS.notificationChannelsSetEnabled]({ channelId, enabled: false });
+    expect(yield* writer[CMDECK_WS_METHODS.notificationChannelsList]({})).toMatchObject([
+      { id: channelId, enabled: false },
+    ]);
+    yield* writer[CMDECK_WS_METHODS.notificationChannelsRemove]({ channelId });
+    expect(yield* writer[CMDECK_WS_METHODS.notificationChannelsList]({})).toEqual([]);
   }).pipe(Effect.scoped),
 );

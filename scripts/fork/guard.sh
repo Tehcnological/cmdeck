@@ -163,6 +163,13 @@ required=(
   'apps/server/src/secrets/SecretRequests.ts:yield\* AuditLog\.noteSecretReveal\("file", input\.threadId\);'
   'apps/web/src/components/settings/DiagnosticsSettings.tsx:import \{ AuditLogSection \} from "~/fork/AuditLogSection";'
   'apps/web/src/components/settings/DiagnosticsSettings.tsx:<AuditLogSection environmentId=\{environmentId\} />'
+  # WI-1.04: fork alerts reach the open app, and notification channels show in Settings > General.
+  'packages/client-runtime/src/rpc/client.ts:type CmdeckSubscriptionRpcTag,'
+  'packages/client-runtime/src/rpc/client.ts:\| CmdeckSubscriptionRpcTag;'
+  'apps/web/src/appInit.tsx:import \{ startForkAlertNotifications \} from "\./fork/forkAlertNotifications";'
+  'apps/web/src/appInit.tsx:startForkAlertNotifications\(\);'
+  'apps/web/src/components/settings/SettingsPanels.tsx:import \{ NotificationChannelsSection \} from "~/fork/NotificationChannelsSection";'
+  'apps/web/src/components/settings/SettingsPanels.tsx:<NotificationChannelsSection />'
   # WI-1.03: remote MCP tokens changed from the CLI are audited too.
   'apps/server/src/cli/auth.ts:AuditLog\.layerAtDatabase\(config\.dbPath\),'
   # WI-1.03: a pairing approved from the CLI without a server is audited too.
