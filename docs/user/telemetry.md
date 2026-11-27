@@ -31,7 +31,9 @@ Besides the traffic you or your tools create, these are the outbound calls CMDec
   (`raw.githubusercontent.com/Tehcnological/cmdeck`), which receives T3 Code's catalog through
   upstream merges. It is fetched about once an hour while provider status is checked, and again
   after a provider update or a model cache refresh. **Provider update checks** also look up newer
-  provider CLI versions on the npm registry. Turn both off with **Settings > Maintenance > Provider
+  provider CLI versions: on the npm registry, or for natively installed CLIs on each vendor's own
+  release host (`downloads.claude.ai`, `releases.openai.com`, `releases.fx.sh`, and Google Cloud
+  Storage for Antigravity). Turn both off with **Settings > Maintenance > Provider
   update checks**; new models may then not appear until you update CMDeck.
 - **Model prices** from LiteLLM's public price table on `raw.githubusercontent.com` (falling back
   to `api.github.com`), at most once a day, when you open **Usage**. Prices are cached on disk.
