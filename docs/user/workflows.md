@@ -14,6 +14,10 @@ A workflow file runs inside the server with its full access, so CMDeck runs a ne
 
 Approval covers the file itself, not other modules it imports. Approving needs terminal access to the server.
 
+## Ready-made workflows
+
+The [Task Runner](./task-runner.md) plans a change, runs it task by task with a check after each, and has another model review it. Add it from the command palette.
+
 ## Create a workflow
 
 Place `.ts` files in `~/.cmdeck/workflows/` (or the path in `T3CODE_WORKFLOWS`). The server watches the folder and hot-reloads valid edits.
