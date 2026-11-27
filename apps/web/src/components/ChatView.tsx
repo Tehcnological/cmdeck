@@ -3045,7 +3045,9 @@ export default function ChatView(props: ChatViewProps) {
   });
   // An embedded thread's commands run in its host's terminal, which is the host's checkout.
   const runsOutsideHostCheckout =
-    embedded && (activeThread?.worktreePath ?? null) !== (panelHostShell?.worktreePath ?? null);
+    embedded &&
+    ((activeThread?.worktreePath ?? null) !== (panelHostShell?.worktreePath ?? null) ||
+      activeThread?.projectId !== panelHostShell?.projectId);
   // A maximized panel covers the terminal drawer the command runs in.
   const runSideChatShellCommandStable = useStableCallback((command: string) => {
     if (activeThreadRef) useRightPanelStore.getState().setMaximized(activeThreadRef, false);
