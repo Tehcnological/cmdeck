@@ -170,10 +170,14 @@ interface DueRow {
   readonly project_id: string | null;
   readonly thread_id: string | null;
   readonly attempts: number;
-  readonly channel_kind: string;
+}
+
+interface LiveChannelRow {
+  readonly kind: string;
   readonly name: string;
   readonly config_json: string;
   readonly secret_ref: string | null;
+  readonly rules_json: string;
   readonly rate_limit_per_hour: number;
 }
 
@@ -376,28 +380,41 @@ const make = Effect.fn("Notifications.make")(function* (
     });
   });
 
-  const deliver = Effect.fn("Notifications.deliver")(function* (row: DueRow, now: number) {
+  const deliver = Effect.fn("Notifications.deliver")(function* (row: DueRow) {
+    // Read per row: a send in the same batch can take long enough for the channel to change.
+    const [channel] = yield* sql<LiveChannelRow>`SELECT kind, name, config_json, secret_ref,
+          rules_json, rate_limit_per_hour
+        FROM notification_channels WHERE channel_id = ${row.channel_id} AND enabled = 1`;
+    if (channel === undefined) return;
+    const now = yield* Clock.currentTimeMillis;
+    const rules = Option.getOrElse(decodeRules(channel.rules_json), () => ({}));
+    if (inQuietHours(rules, minuteOfDay(now))) {
+      // Quiet hours drop messages, so a retry or backlog that reaches them is dropped too.
+      yield* sql`UPDATE notification_outbox SET failed_at = ${now}
+          WHERE channel_id = ${row.channel_id} AND dedupe_id = ${row.dedupe_id}`;
+      return;
+    }
     const [sent] = yield* sql<{
       readonly n: number;
       readonly oldest: number | null;
     }>`SELECT COUNT(*) AS n, MIN(delivered_at) AS oldest FROM notification_outbox
         WHERE channel_id = ${row.channel_id} AND delivered_at > ${now - HOUR_MS}`;
-    if (sent !== undefined && sent.n >= row.rate_limit_per_hour && sent.oldest !== null) {
+    if (sent !== undefined && sent.n >= channel.rate_limit_per_hour && sent.oldest !== null) {
       yield* sql`UPDATE notification_outbox SET next_attempt_at = ${sent.oldest + HOUR_MS}
           WHERE channel_id = ${row.channel_id} AND dedupe_id = ${row.dedupe_id}`;
       return;
     }
-    const driver = byKind.get(row.channel_kind);
+    const driver = byKind.get(channel.kind);
     const send =
       driver === undefined
         ? Effect.fail(new NotificationDeliveryError({ reason: "channel module not available" }))
         : driver.send(
             {
               id: row.channel_id,
-              kind: row.channel_kind,
-              name: row.name,
-              config: Option.getOrNull(decodeConfig(row.config_json)),
-              secretRef: row.secret_ref,
+              kind: channel.kind,
+              name: channel.name,
+              config: Option.getOrNull(decodeConfig(channel.config_json)),
+              secretRef: channel.secret_ref,
             },
             {
               dedupeId: row.dedupe_id,
@@ -417,8 +434,9 @@ const make = Effect.fn("Notifications.make")(function* (
       }),
       Effect.catchDefect(() => Effect.succeed("channel module crashed")),
     );
-    if (failure !== null) return yield* recordFailure(row, now, failure);
-    yield* sql`UPDATE notification_outbox SET delivered_at = ${now}, attempts = ${row.attempts + 1}
+    const after = yield* Clock.currentTimeMillis;
+    if (failure !== null) return yield* recordFailure(row, after, failure);
+    yield* sql`UPDATE notification_outbox SET delivered_at = ${after}, attempts = ${row.attempts + 1}
         WHERE channel_id = ${row.channel_id} AND dedupe_id = ${row.dedupe_id}`;
   });
 
@@ -426,13 +444,12 @@ const make = Effect.fn("Notifications.make")(function* (
   const deliverDue = Effect.fn("Notifications.deliverDue")(function* () {
     const now = yield* Clock.currentTimeMillis;
     const due = yield* sql<DueRow>`SELECT o.channel_id, o.dedupe_id, o.kind, o.title, o.body,
-          o.project_id, o.thread_id, o.attempts, c.kind AS channel_kind, c.name, c.config_json,
-          c.secret_ref, c.rate_limit_per_hour
+          o.project_id, o.thread_id, o.attempts
         FROM notification_outbox o JOIN notification_channels c ON c.channel_id = o.channel_id
         WHERE c.enabled = 1 AND o.delivered_at IS NULL AND o.failed_at IS NULL
           AND o.next_attempt_at <= ${now}
         ORDER BY o.created_at, o.dedupe_id LIMIT ${BATCH}`;
-    for (const row of due) yield* deliver(row, now);
+    for (const row of due) yield* deliver(row);
     const [next] = yield* sql<{ readonly at: number | null }>`SELECT MIN(o.next_attempt_at) AS at
         FROM notification_outbox o JOIN notification_channels c ON c.channel_id = o.channel_id
         WHERE c.enabled = 1 AND o.delivered_at IS NULL AND o.failed_at IS NULL`;

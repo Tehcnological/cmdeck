@@ -1,6 +1,9 @@
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import { expect, it } from "@effect/vitest";
 import { type MilestoneEvent, MilestoneId, ProjectId, RunId, ThreadId } from "@t3tools/contracts";
+import * as Clock from "effect/Clock";
+import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Queue from "effect/Queue";
@@ -22,14 +25,17 @@ interface Sent {
   readonly message: Notifications.NotificationMessage;
 }
 
-/** A channel that reports each attempt and fails while `failing` is set. */
+/** A channel that reports each attempt, takes `delay` to answer and fails while `failing` is set. */
 const fakeChannel = Effect.gen(function* () {
   const sent = yield* Queue.unbounded<Sent>();
   const failing = yield* Ref.make(false);
+  const delay = yield* Ref.make(Duration.zero);
   const driver: Notifications.NotificationChannelDriver = {
     kind: "fake",
     send: (channel, message) =>
       Queue.offer(sent, { channelId: channel.id, message }).pipe(
+        Effect.andThen(Ref.get(delay)),
+        Effect.flatMap(Effect.sleep),
         Effect.andThen(Ref.get(failing)),
         Effect.flatMap((fail) =>
           fail
@@ -42,7 +48,7 @@ const fakeChannel = Effect.gen(function* () {
         ),
       ),
   };
-  return { sent, failing, driver };
+  return { sent, failing, delay, driver };
 });
 
 const run = <A, E>(
@@ -176,6 +182,88 @@ it.effect("a failing channel retries with backoff and records each failure", () 
         { messageId: "alert:a1", attempt: 2, error: "rejected token [redacted]", gaveUp: false },
         { messageId: "alert:a1", attempt: 1, error: "rejected token [redacted]", gaveUp: false },
       ]);
+    }),
+  ),
+);
+
+it.effect("a retry is due after the failed attempt ends, not when its batch began", () =>
+  run(({ sent, failing, delay }) =>
+    Effect.gen(function* () {
+      const notifications = yield* Notifications.Notifications;
+      yield* Ref.set(failing, true);
+      yield* Ref.set(delay, Duration.seconds(10));
+      yield* notifications.addChannel({ kind: "fake", name: "Slow" });
+      yield* notifications.alert({ id: "slow", title: "Disk", body: "almost full" });
+
+      yield* Queue.take(sent);
+      yield* TestClock.adjust("10 seconds");
+      yield* TestClock.adjust("29 seconds");
+      expect(yield* Queue.size(sent)).toBe(0);
+      yield* TestClock.adjust("1 second");
+      expect((yield* Queue.take(sent)).message.dedupeId).toBe("alert:slow");
+    }),
+  ),
+);
+
+it.effect("does not send to a channel disabled while its batch is running", () =>
+  run(({ sent, failing, delay }) =>
+    Effect.gen(function* () {
+      const notifications = yield* Notifications.Notifications;
+      yield* Ref.set(failing, true);
+      const channelId = yield* notifications.addChannel({ kind: "fake", name: "Phone" });
+      // Keeps the worker running once the first channel is disabled.
+      yield* notifications.addChannel({ kind: "fake", name: "Idle", rules: { kinds: [] } });
+      yield* notifications.alert({ id: "a1", title: "One", body: "first" });
+      yield* notifications.alert({ id: "a2", title: "Two", body: "second" });
+      yield* Queue.take(sent);
+      yield* Queue.take(sent);
+
+      // Both retries fall due together, so one batch holds them.
+      yield* Ref.set(failing, false);
+      yield* Ref.set(delay, Duration.seconds(10));
+      yield* TestClock.adjust("30 seconds");
+      expect((yield* Queue.take(sent)).message.dedupeId).toBe("alert:a1");
+      yield* notifications.setChannelEnabled({ channelId, enabled: false });
+      yield* TestClock.adjust("10 seconds");
+      expect(yield* Queue.size(sent)).toBe(0);
+
+      yield* notifications.setChannelEnabled({ channelId, enabled: true });
+      expect((yield* Queue.take(sent)).message.dedupeId).toBe("alert:a2");
+    }),
+  ),
+);
+
+it.effect("drops a held message whose next attempt falls in quiet hours", () =>
+  run(({ sent }) =>
+    Effect.gen(function* () {
+      const notifications = yield* Notifications.Notifications;
+      const sql = yield* SqlClient.SqlClient;
+      const parts = DateTime.toParts(
+        DateTime.makeZonedUnsafe(yield* Clock.currentTimeMillis, {
+          timeZone: DateTime.zoneMakeLocal(),
+        }),
+      );
+      const minute = parts.hour * 60 + parts.minute;
+      // Quiet from 30 to 90 minutes from now: the rate-limited second alert is due in the middle.
+      yield* notifications.addChannel({
+        kind: "fake",
+        name: "Phone",
+        rateLimitPerHour: 1,
+        rules: {
+          quietHours: { startMinute: (minute + 30) % 1440, endMinute: (minute + 90) % 1440 },
+        },
+      });
+      yield* notifications.alert({ id: "first", title: "One", body: "first" });
+      yield* notifications.alert({ id: "held", title: "Two", body: "second" });
+      expect((yield* Queue.take(sent)).message.dedupeId).toBe("alert:first");
+
+      yield* TestClock.adjust("1 hour");
+      yield* TestClock.adjust("2 hours");
+      expect(yield* Queue.size(sent)).toBe(0);
+      const rows = yield* sql<{ readonly delivered: number; readonly dropped: number }>`
+        SELECT delivered_at IS NOT NULL AS delivered, failed_at IS NOT NULL AS dropped
+        FROM notification_outbox WHERE dedupe_id = 'alert:held'`;
+      expect(rows).toEqual([{ delivered: 0, dropped: 1 }]);
     }),
   ),
 );
