@@ -537,6 +537,9 @@ export function useSettingsRestore(onRestored?: () => void) {
     ...(settings.mathRenderingEnabled !== DEFAULT_UNIFIED_SETTINGS.mathRenderingEnabled
       ? [gt("Render math")]
       : []),
+    ...(settings.siteIconsEnabled !== DEFAULT_UNIFIED_SETTINGS.siteIconsEnabled
+      ? [gt("Show site icons")]
+      : []),
     ...(settings.panelAnimationDurationMs !== DEFAULT_UNIFIED_SETTINGS.panelAnimationDurationMs
       ? [gt("Panel animations")]
       : []),
@@ -731,6 +734,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       htmlPreviewWidth: DEFAULT_UNIFIED_SETTINGS.htmlPreviewWidth,
       effortDisplay: DEFAULT_UNIFIED_SETTINGS.effortDisplay,
       mathRenderingEnabled: DEFAULT_UNIFIED_SETTINGS.mathRenderingEnabled,
+      siteIconsEnabled: DEFAULT_UNIFIED_SETTINGS.siteIconsEnabled,
       language: DEFAULT_UNIFIED_SETTINGS.language,
       timestampFormat: DEFAULT_UNIFIED_SETTINGS.timestampFormat,
       notificationMode: DEFAULT_UNIFIED_SETTINGS.notificationMode,

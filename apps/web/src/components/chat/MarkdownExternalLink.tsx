@@ -4,6 +4,8 @@ import { Children, memo, useState, type ReactNode } from "react";
 
 import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
 
+import { useClientSettings } from "~/hooks/useSettings";
+
 import { cn } from "../../lib/utils";
 import { sourceControlIcon } from "../../sourceControlPresentation";
 
@@ -21,8 +23,9 @@ function sourceControlHostIcon(host: string): ReactNode {
 
 const MarkdownLinkFavicon = memo(function MarkdownLinkFavicon({ host }: { host: string }) {
   const [failedHost, setFailedHost] = useState<string | null>(null);
+  const siteIconsEnabled = useClientSettings((settings) => settings.siteIconsEnabled);
   const brandIcon = sourceControlHostIcon(host);
-  const faviconUrl = brandIcon ? null : faviconUrlForOrigin(`https://${host}`);
+  const faviconUrl = brandIcon || !siteIconsEnabled ? null : faviconUrlForOrigin(`https://${host}`);
   return (
     <span className="ms-[0.25em] me-[0.2em]" aria-hidden>
       {brandIcon ? (

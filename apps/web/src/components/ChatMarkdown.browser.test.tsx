@@ -146,7 +146,10 @@ vi.mock(import("../hooks/useTheme"), async (original) => {
   };
 });
 
-const settingsOverrides = vi.hoisted(() => ({ mathRenderingEnabled: false }));
+const settingsOverrides = vi.hoisted(() => ({
+  mathRenderingEnabled: false,
+  siteIconsEnabled: false,
+}));
 vi.mock(import("../hooks/useSettings"), async (original) => {
   const actual = await original();
   type Settings = ReturnType<typeof actual.getClientSettings>;
@@ -190,6 +193,7 @@ function setup() {
   appearance.value = "light";
   parsedSources.length = 0;
   settingsOverrides.mathRenderingEnabled = false;
+  settingsOverrides.siteIconsEnabled = false;
   nativeFileDrag.enabled = false;
   renderDiagram.mockReset();
   threadWorktrees.clear();
@@ -387,13 +391,19 @@ it("highlights a code block's own source when an earlier block of the same lengt
 });
 
 describe("ChatMarkdown favicon privacy", () => {
-  it("suppresses private link images while preserving public links across updates", async () => {
+  it("loads no link icon until site icons are on, then only from the site itself", async () => {
     setup();
     const markdown = (url: string) => <ChatMarkdown cwd="/tmp/project" text={`[Link](${url})`} />;
     await using screen = await render(markdown("https://example.com"));
     const { container, rerender } = screen;
+    expect(container.querySelectorAll("img")).toHaveLength(0);
+    expect(container.querySelector("a svg")).not.toBeNull();
+
+    // The mocked settings hook does not re-render on change; a new host mounts a fresh icon.
+    settingsOverrides.siteIconsEnabled = true;
+    await rerender(markdown("https://example.org/docs"));
     expect([...container.querySelectorAll("img")].map((image) => image.src)).toEqual([
-      "https://www.google.com/s2/favicons?domain=example.com&sz=32",
+      "https://example.org/favicon.ico",
     ]);
     for (const url of ["http://192.168.1.10:8080", "http://localhost:3000", "http://home.arpa"]) {
       await rerender(markdown(url));

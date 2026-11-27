@@ -73,6 +73,8 @@ interface AppearancePreferencesContextValue {
   readonly setCodeWordBreak: (value: boolean) => void;
   readonly mathRenderingEnabled: boolean;
   readonly setMathRenderingEnabled: (value: boolean) => void;
+  readonly siteIconsEnabled: boolean;
+  readonly setSiteIconsEnabled: (value: boolean) => void;
 }
 
 const AppearancePreferencesContext = createContext<AppearancePreferencesContextValue | null>(null);
@@ -296,6 +298,9 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
   const setMathRenderingEnabled = (value: boolean) =>
     updatePreferences({ mathRenderingEnabled: value });
 
+  const siteIconsEnabled = storedPreferences?.siteIconsEnabled === true;
+  const setSiteIconsEnabled = (value: boolean) => updatePreferences({ siteIconsEnabled: value });
+
   const value = useMemo(
     (): AppearancePreferencesContextValue => ({
       appearance,
@@ -320,6 +325,8 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
       setCodeWordBreak,
       mathRenderingEnabled,
       setMathRenderingEnabled,
+      siteIconsEnabled,
+      setSiteIconsEnabled,
     }),
     [
       appearance,
@@ -343,6 +350,8 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
       setCodeWordBreak,
       mathRenderingEnabled,
       setMathRenderingEnabled,
+      siteIconsEnabled,
+      setSiteIconsEnabled,
     ],
   );
 

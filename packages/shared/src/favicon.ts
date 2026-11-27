@@ -71,6 +71,7 @@ export function toolActivityFaviconUrl(
   );
 }
 
+/** The site's own icon: no third-party icon service learns which hosts a user's chats mention. */
 export function faviconUrlForOrigin(rawUrl: string | null | undefined, size = 32): string | null {
   if (!rawUrl) return null;
   try {
@@ -78,7 +79,7 @@ export function faviconUrlForOrigin(rawUrl: string | null | undefined, size = 32
     if (!url.hostname) return null;
     if (url.protocol !== "http:" && url.protocol !== "https:") return null;
     if (!isPublicFaviconHost(url.hostname)) return null;
-    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(url.hostname)}&sz=${size}`;
+    return faviconUrlForPage(url.href, size);
   } catch {
     return null;
   }
