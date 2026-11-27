@@ -29,10 +29,12 @@ export const SECRET_PATTERNS: ReadonlyArray<RegExp> = [
   // The scheme starts only where a run of scheme characters starts and is capped, so a long run
   // like `a-a-a-…` is scanned once rather than from every word boundary.
   /((?<![a-z0-9+.-])[a-z][a-z0-9+.-]{0,31}:\/\/[^\s/?#@:]*:)[^\s/?#]+(?=@[^\s/?#@])/gi,
-  // A header serialized inside quotes ends at its own closing quote; a bare header runs to the end
-  // of the line, quotes and all (`session="…"`, Digest's `response="…"`).
-  /(\b(?:proxy-)?authorization["']?[ \t]*[:=][ \t]*(["']?)(?:(?:basic|bearer|token|digest)[ \t]+)?)(?:(?:\\.|(?!\2)[^\\\r\n])+|[^\r\n]+)/gi,
-  /(\b(?:set-)?cookie["']?[ \t]*[:=][ \t]*(["']?))(?:(?:\\.|(?!\2)[^\\\r\n])+|[^\r\n]+)/gi,
+  // A header serialized inside quotes ends at its own closing quote (an empty one matches nothing);
+  // a bare header runs to the end of the line, quotes and all (`session="…"`, Digest's `response="…"`).
+  /(\b(?:proxy-)?authorization["']?[ \t]*[:=][ \t]*(["'])(?:(?:basic|bearer|token|digest)[ \t]+)?)(?:\\.|(?!\2)[^\\\r\n])+/gi,
+  /(\b(?:proxy-)?authorization["']?[ \t]*[:=][ \t]*(?!["'])(?:(?:basic|bearer|token|digest)[ \t]+)?)[^\r\n]+/gi,
+  /(\b(?:set-)?cookie["']?[ \t]*[:=][ \t]*(["']))(?:\\.|(?!\2)[^\\\r\n])+/gi,
+  /(\b(?:set-)?cookie["']?[ \t]*[:=][ \t]*(?!["']))[^\r\n]+/gi,
   /(\b[Bb]earer[ \t]+)[A-Za-z0-9._~+/-]{16,}=*/g,
   // `name=value` / `"name": "value"` where the name ends in a secret word (not `max_tokens`).
   // A quoted value runs to its own closing quote (Node's inspect may use a backtick), past escapes.
@@ -44,12 +46,6 @@ export const SECRET_PATTERNS: ReadonlyArray<RegExp> = [
     "gi",
   ),
 ];
-
-const PRIVATE_KEY_END = /-----END (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----/;
-// Long enough to keep a split END line, such as `-----END ENCRYPTED PRIVATE KEY BLOCK-----`.
-const PRIVATE_KEY_END_MAX_LENGTH = 64;
-const UNTERMINATED_PRIVATE_KEY =
-  /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----(?![\s\S]*-----END (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----)/;
 
 interface Span {
   readonly start: number;
@@ -79,62 +75,13 @@ const secretSpans = (text: string): Array<Span> => {
   return merged;
 };
 
-const applySpans = (text: string, spans: ReadonlyArray<Span>, upTo = text.length) => {
+/** Replaces every secret `SECRET_PATTERNS` finds with `[redacted]`, keeping its label. */
+export const redactSecrets = (text: string): string => {
   let result = "";
   let at = 0;
-  for (const span of spans) {
-    if (span.start >= upTo) break;
+  for (const span of secretSpans(text)) {
     result += `${text.slice(at, span.keepEnd)}${REDACTED}`;
     at = span.end;
   }
-  return result + text.slice(at, upTo);
-};
-
-/** Replaces every secret `SECRET_PATTERNS` finds with `[redacted]`, keeping its label. */
-export const redactSecrets = (text: string): string => applySpans(text, secretSpans(text));
-
-/**
- * Redacts a stream whose chunks may split a secret. `push` returns what is safe to emit and holds
- * back the unfinished last line plus any match that might still grow (such as an unterminated
- * private key), up to `maxHold` characters; `end` releases the rest.
- */
-export const makeSecretRedactionStream = (maxHold = 16_384) => {
-  let pending = "";
-  // Set when a private key outgrew the hold and was flushed as `[redacted]`: what follows is still
-  // key material until its END line, which may arrive split across chunks.
-  let insideKey = false;
-  return {
-    push(chunk: string): string {
-      pending += chunk;
-      if (insideKey) {
-        const end = PRIVATE_KEY_END.exec(pending);
-        if (end === null) {
-          pending = pending.slice(-PRIVATE_KEY_END_MAX_LENGTH);
-          return "";
-        }
-        insideKey = false;
-        pending = pending.slice(end.index + end[0].length);
-      }
-      const spans = secretSpans(pending);
-      let cut = pending.lastIndexOf("\n") + 1;
-      // A line that never ends cannot be held forever; keep a tail long enough for one token.
-      if (pending.length > maxHold) cut = Math.max(cut, pending.length - 1024);
-      for (const span of spans) {
-        if (span.start < cut && (span.end > cut || span.end === pending.length)) cut = span.start;
-      }
-      if (pending.length - cut > maxHold) {
-        cut = pending.length;
-        insideKey = UNTERMINATED_PRIVATE_KEY.test(pending);
-      }
-      const out = applySpans(pending, spans, cut);
-      pending = pending.slice(cut);
-      return out;
-    },
-    end(): string {
-      const out = insideKey ? "" : redactSecrets(pending);
-      pending = "";
-      insideKey = false;
-      return out;
-    },
-  };
+  return result + text.slice(at);
 };

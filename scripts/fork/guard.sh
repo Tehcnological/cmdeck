@@ -136,7 +136,7 @@ required=(
   'packages/shared/package.json:"\./redaction"'
   'apps/server/src/serverLogger.ts:redactingSecrets\(redactingCredentials\(Logger\.consolePretty\(\)\)\)'
   'apps/server/src/feedback/scrubFeedback.ts:\.\.\.SECRET_PATTERNS,'
-  'apps/server/src/scheduledTasks/webhookTemplate.ts:expression === "request" \? redactSecrets\(text\) : text'
+  'apps/server/src/scheduledTasks/webhookTemplate.ts:expression\.includes\("\."\) \? text : redactSecrets\(text\)'
 )
 for entry in "${required[@]}"; do
   file="${entry%%:*}"

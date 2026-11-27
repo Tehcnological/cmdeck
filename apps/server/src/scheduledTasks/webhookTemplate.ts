@@ -171,7 +171,7 @@ export function renderWebhookPrompt(
     if (raw) return text;
     framed = true;
     // Fork: only the prompt is redacted; filters and replay keys read the raw request.
-    const shown = expression === "body" || expression === "request" ? redactSecrets(text) : text;
+    const shown = expression.includes(".") ? text : redactSecrets(text);
     return `<${tag}>${shown.replace(MENTION, "$&\u2060")}</${tag}>`;
   });
   if (!framed) return { prompt, missing };

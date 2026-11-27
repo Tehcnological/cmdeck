@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { makeSecretRedactionStream, redactSecrets } from "./redaction.ts";
+import { redactSecrets } from "./redaction.ts";
 
 // Fake credentials are assembled at runtime so secret scanners do not flag this file.
 const fake = (...parts: ReadonlyArray<string>) => parts.join("");
@@ -131,6 +131,8 @@ describe("redactSecrets", () => {
     expect(redactSecrets(JSON.stringify({ cookie: 'a="b"', next: 1 }))).toBe(
       '{"cookie":"[redacted]","next":1}',
     );
+    const empty = '{"cookie":"","authorization":"","action":"deploy"}';
+    expect(redactSecrets(empty)).toBe(empty);
   });
 
   it("exempts only whole unquoted literals, not secrets that start with one", () => {
@@ -144,57 +146,5 @@ describe("redactSecrets", () => {
   it("scans long runs of scheme-like characters in linear time", () => {
     const run = "a-".repeat(100_000);
     expect(redactSecrets(run)).toBe(run);
-  });
-});
-
-describe("makeSecretRedactionStream", () => {
-  const run = (chunks: ReadonlyArray<string>, maxHold?: number) => {
-    const stream = makeSecretRedactionStream(maxHold);
-    return chunks.map((chunk) => stream.push(chunk)).join("") + stream.end();
-  };
-
-  it("catches a token split across chunks", () => {
-    const text = `log line\nuse ${github} now\nnext\n`;
-    for (let at = 1; at < text.length; at++) {
-      const output = run([text.slice(0, at), text.slice(at)]);
-      expect(output).toBe(redactSecrets(text));
-      expect(output).not.toContain(github.slice(4, 20));
-    }
-  });
-
-  it("catches a label split from its value", () => {
-    expect(run(["DB_PASS", "WORD=", "hunter2\n"])).toBe("DB_PASSWORD=[redacted]\n");
-  });
-
-  it("holds an unterminated private key until it ends", () => {
-    const stream = makeSecretRedactionStream();
-    const [head, tail] = [pem.slice(0, 50), pem.slice(50)];
-    expect(stream.push(`ok\n${head}`)).toBe("ok\n");
-    expect(stream.push(`${tail}\ndone\n`)).toBe("[redacted]\ndone\n");
-    expect(stream.end()).toBe("");
-  });
-
-  it("keeps redacting a private key that outgrew the hold until its END line", () => {
-    const begin = fake("-----BEGIN ", "PRIVATE KEY-----\n");
-    const end = fake("-----END ", "PRIVATE KEY-----\n");
-    const body = "k".repeat(200);
-    const output = run([begin, body, "MATERIAL", "-----END PRIV", end.slice(13), "after\n"], 64);
-    expect(output).not.toContain("k");
-    expect(output).not.toContain("MATERIAL");
-    expect(output).toContain("[redacted]");
-    expect(output).toContain("after\n");
-  });
-
-  it("emits complete lines as they arrive", () => {
-    const stream = makeSecretRedactionStream();
-    expect(stream.push("one\ntw")).toBe("one\n");
-    expect(stream.push("o\n")).toBe("two\n");
-  });
-
-  it("bounds what it holds on a line that never ends", () => {
-    const stream = makeSecretRedactionStream(2048);
-    const emitted = stream.push("x".repeat(5000));
-    expect(emitted.length).toBeGreaterThan(0);
-    expect(emitted.length + stream.end().length).toBe(5000);
   });
 });
