@@ -1,5 +1,10 @@
 # Mobile notifications
 
+> CMDeck does not deliver push alerts or Live Activities: the official T3 Code app gets them
+> through T3's relay, which this build removes. The app still shows agent activity while it is
+> open and connected to the host. On desktop and web, **Settings → Notifications** shows system
+> notifications, sound, and in-app toasts. The rest of this page describes the official app.
+
 Get push alerts, Live Activities, and home-screen widgets on iOS and Android when agents finish, fail, or need your approval or input.
 
 ## Prerequisites

@@ -28,7 +28,7 @@ T3 Code is an open-source control plane for coding agents. It gives the coding a
 1. **Install T3 Code** on the machine where your agents will run ([Install T3 Code](./install.md)).
 2. **Set up at least one agent** via the [Welcome page](./welcome-page.md) or **Settings → Providers** (for example, `claude auth login` or `codex login`).
 3. **Open or clone a project** and start a thread ([Working with threads](./thread-sidebar.md)).
-4. **Optional — connect your phone or another computer**: Run `t3 up` on the host or enable **T3 Connect** in **Settings → Sharing & access** ([Remote access](./remote-access.md)).
+4. **Optional — connect your phone or another computer**: Run `t3 up` on the host and pair over Tailscale, LAN, or your own Cloudflare Tunnel ([Remote access](./remote-access.md)).
 
 ---
 
@@ -92,10 +92,10 @@ T3 Code is an open-source control plane for coding agents. It gives the coding a
 
 ### Remote, mobile & integrations
 
-- [Remote access](./remote-access.md) — T3 Connect, LAN/Tailscale pairing, desktop SSH, multi-route failover, load balancing, and linked environments.
-- [T3 Connect troubleshooting](./t3-connect-troubleshooting.md) — Diagnosing tunnel, port 7844, DNS, clock, and account errors.
-- [Mobile notifications](./mobile-notifications.md) — Push alerts, iOS Live Activities/widgets, and Android Live Updates.
-- [Guest links](./guest-links.md) — Sharing a live thread with a teammate in their browser (no account needed).
+- [Remote access](./remote-access.md) — LAN/Tailscale pairing, your own Cloudflare Tunnel, desktop SSH, multi-route failover, load balancing, and linked environments.
+- [T3 Connect troubleshooting](./t3-connect-troubleshooting.md) — Removed in CMDeck; only for saved T3 Connect routes from an older install.
+- [Mobile notifications](./mobile-notifications.md) — Push alerts and Live Activities need T3 Connect, removed in CMDeck.
+- [Guest links](./guest-links.md) — Need T3 Connect, removed in CMDeck.
 - [Outside agents](./outside-agents.md) — Connecting Claude Code, Codex, ChatGPT, or bots to T3 Code over MCP, plus `t3 thread` host scripting.
 - [Secrets](./secrets.md) — 1Password CLI references and private in-thread agent secret cards.
 - [1Password service account](./secrets-1password-service-account.md) — Headless 1Password setup with a service account token.
