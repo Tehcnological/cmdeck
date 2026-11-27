@@ -139,6 +139,12 @@ function describeSchedule(
   }
   if (task.schedule.type === "interval")
     return formatScheduledTaskInterval(task.schedule.everyMs, resolve);
+  if (task.schedule.type === "cron") {
+    const expression = task.schedule.expression;
+    return task.schedule.timeZone === undefined
+      ? resolve(msg("Cron {expression}", { expression }))
+      : resolve(msg("Cron {expression} {zone}", { expression, zone: task.schedule.timeZone }));
+  }
   const days = task.schedule.weekdays?.length
     ? repeatLabel(task.schedule.weekdays, resolve, locale)
     : resolve(msg("Every day"));
@@ -1167,6 +1173,10 @@ function TaskForm({
                     ]
                   : []),
                 { value: "interval", label: gt("Interval") },
+                // Cron is edited on web; a cron task can switch away and back.
+                ...(draft.schedule.cron === null
+                  ? []
+                  : [{ value: "cron" as const, label: gt("Cron") }]),
                 ...(webhookDenial === undefined || draft.schedule.mode === "webhook"
                   ? [{ value: "webhook" as const, label: gt("On webhook") }]
                   : []),
@@ -1428,6 +1438,21 @@ function TaskForm({
                 </T>
               </Text>
             </>
+          ) : draft.schedule.mode === "cron" && draft.schedule.cron !== null ? (
+            // Shown, not edited: an interval field here would be saved over nothing.
+            <View className="gap-1 border-t border-border-subtle px-4 py-3">
+              <Text textRole="body" className="text-foreground">
+                {draft.schedule.cron.timeZone === undefined
+                  ? gt("Cron {expression}", { expression: draft.schedule.cron.expression })
+                  : gt("Cron {expression} {zone}", {
+                      expression: draft.schedule.cron.expression,
+                      zone: draft.schedule.cron.timeZone,
+                    })}
+              </Text>
+              <Text className="text-sm text-foreground-muted">
+                <T>Change a cron schedule on web or desktop.</T>
+              </Text>
+            </View>
           ) : (
             <>
               <FormField
