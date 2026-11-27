@@ -4,12 +4,21 @@ import * as RpcGroup from "effect/rpc/RpcGroup";
 
 import {
   AuthAccessReadScope,
+  AuthFilesystemReadScope,
   AuthOrchestrationReadScope,
+  AuthTerminalOperateScope,
   AuthSettingsWriteScope,
   type AuthEnvironmentScope,
   EnvironmentAuthorizationError,
 } from "../auth.ts";
+import { WorkflowDefinitionChangeResult } from "../workflow.ts";
 import { AuditListInput, AuditListResult, AuditLogError, AuditVerifyResult } from "./audit.ts";
+import {
+  WorkflowPresetInstallInput,
+  WorkflowTrustApproveInput,
+  WorkflowTrustError,
+  WorkflowTrustPendingResult,
+} from "./workflowTrust.ts";
 import {
   ForkAlert,
   NotificationChannel,
@@ -23,6 +32,9 @@ export const CMDECK_WS_METHODS = {
   status: "cmdeck.status",
   auditList: "cmdeck.audit.list",
   auditVerify: "cmdeck.audit.verify",
+  workflowTrustPending: "cmdeck.workflowTrust.pending",
+  workflowTrustApprove: "cmdeck.workflowTrust.approve",
+  workflowPresetInstall: "cmdeck.workflowPreset.install",
   notificationChannelsList: "cmdeck.notifications.channels.list",
   notificationChannelsSetEnabled: "cmdeck.notifications.channels.setEnabled",
   notificationChannelsRemove: "cmdeck.notifications.channels.remove",
@@ -53,6 +65,23 @@ const CmdeckAuditVerifyRpc = Rpc.make(CMDECK_WS_METHODS.auditVerify, {
   error: Schema.Union([AuditLogError, EnvironmentAuthorizationError]),
 });
 
+const CmdeckWorkflowTrustPendingRpc = Rpc.make(CMDECK_WS_METHODS.workflowTrustPending, {
+  payload: Schema.Struct({}),
+  success: WorkflowTrustPendingResult,
+  error: Schema.Union([WorkflowTrustError, EnvironmentAuthorizationError]),
+});
+
+const CmdeckWorkflowTrustApproveRpc = Rpc.make(CMDECK_WS_METHODS.workflowTrustApprove, {
+  payload: WorkflowTrustApproveInput,
+  success: Schema.Struct({}),
+  error: Schema.Union([WorkflowTrustError, EnvironmentAuthorizationError]),
+});
+
+const CmdeckWorkflowPresetInstallRpc = Rpc.make(CMDECK_WS_METHODS.workflowPresetInstall, {
+  payload: WorkflowPresetInstallInput,
+  success: WorkflowDefinitionChangeResult,
+  error: Schema.Union([WorkflowTrustError, EnvironmentAuthorizationError]),
+});
 const NotificationChannelsError = Schema.Union([
   NotificationChannelError,
   EnvironmentAuthorizationError,
@@ -89,6 +118,9 @@ export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckStatusRpc,
   CmdeckAuditListRpc,
   CmdeckAuditVerifyRpc,
+  CmdeckWorkflowTrustPendingRpc,
+  CmdeckWorkflowTrustApproveRpc,
+  CmdeckWorkflowPresetInstallRpc,
   CmdeckNotificationChannelsListRpc,
   CmdeckNotificationChannelsSetEnabledRpc,
   CmdeckNotificationChannelsRemoveRpc,
@@ -101,6 +133,11 @@ export const FORK_RPC_SCOPES = {
   // Entries are access records (pairings, tokens, secret reveals), so they need access scope.
   [CMDECK_WS_METHODS.auditList]: AuthAccessReadScope,
   [CMDECK_WS_METHODS.auditVerify]: AuthAccessReadScope,
+  // Returns each file's source, as reading a definition does.
+  [CMDECK_WS_METHODS.workflowTrustPending]: AuthFilesystemReadScope,
+  // Approving or installing a file lets the server run it, as saving one in the editor does.
+  [CMDECK_WS_METHODS.workflowTrustApprove]: AuthTerminalOperateScope,
+  [CMDECK_WS_METHODS.workflowPresetInstall]: AuthTerminalOperateScope,
   [CMDECK_WS_METHODS.notificationChannelsList]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.notificationChannelsSetEnabled]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.notificationChannelsRemove]: AuthSettingsWriteScope,

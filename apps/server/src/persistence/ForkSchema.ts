@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as SqlClient from "effect/sql/SqlClient";
 
 import { ensureAuditSchema } from "../fork/audit/schema.ts";
+import { ensureWorkflowTrustSchema } from "../fork/workflowTrust/schema.ts";
 import { ensureNotificationsSchema } from "../fork/notifications/schema.ts";
 import { ensureMemorySchema } from "../fork/memory/schema.ts";
 
@@ -46,6 +47,7 @@ export const ensureForkSchema = Effect.fn("ensureForkSchema")(function* () {
     approved_at TEXT
   )`;
   yield* ensureAuditSchema();
+  yield* ensureWorkflowTrustSchema();
   yield* ensureNotificationsSchema();
   yield* ensureMemorySchema();
   // Failed runs in a row of a scheduled task, which pauses the task at a limit.

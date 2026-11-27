@@ -11,7 +11,9 @@ Use a workflow for multi-stage work that must not be lost or repeated (triage �
 
 ## Quick start
 
-Workflows are a Labs feature, off by default. If `t3 workflow` says workflows are off, ask the user to turn them on in Settings → Labs → Workflows; do not edit their settings yourself.
+Workflows are on by default. If `t3 workflow` says workflows are off, ask the user to turn them on in Settings → Labs → Workflows; do not edit their settings yourself.
+
+A new or changed file does not run until the user approves its exact contents on the Workflows page, where it shows as **Needs approval**; any later edit needs approval again, and the last approved version keeps running until then. You cannot approve a file yourself. After you write or change one, tell the user to review and approve it in Workflows before you start or wait on its runs.
 
 Put a `.ts` file in `~/.t3/workflows/` (the `workflows` folder of T3 home, or the path in `T3CODE_WORKFLOWS`). Once workflows are on, the server watches the folder and reloads files automatically—nothing to restart. A file name with a space or other unusual character (`fix issue.ts`) is skipped with a warning in the server log: use letters, digits, `-`, `_` and `.`. Files run with Node's type stripping, so only erasable TypeScript works: no `enum`, `namespace` or parameter properties.
 

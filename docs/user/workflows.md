@@ -1,12 +1,18 @@
 # Workflows
 
-Workflows (Labs) are durable TypeScript scripts that chain agents, code steps, schedules, webhooks, issue/PR triggers, and human approvals into multi-stage runs that survive server restarts. Each completed step is checkpointed so restarts resume where they left off.
+Workflows are durable TypeScript scripts that chain agents, code steps, schedules, webhooks, issue/PR triggers, and human approvals into multi-stage runs that survive server restarts. Each completed step is checkpointed so restarts resume where they left off.
 
 Use a **scheduled task** for a single prompt on a timer or webhook; use a **workflow** for multi-stage pipelines (e.g., triage → fix → approval → release).
 
 ## Enable workflows
 
-Turn on **Settings → Labs → Workflows** on the server that will run them (or set `"workflowsEnabled": true` in `~/.cmdeck/userdata/settings.json` on headless servers). Existing runs pause while disabled and resume when re-enabled.
+Workflows are on by default. Turn them off or on again in **Settings → Labs → Workflows** on the server that runs them (or set `"workflowsEnabled"` in `~/.cmdeck/userdata/settings.json` on headless servers). Existing runs pause while disabled and resume when re-enabled.
+
+## Approve workflow files
+
+A workflow file runs inside the server with its full access, so CMDeck runs a new or changed file only after you approve it. Until then the Workflows page shows **Needs approval**: choose **Review**, read the file, and choose **Approve**. Your approval covers those exact contents. Any later edit, by you or an agent, needs approval again, and the last approved version keeps running until then. Saving a file in **Definitions** counts as approving it. Approvals are recorded in the [audit log](./audit-log.md).
+
+Approval covers the file itself, not other modules it imports. Approving needs terminal access to the server.
 
 ## Create a workflow
 
