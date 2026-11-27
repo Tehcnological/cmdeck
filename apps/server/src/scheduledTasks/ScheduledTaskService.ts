@@ -826,8 +826,9 @@ export const layer = Layer.effect(
 
     // A timed task that keeps failing would otherwise fail unattended on every occurrence, so the
     // Nth failed scheduled run in a row pauses it. Manual, held, stopped and interrupted runs are
-    // not counted; any completed run starts the count again.
-    const countFailedRun = (taskId: ScheduledTaskId, startedAtIso: string, error: string) =>
+    // not counted; any completed run starts the count again. `latestRunAt` limits the count to the
+    // run the row shows; a run's outcome passes null, since a newer dispatch may already show.
+    const countFailedRun = (taskId: ScheduledTaskId, latestRunAt: string | null, error: string) =>
       sql<{ enabled: number }>`
         UPDATE scheduled_tasks
         SET failure_streak = CASE WHEN failure_streak + 1 >= ${FAILED_RUNS_BEFORE_PAUSE}
@@ -837,8 +838,8 @@ export const layer = Layer.effect(
               THEN NULL ELSE next_run_at END,
             last_run_error = CASE WHEN failure_streak + 1 >= ${FAILED_RUNS_BEFORE_PAUSE}
               THEN ${pausedAfterFailuresError(error)} ELSE last_run_error END
-        WHERE task_id = ${taskId} AND last_run_at = ${startedAtIso}
-          AND last_run_status = 'failed' AND enabled = 1
+        WHERE task_id = ${taskId} AND enabled = 1
+          AND ${latestRunAt === null ? sql`1 = 1` : sql`last_run_at = ${latestRunAt} AND last_run_status = 'failed'`}
           AND json_extract(schedule_json, '$.type') IN ('interval', 'fixed_time', 'cron')
         RETURNING enabled
       `.pipe(Effect.map((rows) => rows[0]?.enabled === 0));
@@ -992,7 +993,8 @@ export const layer = Layer.effect(
               (at) => DateTime.toEpochMillis(at) > DateTime.toEpochMillis(now),
             )
           : Option.none();
-      // One transaction, so a list read never sees the failure without its hold or count.
+      // One transaction, so a list read never sees the failure without its hold or count. Only the
+      // display update needs this run to be the latest; a newer dispatch may already have started.
       const recorded = yield* sql.withTransaction(
         Effect.gen(function* () {
           const updated = yield* sql`
@@ -1003,20 +1005,23 @@ export const layer = Layer.effect(
                 OR (last_run_status = 'failed' AND last_run_error = ${HELD_OCCURRENCE_ERROR}))
             RETURNING task_id
           `;
-          if (updated.length === 0) return false;
           if (Option.isSome(resetAt)) {
             // Occurrences before the account's reset would only hit the limit again, so the
             // next one waits for it and runs once then.
-            yield* sql`
+            const held = yield* sql`
               UPDATE scheduled_tasks SET next_run_at = ${iso(resetAt.value)}
-              WHERE task_id = ${taskId} AND last_run_at = ${startedAtIso} AND enabled = 1
+              WHERE task_id = ${taskId} AND enabled = 1
                 AND next_run_at IS NOT NULL AND next_run_at < ${iso(resetAt.value)}
                 AND json_extract(schedule_json, '$.type') IN ('interval', 'fixed_time', 'cron')
+              RETURNING task_id
             `;
-          } else if (scheduled && run.status === "failed") {
-            yield* countFailedRun(taskId, startedAtIso, error);
+            return updated.length > 0 || held.length > 0;
           }
-          return true;
+          if (scheduled && run.status === "failed") {
+            yield* countFailedRun(taskId, null, error);
+            return true;
+          }
+          return updated.length > 0;
         }),
       );
       if (recorded) yield* notifyChanged;

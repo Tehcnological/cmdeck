@@ -3900,6 +3900,7 @@
   "c191069dded46bcc": "This environment is disconnected. Reconnect before saving.",
   "0d15db4c81851479": "Requests with the same key run only once within 7 days.",
   "a5bbe09b0c89d86c": "Coalescing runs the latest payload when the window from the first delivery closes. Empty keys run normally.",
+  "a70558dbbda312f4": "Change a cron schedule on web or desktop.",
   "0e2233fb297f7c07": "Intervals must be at least 1 minute. Update this interval before saving.",
   "5910fee0e62286fd": "This task previously ran more than once per minute. Saving requires an interval of at least 1 minute.",
   "831c6136a8c83755": "Time uses the environment's time zone, which may differ from your phone's.",

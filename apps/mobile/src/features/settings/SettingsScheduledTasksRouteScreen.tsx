@@ -1438,6 +1438,21 @@ function TaskForm({
                 </T>
               </Text>
             </>
+          ) : draft.schedule.mode === "cron" && draft.schedule.cron !== null ? (
+            // Shown, not edited: an interval field here would be saved over nothing.
+            <View className="gap-1 border-t border-border-subtle px-4 py-3">
+              <Text textRole="body" className="text-foreground">
+                {draft.schedule.cron.timeZone === undefined
+                  ? gt("Cron {expression}", { expression: draft.schedule.cron.expression })
+                  : gt("Cron {expression} {zone}", {
+                      expression: draft.schedule.cron.expression,
+                      zone: draft.schedule.cron.timeZone,
+                    })}
+              </Text>
+              <Text className="text-sm text-foreground-muted">
+                <T>Change a cron schedule on web or desktop.</T>
+              </Text>
+            </View>
           ) : (
             <>
               <FormField

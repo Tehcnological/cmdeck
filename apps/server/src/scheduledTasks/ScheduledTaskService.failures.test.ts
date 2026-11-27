@@ -241,6 +241,36 @@ it.effect("counts only failed runs in a row toward the pause", () =>
   }).pipe(Effect.scoped, Effect.provide(SqlitePersistence.layerMemory)),
 );
 
+it.effect("counts a run's failure even after a newer occurrence has started", () =>
+  Effect.gen(function* () {
+    yield* TestClock.setTime(Date.parse("2026-11-02T08:00:00.000Z"));
+    const { outcome, gate, sent, runDueWork, layer } = yield* boundThreadLayer;
+    yield* Effect.gen(function* () {
+      const service = yield* ScheduledTaskService.ScheduledTaskService;
+      yield* service.upsert(
+        yield* taskInput({ type: "interval", everyMs: 60_000 }, "thread:review"),
+      );
+      yield* Ref.set(outcome, {
+        status: "failed",
+        failure: { message: "The model is overloaded." },
+      });
+      // Three occurrences go out while every run is still going, then all three fail together.
+      const held = yield* Deferred.make<void>();
+      yield* Ref.set(gate, held);
+      for (let occurrence = 0; occurrence < 3; occurrence++) {
+        yield* TestClock.adjust("1 minute");
+        yield* Effect.flatten(Ref.get(runDueWork));
+      }
+      expect(yield* Ref.get(sent)).toHaveLength(3);
+      yield* Deferred.succeed(held, undefined);
+      expect(yield* awaitTask(service, (current) => !current.enabled)).toMatchObject({
+        nextRunAt: null,
+        lastRunError: "Paused after 3 failed runs in a row. Last error: The model is overloaded.",
+      });
+    }).pipe(Effect.provide(layer));
+  }).pipe(Effect.scoped, Effect.provide(SqlitePersistence.layerMemory)),
+);
+
 it.effect("holds a task at its account's usage limit and runs it once after the reset", () =>
   Effect.gen(function* () {
     yield* TestClock.setTime(Date.parse("2026-11-02T08:00:00.000Z"));

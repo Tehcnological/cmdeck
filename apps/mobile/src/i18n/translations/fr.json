@@ -3893,6 +3893,7 @@
   "c191069dded46bcc": "Cet environnement est déconnecté. Reconnectez-le avant d’enregistrer.",
   "0d15db4c81851479": "Les requêtes avec la même clé ne s’exécutent qu’une fois en 7 jours.",
   "a5bbe09b0c89d86c": "Le regroupement exécute la dernière charge utile quand la fenêtre ouverte par la première livraison se ferme. Les clés vides s’exécutent normalement.",
+  "a70558dbbda312f4": "Modifiez une planification cron sur le web ou sur ordinateur.",
   "0e2233fb297f7c07": "Les intervalles doivent être d’au moins 1 minute. Modifiez cet intervalle avant d’enregistrer.",
   "5910fee0e62286fd": "Cette tâche s’exécutait auparavant plus d’une fois par minute. L’enregistrement nécessite un intervalle d’au moins 1 minute.",
   "831c6136a8c83755": "L’heure suit le fuseau horaire de l’environnement, qui peut différer de celui de votre téléphone.",

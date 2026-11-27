@@ -3898,6 +3898,7 @@
   "c191069dded46bcc": "Diese Umgebung ist getrennt. Verbinde sie erneut, bevor du speicherst.",
   "0d15db4c81851479": "Anfragen mit demselben Schlüssel werden innerhalb von 7 Tagen nur einmal ausgeführt.",
   "a5bbe09b0c89d86c": "Beim Zusammenfassen wird die neueste Payload ausgeführt, wenn das Zeitfenster ab der ersten Zustellung endet. Leere Schlüssel werden normal ausgeführt.",
+  "a70558dbbda312f4": "Ändere einen Cron-Zeitplan im Web oder in der Desktop-App.",
   "0e2233fb297f7c07": "Intervalle müssen mindestens 1 Minute betragen. Passe dieses Intervall vor dem Speichern an.",
   "5910fee0e62286fd": "Diese Aufgabe lief bisher mehr als einmal pro Minute. Zum Speichern ist ein Intervall von mindestens 1 Minute nötig.",
   "831c6136a8c83755": "Die Uhrzeit verwendet die Zeitzone der Umgebung, die von der deines Smartphones abweichen kann.",
