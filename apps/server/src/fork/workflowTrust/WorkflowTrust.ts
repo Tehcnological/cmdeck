@@ -67,11 +67,12 @@ export class WorkflowTrust extends Context.Service<
   WorkflowTrust,
   {
     /**
-     * `load` `file` when its bytes are approved. While `load` runs, importing `file` gets the
-     * approved bytes, so a write after the check cannot swap what runs. A change loses approval.
+     * `load` `file` when `source`, as the caller read it, is approved. While `load` runs, importing
+     * `file` gets those bytes, so a write after the read cannot swap what runs. A change loses approval.
      */
     readonly gated: <A>(
       file: string,
+      source: string,
       load: (from: string) => Effect.Effect<A>,
     ) => Effect.Effect<A | Withheld>;
     /** Files held back since they were last looked at, as they are on disk now. */
@@ -119,20 +120,19 @@ const make = Effect.gen(function* () {
     if (held.delete(file)) yield* PubSub.publish(approved, file);
   });
 
-  const gated = <A>(file: string, load: (from: string) => Effect.Effect<A>) => {
+  const gated = <A>(file: string, source: string, load: (from: string) => Effect.Effect<A>) => {
     const withheld = (message: string): Withheld => ({
       problem: { message, file: path.basename(file) },
     });
     return Effect.gen(function* () {
-      const bytes = yield* fileSystem.readFile(file).pipe(Effect.option);
-      if (bytes._tag === "None") return withheld("It could not be read.");
-      const sha256 = yield* hash(bytes.value);
+      const bytes = new TextEncoder().encode(source);
+      const sha256 = yield* hash(bytes);
       const trusted = yield* approvalOf(file);
       if (trusted === sha256) {
         held.delete(file);
         serveApproved();
         const address = NodeURL.pathToFileURL(path.resolve(file)).href;
-        serving.set(address, bytes.value);
+        serving.set(address, bytes);
         return yield* load(file).pipe(Effect.ensuring(Effect.sync(() => serving.delete(address))));
       }
       if (trusted !== undefined) {

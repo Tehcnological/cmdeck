@@ -166,7 +166,7 @@ required=(
   # WI-1.06: workflow files load only once their exact bytes are approved; workflows default on (A2).
   'apps/server/src/workflows/WorkflowRuntime.ts:import \* as WorkflowTrust from "\.\./fork/workflowTrust/WorkflowTrust\.ts";'
   'apps/server/src/workflows/WorkflowRuntime.ts:const trust = yield\* WorkflowTrust\.WorkflowTrust;'
-  'apps/server/src/workflows/WorkflowRuntime.ts:const loaded = yield\* trust\.gated\(file, \(from\) => load\(from, name\)\);'
+  'apps/server/src/workflows/WorkflowRuntime.ts:const loaded = yield\* trust\.gated\(file, source\.value, \(from\) => load\(from, name\)\);'
   'apps/server/src/workflows/WorkflowRuntime.ts:yield\* trust\.record\(directory, name, source, "user"\);'
   'apps/server/src/workflows/WorkflowRuntime.ts:yield\* WorkflowTrust\.onApproved\(directory, seen, lock\.withPermits\(1\)\(reload\(\)\)\);'
   'apps/server/src/workflows/WorkflowRuntime.test.ts:WorkflowTrustTestkit\.make\(gated, database\)'

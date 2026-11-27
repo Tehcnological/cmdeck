@@ -53,20 +53,27 @@ export default tag("v1");
         }).pipe(Effect.orDie);
 
       yield* fileSystem.writeFileString(file, v1);
-      const withheld = yield* trust.gated(file, load);
+      const withheld = yield* trust.gated(file, v1, load);
       assert.equal(withheld.problem?.message, WorkflowTrust.NEEDS_APPROVAL);
       assert.deepStrictEqual(loaded, []);
       const [shown] = yield* trust.pending;
       assert.equal(shown?.source, v1);
       yield* trust.approve(shown!.path, shown!.sha256);
 
-      yield* trust.gated(file, load);
+      yield* trust.gated(file, v1, load);
       // The approved bytes ran, still able to import beside them, though the file changed first.
       assert.deepStrictEqual(loaded, ["approved v1"]);
 
-      assert.equal((yield* trust.gated(file, load)).problem?.message, WorkflowTrust.NEEDS_APPROVAL);
+      // The runtime reads the file as the agent left it.
+      assert.equal(
+        (yield* trust.gated(file, v2, load)).problem?.message,
+        WorkflowTrust.NEEDS_APPROVAL,
+      );
       yield* fileSystem.writeFileString(file, v1);
-      assert.equal((yield* trust.gated(file, load)).problem?.message, WorkflowTrust.NEEDS_APPROVAL);
+      assert.equal(
+        (yield* trust.gated(file, v1, load)).problem?.message,
+        WorkflowTrust.NEEDS_APPROVAL,
+      );
       assert.equal(loaded.length, 1);
       assert.include(
         (yield* Effect.flip(trust.approve(path.join(directory, "x.ts"), "0"))).message,
@@ -87,7 +94,7 @@ export default tag("v1");
     }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
 );
 
-it.effect("a held file stays held while it cannot be read for a moment", () =>
+it.effect("a file that cannot be read for a moment is still held and approvable", () =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -98,10 +105,10 @@ it.effect("a held file stays held while it cannot be read for a moment", () =>
     const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-trust-" });
     const file = path.join(directory, "flow.ts");
     yield* fileSystem.writeFileString(file, "v1");
-    yield* trust.gated(file, () => Effect.die("not approved"));
-
-    // An atomic save: the file is gone until the new one is renamed into place.
+    // An atomic save: the file is gone until the new one is renamed into place. The runtime read
+    // it just before, and the gate decides on what was read.
     yield* fileSystem.rename(file, `${file}.saving`);
+    yield* trust.gated(file, "v1", () => Effect.die("not approved"));
     assert.deepStrictEqual(yield* trust.pending, []);
     yield* fileSystem.rename(`${file}.saving`, file);
 
@@ -128,12 +135,16 @@ it.effect.skipIf(!symlinksSupported)(
       yield* fileSystem.writeFileString(unapproved, `export default "unapproved";\n`);
       yield* trust.record(directory, "flow.ts", `export default "approved";\n`, "user");
 
-      const loaded = yield* trust.gated(file, (from) =>
-        Effect.gen(function* () {
-          yield* fileSystem.remove(from);
-          yield* fileSystem.symlink(unapproved, from);
-          return (NodeModule.createRequire(from)(from) as { default: unknown }).default;
-        }).pipe(Effect.orDie),
+      const loaded = yield* trust.gated(
+        file,
+        `export default "approved";
+`,
+        (from) =>
+          Effect.gen(function* () {
+            yield* fileSystem.remove(from);
+            yield* fileSystem.symlink(unapproved, from);
+            return (NodeModule.createRequire(from)(from) as { default: unknown }).default;
+          }).pipe(Effect.orDie),
       );
       assert.equal(loaded, "approved");
     }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),

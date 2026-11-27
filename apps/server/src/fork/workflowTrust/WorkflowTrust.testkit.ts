@@ -11,7 +11,7 @@ import { WorkflowTrust, layer } from "./WorkflowTrust.ts";
 
 /** Trusts every file, for runtime tests about something other than the gate. */
 const trustingAll = WorkflowTrust.of({
-  gated: (file, load) => load(file),
+  gated: (file, _source, load) => load(file),
   pending: Effect.succeed([]),
   approve: () => Effect.void,
   record: () => Effect.void,

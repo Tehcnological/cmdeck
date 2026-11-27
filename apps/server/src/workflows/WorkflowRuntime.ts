@@ -467,7 +467,7 @@ export const make = Effect.fn("WorkflowRuntime.make")(function* <E, R>(
       if (Option.isNone(source) || seen.get(name) === source.value) continue;
       seen.set(name, source.value);
       changed = true;
-      const loaded = yield* trust.gated(file, (from) => load(from, name));
+      const loaded = yield* trust.gated(file, source.value, (from) => load(from, name));
       if (loaded.definitions === undefined) {
         broken.set(name, loaded.problem);
         pending.delete(name);
