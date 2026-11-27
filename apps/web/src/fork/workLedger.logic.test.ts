@@ -2,7 +2,12 @@ import { ThreadId, type WorkItem } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import { cmdeckSurface, decodeCmdeckSurface } from "./panelSurface";
-import { artifactEntries, openWorkerThreadIds, orderForDisplay } from "./workLedger.logic";
+import {
+  artifactEntries,
+  openWorkerThreadIds,
+  orderForDisplay,
+  workLedgerCommandRows,
+} from "./workLedger.logic";
 
 const item = (overrides: Partial<WorkItem>): WorkItem => ({
   id: "it_00000001",
@@ -42,6 +47,17 @@ describe("work ledger panel logic", () => {
       item({ id: "it_00000003", state: "rejected" }),
     ]);
     expect(ordered.map((entry) => entry.id)).toEqual(["it_00000002", "it_00000001", "it_00000003"]);
+  });
+
+  it("offers Start conductor only with permission to change the conductor role", () => {
+    expect(workLedgerCommandRows({ hasThread: true, canChangeConductor: true })).toEqual([
+      "start-conductor",
+      "open-work-ledger",
+    ]);
+    expect(workLedgerCommandRows({ hasThread: true, canChangeConductor: false })).toEqual([
+      "open-work-ledger",
+    ]);
+    expect(workLedgerCommandRows({ hasThread: false, canChangeConductor: true })).toEqual([]);
   });
 
   it("sorts artifacts by key", () => {

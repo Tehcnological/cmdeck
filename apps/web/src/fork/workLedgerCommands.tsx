@@ -1,6 +1,7 @@
+import { useAtomValue } from "@effect/atom-react";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
-import type { ScopedThreadRef } from "@t3tools/contracts";
+import type { EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
 import { useGT } from "gt-react";
 import { ListChecksIcon, WorkflowIcon } from "lucide-react";
 
@@ -11,6 +12,7 @@ import { useThreadRouteTarget } from "../hooks/useThreadRouteTarget";
 import { useRightPanelStore } from "../rightPanelStore";
 import { useAtomCommand } from "../state/use-atom-command";
 import { setConductor } from "./workLedger";
+import { type WorkLedgerCommandRow, workLedgerCommandRows } from "./workLedger.logic";
 
 const NO_COMMANDS: ReadonlyArray<CommandPaletteActionItem> = [];
 
@@ -29,10 +31,14 @@ export function useWorkLedgerCommandItems(): ReadonlyArray<CommandPaletteActionI
   const gt = useGT();
   const threadRef = useRouteThreadRef();
   const startConductor = useAtomCommand(setConductor, { reportFailure: false });
-  if (threadRef === null) return NO_COMMANDS;
+  const canChangeConductor = useAtomValue(
+    setConductor.permissionAtom(threadRef?.environmentId ?? ("" as EnvironmentId)),
+  );
+  const rows = workLedgerCommandRows({ hasThread: threadRef !== null, canChangeConductor });
+  if (threadRef === null || rows.length === 0) return NO_COMMANDS;
   const openLedger = () => useRightPanelStore.getState().openCmdeck(threadRef, "work-ledger");
-  return [
-    {
+  const items: Record<WorkLedgerCommandRow, CommandPaletteActionItem> = {
+    "start-conductor": {
       kind: "action",
       value: "action:cmdeck-start-conductor",
       searchTerms: ["conductor", "conduct", "orchestrate", "work ledger", "workers", "delegate"],
@@ -55,7 +61,7 @@ export function useWorkLedgerCommandItems(): ReadonlyArray<CommandPaletteActionI
         });
       },
     },
-    {
+    "open-work-ledger": {
       kind: "action",
       value: "action:cmdeck-open-work-ledger",
       searchTerms: ["work ledger", "work items", "conductor", "workers"],
@@ -63,5 +69,6 @@ export function useWorkLedgerCommandItems(): ReadonlyArray<CommandPaletteActionI
       icon: <ListChecksIcon className={ITEM_ICON_CLASS} />,
       run: async () => openLedger(),
     },
-  ];
+  };
+  return rows.map((row) => items[row]);
 }

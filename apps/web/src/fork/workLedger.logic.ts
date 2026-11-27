@@ -52,3 +52,17 @@ export function artifactEntries(
 ): ReadonlyArray<readonly [string, string]> {
   return Object.entries(artifacts).toSorted(([left], [right]) => left.localeCompare(right));
 }
+
+export type WorkLedgerCommandRow = "start-conductor" | "open-work-ledger";
+
+/**
+ * Palette rows for the open thread. Starting a conductor needs the environment's operate
+ * permission, as the panel's button does; reading the ledger does not.
+ */
+export function workLedgerCommandRows(input: {
+  readonly hasThread: boolean;
+  readonly canChangeConductor: boolean;
+}): ReadonlyArray<WorkLedgerCommandRow> {
+  if (!input.hasThread) return [];
+  return input.canChangeConductor ? ["start-conductor", "open-work-ledger"] : ["open-work-ledger"];
+}
