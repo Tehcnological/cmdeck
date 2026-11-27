@@ -94,6 +94,10 @@ Join both devices to a tailnet with [MagicDNS and HTTPS certificates](https://ta
 
 On web and desktop with 2+ connected machines, enable **Settings → Environments → Load balancing** (per client) to auto-select a host for new threads in shared projects. Set each machine to **Prefer**, **Normal**, **Less often**, or **Manual only**.
 
+### Choose where new threads start
+
+On web and desktop with 2+ machines, set **Settings → Threads → New threads → Default environment** (per device) to start new threads on that machine whenever their project is there too. While it is offline, new threads start on the current machine and the composer says so. Load balancing, when on, picks the machine instead.
+
 ## Desktop-managed SSH
 
 In the desktop app, open **Settings → Environments → Add environment → SSH** and enter a host or SSH alias (e.g. `user@example.com`). CMDeck downloads its runtime to `~/.cmdeck/runtime` on the Linux or Apple Silicon macOS host, starts or reuses a server, and manages port forwarding automatically.

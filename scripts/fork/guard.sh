@@ -137,6 +137,17 @@ required=(
   'apps/server/src/serverLogger.ts:redactingSecrets\(redactingCredentials\(Logger\.consolePretty\(\)\)\)'
   'apps/server/src/feedback/scrubFeedback.ts:\.\.\.SECRET_PATTERNS,'
   'apps/server/src/scheduledTasks/webhookTemplate.ts:expression\.includes\("\."\) \? text : redactSecrets\(text\)'
+  # WI-1.10: new threads start on the default environment; the composer says when it is offline.
+  'apps/web/src/components/Sidebar.tsx:startNewThreadFromContext, +\} from "\.\./fork/defaultThreadEnvironment"'
+  'apps/web/src/components/Sidebar.tsx:handleNewThread\( *preferDefaultThreadEnvironment\('
+  'apps/web/src/components/CommandPalette.tsx:startNewThreadFromContext, +\} from "\.\./fork/defaultThreadEnvironment"'
+  'apps/web/src/components/CommandPalette.tsx:handleNewThread\( *preferDefaultThreadEnvironment\('
+  'apps/web/src/shortcuts/chatRouteCommands.ts:import \{ startNewThreadFromContext \} from "\.\./fork/defaultThreadEnvironment"'
+  'apps/web/src/routes/_chat.index.tsx:handleNewThread\(preferDefaultThreadEnvironment\(projectRef\)'
+  'apps/web/src/components/ChatView.tsx:useForkComposerBannerItems\('
+  'apps/web/src/components/ChatView.tsx:\.\.\.forkComposerBannerItems,'
+  'apps/web/src/components/settings/ProjectDefaultsSettings.tsx:<DefaultThreadEnvironmentRow />'
+  'apps/web/src/components/settings/settingsSearch.ts:\.\.\.FORK_SETTINGS_SEARCH_ITEMS,'
 )
 for entry in "${required[@]}"; do
   file="${entry%%:*}"
