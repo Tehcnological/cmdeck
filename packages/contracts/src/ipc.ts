@@ -1237,6 +1237,9 @@ export interface DesktopBridge {
   /** Close-to-tray and launch-at-login; absent in desktop builds without a tray. */
   getTraySettings?: () => Promise<DesktopTraySettings>;
   setTraySettings?: (update: DesktopTraySettingsUpdate) => Promise<DesktopTraySettings>;
+  /** Spellcheck on Linux, which downloads dictionaries; resolves to the saved value. */
+  getLinuxSpellcheck: () => Promise<boolean>;
+  setLinuxSpellcheck: (enabled: boolean) => Promise<boolean>;
   pickFolder: (options?: PickFolderOptions) => Promise<string | null>;
   /** Maps a Windows path to the one a local backend (`primary` or `wsl:…`) sees; null when it cannot. */
   toLocalBackendPath: (backendId: string, windowsPath: string) => Promise<string | null>;

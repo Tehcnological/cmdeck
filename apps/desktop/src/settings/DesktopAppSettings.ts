@@ -39,6 +39,8 @@ export interface DesktopSettings {
   readonly updateChannelConfiguredByUser: boolean;
   // Off: no startup or 4-hourly checks; Check for updates still works.
   readonly updateAutoCheck: boolean;
+  // Linux only: Hunspell downloads dictionaries from Google; Windows and macOS use the OS spellchecker.
+  readonly linuxSpellcheck: boolean;
   readonly wslBackendEnabled: boolean;
   readonly wslDistro: string | null;
   // Requires restart because the pool chooses its primary spec at layer initialization.
@@ -88,6 +90,7 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   updateChannel: "latest",
   updateChannelConfiguredByUser: false,
   updateAutoCheck: true,
+  linuxSpellcheck: false,
   wslBackendEnabled: false,
   wslDistro: null,
   wslOnly: false,
@@ -119,6 +122,7 @@ const DesktopSettingsDocument = Schema.Struct({
   updateChannel: optionalReadableKey(DesktopUpdateChannelSchema),
   updateChannelConfiguredByUser: optionalReadableKey(Schema.Boolean),
   updateAutoCheck: optionalReadableKey(Schema.Boolean),
+  linuxSpellcheck: optionalReadableKey(Schema.Boolean),
   wslBackendEnabled: optionalReadableKey(Schema.Boolean),
   wslMode: optionalReadableKey(Schema.Literals(["local", "wsl"])),
   wslDistro: optionalReadableKey(Schema.NullOr(Schema.String)),
@@ -188,6 +192,9 @@ export class DesktopAppSettings extends Context.Service<
       channel: DesktopUpdateChannel,
     ) => Effect.Effect<DesktopSettingsChange, DesktopSettingsWriteError>;
     readonly setUpdateAutoCheck: (
+      enabled: boolean,
+    ) => Effect.Effect<DesktopSettingsChange, DesktopSettingsWriteError>;
+    readonly setLinuxSpellcheck: (
       enabled: boolean,
     ) => Effect.Effect<DesktopSettingsChange, DesktopSettingsWriteError>;
     readonly setWslBackendEnabled: (
@@ -261,6 +268,7 @@ function normalizeDesktopSettingsDocument(
       : defaultSettings.updateChannel,
     updateChannelConfiguredByUser,
     updateAutoCheck: parsed.updateAutoCheck !== false,
+    linuxSpellcheck: parsed.linuxSpellcheck === true,
     wslBackendEnabled,
     wslDistro: normalizeWslDistro(parsed.wslDistro),
     wslOnly: parsed.wslOnly === true,
@@ -315,6 +323,9 @@ function toDesktopSettingsDocument(
   }
   if (settings.updateAutoCheck !== defaults.updateAutoCheck) {
     document.updateAutoCheck = settings.updateAutoCheck;
+  }
+  if (settings.linuxSpellcheck !== defaults.linuxSpellcheck) {
+    document.linuxSpellcheck = settings.linuxSpellcheck;
   }
   if (settings.closeToTray !== defaults.closeToTray) {
     document.closeToTray = settings.closeToTray;
@@ -410,6 +421,12 @@ function setUpdateAutoCheck(settings: DesktopSettings, enabled: boolean): Deskto
   return settings.updateAutoCheck === enabled
     ? settings
     : { ...settings, updateAutoCheck: enabled };
+}
+
+function setLinuxSpellcheck(settings: DesktopSettings, enabled: boolean): DesktopSettings {
+  return settings.linuxSpellcheck === enabled
+    ? settings
+    : { ...settings, linuxSpellcheck: enabled };
 }
 
 function setWslOnly(settings: DesktopSettings, enabled: boolean): DesktopSettings {
@@ -649,6 +666,11 @@ export const make = Effect.gen(function* () {
 
       return yield* persist((settings) => setUpdateAutoCheck(settings, enabled));
     }),
+    setLinuxSpellcheck: Effect.fn("desktop.settings.setLinuxSpellcheck")(function* (enabled) {
+      yield* Effect.annotateCurrentSpan({ enabled });
+
+      return yield* persist((settings) => setLinuxSpellcheck(settings, enabled));
+    }),
     setWslOnly: Effect.fn("desktop.settings.setWslOnly")(function* (enabled) {
       yield* Effect.annotateCurrentSpan({ enabled });
 
@@ -723,6 +745,9 @@ export const layerTest = (initialSettings: DesktopSettings = DEFAULT_DESKTOP_SET
         }),
         setUpdateAutoCheck: Effect.fn("DesktopAppSettings.setUpdateAutoCheck")(function (enabled) {
           return update((settings) => setUpdateAutoCheck(settings, enabled));
+        }),
+        setLinuxSpellcheck: Effect.fn("DesktopAppSettings.setLinuxSpellcheck")(function (enabled) {
+          return update((settings) => setLinuxSpellcheck(settings, enabled));
         }),
         setWslOnly: Effect.fn("DesktopAppSettings.setWslOnly")(function (enabled) {
           return update((settings) => setWslOnly(settings, enabled));

@@ -42,6 +42,7 @@ import { AboutVersionTitle } from "./AboutVersionTitle";
 import { CliCommandSettingsRow } from "./CliCommandSettingsRow";
 import { UninstallSettingsSection } from "./UninstallSettingsSection";
 import { DesktopTraySettings } from "./DesktopTraySettings";
+import { DesktopLinuxSpellcheckSetting } from "./DesktopLinuxSpellcheckSetting";
 import { getDesktopTrayBridge } from "~/state/desktopTraySettings";
 import { MobileAppSettingsRow } from "./MobileAppSettingsRow";
 import {
@@ -1159,6 +1160,7 @@ export function GeneralSettingsPanel() {
       {getDesktopTrayBridge() ? (
         <SettingsSection id="desktop-app" title={gt("Desktop app")}>
           <DesktopTraySettings />
+          <DesktopLinuxSpellcheckSetting />
         </SettingsSection>
       ) : null}
 

@@ -258,6 +258,7 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
               testSettings = { ...testSettings, updateAutoCheck: enabled };
               return { settings: testSettings, changed };
             }),
+          setLinuxSpellcheck: () => Effect.die("unexpected spellcheck toggle"),
           setTraySettings: () => Effect.die("unexpected tray settings change"),
           applyWslWindowsFallback: Effect.die("unexpected WSL Windows fallback"),
           applyWslWindowsFallbackInMemory: Effect.die("unexpected WSL Windows fallback"),

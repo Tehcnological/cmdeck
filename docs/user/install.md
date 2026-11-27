@@ -70,6 +70,9 @@ from the same releases. The T3 Code releases, `winget`, Scoop, Homebrew, AUR, an
 all install the official T3 Code. You can also build the desktop app from a CMDeck checkout
 ([development setup](../operations/00_development.md#first-checkout)).
 
+On Linux, spellcheck starts off, because turning it on downloads spelling dictionaries from Google.
+Turn it on in **Settings → General → Spellcheck**.
+
 ### The `cmdeck` command
 
 The desktop app bundles the command-line tool as `cmdeck`, with `t3` as a second name, and sets it up on first launch (manage anytime under **Settings → About → cmdeck command**). On macOS and Linux it adds a `cmdeck` link in `~/.local/bin` (or `~/bin`), and a `t3` link beside it when no other `t3` is there; on Windows it adds the app's command folder, which holds both, to your `PATH`. Use **Add to PATH** if needed, then open a new terminal. Another `t3`, such as the official T3 Code's, stays as it is; use `cmdeck` for CMDeck.
