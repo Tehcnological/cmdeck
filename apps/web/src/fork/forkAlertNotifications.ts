@@ -1,5 +1,10 @@
 import { createEnvironmentRpcSubscriptionAtomFamily } from "@t3tools/client-runtime/state/runtime";
-import { CMDECK_WS_METHODS, type EnvironmentId, type ForkAlert } from "@t3tools/contracts";
+import {
+  CMDECK_WS_METHODS,
+  type EnvironmentId,
+  type ForkAlert,
+  ThreadId,
+} from "@t3tools/contracts";
 import { AsyncResult } from "effect/reactivity";
 
 import { stackedThreadToast, toastManager } from "../components/ui/toast";
@@ -11,6 +16,7 @@ import {
   hasDesktopNotifications,
   hasNotificationSound,
   playNotificationSound,
+  threadNotificationTag,
 } from "../threadNotifications";
 
 const forkAlerts = createEnvironmentRpcSubscriptionAtomFamily(connectionAtomRuntime, {
@@ -52,7 +58,8 @@ export function startForkAlertNotifications(): () => void {
     try {
       const notification = new Notification(alert.title, {
         body: alert.body,
-        tag: `cmdeck-alert:${key}`,
+        // Hashed: Windows drops notifications with long tags.
+        tag: threadNotificationTag(environmentId, ThreadId.make(`cmdeck-alert:${alert.id}`)),
         silent: true,
       });
       notification.addEventListener("click", () => {
