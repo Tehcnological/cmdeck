@@ -21,6 +21,7 @@ export const makeIsServerInternalPath = Effect.gen(function* () {
     );
     return (
       isWithinRoot(path, file, secretsDir) ||
+      isWithinRoot(path, file, path.join(path.dirname(stateDir), "keys")) || // Fork: secrets key (WI-2.17).
       (path.dirname(file) === stateDir && path.basename(file).includes(".sqlite")) ||
       // macOS does not resolve `/dev/fd/N` to the open file's path.
       isWithinRoot(path, file, "/dev/fd")
