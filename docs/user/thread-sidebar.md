@@ -81,6 +81,7 @@ The server automatically links open PRs matching an unsettled thread's branch. O
 
 On web and desktop, subagents, side chats, and [threads on linked machines](./remote-access.md#read-a-linked-machines-threads) open as a tab in the right panel by default so your main thread stays visible.
 
+- To put any other thread beside the one you are in, right-click it in the sidebar and choose **Open beside**. It opens with its composer, so you can work in both. This works for threads on the same machine; close it with its tab.
 - Hold `Cmd`/`Ctrl` while clicking (or middle-click) to open in the main view instead.
 - Change the default in **Settings → Chat → Open subagents and side chats in**.
 - From a right-panel tab, choose **Open in main view** to promote it.

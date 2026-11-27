@@ -183,6 +183,7 @@ import {
   isThreadTriageAction,
   threadActionRequiresOperate,
 } from "./threadActionMenu.logic";
+import { canOpenThreadBeside, openThreadBeside } from "../fork/openThreadBeside";
 import {
   applySidebarThreadDrop,
   filterSidebarV2VisibleThreads,
@@ -2772,6 +2773,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                 canShareWithGuestAtom(threadRef.environmentId),
               ),
               canTurnIntoProject: canTurnThreadIntoProject(threadRef),
+              canOpenBeside: canOpenThreadBeside(threadRef, routeThreadRef),
               canRename: !fromSearch,
               supports: {
                 settlement: configLoaded,
@@ -2806,6 +2808,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           return;
         }
         switch (clicked.value) {
+          case "open-beside":
+            if (openThreadBeside(threadRef, routeThreadRef) && isMobile) setOpenMobile(false);
+            return;
           case "filter-by-project":
             if (threadProjectGroup) {
               setProjectScopeKeys(
