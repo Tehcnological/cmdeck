@@ -14,8 +14,7 @@ import { connectionAtomRuntime } from "../connection/runtime";
 import { useAtomCommand } from "../state/use-atom-command";
 import { usePrimaryEnvironmentId } from "../state/environments";
 import { workflowEnvironmentFor } from "./commands.logic";
-
-const NO_FORK_COMMANDS: ReadonlyArray<CommandPaletteActionItem> = [];
+import { useDesignCritiqueCommandItem } from "./designCritiqueCommand";
 
 const installPreset = createEnvironmentRpcCommand(connectionAtomRuntime, {
   label: "environment-data:cmdeck:workflow-preset-install",
@@ -32,9 +31,10 @@ export function useForkCommandItems(): ReadonlyArray<CommandPaletteActionItem> {
   );
   const canInstall = useAtomValue(installPreset.permissionAtom(environmentId));
   const install = useAtomCommand(installPreset, { reportFailure: false });
-  if (environmentId === null || !canInstall) return NO_FORK_COMMANDS;
-  return [
-    {
+  const designCritique = useDesignCritiqueCommandItem();
+  const items: Array<CommandPaletteActionItem> = [];
+  if (environmentId !== null && canInstall) {
+    items.push({
       kind: "action",
       value: "action:cmdeck:task-runner",
       searchTerms: ["task runner", "spec builder", "spec", "plan", "tasks", "workflow", "preset"],
@@ -58,6 +58,8 @@ export function useForkCommandItems(): ReadonlyArray<CommandPaletteActionItem> {
           search: { env: environmentId, file: "task-runner.ts" },
         });
       },
-    },
-  ];
+    });
+  }
+  if (designCritique !== null) items.push(designCritique);
+  return items;
 }
