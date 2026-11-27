@@ -3061,6 +3061,8 @@
   "40a2b0980cccf0f5": "Bot",
   "e430a19d2a330c23": "Nouveau bot",
   "e88cdcbf63966b96": "Un agent persistant avec son propre fil épinglé et une mémoire privée",
+  "cdbeeaaa0371bb84": "Ajouter le workflow Task Runner",
+  "d11c0fe527862ae6": "Impossible d’ajouter Task Runner",
   "9b2f6da5bd526fb2": "Votre environnement par défaut n’est pas connecté",
   "b52720786b8d772e": "{environment} n’est pas connecté",
   "b8c9370425928547": "Ce fil démarre sur {environment}.",
