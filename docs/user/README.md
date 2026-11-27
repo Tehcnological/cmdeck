@@ -71,6 +71,7 @@ T3 Code is an open-source control plane for coding agents. It gives the coding a
 - [Project configuration (`t3.json`) and actions](./t3-json.md) — Checked-in repo config, setup/dev/settle scripts, and schema reference.
 - [Projects with several repositories](./multi-repo-projects.md) — Multi-repo folders, external folders, submodules, and custom worktree layouts.
 - [Workflows](./workflows.md) — Durable multi-stage TypeScript workflows (Labs) with schedules, webhooks, and approvals.
+- [Task Runner](./task-runner.md) — A ready-made workflow that plans, runs, checks and reviews a change task by task.
 - [Text generation models](./text-generation.md) — Fast/cheap API models for titles, commits, PR descriptions, and voice cleanup.
 - [Appearance and themes](./appearance.md) — Built-in themes, custom palettes/CSS, background images, LaTeX math, and environment themes.
 - [Keybindings](./keybindings.md) — Shortcuts, `keybindings.json` syntax, `when` conditions, and hardware keyboards.
