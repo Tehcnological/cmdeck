@@ -73,6 +73,133 @@ const ScheduledTaskOnceSchedule = Schema.Struct({
   ),
 });
 
+const CRON_FIELDS = [
+  { label: "minute", min: 0, max: 59 },
+  { label: "hour", min: 0, max: 23 },
+  { label: "day-of-month", min: 1, max: 31 },
+  {
+    label: "month",
+    min: 1,
+    max: 12,
+    names: ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"],
+  },
+  {
+    label: "day-of-week",
+    min: 0,
+    max: 7,
+    names: ["sun", "mon", "tue", "wed", "thu", "fri", "sat"],
+  },
+] as const;
+
+const CRON_MAX_MONTH_DAYS = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+export interface CronExpression {
+  readonly minutes: ReadonlyArray<number>;
+  readonly hours: ReadonlyArray<number>;
+  readonly daysOfMonth: ReadonlyArray<number>;
+  readonly months: ReadonlyArray<number>;
+  /** 0 is Sunday. */
+  readonly daysOfWeek: ReadonlyArray<number>;
+  /** When both day fields are restricted, cron runs on a day matching either. */
+  readonly anyDayOfMonth: boolean;
+  readonly anyDayOfWeek: boolean;
+}
+
+/** Parses a five-field cron expression, or returns why it cannot run. */
+export function parseCronExpression(expression: string): CronExpression | string {
+  const parts = expression.trim().split(/\s+/);
+  if (parts.length !== 5) {
+    return "A cron expression has five fields: minute hour day-of-month month day-of-week.";
+  }
+  const fields: number[][] = [];
+  for (const [index, field] of CRON_FIELDS.entries()) {
+    const text = parts[index]!.toLowerCase();
+    const invalid = `The ${field.label} field "${parts[index]}" is not valid.`;
+    const toNumber = (token: string) => {
+      const named = "names" in field ? (field.names as ReadonlyArray<string>).indexOf(token) : -1;
+      if (named >= 0) return named + field.min;
+      return /^\d+$/.test(token) ? Number(token) : Number.NaN;
+    };
+    const values = new Set<number>();
+    for (const item of text.split(",")) {
+      const match = /^(\*|(\w+)(?:-(\w+))?)(?:\/(\d+))?$/.exec(item);
+      if (!match) return invalid;
+      const [, , from, to, stepText] = match;
+      const low = from === undefined ? field.min : toNumber(from);
+      const high =
+        from === undefined
+          ? field.max
+          : to !== undefined
+            ? toNumber(to)
+            : stepText
+              ? field.max
+              : low;
+      const step = stepText === undefined ? 1 : Number(stepText);
+      if (!(low >= field.min && high <= field.max && low <= high && step >= 1)) return invalid;
+      // 7 is Sunday too.
+      for (let value = low; value <= high; value += step)
+        values.add(field.max === 7 ? value % 7 : value);
+    }
+    fields.push([...values].sort((a, b) => a - b));
+  }
+  const [minutes, hours, daysOfMonth, months, daysOfWeek] = fields as [
+    number[],
+    number[],
+    number[],
+    number[],
+    number[],
+  ];
+  const anyDayOfMonth = parts[2]!.startsWith("*");
+  const anyDayOfWeek = parts[4]!.startsWith("*");
+  if (
+    !anyDayOfMonth &&
+    anyDayOfWeek &&
+    !months.some((month) => daysOfMonth[0]! <= CRON_MAX_MONTH_DAYS[month - 1]!)
+  ) {
+    return "This cron expression never runs: none of its months has that day.";
+  }
+  return { minutes, hours, daysOfMonth, months, daysOfWeek, anyDayOfMonth, anyDayOfWeek };
+}
+
+export function isValidTimeZone(timeZone: string): boolean {
+  try {
+    return new Intl.DateTimeFormat("en-US", { timeZone }).resolvedOptions().timeZone !== "";
+  } catch {
+    return false;
+  }
+}
+
+const cronExpressionDescription = {
+  description: "Minute hour day month weekday, such as `0 9 * * 1-5`.",
+};
+const cronTimeZoneDescription = {
+  description: "IANA zone, such as Europe/London. Default: server zone.",
+};
+
+const ScheduledTaskCronSchedule = Schema.Struct({
+  type: Schema.Literal("cron"),
+  expression: TrimmedNonEmptyString.annotate(cronExpressionDescription),
+  timeZone: Schema.optional(TrimmedNonEmptyString.annotate(cronTimeZoneDescription)),
+});
+
+// Checked by filter, so the readable reason reaches the caller and the tool schema stays small.
+const ScheduledTaskUpsertCronSchedule = Schema.Struct({
+  type: Schema.Literal("cron"),
+  expression: TrimmedNonEmptyString.check(
+    Schema.makeFilter((value) => {
+      const parsed = parseCronExpression(value);
+      return typeof parsed === "string" ? parsed : true;
+    }),
+  ).annotate(cronExpressionDescription),
+  timeZone: Schema.optional(
+    TrimmedNonEmptyString.check(
+      Schema.makeFilter(
+        (value) => isValidTimeZone(value) || "Expected an IANA time zone, such as Europe/London.",
+      ),
+    ).annotate(cronTimeZoneDescription),
+  ),
+});
+
 const ScheduledTaskWebhookSignatureFields = {
   header: TrimmedNonEmptyString.annotate({
     description: "Header with the signature, such as x-hub-signature-256.",
@@ -196,6 +323,7 @@ export const ScheduledTaskSchedule = Schema.Union([
   ScheduledTaskFixedTimeSchedule,
   ScheduledTaskOnceSchedule,
   ScheduledTaskWebhookSchedule,
+  ScheduledTaskCronSchedule,
 ]);
 export type ScheduledTaskSchedule = typeof ScheduledTaskSchedule.Type;
 
@@ -211,6 +339,7 @@ export const ScheduledTaskUpsertSchedule = Schema.Union([
   ScheduledTaskFixedTimeSchedule,
   ScheduledTaskOnceSchedule,
   ScheduledTaskUpsertWebhookSchedule,
+  ScheduledTaskUpsertCronSchedule,
 ]);
 export type ScheduledTaskUpsertSchedule = typeof ScheduledTaskUpsertSchedule.Type;
 
