@@ -39,8 +39,8 @@ export function LabsSettingsPanel() {
     <SettingsPageContainer>
       <SettingsSection id="beta" title={gt("Beta")}>
         <BoringSidebarRow />
-        {/* Clerk is only mounted when this build has T3 Connect. */}
-        {hasCloudPublicConfig() ? <GuestLinksRowWithSignIn /> : <GuestLinksRow />}
+        {/* Guests arrive through T3 Connect, and Clerk is only mounted when this build has it. */}
+        {hasCloudPublicConfig() ? <GuestLinksRowWithSignIn /> : null}
         <LinkedEnvironmentsRow />
         <WorkflowsRow />
         <WorkflowSkippedRunsRow />
@@ -220,7 +220,7 @@ function WorkflowsRow() {
       {...searchableSetting("workflows-beta")}
       settingKeys={["workflowsEnabled"]}
       description={gt(
-        "Run multi-step workflows from files in the workflows folder of this server's T3 home. Open them from the command palette. While off, nothing in that folder runs; runs wait until it is on again.",
+        "Run multi-step workflows from files in the workflows folder of this server's CMDeck data folder. Open them from the command palette. While off, nothing in that folder runs; runs wait until it is on again.",
       )}
       control={
         <ScopedSwitch
@@ -381,7 +381,7 @@ function FastWorktreeCheckoutRow() {
       {...searchableSetting("worktree-fast-checkout")}
       settingKeys={["fastWorktreeCheckout"]}
       description={gt(
-        "On a Mac, clone new worktrees from a checkout cached in the T3 home folder instead of writing every file. Uses Git’s normal checkout when it can’t. Turning it off deletes the cache.",
+        "On a Mac, clone new worktrees from a checkout cached in the CMDeck data folder instead of writing every file. Uses Git’s normal checkout when it can’t. Turning it off deletes the cache.",
       )}
       control={
         <ScopedSwitch
@@ -403,12 +403,12 @@ const AGENT_FEEDBACK_MODE_LABELS: Record<AgentFeedbackMode, string> = {
   auto: msg("Automatic"),
 };
 const AGENT_FEEDBACK_MODE_DESCRIPTIONS: Record<AgentFeedbackMode, string> = {
-  off: msg("Agents send no feedback to the T3 team."),
+  off: msg("Agents write no feedback reports."),
   "on-request": msg(
-    "When you ask, agents show you a short report about CMDeck and send it to the T3 team if you approve.",
+    "When you ask, agents show you a short report about CMDeck and save it on this machine if you approve. Nothing is sent anywhere; `cmdeck feedback list` shows saved reports.",
   ),
   auto: msg(
-    "Agents also report CMDeck problems they hit on their own, such as a T3 tool that failed.",
+    "Agents also save reports on this machine about CMDeck problems they hit on their own, such as a CMDeck tool that failed. Nothing is sent anywhere; `cmdeck feedback list` shows saved reports.",
   ),
 };
 

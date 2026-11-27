@@ -3716,9 +3716,6 @@
   "c53bc5a4b0314342": "Média suivant",
   "2950b1424a3cddf5": "Reconnectez-vous à cet environnement et ouvrez à nouveau le média.",
   "ef638bf1479a5461": "L’environnement a renvoyé une URL de média non valide.",
-  "3ccfbf7e86868c35": "Retour pour l'équipe T3",
-  "4e0710d19dfc2e7e": "Envoyer ce rapport à l'équipe T3 ?",
-  "87d0ae0723ba75d1": "Voici tout ce qui quitte votre machine. Rien n'est envoyé tant que vous ne cliquez pas sur Envoyer.",
   "bf19826f81484328": "Inclure la conversation",
   "260c6b45f52d2f27": "Ajoute le texte de vos messages et des réponses de l'agent dans {textTurns, plural, one {le dernier tour} other {les {textTurns} derniers tours}}.",
   "ddb7e6f8ce99e657": "Seule une personne autorisée à exécuter des agents sur cette machine peut l'envoyer ou le refuser.",
@@ -9102,9 +9099,6 @@
   "90a258fff61fd77e": "Désactivé",
   "4060244a7079a0d2": "À ma demande",
   "e88c9d8769544731": "Automatique",
-  "f29d1dade4dde8aa": "Les agents n'envoient aucun retour à l'équipe T3.",
-  "de707744183cf556": "À votre demande, les agents vous présentent un court rapport sur CMDeck et l'envoient à l'équipe T3 si vous l'approuvez.",
-  "d923a2ab40a6995c": "Les agents signalent aussi spontanément les problèmes qu'ils rencontrent dans CMDeck, comme un outil T3 qui échoue.",
   "45fa271ea0e1ac8e": "Bêta",
   "3a678332fc7142f7": "Regroupe les fils de la barre latérale dans des dossiers de projet. Les fils épinglés restent en haut, les fils reportés et clos restent sous les dossiers.",
   "e4e91d155cb6a9b4": "Barre latérale classique (regrouper par projet)",
@@ -9113,12 +9107,10 @@
   "9ae293971d93c819": "Partagez un fil avec un invité qui le suit en direct dans un navigateur et envoie des messages que vous approuvez. Connectez-vous à T3 Connect pour utiliser les liens invités.",
   "0aa5406ac4d7f7c7": "Liens invités",
   "f0e853acd2006d53": "Environnements associés",
-  "ef10c2dff987f3ea": "Exécutez des workflows en plusieurs étapes à partir des fichiers du dossier workflows du répertoire T3 de ce serveur. Ouvrez-les depuis la palette de commandes. Tant que c'est désactivé, rien dans ce dossier ne s'exécute ; les exécutions attendent sa réactivation.",
   "2dadb2359422121c": "Workflows",
   "13e86eb5d8287a71": "Affiche un prochain message suggéré dans la zone de saisie vide après un tour Claude ou Codex. Tab l’utilise. Chaque suggestion est une requête en cache supplémentaire sur votre forfait. Nécessite Codex 0.165+. Les fils Claude se mettent à jour au redémarrage.",
   "d4b2a2ec812aafb0": "Suggérer le prochain prompt",
   "298c7150a7621c80": "Hôtes d’appareils Simlock",
-  "67937aa49179285e": "Sur Mac, clone les nouveaux worktrees depuis une copie en cache dans le dossier T3 home au lieu d’écrire chaque fichier. Utilise le checkout Git normal quand ce n’est pas possible. La désactivation supprime le cache.",
   "f9904f78d3003f58": "Checkout rapide des worktrees",
   "9c2f647882522302": "Les machines sélectionnées utilisent des modes de retour des agents différents.",
   "31bbf7bf8c0a5279": "Retours des agents",
@@ -11369,7 +11361,6 @@
   "189c753a02fed5f2": "Modifications non commitées",
   "8ccc880c41e5e646": "Fichiers suivis modifiés",
   "dde724d790183148": "{counts} sur chaque machine",
-  "96fde8cda73aa873": "Dossier où les nouveaux worktrees sont créés, sur n’importe quel disque, comme D:\\worktrees ou ~/worktrees. Les worktrees existants restent où ils sont. Laissez vide pour utiliser le dossier T3 home.",
   "c7d07d2bed742b25": "Réinitialiser l’emplacement des worktrees à la valeur par défaut",
   "da6138080e9709f7": "Emplacement des worktrees",
   "8711a1de99862971": "Diminuer {label}",
@@ -12216,7 +12207,6 @@
   "3188bc3b3c4508bc": "Politique de confidentialité",
   "901a823214edc8c4": "télémétrie analytique données d’utilisation suivi mentions légales refuser",
   "659d081051faf7ff": "journaux traces processus historique des ressources échecs spans cpu mémoire",
-  "5eaeacfa9f82051a": "rapport bug problème t3 équipe envoyer retour agents outils automatique à ma demande",
   "ddb106ab26630f97": "Désinstaller CMDeck",
   "5516cab467b1b717": "désinstaller supprimer effacer données réinitialiser",
   "f537f91e1ee41d47": "raccourcis clavier touches commandes associations json",
@@ -13417,5 +13407,24 @@
       "v": "v"
     },
     " de plus dans Éléments associés"
-  ]
+  ],
+  "5550a9715aa710bc": "Rapport de retour",
+  "2d3818b85bdf085c": "Envoyer ce rapport dans votre journal de retours ?",
+  "1aad922ccb0d09dd": [
+    "Il est enregistré uniquement sur cette machine et ne va nulle part ailleurs. Rien n'est enregistré tant que vous ne cliquez pas sur Envoyer. ",
+    {
+      "t": "code",
+      "i": 1,
+      "c": "cmdeck feedback list"
+    },
+    " affiche les rapports enregistrés."
+  ],
+  "c92c16628a6c3b0b": "Les agents ne rédigent aucun rapport de retour.",
+  "a477ec4b82f888f8": "À votre demande, les agents vous présentent un court rapport sur CMDeck et l'enregistrent sur cette machine si vous l'approuvez. Rien n'est envoyé nulle part ; `cmdeck feedback list` affiche les rapports enregistrés.",
+  "c55d82ec800783a1": "Les agents enregistrent aussi spontanément sur cette machine des rapports sur les problèmes qu'ils rencontrent dans CMDeck, comme un outil CMDeck qui échoue. Rien n'est envoyé nulle part ; `cmdeck feedback list` affiche les rapports enregistrés.",
+  "be812977ea260bdd": "Exécutez des workflows en plusieurs étapes à partir des fichiers du dossier workflows du dossier de données CMDeck de ce serveur. Ouvrez-les depuis la palette de commandes. Tant que c'est désactivé, rien dans ce dossier ne s'exécute ; les exécutions attendent sa réactivation.",
+  "de8dae8f48dfda33": "Sur Mac, clone les nouveaux worktrees depuis une copie en cache dans le dossier de données CMDeck au lieu d’écrire chaque fichier. Utilise le checkout Git normal quand ce n’est pas possible. La désactivation supprime le cache.",
+  "7e646ee82d9ab4ac": "Réseau local uniquement",
+  "01f12c6924ddfc4c": "rapport bug problème retour agents outils automatique à ma demande enregistré local liste",
+  "8e7530b7d7d35742": "Dossier où les nouveaux worktrees sont créés, sur n’importe quel disque, comme D:\\worktrees ou ~/worktrees. Les worktrees existants restent où ils sont. Laissez vide pour utiliser le dossier de données CMDeck."
 }

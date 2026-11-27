@@ -74,6 +74,6 @@ Open **Settings → Providers** and click **Update now** on individual providers
 ## Troubleshooting
 
 - **Version mismatch**: Update whichever side (app or server) the connection notice names.
-- **Failed update**: Retry once; confirm you updated the host machine (not just the client) and that only one server owns the T3 home directory.
+- **Failed update**: Retry once; confirm you updated the host machine (not just the client) and that only one server owns the CMDeck data folder.
 - **macOS Alpha → Beta**: Open `/Applications/CMDeck (Beta).app` manually and re-pin it to the Dock.
 - **Desktop won't start**: Use the recovery window's **Update** button, install the linked last-working version, or **Copy details** for a bug report.

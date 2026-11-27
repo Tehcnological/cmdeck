@@ -26,9 +26,9 @@ Run your existing [Pi](https://pi.dev) (**0.84.3+**, Node.js **22.19+**) install
 
 **Auto** is not supported (behaves as Supervised). Changing modes restarts the Pi session and resumes the same conversation. Note that permissions govern Pi tool calls—not an OS sandbox.
 
-## T3 tools
+## CMDeck tools
 
-Pi's **T3 tools** setting chooses which CMDeck tools Pi sees. **Full** offers all of them. **Lean** offers only delegation, thread, project, worktree, secret and scheduling tools, which leaves a local model more context; Pi then cannot use the in-app browser, devices, HTML renders or pull request tools. **Automatic** uses Lean when the instance is linked to an enabled inference server and Full otherwise.
+Pi's **CMDeck tools** setting chooses which CMDeck tools Pi sees. **Full** offers all of them. **Lean** offers only delegation, thread, project, worktree, secret and scheduling tools, which leaves a local model more context; Pi then cannot use the in-app browser, devices, HTML renders or pull request tools. **Automatic** uses Lean when the instance is linked to an enabled inference server and Full otherwise.
 
 ## Compaction on linked servers
 

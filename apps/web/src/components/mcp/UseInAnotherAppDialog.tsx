@@ -81,6 +81,8 @@ const close = () => appAtomRegistry.set(requestAtom, null);
 /** Hosted once at the root, so Cmd-K and Settings can open it from anywhere. */
 export function UseInAnotherAppDialogHost() {
   const request = useAtomValue(requestAtom);
+  // Its gate calls Clerk, which is only mounted when this build has T3 Connect.
+  if (!hasCloudPublicConfig()) return null;
   return request === null ? null : <UseInAnotherAppDialog requested={request.environmentId} />;
 }
 

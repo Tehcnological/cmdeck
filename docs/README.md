@@ -20,7 +20,7 @@ New to CMDeck? Start with the **[User Guide & Index](./user/README.md)** for how
 
 ### Remote, security & operations
 
-- [Remote access](./user/remote-access.md) · [Encrypted remote control](./user/encrypted-remote-control.md) · [Cloudflare Tunnel](./user/cloudflare-tunnel.md) · [T3 Connect troubleshooting (removed)](./user/t3-connect-troubleshooting.md) · [Mobile notifications](./user/mobile-notifications.md) · [Guest links](./user/guest-links.md)
+- [Remote access](./user/remote-access.md) · [Encrypted remote control](./user/encrypted-remote-control.md) · [Cloudflare Tunnel](./user/cloudflare-tunnel.md) · [T3 Connect troubleshooting (removed)](./user/t3-connect-troubleshooting.md) · [Mobile notifications](./user/mobile-notifications.md) · [Guest links (needs T3 Connect, removed)](./user/guest-links.md)
 - [Outside agents (MCP)](./user/outside-agents.md) · [Remote MCP with a token](./user/remote-mcp.md) · [Secrets](./user/secrets.md) ([1Password service account](./user/secrets-1password-service-account.md) · [1Password Connect](./user/secrets-1password-connect.md))
 - [Background service](./user/background-service.md) · [Close to tray and launch at login](./user/close-to-tray.md) · [Updating CMDeck](./user/updating.md) · [Usage and limits](./user/usage.md) · [Maintenance & diagnostics](./user/diagnostics.md)
 - [CLI reference (`t3`)](./user/cli.md) · [Telemetry and network calls](./user/telemetry.md) · [Managed policy](./user/managed-policy.md) · [Triage an issue](./user/triage.md) · [V1 migration](./user/thread-migration.md) · [Portable handoffs](./user/portable-handoffs.md) · [Question attachments](./user/question-attachments.md) · [Open source licenses](./user/open-source-licenses.md)

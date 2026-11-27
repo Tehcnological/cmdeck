@@ -26,7 +26,7 @@ New services bind to localhost only. Run `t3 up --lan` (sets `T3CODE_LAN=true` i
 
 ## Configure the service environment
 
-Add `KEY=VALUE` entries to `service.env` in your T3 home directory (`~/.cmdeck/service.env` by default). Values are literal (quote spaces or `#`; no shell expansion) and survive installs and updates.
+Add `KEY=VALUE` entries to `service.env` in your CMDeck data folder (`~/.cmdeck/service.env` by default). Values are literal (quote spaces or `#`; no shell expansion) and survive installs and updates.
 
 ```dotenv
 T3CODE_PORT=3783

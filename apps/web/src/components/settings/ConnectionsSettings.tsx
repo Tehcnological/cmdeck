@@ -155,7 +155,11 @@ import {
 } from "./SavedEnvironmentRows";
 import { AddEnvironmentDialog } from "./AddEnvironmentDialog";
 import { CloudflareTunnelSettings, RemoteMcpSettings } from "./RemoteAccessSettings";
-import { externalBaseUrl, tunnelPairingEndpoint } from "./RemoteAccessSettings.logic";
+import {
+  externalBaseUrl,
+  remoteMcpAddresses,
+  tunnelPairingEndpoint,
+} from "./RemoteAccessSettings.logic";
 import {
   type ConnectDeviceRevokeRequest,
   RevokeConnectDeviceDialog,
@@ -1581,7 +1585,12 @@ function ConnectionsSettingsContent({
               <RemoteMcpSettings
                 environmentId={accessEnvironmentId}
                 serverConfig={accessServerConfig}
-                externalBaseUrl={accessExternalBaseUrl}
+                addresses={remoteMcpAddresses(
+                  accessPublicBaseUrl,
+                  visibleDesktopAdvertisedEndpoints,
+                  accessExternalBaseUrl,
+                  m,
+                )}
                 canRead={canReadAccess}
                 canWrite={canWriteAccess}
               />

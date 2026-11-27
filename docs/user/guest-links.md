@@ -1,5 +1,9 @@
 # Guest links
 
+> This build removes T3 Connect, which guest links need, so CMDeck does not offer them:
+> **Settings → Labs** has no Guest links row and **Share with guest** is hidden. The rest of this
+> page describes the official T3 Code app.
+
 Share a single thread with a teammate in their browser—no account required. Guests see messages and agent activity stream live, and any message they send waits for your approval before running.
 
 ## Prerequisites and sharing

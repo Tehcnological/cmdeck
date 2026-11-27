@@ -11,7 +11,7 @@ CMDeck negotiates ACP v2 preview when supported and falls back to ACP v1 automat
 
 ## Installation and updates
 
-Registry agents run on your CMDeck server (including when accessed remotely) and install under `<t3-home>/tools/<agent-id>/<version>/` with SHA-256 verification when provided. CMDeck checks for Registry updates in the background and installs them on the next provider refresh. Set **Executable override** to use your own local binary instead.
+Registry agents run on your CMDeck server (including when accessed remotely) and install under `<CMDeck data folder>/tools/<agent-id>/<version>/` with SHA-256 verification when provided. CMDeck checks for Registry updates in the background and installs them on the next provider refresh. Set **Executable override** to use your own local binary instead.
 
 ## Sign in
 

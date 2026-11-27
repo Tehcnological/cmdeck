@@ -3716,9 +3716,6 @@
   "c53bc5a4b0314342": "Next media",
   "2950b1424a3cddf5": "Reconnect to this environment and open the media again.",
   "ef638bf1479a5461": "The environment returned an invalid media URL.",
-  "3ccfbf7e86868c35": "Feedback for the T3 team",
-  "4e0710d19dfc2e7e": "Send this report to the T3 team?",
-  "87d0ae0723ba75d1": "This is everything that leaves your machine. Nothing is sent unless you press Send.",
   "bf19826f81484328": "Include the conversation",
   "260c6b45f52d2f27": "Adds the text of your messages and the agent's replies in the last {textTurns, plural, one {turn} other {{textTurns} turns}}.",
   "ddb7e6f8ce99e657": "Only someone who can run agents on this machine can send or decline it.",
@@ -9111,9 +9108,6 @@
   "90a258fff61fd77e": "Off",
   "4060244a7079a0d2": "When I ask",
   "e88c9d8769544731": "Automatic",
-  "f29d1dade4dde8aa": "Agents send no feedback to the T3 team.",
-  "de707744183cf556": "When you ask, agents show you a short report about CMDeck and send it to the T3 team if you approve.",
-  "d923a2ab40a6995c": "Agents also report CMDeck problems they hit on their own, such as a T3 tool that failed.",
   "45fa271ea0e1ac8e": "Beta",
   "3a678332fc7142f7": "Group sidebar threads into project folders. Pinned threads stay on top, and Snoozed and Settled stay below the folders.",
   "e4e91d155cb6a9b4": "Boring sidebar (group by project)",
@@ -9122,12 +9116,10 @@
   "9ae293971d93c819": "Share a thread with a guest who watches it live in a browser and sends messages you approve. Sign in to T3 Connect to use guest links.",
   "0aa5406ac4d7f7c7": "Guest links",
   "f0e853acd2006d53": "Linked environments",
-  "ef10c2dff987f3ea": "Run multi-step workflows from files in the workflows folder of this server's T3 home. Open them from the command palette. While off, nothing in that folder runs; runs wait until it is on again.",
   "2dadb2359422121c": "Workflows",
   "13e86eb5d8287a71": "Show a predicted next message in the empty composer after a Claude or Codex turn. Tab uses it. Each is an extra cached request on your plan. Needs Codex 0.165+. Claude threads update on restart.",
   "d4b2a2ec812aafb0": "Suggest next prompt",
   "298c7150a7621c80": "Simlock device hosts",
-  "67937aa49179285e": "On a Mac, clone new worktrees from a checkout cached in the T3 home folder instead of writing every file. Uses Git’s normal checkout when it can’t. Turning it off deletes the cache.",
   "f9904f78d3003f58": "Fast worktree checkout",
   "9c2f647882522302": "The selected machines use different agent feedback modes.",
   "31bbf7bf8c0a5279": "Agent feedback",
@@ -11379,7 +11371,6 @@
   "189c753a02fed5f2": "Uncommitted changes",
   "8ccc880c41e5e646": "Edited tracked files",
   "dde724d790183148": "{counts} on every machine",
-  "96fde8cda73aa873": "Folder where new worktrees are created, on any drive, such as D:\\worktrees or ~/worktrees. Existing worktrees stay where they are. Leave empty to use the T3 home folder.",
   "c7d07d2bed742b25": "Reset worktree location to default",
   "da6138080e9709f7": "Worktree location",
   "8711a1de99862971": "Decrease {label}",
@@ -12226,7 +12217,6 @@
   "3188bc3b3c4508bc": "Privacy policy",
   "901a823214edc8c4": "telemetry analytics usage data tracking legal opt out",
   "659d081051faf7ff": "logs traces processes resource history failures spans cpu memory",
-  "5eaeacfa9f82051a": "report bug problem t3 team send feedback agents tools automatic when i ask",
   "ddb106ab26630f97": "Uninstall CMDeck",
   "5516cab467b1b717": "uninstall remove delete data reset",
   "f537f91e1ee41d47": "keyboard shortcuts hotkeys commands bindings json",
@@ -13426,5 +13416,24 @@
       "v": "v"
     },
     " more in Linked items"
-  ]
+  ],
+  "5550a9715aa710bc": "Feedback report",
+  "2d3818b85bdf085c": "Send this report to your feedback log?",
+  "1aad922ccb0d09dd": [
+    "It is saved only on this machine and goes nowhere else. Nothing is saved unless you press Send. ",
+    {
+      "t": "code",
+      "i": 1,
+      "c": "cmdeck feedback list"
+    },
+    " shows saved reports."
+  ],
+  "c92c16628a6c3b0b": "Agents write no feedback reports.",
+  "a477ec4b82f888f8": "When you ask, agents show you a short report about CMDeck and save it on this machine if you approve. Nothing is sent anywhere; `cmdeck feedback list` shows saved reports.",
+  "c55d82ec800783a1": "Agents also save reports on this machine about CMDeck problems they hit on their own, such as a CMDeck tool that failed. Nothing is sent anywhere; `cmdeck feedback list` shows saved reports.",
+  "be812977ea260bdd": "Run multi-step workflows from files in the workflows folder of this server's CMDeck data folder. Open them from the command palette. While off, nothing in that folder runs; runs wait until it is on again.",
+  "de8dae8f48dfda33": "On a Mac, clone new worktrees from a checkout cached in the CMDeck data folder instead of writing every file. Uses Git’s normal checkout when it can’t. Turning it off deletes the cache.",
+  "7e646ee82d9ab4ac": "Local network only",
+  "01f12c6924ddfc4c": "report bug problem feedback agents tools automatic when i ask saved local list",
+  "8e7530b7d7d35742": "Folder where new worktrees are created, on any drive, such as D:\\worktrees or ~/worktrees. Existing worktrees stay where they are. Leave empty to use the CMDeck data folder."
 }

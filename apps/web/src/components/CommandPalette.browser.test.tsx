@@ -51,6 +51,12 @@ vi.mock("../state/entities", async (original) => ({
   useDelegatedUnderParent: () => entities.delegatedUnderParent,
 }));
 
+const cloud = vi.hoisted(() => ({ configured: false }));
+vi.mock("../cloud/publicConfig", async (original) => ({
+  ...(await original<typeof import("../cloud/publicConfig")>()),
+  hasCloudPublicConfig: () => cloud.configured,
+}));
+
 function setup(state: Partial<typeof entities> = {}) {
   // Earlier browser test files share this origin's localStorage; a remembered project
   // that is not listed here hides the default "New thread in <project>" row.
@@ -61,6 +67,7 @@ function setup(state: Partial<typeof entities> = {}) {
   entities.activeThread = state.activeThread;
   entities.delegatedUnderParent = state.delegatedUnderParent ?? new Set();
   entities.handleNewThread.mockClear();
+  cloud.configured = false;
 }
 
 function makeProject(title: string): Project {
@@ -383,5 +390,31 @@ describe("CommandPalette open intents", () => {
 
     await userEvent.keyboard("{Escape}");
     await expect.element(palette).not.toBeInTheDocument();
+  });
+});
+
+describe("CommandPalette Use in another app (MCP)", () => {
+  const title = "Use CMDeck in another app (MCP)";
+
+  it("is listed when the build has T3 Connect", async () => {
+    setup();
+    cloud.configured = true;
+    await using _screen = await render(<CommandPalette>{null}</CommandPalette>);
+
+    openCommandPalette({ query: "mcp" });
+
+    await expect.element(page.getByRole("option", { name: title })).toBeVisible();
+  });
+
+  it("is absent without T3 Connect, since its wizard needs Clerk", async () => {
+    setup();
+    await using _screen = await render(<CommandPalette>{null}</CommandPalette>);
+
+    openCommandPalette({ query: "mcp" });
+
+    await expect
+      .element(page.getByPlaceholder("Search commands, projects, and threads..."))
+      .toHaveValue("mcp");
+    expect(page.getByRole("option", { name: title }).query()).toBeNull();
   });
 });

@@ -95,6 +95,9 @@ required=(
   'scripts/build-desktop-artifact.ts:com\.tehcnological\.cmdeck'
   'scripts/build-desktop-artifact.ts:owner: APP_RELEASE_OWNER, +repo: APP_RELEASE_REPO,'
   'apps/server/src/bin.ts:applyAppHomeEnv'
+  # Fork tables are created from upstream's migrator; taking upstream's file drops them silently.
+  'apps/server/src/persistence/Migrations.ts:import \{ ensureForkSchema \} from "\./ForkSchema\.ts"'
+  'apps/server/src/persistence/Migrations.ts:yield\* ensureForkSchema\(\)'
   # What the fork turned off. Line breaks are matched as spaces.
   'apps/server/src/policy/managedLimits.ts:export const allowsConnect = \(_policy: PolicyDocument\): boolean => false;'
   'apps/web/src/cloud/publicConfig.ts:return \{ clerkPublishableKey: null, clerkJwtTemplate: null, relayUrl: null \};'

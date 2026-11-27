@@ -106,7 +106,7 @@ only**. A text-only result applies to sessions that start afterwards. A day late
 returns as **Check images again**, in case the server now runs different weights under the same
 name.
 
-Linked Pi instances also offer Pi a lean set of T3 tools by default; see
+Linked Pi instances also offer Pi a lean set of CMDeck tools by default; see
 [T3 Tools](./providers-pi.md#t3-tools). They also compact long threads from the server's prompt
 cache; see [Compaction on Linked Servers](./providers-pi.md#compaction-on-linked-servers).
 

@@ -96,7 +96,7 @@ export const homeOwnedMessage = (owner: Option.Option<HomeOwner>): string =>
     onNone: () =>
       m(
         msg(
-          "Another CMDeck server, such as the background service, is using this data directory, or an older background service is set up for it. Stop that server or try `t3 update`. If the older launcher cannot update, run `t3 service uninstall` and optionally reinstall with `t3 service install` from a current CLI. Reinstall CMDeck from your build mirror if `t3` is missing or outdated, and pass `--base-dir` with the service's T3 home to each command. Then reopen CMDeck. You can also set a separate T3CODE_HOME and pair with the running server.",
+          "Another CMDeck server, such as the background service, is using this data directory, or an older background service is set up for it. Stop that server or try `t3 update`. If the older launcher cannot update, run `t3 service uninstall` and optionally reinstall with `t3 service install` from a current CLI. Reinstall CMDeck from your build mirror if `t3` is missing or outdated, and pass `--base-dir` with the service's CMDeck data folder to each command. Then reopen CMDeck. You can also set a separate T3CODE_HOME and pair with the running server.",
         ),
       ),
     onSome: (owner) => {
@@ -109,13 +109,13 @@ export const homeOwnedMessage = (owner: Option.Option<HomeOwner>): string =>
         return owner.serverVersion
           ? m(
               msg(
-                "The CMDeck background service is using this T3 home (PID {pid}, port {port}, version {version}). Stop it with `t3 service uninstall`, passing `--base-dir` with this T3 home, and reopen CMDeck. You can also set a separate T3CODE_HOME and pair with the running server.",
+                "The CMDeck background service is using this CMDeck data folder (PID {pid}, port {port}, version {version}). Stop it with `t3 service uninstall`, passing `--base-dir` with this CMDeck data folder, and reopen CMDeck. You can also set a separate T3CODE_HOME and pair with the running server.",
               ),
               variables,
             )
           : m(
               msg(
-                "The CMDeck background service is using this T3 home (PID {pid}, port {port}). Stop it with `t3 service uninstall`, passing `--base-dir` with this T3 home, and reopen CMDeck. You can also set a separate T3CODE_HOME and pair with the running server.",
+                "The CMDeck background service is using this CMDeck data folder (PID {pid}, port {port}). Stop it with `t3 service uninstall`, passing `--base-dir` with this CMDeck data folder, and reopen CMDeck. You can also set a separate T3CODE_HOME and pair with the running server.",
               ),
               variables,
             );
@@ -123,13 +123,13 @@ export const homeOwnedMessage = (owner: Option.Option<HomeOwner>): string =>
       return owner.serverVersion
         ? m(
             msg(
-              "Another CMDeck server (for example `t3 serve`, or one started over SSH) is using this T3 home (PID {pid}, port {port}, version {version}). If a CMDeck app on another machine started it over SSH, that app restarts it: remove or disconnect that SSH environment there, or quit that app. Then stop the server, and reopen CMDeck. You can also set a separate T3CODE_HOME and pair with the running server.",
+              "Another CMDeck server (for example `t3 serve`, or one started over SSH) is using this CMDeck data folder (PID {pid}, port {port}, version {version}). If a CMDeck app on another machine started it over SSH, that app restarts it: remove or disconnect that SSH environment there, or quit that app. Then stop the server, and reopen CMDeck. You can also set a separate T3CODE_HOME and pair with the running server.",
             ),
             variables,
           )
         : m(
             msg(
-              "Another CMDeck server (for example `t3 serve`, or one started over SSH) is using this T3 home (PID {pid}, port {port}). If a CMDeck app on another machine started it over SSH, that app restarts it: remove or disconnect that SSH environment there, or quit that app. Then stop the server, and reopen CMDeck. You can also set a separate T3CODE_HOME and pair with the running server.",
+              "Another CMDeck server (for example `t3 serve`, or one started over SSH) is using this CMDeck data folder (PID {pid}, port {port}). If a CMDeck app on another machine started it over SSH, that app restarts it: remove or disconnect that SSH environment there, or quit that app. Then stop the server, and reopen CMDeck. You can also set a separate T3CODE_HOME and pair with the running server.",
             ),
             variables,
           );

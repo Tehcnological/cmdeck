@@ -559,6 +559,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: msg("Guest links"),
     to: "/settings/labs",
     scope: "environment",
+    cloudOnly: true,
     searchTerms: [msg("beta share guest invite link teammate watch t3 connect tunnel")],
   },
   {
@@ -1045,7 +1046,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     scope: "environment-defaults",
     agentFeedbackOnly: true,
     searchTerms: [
-      msg("report bug problem t3 team send feedback agents tools automatic when i ask"),
+      msg("report bug problem feedback agents tools automatic when i ask saved local list"),
     ],
   },
   {

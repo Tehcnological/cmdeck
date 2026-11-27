@@ -4,13 +4,15 @@ Connect external agents (Claude Code or Codex in your terminal, ChatGPT, or any 
 
 ## Quick setup
 
-Open the command palette (`Cmd/Ctrl+K`) and run **Use CMDeck in another app (MCP)** (or open **Settings → Sharing & access**), pick your app, choose what it may do, and follow the prompts.
+In the app, add a remote MCP server with OAuth and paste the environment's MCP URL (below). Apps that require their own client ID cannot connect.
 
-- The wizard gives the app the environment's own address followed by `/mcp`: the address this device is connected over, or this computer's when the environment runs here. Nothing goes through T3 Connect.
+- The MCP URL is the environment's own address followed by `/mcp`. Nothing goes through T3 Connect.
 - Cloud assistants (like ChatGPT, Poke, or Claude) can only use it if that address is reachable from the internet, for example through a [Cloudflare Tunnel](./cloudflare-tunnel.md) you run. A Tailscale address only works from your own tailnet.
-- When the app opens the sign-in page, paste the code the wizard gives you. A code works once, for 5 minutes, and approves only the level you picked.
+- When the app opens the sign-in page, [approve it](#approve-access-and-permissions).
 - Clients without OAuth support can use a [remote MCP token](./remote-mcp.md) from **Settings → Sharing & access** or `cmdeck auth mcp-token create` instead.
 - To copy the raw MCP endpoint (`https://<environment-address>/mcp`), open an environment's menu in **Settings → Environments → Copy MCP URL**. OAuth requires `https://` or `localhost` (plain `http://` LAN/Tailscale addresses such as `http://100.x.y.z:3783` cannot complete OAuth).
+
+The official T3 Code app also has a **Use T3 Code in another app (MCP)** wizard. It needs T3 Connect, so CMDeck does not show it.
 
 ### CLI clients and ChatGPT
 
@@ -28,7 +30,7 @@ Open the command palette (`Cmd/Ctrl+K`) and run **Use CMDeck in another app (MCP
 
 ## Approve access and permissions
 
-The first time an outside agent connects, approve its sign-in page (via an already-authorized browser, or a one-time code from **Use CMDeck in another app (MCP)**, **Settings → Sharing & access**, or `t3 auth pairing create`).
+The first time an outside agent connects, approve its sign-in page (via an already-authorized browser, or a one-time code from **Settings → Sharing & access** or `t3 auth pairing create`).
 
 - **Read only**: Inspect projects, threads, providers, and models.
 - **Supervised → Full access**: Also launch, message, and stop threads up to the granted permission mode. Managing [workflow runs](./workflows.md) or using approval-skipping agent modes requires **Full access** (or your policy's maximum mode).

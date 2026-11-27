@@ -66,9 +66,13 @@ the default data directory.
 
 ## Connect a client
 
-The URL is the environment's `https` address followed by `/mcp`. **Remote MCP** in
-Settings shows it, using your [Cloudflare Tunnel address](./cloudflare-tunnel.md#7-tell-cmdeck-the-address)
-when you have set one. Every request sends `Authorization: Bearer <your-token>`.
+The URL is the environment's address followed by `/mcp`. **MCP address** under **Remote MCP**
+in Settings lists every address it knows for the machine, each with its own **Copy**: your
+[Cloudflare Tunnel address](./cloudflare-tunnel.md#7-tell-cmdeck-the-address) when you have set
+one, then Tailscale (the [Tailscale HTTPS](./remote-access.md#tailscale-https) name when
+Tailscale Serve answers, else the tailnet IP), then the local network address, marked
+**Local network only**. Only the desktop app knows the Tailscale and local network addresses; in
+a browser, the list shows the tunnel or, without one, the address that browser uses. Every request sends `Authorization: Bearer <your-token>`.
 
 ### Claude Code
 

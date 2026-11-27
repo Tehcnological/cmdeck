@@ -3716,9 +3716,6 @@
   "c53bc5a4b0314342": "Próxima mídia",
   "2950b1424a3cddf5": "Reconecte-se a este ambiente e abra a mídia novamente.",
   "ef638bf1479a5461": "O ambiente retornou uma URL de mídia inválida.",
-  "3ccfbf7e86868c35": "Feedback para a equipe do T3",
-  "4e0710d19dfc2e7e": "Enviar este relatório para a equipe do T3?",
-  "87d0ae0723ba75d1": "Isto é tudo o que sai da sua máquina. Nada é enviado até você clicar em Enviar.",
   "bf19826f81484328": "Incluir a conversa",
   "260c6b45f52d2f27": "Adiciona o texto das suas mensagens e das respostas do agente {textTurns, plural, one {no último turno} other {nos últimos {textTurns} turnos}}.",
   "ddb7e6f8ce99e657": "Somente quem pode executar agentes nesta máquina pode enviar ou recusar o relatório.",
@@ -9101,9 +9098,6 @@
   "90a258fff61fd77e": "Desativado",
   "4060244a7079a0d2": "Quando eu pedir",
   "e88c9d8769544731": "Automático",
-  "f29d1dade4dde8aa": "Os agentes não enviam feedback para a equipe do T3.",
-  "de707744183cf556": "Quando você pede, os agentes mostram um breve relatório sobre o CMDeck e o enviam para a equipe do T3 se você aprovar.",
-  "d923a2ab40a6995c": "Os agentes também relatam por conta própria os problemas que encontram no CMDeck, como uma ferramenta do T3 que falhou.",
   "45fa271ea0e1ac8e": "Beta",
   "3a678332fc7142f7": "Agrupa as threads da barra lateral em pastas de projeto. As threads fixadas ficam no topo, e Adiadas e Concluídas ficam abaixo das pastas.",
   "e4e91d155cb6a9b4": "Barra lateral sem graça (agrupar por projeto)",
@@ -9112,12 +9106,10 @@
   "9ae293971d93c819": "Compartilhe uma thread com um convidado que a acompanha ao vivo no navegador e envia mensagens que você aprova. Entre no T3 Connect para usar links de convidado.",
   "0aa5406ac4d7f7c7": "Links de convidado",
   "f0e853acd2006d53": "Ambientes vinculados",
-  "ef10c2dff987f3ea": "Execute workflows de várias etapas a partir de arquivos na pasta workflows da pasta T3 deste servidor. Abra-os pela paleta de comandos. Enquanto estiver desativado, nada dessa pasta é executado; as execuções aguardam até que seja ativado novamente.",
   "2dadb2359422121c": "Workflows",
   "13e86eb5d8287a71": "Mostra uma próxima mensagem prevista no editor vazio após um turno do Claude ou do Codex. Tab a usa. Cada uma é uma requisição extra em cache no seu plano. Requer Codex 0.165+. As threads do Claude são atualizadas ao reiniciar.",
   "d4b2a2ec812aafb0": "Sugerir próximo prompt",
   "298c7150a7621c80": "Hosts de dispositivos Simlock",
-  "67937aa49179285e": "No Mac, clona novos worktrees a partir de um checkout em cache na pasta T3 home em vez de gravar cada arquivo. Usa o checkout normal do Git quando não consegue. Desativar exclui o cache.",
   "f9904f78d3003f58": "Checkout rápido de worktree",
   "9c2f647882522302": "As máquinas selecionadas usam modos diferentes de feedback dos agentes.",
   "31bbf7bf8c0a5279": "Feedback dos agentes",
@@ -11369,7 +11361,6 @@
   "189c753a02fed5f2": "Alterações sem commit",
   "8ccc880c41e5e646": "Arquivos rastreados editados",
   "dde724d790183148": "{counts} em todas as máquinas",
-  "96fde8cda73aa873": "Pasta onde os novos worktrees são criados, em qualquer unidade, como D:\\worktrees ou ~/worktrees. Os worktrees existentes ficam onde estão. Deixe vazio para usar a pasta T3 home.",
   "c7d07d2bed742b25": "Redefinir o local dos worktrees para o padrão",
   "da6138080e9709f7": "Local dos worktrees",
   "8711a1de99862971": "Diminuir {label}",
@@ -12216,7 +12207,6 @@
   "3188bc3b3c4508bc": "Política de privacidade",
   "901a823214edc8c4": "telemetria analytics dados de uso rastreamento legal desativar",
   "659d081051faf7ff": "logs traces processos histórico de recursos falhas spans cpu memória",
-  "5eaeacfa9f82051a": "relatório bug problema t3 equipe enviar feedback agentes ferramentas automático quando eu pedir",
   "ddb106ab26630f97": "Desinstalar o CMDeck",
   "5516cab467b1b717": "desinstalar remover excluir apagar dados redefinir",
   "f537f91e1ee41d47": "atalhos de teclado teclas de atalho comandos bindings json",
@@ -13417,5 +13407,24 @@
       "v": "v"
     },
     " mais em Itens vinculados"
-  ]
+  ],
+  "5550a9715aa710bc": "Relatório de feedback",
+  "2d3818b85bdf085c": "Enviar este relatório para o seu registro de feedback?",
+  "1aad922ccb0d09dd": [
+    "Ele é salvo apenas nesta máquina e não vai para nenhum outro lugar. Nada é salvo até você clicar em Enviar. ",
+    {
+      "t": "code",
+      "i": 1,
+      "c": "cmdeck feedback list"
+    },
+    " mostra os relatórios salvos."
+  ],
+  "c92c16628a6c3b0b": "Os agentes não escrevem relatórios de feedback.",
+  "a477ec4b82f888f8": "Quando você pede, os agentes mostram um breve relatório sobre o CMDeck e o salvam nesta máquina se você aprovar. Nada é enviado para lugar nenhum; `cmdeck feedback list` mostra os relatórios salvos.",
+  "c55d82ec800783a1": "Os agentes também salvam nesta máquina, por conta própria, relatórios dos problemas que encontram no CMDeck, como uma ferramenta do CMDeck que falhou. Nada é enviado para lugar nenhum; `cmdeck feedback list` mostra os relatórios salvos.",
+  "be812977ea260bdd": "Execute workflows de várias etapas a partir de arquivos na pasta workflows da pasta de dados do CMDeck deste servidor. Abra-os pela paleta de comandos. Enquanto estiver desativado, nada dessa pasta é executado; as execuções aguardam até que seja ativado novamente.",
+  "de8dae8f48dfda33": "No Mac, clona novos worktrees a partir de um checkout em cache na pasta de dados do CMDeck em vez de gravar cada arquivo. Usa o checkout normal do Git quando não consegue. Desativar exclui o cache.",
+  "7e646ee82d9ab4ac": "Somente na rede local",
+  "01f12c6924ddfc4c": "relatório bug problema feedback agentes ferramentas automático quando eu pedir salvo local lista",
+  "8e7530b7d7d35742": "Pasta onde os novos worktrees são criados, em qualquer unidade, como D:\\worktrees ou ~/worktrees. Os worktrees existentes ficam onde estão. Deixe vazio para usar a pasta de dados do CMDeck."
 }
