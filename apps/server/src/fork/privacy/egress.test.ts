@@ -30,6 +30,7 @@ import * as ServerSecretStore from "../../auth/ServerSecretStore.ts";
 import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
 import * as ServerConfig from "../../config.ts";
 import * as ServerEnvironment from "../../environment/ServerEnvironment.ts";
+import * as MilestoneHub from "../../milestones/MilestoneHub.ts";
 import * as SqlitePersistence from "../../persistence/Sqlite.ts";
 import * as PortScanner from "../../preview/PortScanner.ts";
 import { ClaudeDriver, type ClaudeDriverEnv } from "../../provider/Drivers/ClaudeDriver.ts";
@@ -40,6 +41,7 @@ import { makeProviderInstanceRegistry } from "../../provider/ProviderInstanceReg
 import * as ProviderOrchestrationAdapterInfrastructure from "../../provider/ProviderOrchestrationAdapterInfrastructure.ts";
 import * as ResetCreditCoordinator from "../../provider/resetCreditCoordinator.ts";
 import * as ServerSettings from "../../serverSettings.ts";
+import * as Notifications from "../notifications/Notifications.ts";
 
 vi.mock("@anthropic-ai/claude-agent-sdk", { spy: true });
 
@@ -326,3 +328,46 @@ describe.skipIf(HostProcess.Platform.defaultValue() === "darwin")("server egress
   // usagePriceDownload: false is covered by "never downloads prices when usagePriceDownload is off"
   // in apps/server/src/usage/UsageService.test.ts.
 });
+
+it.effect("notifications start no milestone subscription or timer without an enabled channel", () =>
+  Effect.gen(function* () {
+    let subscriptions = 0;
+    const hub = Layer.mock(MilestoneHub.MilestoneHub)({
+      subscribe: () =>
+        Effect.sync(() => {
+          subscriptions += 1;
+          return Stream.never;
+        }),
+    });
+    const channel: Notifications.NotificationChannelDriver = {
+      kind: "test",
+      send: () => Effect.void,
+    };
+    yield* Effect.gen(function* () {
+      const notifications = yield* Notifications.Notifications;
+      yield* notifications.alert({ title: "Alert", body: "with no channel" });
+      const channelId = yield* notifications.addChannel({
+        kind: "test",
+        name: "Off",
+        enabled: false,
+      });
+      yield* TestClock.adjust("1 day");
+      expect(subscriptions).toBe(0);
+
+      yield* notifications.setChannelEnabled({ channelId, enabled: true });
+      expect(subscriptions).toBe(1);
+      // Disabling stops the worker, so enabling again subscribes afresh.
+      yield* notifications.setChannelEnabled({ channelId, enabled: false });
+      yield* notifications.setChannelEnabled({ channelId, enabled: true });
+      expect(subscriptions).toBe(2);
+    }).pipe(
+      Effect.provide(
+        Notifications.layerWithDrivers([channel]).pipe(
+          Layer.provideMerge(hub),
+          Layer.provideMerge(SqlitePersistence.layerMemory),
+          Layer.provideMerge(NodeCrypto.layer),
+        ),
+      ),
+    );
+  }),
+);

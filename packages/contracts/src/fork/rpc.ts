@@ -5,17 +5,32 @@ import * as RpcGroup from "effect/rpc/RpcGroup";
 import {
   AuthAccessReadScope,
   AuthOrchestrationReadScope,
+  AuthSettingsWriteScope,
   type AuthEnvironmentScope,
   EnvironmentAuthorizationError,
 } from "../auth.ts";
 import { AuditListInput, AuditListResult, AuditLogError, AuditVerifyResult } from "./audit.ts";
+import {
+  ForkAlert,
+  NotificationChannel,
+  NotificationChannelError,
+  NotificationChannelIdInput,
+  NotificationChannelSetEnabledInput,
+} from "./notifications.ts";
 
 // The `cmdeck.` prefix keeps fork methods clear of upstream's names. Append new methods here.
 export const CMDECK_WS_METHODS = {
   status: "cmdeck.status",
   auditList: "cmdeck.audit.list",
   auditVerify: "cmdeck.audit.verify",
+  notificationChannelsList: "cmdeck.notifications.channels.list",
+  notificationChannelsSetEnabled: "cmdeck.notifications.channels.setEnabled",
+  notificationChannelsRemove: "cmdeck.notifications.channels.remove",
+  notificationsSubscribeAlerts: "cmdeck.notifications.subscribeAlerts",
 } as const;
+
+/** Fork stream methods the client runtime subscribes to like upstream's. */
+export type CmdeckSubscriptionRpcTag = typeof CMDECK_WS_METHODS.notificationsSubscribeAlerts;
 
 /** Raised when a fork RPC changes incompatibly, so a client can tell which fork methods a server has. */
 export const CMDECK_RPC_VERSION = 1;
@@ -38,11 +53,46 @@ const CmdeckAuditVerifyRpc = Rpc.make(CMDECK_WS_METHODS.auditVerify, {
   error: Schema.Union([AuditLogError, EnvironmentAuthorizationError]),
 });
 
+const NotificationChannelsError = Schema.Union([
+  NotificationChannelError,
+  EnvironmentAuthorizationError,
+]);
+
+const CmdeckNotificationChannelsListRpc = Rpc.make(CMDECK_WS_METHODS.notificationChannelsList, {
+  payload: Schema.Struct({}),
+  success: Schema.Array(NotificationChannel),
+  error: NotificationChannelsError,
+});
+
+const CmdeckNotificationChannelsSetEnabledRpc = Rpc.make(
+  CMDECK_WS_METHODS.notificationChannelsSetEnabled,
+  { payload: NotificationChannelSetEnabledInput, error: NotificationChannelsError },
+);
+
+const CmdeckNotificationChannelsRemoveRpc = Rpc.make(CMDECK_WS_METHODS.notificationChannelsRemove, {
+  payload: NotificationChannelIdInput,
+  error: NotificationChannelsError,
+});
+
+const CmdeckNotificationsSubscribeAlertsRpc = Rpc.make(
+  CMDECK_WS_METHODS.notificationsSubscribeAlerts,
+  {
+    payload: Schema.Struct({}),
+    success: ForkAlert,
+    error: EnvironmentAuthorizationError,
+    stream: true,
+  },
+);
+
 /** Merged into `WsRpcGroup`, so fork methods share its scope middleware. */
 export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckStatusRpc,
   CmdeckAuditListRpc,
   CmdeckAuditVerifyRpc,
+  CmdeckNotificationChannelsListRpc,
+  CmdeckNotificationChannelsSetEnabledRpc,
+  CmdeckNotificationChannelsRemoveRpc,
+  CmdeckNotificationsSubscribeAlertsRpc,
 );
 
 /** Spread into `CLIENT_GUARDED_RPC_SCOPES`; every fork method needs one. */
@@ -51,4 +101,8 @@ export const FORK_RPC_SCOPES = {
   // Entries are access records (pairings, tokens, secret reveals), so they need access scope.
   [CMDECK_WS_METHODS.auditList]: AuthAccessReadScope,
   [CMDECK_WS_METHODS.auditVerify]: AuthAccessReadScope,
+  [CMDECK_WS_METHODS.notificationChannelsList]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.notificationChannelsSetEnabled]: AuthSettingsWriteScope,
+  [CMDECK_WS_METHODS.notificationChannelsRemove]: AuthSettingsWriteScope,
+  [CMDECK_WS_METHODS.notificationsSubscribeAlerts]: AuthOrchestrationReadScope,
 } as const satisfies Record<RpcGroup.Rpcs<typeof ForkWsRpcGroup>["_tag"], AuthEnvironmentScope>;

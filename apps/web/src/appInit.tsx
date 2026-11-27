@@ -21,6 +21,7 @@ import { startHostFreezeToasts } from "./components/HostFreezeToastCoordinator";
 import { startKeybindingsUpdateToasts } from "./components/KeybindingsUpdateToast";
 import { startForkImportOfferToast } from "./components/ForkImportOfferToast";
 import { startForkSharedDataToasts } from "./components/ForkSharedDataToast";
+import { startForkAlertNotifications } from "./fork/forkAlertNotifications";
 import { startLegacyThreadMigrationToast } from "./components/LegacyThreadMigrationToast";
 import { startPermissionUpdateNotices } from "./components/PermissionUpdateNotice";
 import { startAgentOpenedPreviews } from "./components/preview/agentOpenedPreviews";
@@ -327,6 +328,7 @@ export function startAppServices(): AppRouter {
   startPermissionUpdateNotices(router);
   startThreadNotifications(appAtomRegistry, router);
   startGuideRunNotifications(appAtomRegistry, router);
+  startForkAlertNotifications();
   if (isElectron) startDesktopUpdateLaunchNotice();
 
   return router;
