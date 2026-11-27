@@ -29,13 +29,29 @@ export type TrustSource = "preset" | "user";
 
 // Approved bytes by file address, served in place of what is on disk while that file loads.
 const serving = new Map<string, Uint8Array>();
+const servedAddress = (specifier: string) => {
+  if (serving.size === 0) return undefined;
+  const address = specifier.startsWith("file:")
+    ? specifier.replace(/[?#].*$/s, "")
+    : /^(?:\/|[A-Za-z]:[\\/])/.test(specifier)
+      ? NodeURL.pathToFileURL(specifier).href
+      : undefined;
+  return address !== undefined && serving.has(address) ? address : undefined;
+};
 let hooked = false;
 const serveApproved = () => {
   if (hooked) return;
   hooked = true;
   NodeModule.registerHooks({
+    // Kept at its own address: resolving would follow a symlink swapped in after the check.
+    resolve(specifier, context, next) {
+      const address = servedAddress(specifier);
+      if (address === undefined) return next(specifier, context);
+      return { url: specifier.startsWith("file:") ? specifier : address, shortCircuit: true };
+    },
     load(url, context, next) {
-      const source = serving.size === 0 ? undefined : serving.get(url.replace(/[?#].*$/s, ""));
+      const address = servedAddress(url);
+      const source = address === undefined ? undefined : serving.get(address);
       return source === undefined ? next(url, context) : { ...next(url, context), source };
     },
   });

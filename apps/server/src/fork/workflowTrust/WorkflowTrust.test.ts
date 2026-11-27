@@ -2,6 +2,7 @@ import * as NodeModule from "node:module";
 
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { symlinksSupported } from "@t3tools/shared/testing/symlinks";
 import { assert, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -108,4 +109,32 @@ it.effect("a held file stays held while it cannot be read for a moment", () =>
     assert.equal(shown?.path, file);
     yield* trust.approve(shown!.path, shown!.sha256);
   }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+);
+
+it.effect.skipIf(!symlinksSupported)(
+  "a symlink swapped in after the check still loads the approved bytes",
+  () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const services = yield* Layer.build(
+        WorkflowTrust.layer.pipe(Layer.provide(Layer.merge(Sqlite.layerMemory, NodeCrypto.layer))),
+      );
+      const trust = Context.get(services, WorkflowTrust.WorkflowTrust);
+      const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-trust-" });
+      const file = path.join(directory, "flow.ts");
+      const unapproved = path.join(directory, "other.ts");
+      yield* fileSystem.writeFileString(file, `export default "approved";\n`);
+      yield* fileSystem.writeFileString(unapproved, `export default "unapproved";\n`);
+      yield* trust.record(directory, "flow.ts", `export default "approved";\n`, "user");
+
+      const loaded = yield* trust.gated(file, (from) =>
+        Effect.gen(function* () {
+          yield* fileSystem.remove(from);
+          yield* fileSystem.symlink(unapproved, from);
+          return (NodeModule.createRequire(from)(from) as { default: unknown }).default;
+        }).pipe(Effect.orDie),
+      );
+      assert.equal(loaded, "approved");
+    }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
 );
