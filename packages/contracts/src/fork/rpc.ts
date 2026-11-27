@@ -33,6 +33,7 @@ import {
   ScheduledTaskCheckSetInput,
   ScheduledTaskCheckSetResult,
 } from "./checkScripts.ts";
+import { DecisionConsentSetInput, DecisionsError, DecisionsStatus } from "./decisions.ts";
 
 // The `cmdeck.` prefix keeps fork methods clear of upstream's names. Append new methods here.
 export const CMDECK_WS_METHODS = {
@@ -49,6 +50,8 @@ export const CMDECK_WS_METHODS = {
   checkScriptsList: "cmdeck.checkScripts.list",
   checkScriptsSet: "cmdeck.checkScripts.set",
   checkScriptsApprove: "cmdeck.checkScripts.approve",
+  decisionsStatus: "cmdeck.decisions.status",
+  decisionsSetConsent: "cmdeck.decisions.setConsent",
 } as const;
 
 /** Fork stream methods the client runtime subscribes to like upstream's. */
@@ -143,6 +146,17 @@ const CmdeckCheckScriptsApproveRpc = Rpc.make(CMDECK_WS_METHODS.checkScriptsAppr
   error: CheckScriptsError,
 });
 
+const CmdeckDecisionsStatusRpc = Rpc.make(CMDECK_WS_METHODS.decisionsStatus, {
+  payload: Schema.Struct({}),
+  success: DecisionsStatus,
+  error: Schema.Union([DecisionsError, EnvironmentAuthorizationError]),
+});
+
+const CmdeckDecisionsSetConsentRpc = Rpc.make(CMDECK_WS_METHODS.decisionsSetConsent, {
+  payload: DecisionConsentSetInput,
+  error: Schema.Union([DecisionsError, EnvironmentAuthorizationError]),
+});
+
 /** Merged into `WsRpcGroup`, so fork methods share its scope middleware. */
 export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckStatusRpc,
@@ -158,6 +172,8 @@ export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckCheckScriptsListRpc,
   CmdeckCheckScriptsSetRpc,
   CmdeckCheckScriptsApproveRpc,
+  CmdeckDecisionsStatusRpc,
+  CmdeckDecisionsSetConsentRpc,
 );
 
 /** Spread into `CLIENT_GUARDED_RPC_SCOPES`; every fork method needs one. */
@@ -179,4 +195,7 @@ export const FORK_RPC_SCOPES = {
   [CMDECK_WS_METHODS.checkScriptsList]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.checkScriptsSet]: AuthTerminalOperateScope,
   [CMDECK_WS_METHODS.checkScriptsApprove]: AuthTerminalOperateScope,
+  [CMDECK_WS_METHODS.decisionsStatus]: AuthOrchestrationReadScope,
+  // Consent decides whether turn text may reach a model API, so only a settings writer grants it.
+  [CMDECK_WS_METHODS.decisionsSetConsent]: AuthSettingsWriteScope,
 } as const satisfies Record<RpcGroup.Rpcs<typeof ForkWsRpcGroup>["_tag"], AuthEnvironmentScope>;

@@ -1,4 +1,7 @@
 import type { MemoryItem } from "@t3tools/contracts";
+import * as Effect from "effect/Effect";
+
+import * as MemoryNarrowing from "../decisions/points/memoryNarrowing.ts";
 
 const MAX_QUERY_TERMS = 24;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -36,3 +39,29 @@ export const rankByRelevance = (
     }))
     .toSorted((left, right) => right.score - left.score)
     .map(({ item }) => item);
+
+export type FactNarrower = (
+  input: MemoryNarrowing.MemoryNarrowingInput,
+) => Effect.Effect<ReadonlyArray<MemoryItem>>;
+
+/** Steps between ranking and injection, resolved once when turn context starts. Append new ones. */
+const FACT_NARROWERS: ReadonlyArray<Effect.Effect<FactNarrower>> = [MemoryNarrowing.narrower];
+
+/** Runs every narrower in order. Each may only drop facts: none can add one or reorder them. */
+export const factNarrowing: Effect.Effect<FactNarrower> = Effect.all(FACT_NARROWERS).pipe(
+  Effect.map(
+    (narrowers): FactNarrower =>
+      (input) =>
+        Effect.reduce(
+          narrowers,
+          () => input.facts,
+          (facts, narrow) =>
+            narrow({ ...input, facts }).pipe(
+              Effect.map((kept) => {
+                const ids = new Set(kept.map((item) => item.id));
+                return facts.filter((item) => ids.has(item.id));
+              }),
+            ),
+        ),
+  ),
+);

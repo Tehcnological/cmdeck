@@ -78,6 +78,7 @@ import {
 import { describeFailedWebhookFilter, findFailedWebhookFilter } from "./webhookFilter.ts";
 import { constantTimeEquals, verifyWebhookSignature } from "./webhookVerification.ts";
 import { routineSpan } from "@t3tools/shared/observability";
+import * as Decisions from "../fork/decisions/Decisions.ts";
 
 export const WEBHOOK_ROUTE_PREFIX = "/api/hooks";
 
@@ -1203,7 +1204,7 @@ export const layer = Layer.effect(
                     commandId,
                     projectId: active.projectId,
                     title: active.title,
-                    modelSelection: active.modelSelection,
+                    modelSelection: yield* Decisions.routeScheduledTask(active),
                     runtimeMode: active.runtimeMode,
                     interactionMode: active.interactionMode,
                     workspaceStrategy: active.workspaceStrategy,

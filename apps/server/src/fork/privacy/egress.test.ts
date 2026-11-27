@@ -5,6 +5,7 @@ import { describe, expect, it } from "@effect/vitest";
 import {
   EnvironmentId,
   ProviderDriverKind,
+  ProjectId,
   ProviderInstanceId,
   RunId,
   type ClaudeSettings,
@@ -54,6 +55,13 @@ import {
 import * as MemoryStore from "../memory/MemoryStore.ts";
 import { asAgentIn, layerMemoryToolsTest, threads } from "../memory/memory.testkit.ts";
 import * as TurnContext from "../memory/TurnContext.ts";
+import * as ProviderRegistry from "../../provider/ProviderRegistry.ts";
+import * as TextGenerators from "../../textGeneration/TextGenerators.ts";
+import * as Decisions from "../decisions/Decisions.ts";
+import { generators, LOCAL_GENERATOR } from "../decisions/decisions.testkit.ts";
+import { narrower } from "../decisions/points/memoryNarrowing.ts";
+import { annotateApproval } from "../decisions/points/riskAnnotation.ts";
+import { decideWake } from "../decisions/points/wakeSuppression.ts";
 
 vi.mock("@anthropic-ai/claude-agent-sdk", { spy: true });
 
@@ -449,3 +457,124 @@ it.effect("a scheduled task without a check script starts no process", () =>
     );
   }),
 );
+
+describe("decisions", () => {
+  const layerDecisions = (
+    requests: Array<string>,
+    cmdeck: NonNullable<NonNullable<Parameters<typeof ServerSettings.layerTest>[0]>["cmdeck"]>,
+  ) =>
+    Decisions.layer.pipe(
+      Layer.provideMerge(SqlitePersistence.layerMemory),
+      Layer.provide(Layer.effect(TextGenerators.TextGenerators, TextGenerators.make)),
+      Layer.provide(
+        Layer.succeed(
+          HttpClient.HttpClient,
+          HttpClient.make((request) => {
+            requests.push(request.url);
+            return Effect.succeed(
+              HttpClientResponse.fromWeb(
+                request,
+                Response.json({ choices: [{ message: { content: '{"answers": {}}' } }] }),
+              ),
+            );
+          }),
+        ),
+      ),
+      Layer.provide(Layer.mock(SecretResolver.SecretResolver)({})),
+      Layer.provide(ServerSettings.layerTest({ textGenerators: generators, cmdeck })),
+      Layer.provide(
+        Layer.mock(ProviderRegistry.ProviderRegistry)({ getProviders: Effect.succeed([]) }),
+      ),
+    );
+
+  const projectId = ProjectId.make("project-egress");
+  const everyPoint = Effect.gen(function* () {
+    yield* decideWake({
+      projectId,
+      instruction: "CI",
+      evidence: "none",
+      failing: false,
+      ending: false,
+    });
+    yield* annotateApproval({ request: { projectId, command: "make" }, policy: "allow" });
+    const narrow = yield* narrower;
+    yield* narrow({
+      projectId,
+      text: "pnpm?",
+      facts: [
+        {
+          id: "fact",
+          scope: "global",
+          kind: "fact",
+          content: "Use pnpm",
+          provenance: "user_explicit",
+          status: "active",
+          originThreadId: null,
+          createdAt: "2026-11-27T00:00:00.000Z",
+          updatedAt: "2026-11-27T00:00:00.000Z",
+        },
+      ],
+    });
+    yield* Decisions.routeScheduledTask({
+      projectId,
+      prompt: "Summarize the open pull requests",
+      modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "gpt" },
+      schedule: { type: "interval", everyMs: 3_600_000 },
+    } as Parameters<typeof Decisions.routeScheduledTask>[0]);
+  });
+  const consentToEveryPoint = Effect.gen(function* () {
+    const decisions = yield* Decisions.Decisions;
+    for (const point of [
+      "modelRouting",
+      "memoryNarrowing",
+      "wakeSuppression",
+      "riskAnnotation",
+    ] as const) {
+      yield* decisions.setConsent({ point, projectId: null, source: "local" });
+    }
+  });
+  const tierModels = {
+    routingTierModels: { simple: { instanceId: ProviderInstanceId.make("codex"), model: "mini" } },
+  };
+
+  it.effect("with no model configured, no point makes a request even with consent", () => {
+    const requests: Array<string> = [];
+    return Effect.gen(function* () {
+      yield* consentToEveryPoint;
+      yield* everyPoint;
+      expect(requests).toEqual([]);
+    }).pipe(Effect.provide(layerDecisions(requests, tierModels)));
+  });
+
+  it.effect("with a model but no consent, no point makes a request", () => {
+    const requests: Array<string> = [];
+    return Effect.gen(function* () {
+      yield* everyPoint;
+      expect(requests).toEqual([]);
+    }).pipe(
+      Effect.provide(
+        layerDecisions(requests, {
+          ...tierModels,
+          decisionModel: { instanceId: LOCAL_GENERATOR, model: "qwen3" },
+        }),
+      ),
+    );
+  });
+
+  it.effect("once consented, only the configured local model is asked", () => {
+    const requests: Array<string> = [];
+    return Effect.gen(function* () {
+      yield* consentToEveryPoint;
+      yield* everyPoint;
+      expect(requests.length).toBeGreaterThan(0);
+      expect(requests.every((url) => url.startsWith("http://127.0.0.1:11434/"))).toBe(true);
+    }).pipe(
+      Effect.provide(
+        layerDecisions(requests, {
+          ...tierModels,
+          decisionModel: { instanceId: LOCAL_GENERATOR, model: "qwen3" },
+        }),
+      ),
+    );
+  });
+});

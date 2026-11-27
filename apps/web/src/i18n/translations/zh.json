@@ -3035,6 +3035,8 @@
   "6728ba57ae50bd70": "通过已命名的 AWS 配置文件运行 Claude。从不存储 AWS 密钥。",
   "144c58e1e15e0f87": "使用 Amazon Bedrock",
   "2ffc023296dd419d": "输入你的 AWS 配置文件和区域。将模型留空即使用 Claude Code 的默认值。",
+  "cdbeeaaa0371bb84": "添加 Task Runner 工作流",
+  "d11c0fe527862ae6": "无法添加 Task Runner",
   "9b2f6da5bd526fb2": "默认环境未连接",
   "b52720786b8d772e": "{environment} 未连接",
   "b8c9370425928547": "此会话将在 {environment} 上开始。",

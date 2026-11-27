@@ -3031,6 +3031,8 @@
   "6728ba57ae50bd70": "Kör Claude via en namngiven AWS-profil. AWS-nycklar sparas aldrig.",
   "144c58e1e15e0f87": "Använd Amazon Bedrock",
   "2ffc023296dd419d": "Ange din AWS-profil och region. Lämna en modell tom för att använda Claude Codes standard.",
+  "cdbeeaaa0371bb84": "Lägg till arbetsflödet Task Runner",
+  "d11c0fe527862ae6": "Det gick inte att lägga till Task Runner",
   "9b2f6da5bd526fb2": "Din standardmiljö är inte ansluten",
   "b52720786b8d772e": "{environment} är inte ansluten",
   "b8c9370425928547": "Den här tråden startar på {environment}.",

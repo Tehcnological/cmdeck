@@ -5,3 +5,4 @@ export * from "./settings.ts";
 export * from "./workflowTrust.ts";
 export * from "./memory.ts";
 export * from "./checkScripts.ts";
+export * from "./decisions.ts";
