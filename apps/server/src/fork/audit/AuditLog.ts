@@ -179,6 +179,9 @@ const make = Effect.gen(function* () {
     );
   });
 
+  // One read transaction: every page and the anchor come from the same snapshot, so a prune in
+  // this server or another process cannot shift pages mid-check. No audit lock is taken, so
+  // appends (and the approval feed behind them) never queue behind a verify.
   const verify: AuditLog["Service"]["verify"] = Effect.gen(function* () {
     const broken = (checked: number, seq: number, reason: AuditBreakReason) => ({
       ok: false,
@@ -204,7 +207,7 @@ const make = Effect.gen(function* () {
       }
     }
     return { ok: true, checked, brokenSeq: null, reason: null };
-  }).pipe(lock.withPermits(1), Effect.mapError(toError), Effect.withSpan("AuditLog.verify"));
+  }).pipe(sql.withTransaction, Effect.mapError(toError), Effect.withSpan("AuditLog.verify"));
 
   const prune: AuditLog["Service"]["prune"] = Effect.gen(function* () {
     const cutoff = (yield* Clock.currentTimeMillis) - RETENTION_MS;

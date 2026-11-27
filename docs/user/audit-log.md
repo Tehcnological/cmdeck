@@ -26,4 +26,6 @@ It reports how many entries it checked, or the first entry that is broken, and e
 
 Each entry stores the hash of the one before it, so changing or deleting a stored entry breaks the chain at that point. Removing old entries keeps the chain checkable: CMDeck records the last removed entry's hash and continues from it.
 
+Approvals are recorded from CMDeck's live event feed. If the server is overwhelmed by a burst of activity, an approval can be missed without breaking the chain, so the log shows approvals that happened, not every one.
+
 The log is **tamper-evident, not tamper-proof**. Anyone who can write this machine's database can rewrite the whole chain consistently, and removing the newest entries leaves no trace. Treat a passing check as "nothing was edited by accident or by a careless hand", not as proof against someone with access to your account.
