@@ -18,6 +18,7 @@ import * as NetAddress from "effect/net/NetAddress";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as McpInvocationContext from "./McpInvocationContext.ts";
 import * as McpProviderSession from "@t3tools/provider-core/server/mcpSession";
+import { routineSpan } from "@t3tools/shared/observability";
 
 export interface McpCredentialRequest {
   readonly threadId: ThreadId;
@@ -287,11 +288,11 @@ const makeWithOptions = Effect.fn("McpSessionRegistry.make")(function* (
     });
   });
 
-  const resolve: McpSessionRegistryShape["resolve"] = Effect.fn("McpSessionRegistry.resolve")(
-    function* (rawToken) {
-      return (yield* resolveRecord(rawToken, "mcp"))?.scope;
-    },
-  );
+  const resolve: McpSessionRegistryShape["resolve"] = Effect.fn("McpSessionRegistry.resolve", {
+    attributes: routineSpan,
+  })(function* (rawToken) {
+    return (yield* resolveRecord(rawToken, "mcp"))?.scope;
+  });
 
   const resolveInference: McpSessionRegistryShape["resolveInference"] = Effect.fn(
     "McpSessionRegistry.resolveInference",

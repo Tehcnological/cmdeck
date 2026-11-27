@@ -206,7 +206,7 @@ Add a Claude instance with its own config directory, then set these
 
 Add your model's ID with **Add custom model** and select it in the chat model
 picker. The built-in Claude models stay listed but your server will not serve
-them. See [Claude](./providers-claude.md#other-routers).
+them. See [Claude](./providers-claude.md#openrouter-and-local-routers).
 
 ### Codex
 

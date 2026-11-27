@@ -15,8 +15,8 @@ import type * as EffectAcpSchema from "effect-acp/compat";
 import { resolveAttachmentPath } from "../../attachmentStore.ts";
 import {
   applyAntigravityAcpModelSelection,
-  ANTIGRAVITY_CLIENT_INFO,
   antigravityPermissionDisposition,
+  antigravityServesT3Code,
   antigravitySessionMeta,
   antigravitySessionMode,
   buildAntigravityPrompt,
@@ -58,20 +58,27 @@ function makeModelRuntime(
   };
 }
 
-describe("Antigravity release gates", () => {
+describe("antigravityServesT3Code", () => {
+  // The model manifest accepts the same `v` and `agy_acp_server_` prefixes.
   it.each([
-    { version: "1.5.0", advertisedAppend: false },
-    { version: "1.5.1", advertisedAppend: false },
-    { version: "1.5.7", advertisedAppend: true },
-    { version: undefined, advertisedAppend: false },
-    { version: "unknown", advertisedAppend: false },
-  ])("$version: advertised system append $advertisedAppend", ({ version, advertisedAppend }) => {
+    ["1.5.0", false],
+    ["v1.5.0", false],
+    ["agy_acp_server_1.5.0", false],
+    ["1.5.1", true],
+    ["agy_acp_server_1.5.12", true],
+    ["custom", true],
+  ] as const)("%s → %s", (version, serves) => {
+    expect(antigravityServesT3Code(version)).toBe(serves);
+  });
+});
+
+describe("Antigravity system prompt append", () => {
+  it.each([false, true])("advertised append %s", (advertisedAppend) => {
     const initialize = {
       protocolVersion: 1,
       ...(advertisedAppend
         ? { agentCapabilities: { _meta: { antigravity: { systemPrompt: { append: true } } } } }
         : {}),
-      ...(version === undefined ? {} : { agentInfo: { name: "Antigravity ACP Server", version } }),
     };
     // Helpers send no append.
     expect(antigravitySessionMeta(initialize)).toBeUndefined();
@@ -80,7 +87,6 @@ describe("Antigravity release gates", () => {
         ? { antigravity: { systemPrompt: { append: "<pull_request_linking/>" } } }
         : undefined,
     );
-    expect(ANTIGRAVITY_CLIENT_INFO.name).toBe("t3-code");
   });
 });
 
