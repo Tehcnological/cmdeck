@@ -423,6 +423,9 @@ export const resolveServerConfig = Effect.fn("config.resolveServerConfig")(funct
     desktopBrowserFd,
     desktopBrowserControlFd,
     resourceMonitorPath,
+    ...(bootstrap?.cmdeckSecretsKey === undefined
+      ? {}
+      : { cmdeckSecretsKey: Redacted.make(bootstrap.cmdeckSecretsKey) }),
     autoBootstrapProjectFromCwd,
     logWebSocketEvents,
     tailscaleServeEnabled,

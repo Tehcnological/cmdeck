@@ -33,7 +33,8 @@ If CMDeck already has data, the import stops. `--force` moves CMDeck's current `
 - Threads, projects, history and scheduled tasks.
 - Settings, provider instances, keybindings and themes.
 - Stored credentials: provider API keys and environment variables, source control and issue tracker
-  tokens, and other secrets you entered in settings.
+  tokens, and other secrets you entered in settings. CMDeck encrypts them on its next start (see
+  [Secrets at rest](./secrets-at-rest.md)).
 - Provider sign-ins T3 Code keeps itself, such as extra Codex accounts and Antigravity profiles.
   Sign-ins kept by the provider CLIs in your home folder (for example `~/.codex` or `~/.claude`)
   are shared by both apps and need nothing.

@@ -78,6 +78,7 @@ export class ServerConfig extends Context.Service<
     readonly desktopBrowserFd?: number | undefined;
     readonly desktopBrowserControlFd?: number | undefined;
     readonly resourceMonitorPath?: string | undefined;
+    readonly cmdeckSecretsKey?: Redacted.Redacted<string> | undefined; // Fork: from the desktop bootstrap (WI-2.17).
     readonly autoBootstrapProjectFromCwd: boolean;
     readonly logWebSocketEvents: boolean;
     readonly tailscaleServeEnabled: boolean;
