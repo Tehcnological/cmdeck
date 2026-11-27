@@ -5,12 +5,18 @@ import type * as Fiber from "effect/Fiber";
 import * as Logger from "effect/Logger";
 import * as NodeUtil from "node:util";
 
-// Matching runs on plain one-line text: ANSI colours would split a label from its value, and
-// inspect splits a long multiline string into `'…' +` pieces. Nothing to redact keeps the pretty form.
+// Matching runs on plain one-line text with later string arguments quoted: ANSI colours, inspect's
+// `'…' +` line splits and `log(label, value)` annotations would otherwise cut a value short.
+// A line with nothing to redact keeps its pretty form.
 export const redactLine = (args: ReadonlyArray<unknown>): string => {
   const line = NodeUtil.format(...args);
   const plain = NodeUtil.stripVTControlCharacters(
-    NodeUtil.formatWithOptions({ breakLength: Infinity }, ...args),
+    NodeUtil.formatWithOptions(
+      { breakLength: Infinity },
+      ...args.map((arg, index) =>
+        index > 0 && typeof arg === "string" ? JSON.stringify(arg) : arg,
+      ),
+    ),
   );
   const redacted = redactSecrets(plain);
   return redacted === plain ? line : redacted;

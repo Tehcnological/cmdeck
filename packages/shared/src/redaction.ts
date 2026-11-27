@@ -25,7 +25,8 @@ export const SECRET_PATTERNS: ReadonlyArray<RegExp> = [
   /\bsk-[A-Za-z0-9_-]{20,}/g,
   /\b(?:glpat-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9]{36}|hf_[A-Za-z0-9]{30,}|AIza[A-Za-z0-9_-]{35}|[rs]k_(?:live|test)_[A-Za-z0-9]{16,})/g,
   // A JWT's header and payload are both base64url JSON objects.
-  /\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*/g,
+  // Starts only at the start of a base64url run, so `eyJ-eyJ-…` is scanned once.
+  /(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*/g,
   // The scheme starts only where a run of scheme characters starts and is capped, so a long run
   // like `a-a-a-…` is scanned once rather than from every word boundary.
   /((?<![a-z0-9+.-])[a-z][a-z0-9+.-]{0,31}:\/\/[^\s/?#@:]*:)[^\s/?#]+(?=@[^\s/?#@])/gi,

@@ -148,7 +148,8 @@ describe("redactSecrets", () => {
 
   // Quadratic scanning took about 5 s here, past the test timeout; linear takes milliseconds.
   it("scans long runs of scheme-like characters in linear time", () => {
-    const run = "a-".repeat(100_000);
-    expect(redactSecrets(run)).toBe(run);
+    for (const run of ["a-".repeat(100_000), "eyJ-".repeat(50_000)]) {
+      expect(redactSecrets(run)).toBe(run);
+    }
   });
 });

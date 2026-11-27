@@ -15,3 +15,8 @@ it("redacts a long multiline secret that inspect would split into joined pieces"
   expect(line).not.toContain("sensitive-tail");
   expect(line).toContain("user: 'ana'");
 });
+
+it("redacts a whole annotation value that the logger passes after its label", () => {
+  expect(redactLine(["password:", "correct horse battery staple"])).toBe('password: "[redacted]"');
+  expect(redactLine(["user:", "ana"])).toBe("user: ana");
+});
