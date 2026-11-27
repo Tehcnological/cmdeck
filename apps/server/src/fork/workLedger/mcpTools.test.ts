@@ -2,6 +2,10 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { McpServer } from "effect/ai";
 
+import { WORK_LEDGER_MCP_TOOL_NAMES } from "@t3tools/contracts";
+import { isMcpToolInProfile } from "@t3tools/provider-core/server/mcpToolProfile";
+
+import { WorkLedgerToolkit } from "./mcpTools.ts";
 import { WorkLedger } from "./WorkLedger.ts";
 import { asAgentIn, layerWorkLedgerToolsTest, threads } from "./workLedger.testkit.ts";
 
@@ -15,6 +19,14 @@ const structured = <A>(result: { readonly structuredContent?: unknown }) =>
   result.structuredContent as A;
 
 describe("work ledger MCP tools", () => {
+  it("are the tools lean profiles keep", () => {
+    expect(Object.keys(WorkLedgerToolkit.tools).toSorted()).toEqual(
+      [...WORK_LEDGER_MCP_TOOL_NAMES].toSorted(),
+    );
+    for (const name of WORK_LEDGER_MCP_TOOL_NAMES)
+      expect(isMcpToolInProfile(name, "lean")).toBe(true);
+  });
+
   it.layer(layerWorkLedgerToolsTest)((it) => {
     it.effect(
       "a conductor dispatches, its worker claims and reports, and the conductor reads",

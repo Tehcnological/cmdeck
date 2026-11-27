@@ -266,10 +266,14 @@ describe("WorkLedger", () => {
           expect(yield* ledger.isConductor(threads.stranger)).toBe(true);
           yield* ledger.setConductor(threads.stranger, false);
           expect(yield* ledger.isConductor(threads.stranger)).toBe(false);
-          // A thread that wrote to its ledger stays a conductor while it has items.
-          yield* createItem();
-          yield* ledger.setConductor(threads.conductor, false);
+          // Creating an item takes the role; stopping ends it and keeps the items as history.
+          const item = yield* createItem();
           expect(yield* ledger.isConductor(threads.conductor)).toBe(true);
+          yield* ledger.setConductor(threads.conductor, false);
+          expect(yield* ledger.isConductor(threads.conductor)).toBe(false);
+          yield* ledger.setConductor(threads.conductor, true);
+          expect(yield* ledger.isConductor(threads.conductor)).toBe(true);
+          expect((yield* ledger.list(threads.conductor)).map(({ id }) => id)).toEqual([item.id]);
         }),
       ),
     );

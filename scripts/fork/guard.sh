@@ -213,6 +213,9 @@ required=(
   'apps/web/src/closedViewStore.ts:return decodeCmdeckSurface\(surface\)\[0\]\?\.id === surface\.id;'
   'apps/web/src/reopenClosedView.ts:panels\.openCmdeck\(ref, surface\.panel\);'
   'apps/web/src/hooks/useThreadActions.ts:await offerToStopConductorWorkers\(threadRef\);'
+  # Lean tool profiles (Pi, auto on an inference server) keep the work ledger tools.
+  'packages/provider-core/src/server/mcpToolProfile.ts:import \{ WORK_LEDGER_MCP_TOOL_NAMES \} from "@t3tools/contracts";'
+  'packages/provider-core/src/server/mcpToolProfile.ts:\.\.\.WORK_LEDGER_MCP_TOOL_NAMES,'
 )
 # 6. Only a person approves a workflow file: no MCP tool may reach the trust gate (WI-1.06).
 hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts)"

@@ -39,5 +39,20 @@ describe("conductor brief", () => {
         expect(yield* contextFor(threads.stranger)).toBe("");
       }),
     );
+
+    it.effect("stops reaching a conductor that still has items once it stops conducting", () =>
+      Effect.gen(function* () {
+        const ledger = yield* WorkLedger.WorkLedger;
+        yield* ledger.record(threads.conductor, {
+          action: "create",
+          title: "Fix the flaky upload test",
+          acceptance: "CI is green",
+        });
+        expect(yield* contextFor(threads.conductor)).toContain("## Conductor");
+        yield* ledger.setConductor(threads.conductor, false);
+        expect(yield* contextFor(threads.conductor)).toBe("");
+        expect(yield* ledger.list(threads.conductor)).toHaveLength(1);
+      }),
+    );
   });
 });

@@ -152,7 +152,7 @@ export type WorkLedgerError = WorkLedgerRefusal | WorkLedgerStoreError;
 export class WorkLedger extends Context.Service<
   WorkLedger,
   {
-    /** Started as a conductor by a person, or has written to its own ledger. */
+    /** Holds the conductor role: started by a person, or by its own `create`, and not stopped since. */
     readonly isConductor: (threadId: ThreadId) => Effect.Effect<boolean, WorkLedgerStoreError>;
     /** A person starts or ends a thread's conductor role. Its items stay either way. */
     readonly setConductor: (
@@ -313,8 +313,7 @@ const make = Effect.gen(function* () {
   const isConductor: WorkLedger["Service"]["isConductor"] = (threadId) =>
     sql<{
       readonly found: number;
-    }>`SELECT 1 AS found FROM work_conductors WHERE thread_id = ${threadId}
-      UNION ALL SELECT 1 FROM work_items WHERE conductor_thread_id = ${threadId} LIMIT 1`.pipe(
+    }>`SELECT 1 AS found FROM work_conductors WHERE thread_id = ${threadId}`.pipe(
       Effect.map((rows) => rows.length > 0),
       failsTo("read the conductor"),
     );

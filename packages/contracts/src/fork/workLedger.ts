@@ -24,6 +24,17 @@ export const WORK_ARTIFACT_VALUE_MAX_CHARS = 512;
 export const WorkItemId = Schema.String.check(Schema.isPattern(/^it_[0-9a-f]{8}$/u));
 export type WorkItemId = typeof WorkItemId.Type;
 
+/**
+ * The work ledger's MCP tools. Lean tool profiles (Pi, and `auto` on an inference server) list
+ * them too: a conductor's turns name them, so a session without them could not follow its brief.
+ */
+export const WORK_LEDGER_MCP_TOOL_NAMES = [
+  "work_brief",
+  "work_report",
+  "work_ledger_read",
+  "work_ledger_record",
+] as const;
+
 /** Fields only the item's worker writes, through `work_report`. */
 export const WORK_WORKER_FIELDS = ["status", "summary", "artifacts", "pr"] as const;
 
@@ -55,7 +66,7 @@ export const WorkLedgerThreadInput = Schema.Struct({ threadId: ThreadId });
 export type WorkLedgerThreadInput = typeof WorkLedgerThreadInput.Type;
 
 export const WorkLedgerListResult = Schema.Struct({
-  /** Whether the thread was started as a conductor or has written to a ledger. */
+  /** Whether the thread holds the conductor role now. Its items stay listed after it stops. */
   conductor: Schema.Boolean,
   items: Schema.Array(WorkItem),
 });
