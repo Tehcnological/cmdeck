@@ -253,7 +253,9 @@ export function WorkflowsPage() {
               </Button>
             )}
           </WorkspacePageHeader>
-          {environmentId === null ? null : <WorkflowApprovals environmentId={environmentId} />}
+          {environmentId === null ? null : (
+            <WorkflowApprovals key={environmentId} environmentId={environmentId} />
+          )}
           {editing && fileEnvironmentId !== null ? (
             <Suspense
               fallback={

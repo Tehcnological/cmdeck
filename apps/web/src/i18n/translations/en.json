@@ -3044,7 +3044,7 @@
   "43fcb5aabe23e3e3": "Not approved. The file may have changed: review it again.",
   "2398580e248615e4": "{count, plural, one {{count} workflow file needs approval} other {{count} workflow files need approval}}",
   "e0f357999b401497": "New or changed workflow files run with this server's full access, so they wait until you read and approve them. Changing an approved file needs approval again.",
-  "cedea1408c54bbc3": "Approving needs terminal access to this server.",
+  "ab5002891e589e59": "Approving needs terminal and file read access to this server.",
   "938e1d5ff4df0282": "Review",
   "f1e5c1be1ac92361": "Approve",
   "4d71697ed52788cd": "Settled {count, plural, one {{count} thread} other {{count} threads}}",

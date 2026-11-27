@@ -3044,7 +3044,7 @@
   "43fcb5aabe23e3e3": "No aprobado. Puede que el archivo haya cambiado: revísalo de nuevo.",
   "2398580e248615e4": "{count, plural, one {{count} archivo de flujo de trabajo necesita aprobación} other {{count} archivos de flujo de trabajo necesitan aprobación}}",
   "e0f357999b401497": "Los archivos de flujo de trabajo nuevos o cambiados se ejecutan con acceso completo a este servidor, así que esperan hasta que los leas y los apruebes. Un archivo aprobado que cambia necesita aprobación de nuevo.",
-  "cedea1408c54bbc3": "Aprobar requiere acceso a la terminal de este servidor.",
+  "ab5002891e589e59": "Aprobar requiere acceso a la terminal y lectura de archivos de este servidor.",
   "938e1d5ff4df0282": "Revisar",
   "f1e5c1be1ac92361": "Aprobar",
   "4d71697ed52788cd": "{count, plural, one {Se resolvió {count} hilo} other {Se resolvieron {count} hilos}}",

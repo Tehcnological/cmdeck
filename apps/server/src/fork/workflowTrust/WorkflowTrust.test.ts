@@ -149,3 +149,30 @@ it.effect.skipIf(!symlinksSupported)(
       assert.equal(loaded, "approved");
     }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
 );
+
+it.effect("a file saved with a byte order mark stays approved once approved", () =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const services = yield* Layer.build(
+      WorkflowTrust.layer.pipe(Layer.provide(Layer.merge(Sqlite.layerMemory, NodeCrypto.layer))),
+    );
+    const trust = Context.get(services, WorkflowTrust.WorkflowTrust);
+    const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-trust-" });
+    const file = path.join(directory, "flow.ts");
+    const text = `export default "v1";\n`;
+    yield* fileSystem.writeFile(
+      file,
+      new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode(text)]),
+    );
+    // The runtime reads the file as text, which drops the mark.
+    const source = yield* fileSystem.readFileString(file);
+    assert.equal(source, text);
+    yield* trust.gated(file, source, () => Effect.die("not approved"));
+    const [shown] = yield* trust.pending;
+    yield* trust.approve(shown!.path, shown!.sha256);
+
+    const loaded = yield* trust.gated(file, source, () => Effect.succeed("loaded"));
+    assert.equal(loaded, "loaded");
+  }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+);

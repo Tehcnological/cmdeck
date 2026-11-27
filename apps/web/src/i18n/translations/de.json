@@ -3045,7 +3045,7 @@
   "43fcb5aabe23e3e3": "Nicht genehmigt. Die Datei hat sich vielleicht geändert: Prüfe sie erneut.",
   "2398580e248615e4": "{count, plural, one {{count} Workflow-Datei braucht eine Genehmigung} other {{count} Workflow-Dateien brauchen eine Genehmigung}}",
   "e0f357999b401497": "Neue oder geänderte Workflow-Dateien laufen mit vollem Zugriff auf diesen Server. Deshalb warten sie, bis du sie gelesen und genehmigt hast. Eine genehmigte Datei braucht nach jeder Änderung erneut eine Genehmigung.",
-  "cedea1408c54bbc3": "Zum Genehmigen brauchst du Terminalzugriff auf diesen Server.",
+  "ab5002891e589e59": "Zum Genehmigen brauchst du Terminal- und Dateilesezugriff auf diesen Server.",
   "938e1d5ff4df0282": "Prüfen",
   "f1e5c1be1ac92361": "Genehmigen",
   "4d71697ed52788cd": "{count, plural, one {{count} Thread} other {{count} Threads}} erledigt",

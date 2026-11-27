@@ -176,7 +176,7 @@ required=(
   'apps/server/src/persistence/ForkSchema.ts:yield\* ensureWorkflowTrustSchema\(\)'
   'packages/contracts/src/settings.ts:workflowsEnabled: Schema\.Boolean\.pipe\(Schema\.withDecodingDefault\(Effect\.succeed\(true\)\)\)'
   'apps/web/src/components/workflows/WorkflowsPage.tsx:import \{ WorkflowApprovals \} from "~/fork/WorkflowApprovals";'
-  'apps/web/src/components/workflows/WorkflowsPage.tsx:<WorkflowApprovals environmentId=\{environmentId\} />'
+  'apps/web/src/components/workflows/WorkflowsPage.tsx:<WorkflowApprovals key=\{environmentId\} environmentId=\{environmentId\} />'
   # WI-1.03: remote MCP tokens changed from the CLI are audited too.
   'apps/server/src/cli/auth.ts:AuditLog\.layerAtDatabase\(config\.dbPath\),'
   # WI-1.03: a pairing approved from the CLI without a server is audited too.

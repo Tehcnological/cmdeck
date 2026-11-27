@@ -102,6 +102,10 @@ const make = Effect.gen(function* () {
 
   const hash = (bytes: Uint8Array) =>
     digester.digest(Digest.sha256, bytes).pipe(Effect.orDie, Effect.map(Hex.encode));
+  // Approval covers the text as the runtime decodes it, so a BOM hashes the same everywhere.
+  const read = (file: string) =>
+    fileSystem.readFile(file).pipe(Effect.map((bytes) => new TextDecoder().decode(bytes)));
+  const hashSource = (source: string) => hash(new TextEncoder().encode(source));
   const approvalOf = (file: string) =>
     sql<{ readonly sha256: string }>`SELECT sha256 FROM workflow_trust WHERE path = ${file}`.pipe(
       Effect.map((rows) => rows[0]?.sha256),
@@ -158,15 +162,9 @@ const make = Effect.gen(function* () {
   const pending = Effect.suspend(() =>
     Effect.forEach([...held], (file) =>
       Effect.gen(function* () {
-        const bytes = yield* fileSystem.readFile(file);
-        const sha256 = yield* hash(bytes);
+        const source = yield* read(file);
         return [
-          {
-            name: path.basename(file),
-            path: file,
-            sha256,
-            source: new TextDecoder().decode(bytes),
-          },
+          { name: path.basename(file), path: file, sha256: yield* hashSource(source), source },
         ];
       }).pipe(
         // Kept while unreadable: an editor's atomic save briefly leaves no file to read.
@@ -180,7 +178,7 @@ const make = Effect.gen(function* () {
       if (!held.has(file)) {
         return yield* new WorkflowTrustError({ reason: "That file is not waiting for approval." });
       }
-      const now = yield* fileSystem.readFile(file).pipe(Effect.flatMap(hash));
+      const now = yield* read(file).pipe(Effect.flatMap(hashSource));
       if (now !== sha256) {
         return yield* new WorkflowTrustError({
           reason: "The file changed after it was shown. Review it again before approving.",
@@ -202,7 +200,7 @@ const make = Effect.gen(function* () {
     from: TrustSource,
   ) {
     const file = path.join(directory, name);
-    const sha256 = yield* hash(new TextEncoder().encode(source));
+    const sha256 = yield* hashSource(source);
     if ((yield* approvalOf(file)) === sha256) return;
     yield* store(file, sha256, from);
   }, Effect.orDie);

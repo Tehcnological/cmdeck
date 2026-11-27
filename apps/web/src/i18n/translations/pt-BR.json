@@ -3044,7 +3044,7 @@
   "43fcb5aabe23e3e3": "Não aprovado. O arquivo pode ter mudado: revise-o de novo.",
   "2398580e248615e4": "{count, plural, one {{count} arquivo de workflow precisa de aprovação} other {{count} arquivos de workflow precisam de aprovação}}",
   "e0f357999b401497": "Arquivos de workflow novos ou alterados rodam com acesso total a este servidor, então aguardam até você lê-los e aprová-los. Um arquivo aprovado que muda precisa de aprovação de novo.",
-  "cedea1408c54bbc3": "Aprovar exige acesso ao terminal deste servidor.",
+  "ab5002891e589e59": "Aprovar exige acesso ao terminal e leitura de arquivos deste servidor.",
   "938e1d5ff4df0282": "Revisar",
   "f1e5c1be1ac92361": "Aprovar",
   "4d71697ed52788cd": "{count, plural, one {{count} thread concluída} other {{count} threads concluídas}}",

@@ -33,7 +33,9 @@ export function WorkflowApprovals({ environmentId }: { readonly environmentId: E
   const definitions = useEnvironmentQuery(
     serverEnvironment.workflowDefinition({ environmentId, input: {} }),
   );
-  const canApprove = useAtomValue(approveFile.permissionAtom(environmentId));
+  const canRun = useAtomValue(approveFile.permissionAtom(environmentId));
+  const canRead = useAtomValue(pendingFiles.permissionAtom(environmentId));
+  const canApprove = canRun && canRead;
   const list = useAtomCommand(pendingFiles, { reportFailure: false });
   const approve = useAtomCommand(approveFile, { reportFailure: false });
   const [files, setFiles] = useState<ReadonlyArray<PendingWorkflowFile> | null>(null);
@@ -88,7 +90,7 @@ export function WorkflowApprovals({ environmentId }: { readonly environmentId: E
           </T>
           {canApprove ? null : (
             <p>
-              <T>Approving needs terminal access to this server.</T>
+              <T>Approving needs terminal and file read access to this server.</T>
             </p>
           )}
           {error === null ? null : <p className="text-destructive">{error}</p>}

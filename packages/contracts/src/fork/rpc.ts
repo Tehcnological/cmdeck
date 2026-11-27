@@ -4,6 +4,7 @@ import * as RpcGroup from "effect/rpc/RpcGroup";
 
 import {
   AuthAccessReadScope,
+  AuthFilesystemReadScope,
   AuthOrchestrationReadScope,
   AuthTerminalOperateScope,
   type AuthEnvironmentScope,
@@ -83,8 +84,8 @@ export const FORK_RPC_SCOPES = {
   // Entries are access records (pairings, tokens, secret reveals), so they need access scope.
   [CMDECK_WS_METHODS.auditList]: AuthAccessReadScope,
   [CMDECK_WS_METHODS.auditVerify]: AuthAccessReadScope,
-  // Pending files are shown as the definitions page shows them.
-  [CMDECK_WS_METHODS.workflowTrustPending]: AuthOrchestrationReadScope,
+  // Returns each file's source, as reading a definition does.
+  [CMDECK_WS_METHODS.workflowTrustPending]: AuthFilesystemReadScope,
   // Approving or installing a file lets the server run it, as saving one in the editor does.
   [CMDECK_WS_METHODS.workflowTrustApprove]: AuthTerminalOperateScope,
   [CMDECK_WS_METHODS.workflowPresetInstall]: AuthTerminalOperateScope,

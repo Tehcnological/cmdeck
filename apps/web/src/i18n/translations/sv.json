@@ -3044,7 +3044,7 @@
   "43fcb5aabe23e3e3": "Inte godkänd. Filen kan ha ändrats: granska den igen.",
   "2398580e248615e4": "{count, plural, one {{count} arbetsflödesfil behöver godkännande} other {{count} arbetsflödesfiler behöver godkännande}}",
   "e0f357999b401497": "Nya eller ändrade arbetsflödesfiler körs med full åtkomst till den här servern, så de väntar tills du har läst och godkänt dem. En godkänd fil som ändras behöver godkännas igen.",
-  "cedea1408c54bbc3": "Godkännande kräver terminalåtkomst till den här servern.",
+  "ab5002891e589e59": "Godkännande kräver terminalåtkomst och läsåtkomst till filer på den här servern.",
   "938e1d5ff4df0282": "Granska",
   "f1e5c1be1ac92361": "Godkänn",
   "4d71697ed52788cd": "Markerade {count, plural, one {{count} tråd som klar} other {{count} trådar som klara}}",
