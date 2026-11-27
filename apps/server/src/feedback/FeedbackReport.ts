@@ -203,7 +203,7 @@ export const T3_CLI_COMMANDS: ReadonlyArray<string> = [
   "t3 policy templates",
   "t3 policy settings",
   "t3 triage",
-  "t3 import-from-t3",
+  "t3 import",
   "t3 connect",
   "t3 connect link",
   "t3 connect login",

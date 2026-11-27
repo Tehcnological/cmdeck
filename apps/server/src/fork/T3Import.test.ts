@@ -1,4 +1,4 @@
-// @effect-diagnostics nodeBuiltinImport:off -- Builds source data folders with node:sqlite and hashes them with node:crypto.
+// @effect-diagnostics nodeBuiltinImport:off -- Reads data folders with node:sqlite and hashes them with node:crypto.
 import * as NodeCrypto from "node:crypto";
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
@@ -17,11 +17,7 @@ import { BUILD_MIGRATION_HEAD } from "../persistence/databaseMigrationHead.ts";
 import { migrationManifest } from "../persistence/Migrations.ts";
 import { holdServerOwnershipLock } from "../serverOwnership.ts";
 import * as T3Import from "./T3Import.ts";
-
-const write = (file: string, contents: string) => {
-  NodeFS.mkdirSync(NodePath.dirname(file), { recursive: true });
-  NodeFS.writeFileSync(file, contents);
-};
+import { makeSource, write } from "./T3Import.testkit.ts";
 
 /** Every file under `dir` with its hash. SQLite gives any reader a `-shm` and, for a closed WAL
  * database, an empty `-wal`; neither holds data. */
@@ -43,61 +39,6 @@ const hashTree = (dir: string): Record<string, string> => {
   };
   walk(dir);
   return hashes;
-};
-
-/** A T3 Code data folder at `schema`, whose database stays open in WAL mode until `close`. Like
- * T3 Code's own, the database uses incremental auto_vacuum unless `autoVacuum` says otherwise. */
-const makeSource = (
-  base: string,
-  schema: number = BUILD_MIGRATION_HEAD,
-  autoVacuum: "INCREMENTAL" | "NONE" = "INCREMENTAL",
-) => {
-  const userdata = NodePath.join(base, "userdata");
-  NodeFS.mkdirSync(userdata, { recursive: true });
-  const db = new NodeSqlite.DatabaseSync(NodePath.join(userdata, "statev2.sqlite"));
-  db.exec(
-    `PRAGMA auto_vacuum = ${autoVacuum}; PRAGMA journal_mode = WAL; PRAGMA wal_autocheckpoint = 0;`,
-  );
-  db.exec("CREATE TABLE effect_sql_migrations (migration_id INTEGER PRIMARY KEY, name TEXT)");
-  const insert = db.prepare("INSERT INTO effect_sql_migrations VALUES (?, ?)");
-  for (const [id, name] of migrationManifest) if (id <= schema) insert.run(id, name);
-  if (schema > BUILD_MIGRATION_HEAD) insert.run(schema, "FromTheFuture");
-  db.exec(`
-    CREATE TABLE orchestration_v2_projection_threads (thread_id TEXT PRIMARY KEY);
-    CREATE TABLE auth_sessions (session_id TEXT PRIMARY KEY);
-    CREATE TABLE auth_pairing_links (id TEXT PRIMARY KEY);
-    CREATE TABLE auth_connect_devices (proof_key_thumbprint TEXT PRIMARY KEY);
-    CREATE TABLE peer_environment_links (environment_id TEXT PRIMARY KEY);
-    INSERT INTO orchestration_v2_projection_threads VALUES ('thread-1'), ('thread-2');
-    INSERT INTO auth_sessions VALUES ('phone');
-    INSERT INTO auth_pairing_links VALUES ('link');
-    INSERT INTO auth_connect_devices VALUES ('device');
-    INSERT INTO peer_environment_links VALUES ('peer');
-  `);
-  write(NodePath.join(userdata, "settings.json"), '{"enableAssistantStreaming":true}\n');
-  write(NodePath.join(userdata, "keybindings.json"), "[]\n");
-  write(NodePath.join(userdata, "environment-id"), "old-environment\n");
-  write(NodePath.join(userdata, "server-runtime.json"), "{}\n");
-  write(NodePath.join(userdata, "attachments", "a.png"), "png");
-  write(NodePath.join(userdata, "logs", "server.log"), "log");
-  write(NodePath.join(userdata, "providers", "codex", "work", "shadow", "auth.json"), "{}");
-  for (const name of [
-    "provider-env-codex-OPENAI_API_KEY",
-    "secret-request-salt",
-    "server-signing-key",
-    "guest-share-signing-key",
-    "remote-mcp-tokens",
-    "cloud-relay-url",
-    "peer-link-abc",
-    "dpop-proof-xyz",
-  ]) {
-    write(NodePath.join(userdata, "secrets", `${name}.bin`), `value of ${name}`);
-  }
-  write(NodePath.join(base, "workflows", "nightly.ts"), "export default {}");
-  write(NodePath.join(base, "worktrees", "repo", "file.txt"), "worktree");
-  write(NodePath.join(base, "caches", "c.json"), "{}");
-  write(NodePath.join(base, "runtime", "versions", "1.0.0", "server.js"), "");
-  return { userdata, close: () => db.close() };
 };
 
 const rowCount = (databasePath: string, table: string) => {
@@ -372,6 +313,24 @@ it.layer(T3Import.layer.pipe(Layer.provideMerge(NodeServices.layer)))("T3Import"
       );
       assert.instanceOf(failure, T3Import.T3ImportFailedError);
       assert.equal(NodeFS.readFileSync(target, "utf8"), "a file where the data folder should be");
+    }),
+  );
+
+  it.effect("reads ~/.t3 by default and the folder holding a named userdata folder", () =>
+    Effect.gen(function* () {
+      const root = yield* tempRoot;
+      const source = NodePath.join(root, "t3");
+      makeSource(source).close();
+      const userdata = NodePath.join(source, "userdata");
+      const locate = (dir: string | undefined) =>
+        T3Import.locateSource(dir).pipe(Effect.provideService(HostProcess.HomeDirectory, root));
+
+      assert.equal(yield* locate(undefined), NodePath.join(root, ".t3"));
+      assert.equal(yield* locate(source), source);
+      assert.equal(yield* locate(userdata), source);
+      // Without a database there, `userdata` is just a folder's name.
+      const other = NodePath.join(root, "other", "userdata");
+      assert.equal(yield* locate(other), other);
     }),
   );
 

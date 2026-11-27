@@ -94,7 +94,7 @@ required=(
   'apps/server/src/ws.ts:ForkAlerts\.configIssues'
   'packages/contracts/src/server.ts:fork\.shared-data'
   'apps/web/src/appInit.tsx:startForkSharedDataToasts'
-  'apps/server/src/binCli.ts:importFromT3Command'
+  'apps/server/src/binCli.ts:importCommand,'
   'apps/server/src/ws.ts:T3Import\.importOfferIssues'
   'packages/contracts/src/server.ts:fork\.import-available'
   'apps/web/src/appInit.tsx:startForkImportOfferToast'
