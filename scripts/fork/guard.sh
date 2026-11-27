@@ -94,7 +94,7 @@ required=(
   'apps/server/src/ws.ts:ForkAlerts\.configIssues'
   'packages/contracts/src/server.ts:fork\.shared-data'
   'apps/web/src/appInit.tsx:startForkSharedDataToasts'
-  'apps/server/src/binCli.ts:importFromT3Command'
+  'apps/server/src/binCli.ts:importCommand,'
   'apps/server/src/ws.ts:T3Import\.importOfferIssues'
   'packages/contracts/src/server.ts:fork\.import-available'
   'apps/web/src/appInit.tsx:startForkImportOfferToast'
@@ -129,6 +129,9 @@ required=(
   'apps/web/src/components/CommandPalette.tsx:actionItems\.push\(\.\.\.forkCommandItems\);'
   # The star prompt stars CMDeck's repository, not upstream's.
   'apps/web/src/components/GitHubStarPrompt.tsx:const REPOSITORY = APP_RELEASE_REPOSITORY;'
+  # WI-1.11: the Amazon Bedrock preset in the Claude provider dialog.
+  'apps/web/src/components/settings/AddProviderInstanceDialog.tsx:<BedrockPresetSection'
+  'apps/web/src/components/settings/AddProviderInstanceDialog.tsx:environment: bedrockEnvironmentForSave\(bedrockEnvironment\)'
   # WI-1.02: the shared redactor applies at log, feedback and webhook-prompt egress.
   'packages/shared/package.json:"\./redaction"'
   'apps/server/src/serverLogger.ts:redactingSecrets\(redactingCredentials\(Logger\.consolePretty\(\)\)\)'

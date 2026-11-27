@@ -65,6 +65,8 @@ import { AddManagedCodexAccountDialog } from "./CodexSetupSection";
 import { MultipleAccountsNote } from "./MultipleAccountsNote";
 import { ProviderEnvironmentSection } from "./ProviderInstanceCard";
 import { useSecretSources } from "./SecretSourceInput";
+import { BedrockPresetSection } from "../../fork/BedrockPresetSection";
+import { bedrockEnvironmentForSave } from "../../fork/bedrockPreset";
 
 const INSTANCE_ID_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
 const DEFAULT_DRIVER_KIND = ProviderDriverKind.make("codex");
@@ -191,6 +193,9 @@ export function AddProviderInstanceDialog({
   );
   const [selectedAcp, setSelectedAcp] = useState<AcpRegistrySearchAgent | null>(null);
   const [localEnvironment, setLocalEnvironment] = useState<
+    ReadonlyArray<ProviderInstanceEnvironmentVariable>
+  >([]);
+  const [bedrockEnvironment, setBedrockEnvironment] = useState<
     ReadonlyArray<ProviderInstanceEnvironmentVariable>
   >([]);
   const [isManualAcpConfiguration, setIsManualAcpConfiguration] = useState(false);
@@ -402,6 +407,9 @@ export function AddProviderInstanceDialog({
       ...(normalizedAccentColor ? { accentColor: normalizedAccentColor } : {}),
       ...(hasConfig ? { config } : {}),
       ...(isLocalAcp && localEnvironment.length > 0 ? { environment: localEnvironment } : {}),
+      ...(driver === "claudeAgent" && bedrockEnvironment.length > 0
+        ? { environment: bedrockEnvironmentForSave(bedrockEnvironment) }
+        : {}),
     };
     const brandedId = ProviderInstanceId.make(instanceId);
     setIsSaving(true);
@@ -746,6 +754,15 @@ export function AddProviderInstanceDialog({
                     }
                     environmentId={environmentId}
                   />
+                  {driver === "claudeAgent" ? (
+                    <BedrockPresetSection
+                      environment={bedrockEnvironment}
+                      onChange={setBedrockEnvironment}
+                      locks={driverLocks}
+                      secretSources={secretSources}
+                      environmentId={environmentId}
+                    />
+                  ) : null}
                 </SettingsGroup>
               ) : !isAcpRegistry && wizardStep === 2 ? (
                 <div className="grid gap-2">

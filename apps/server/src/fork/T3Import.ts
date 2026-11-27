@@ -4,25 +4,18 @@ import * as NodeFS from "node:fs";
 import * as NodeSqlite from "node:sqlite";
 
 import type { ServerConfigIssue } from "@t3tools/contracts";
-import {
-  APP_HOME_ENV,
-  UPSTREAM_HOME_DIR_NAME,
-  UPSTREAM_HOME_ENV,
-} from "@t3tools/shared/appIdentity";
+import { UPSTREAM_HOME_DIR_NAME } from "@t3tools/shared/appIdentity";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Clock from "effect/Clock";
 import * as DateTime from "effect/DateTime";
-import * as Config from "effect/Config";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import { DPOP_REPLAY_MARKER_PREFIX } from "../auth/dpop.ts";
 import * as ServerConfig from "../config.ts";
-import { expandHomePath, resolveBaseDir } from "../os-jank.ts";
 import { BUILD_MIGRATION_HEAD, recordedMigrations } from "../persistence/databaseMigrationHead.ts";
 import { skippedV2Migrations } from "../persistence/Migrations.ts";
 import { isServerOwnershipHeld } from "../serverOwnership.ts";
@@ -357,7 +350,7 @@ const make = Effect.gen(function* () {
     const officialHome = path.join(yield* HostProcess.HomeDirectory, UPSTREAM_HOME_DIR_NAME);
     if (path.resolve(source) === path.resolve(target)) {
       blockers.push(
-        `The T3 Code folder and the CMDeck folder are the same (${source}). Pass --from with the official T3 Code data folder.`,
+        `The T3 Code folder and the CMDeck folder are the same (${source}). Pass --source with the official T3 Code data folder.`,
       );
     } else if (path.resolve(target) === path.resolve(officialHome)) {
       blockers.push(
@@ -537,30 +530,16 @@ const make = Effect.gen(function* () {
 
 export const layer = Layer.effect(T3Import, make);
 
-/** Where an import reads from and writes to.
- * shortcut: the source is `~/.t3` and the target this build's base dir; repoint both at the
- * data-dir constants once CMDeck's own home (`~/.cmdeck`) lands. */
-export const resolveImportLocations = Effect.fn("T3Import.resolveImportLocations")(
-  function* (input: { readonly from: string | undefined; readonly baseDir: string | undefined }) {
-    const path = yield* Path.Path;
-    const envHome = yield* Config.String(APP_HOME_ENV).pipe(
-      Config.orElse(() => Config.String(UPSTREAM_HOME_ENV)),
-      Config.option,
-    );
-    const target = yield* resolveBaseDir(input.baseDir ?? Option.getOrUndefined(envHome));
-    const rawSource =
-      input.from === undefined
-        ? path.join(yield* HostProcess.HomeDirectory, UPSTREAM_HOME_DIR_NAME)
-        : path.resolve(yield* expandHomePath(input.from.trim()));
-    // `--from ~/.t3/userdata` names the state folder; the import wants the folder holding it.
-    const source =
-      path.basename(rawSource) === "userdata" &&
-      NodeFS.existsSync(path.join(rawSource, "statev2.sqlite"))
-        ? path.dirname(rawSource)
-        : rawSource;
-    return { source, target };
-  },
-);
+/** The T3 Code data folder to read: `~/.t3` unless the user named one (already absolute). */
+export const locateSource = Effect.fn("T3Import.locateSource")(function* (dir: string | undefined) {
+  const path = yield* Path.Path;
+  const source = dir ?? path.join(yield* HostProcess.HomeDirectory, UPSTREAM_HOME_DIR_NAME);
+  // `--source ~/.t3/userdata` names the state folder; the import wants the folder holding it.
+  return path.basename(source) === "userdata" &&
+    NodeFS.existsSync(path.join(source, "statev2.sqlite"))
+    ? path.dirname(source)
+    : source;
+});
 
 /** The import offer the app shows while this build's own database has no threads. */
 export const importOfferIssues = Effect.fn("T3Import.importOfferIssues")(function* () {
@@ -577,9 +556,9 @@ export const importOfferIssues = Effect.fn("T3Import.importOfferIssues")(functio
   }
   const issue: ServerConfigIssue = {
     kind: "fork.import-available",
-    message: `CMDeck can import the threads, projects and settings T3 Code keeps in ${source}. Quit CMDeck, run the command (add --dry-run first to see what it copies), then start CMDeck again. --force moves what CMDeck created on its first start to a backup folder. Devices paired with T3 Code, including the T3 Code iPhone app, must pair with CMDeck again.`,
+    message: `CMDeck can import the threads, projects and settings T3 Code keeps in ${source}. Quit CMDeck, run the command (add --plan first to see what it copies), then start CMDeck again. --force moves what CMDeck created on its first start to a backup folder. Devices paired with T3 Code, including the T3 Code iPhone app, must pair with CMDeck again.`,
     // Starting CMDeck already wrote its data folder, so without --force the import always refuses.
-    command: `cmdeck import-from-t3 --base-dir "${config.baseDir}" --force`,
+    command: `cmdeck import t3 --base-dir "${config.baseDir}" --force`,
   };
   return [issue];
 });
