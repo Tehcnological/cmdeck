@@ -8,7 +8,13 @@ const { add, update, openExternal, commands, starred, page } = vi.hoisted(() => 
   update: vi.fn<typeof toastManager.update>(),
   openExternal: vi.fn(async (_url: string) => {}),
   commands: { checkStarred: {}, star: {} },
-  starred: { value: false, failed: false, starWorks: true, duringCheck: () => {} },
+  starred: {
+    value: false,
+    failed: false,
+    starWorks: true,
+    duringCheck: () => {},
+    repositories: [] as string[],
+  },
   page: {
     focused: true,
     activeElement: null as { matches: (selector: string) => boolean } | null,
@@ -20,7 +26,12 @@ vi.mock("../localApi", () => ({ readLocalApi: () => ({ shell: { openExternal } }
 vi.mock("../rpc/atomRegistry", () => ({ appAtomRegistry: {} }));
 vi.mock("../state/sourceControl", () => ({ sourceControlEnvironment: commands }));
 vi.mock("@t3tools/client-runtime/state/runtime", () => ({
-  runAtomCommand: async (_registry: unknown, command: unknown) => {
+  runAtomCommand: async (
+    _registry: unknown,
+    command: unknown,
+    target: { input: { repository: string } },
+  ) => {
+    starred.repositories.push(target.input.repository);
     if (command === commands.star) return { _tag: "Success", value: starred.starWorks };
     starred.duringCheck();
     return starred.failed ? { _tag: "Failure" } : { _tag: "Success", value: starred.value };
@@ -172,13 +183,14 @@ describe("recordPromptSent", () => {
     expect(update.mock.lastCall?.[1]).toMatchObject({ title: "Thanks for the star!" });
     expect(store.get("t3code:github-star-prompt:dismissed")).toBe("true");
     expect(openExternal).not.toHaveBeenCalled();
+    expect(new Set(starred.repositories)).toEqual(new Set(["Tehcnological/cmdeck"]));
 
     setup({ sent: 5 });
     starred.starWorks = false;
     await (await startSession()).send();
     click(add.mock.lastCall?.[0].actionProps);
     await vi.advanceTimersByTimeAsync(0);
-    expect(openExternal).toHaveBeenCalledWith("https://github.com/pingdotgg/t3code");
+    expect(openExternal).toHaveBeenCalledWith("https://github.com/Tehcnological/cmdeck");
     expect(update.mock.lastCall?.[1]).not.toMatchObject({
       actionProps: { children: "Open GitHub" },
     });

@@ -3,6 +3,7 @@ import { runAtomCommand } from "@t3tools/client-runtime/state/runtime";
 import * as Schema from "effect/Schema";
 import { msg } from "gt-react";
 import { StarIcon } from "lucide-react";
+import { APP_RELEASE_REPOSITORY } from "@t3tools/shared/appIdentity";
 
 import { m } from "../i18n/messages";
 import { getLocalStorageItem, setLocalStorageItem } from "../hooks/useLocalStorage";
@@ -14,7 +15,7 @@ import { toastManager } from "./ui/toast";
 // Separate keys so a count written by another tab can never undo a dismissal.
 const SENT_KEY = "t3code:github-star-prompt:sent";
 const DISMISSED_KEY = "t3code:github-star-prompt:dismissed";
-const REPOSITORY = "pingdotgg/t3code";
+const REPOSITORY = APP_RELEASE_REPOSITORY;
 const PROMPTS_BEFORE_ASKING = 5;
 const IDLE_MS = 30_000;
 // User-driven actions (send, navigate, type, scroll) start with one of these; touch fires pointerdown.

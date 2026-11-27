@@ -127,6 +127,8 @@ required=(
   'packages/contracts/src/settings.ts:cmdeck: Schema\.optionalKey\(CmdeckSettingsPatch\)'
   'apps/web/src/components/CommandPalette.tsx:const forkCommandItems = useForkCommandItems\(\);'
   'apps/web/src/components/CommandPalette.tsx:actionItems\.push\(\.\.\.forkCommandItems\);'
+  # The star prompt stars CMDeck's repository, not upstream's.
+  'apps/web/src/components/GitHubStarPrompt.tsx:const REPOSITORY = APP_RELEASE_REPOSITORY;'
 )
 for entry in "${required[@]}"; do
   file="${entry%%:*}"
