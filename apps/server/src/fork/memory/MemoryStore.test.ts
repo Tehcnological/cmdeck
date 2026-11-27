@@ -83,7 +83,7 @@ describe("MemoryStore", () => {
       }),
     );
 
-    it.effect("an agent's write waits for the user unless the user started the turn", () =>
+    it.effect("an agent's write waits for the user to accept it", () =>
       Effect.gen(function* () {
         const store = yield* MemoryStore.MemoryStore;
         const context = yield* store.threadContext(threads.main);
@@ -115,6 +115,11 @@ describe("MemoryStore", () => {
             actor: "user",
           }),
         ).toMatchObject({ status: "active", provenance: "user_explicit" });
+
+        // Whitespace-only content saves nothing.
+        for (const blank of ["   ", "\n\t"]) {
+          expect((yield* remember(blank).pipe(Effect.flip))._tag).toBe("MemoryStoreError");
+        }
       }),
     );
 

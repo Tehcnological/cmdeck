@@ -259,13 +259,21 @@ const make = Effect.gen(function* () {
       // An agent's write is a proposal even in a turn a person started: text it read in that
       // turn (a file, a web page) could otherwise plant a standing rule. A person accepts it.
       const asked = input.actor === "user";
+      // Whitespace-only content trims to nothing, which would save an item that says nothing.
+      const content = redactSecrets(input.content.trim());
+      if (content === "") {
+        return yield* new MemoryStoreError({
+          operation: "save an empty item",
+          cause: "the content is blank",
+        });
+      }
       const at = yield* now;
       const item: MemoryItem = {
         id: yield* random.uuidV4().pipe(failsTo("name the item")),
         scope: input.scope,
         kind: input.kind,
         // Saved memory reaches later provider prompts, so secrets never enter it.
-        content: redactSecrets(input.content.trim()),
+        content,
         provenance: asked ? "user_explicit" : "agent_inferred",
         status: asked ? "active" : "pending",
         originThreadId: context.threadId,
