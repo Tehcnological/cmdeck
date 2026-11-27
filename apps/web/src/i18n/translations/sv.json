@@ -3043,6 +3043,21 @@
   "5286d58e5798009f": "Leveransen misslyckas: {error}",
   "622b16e8b9e8e4c5": "Skicka till {name}",
   "da49b8271b9dffa0": "Ta bort",
+  "53cb258371dc7cf2": "Kontrollskriptet behöver godkännas",
+  "152f0a75ce4df9a7": "Kontrollskript",
+  "9cb836a79c4ed849": "Lägg till ett kontrollskript",
+  "0a604cc459e9a708": "Skriptet är för långt.",
+  "2ca6573e20bfd938": "Använd en tidsgräns på 5 till 1800 sekunder.",
+  "b1c54d1b68de6c3b": "Inte sparat. Skriptet kan ha ändrats: stäng och öppna det igen.",
+  "e7f3dc239f52c255": "Kontrollskript för {title}",
+  "c31d9ff22d28a6e3": "Körs före varje körning, i projektmappen. Slutkod 0 väcker agenten med skriptets utdata; slutkod {skip} hoppar över körningen utan tur; alla andra slutkoder får den att misslyckas.",
+  "2a2755cafd996d81": "Skript",
+  "c2cfe9ce727696d0": "En agent har skrivit eller ändrat det här skriptet. Det körs med full åtkomst till servern, så det körs inte förrän du har läst och godkänt det.",
+  "12c6b3d80f48de17": "Tolk",
+  "a92fc82b0f6efbee": "Tidsgräns (s)",
+  "da83d66f0c1dd59a": "Avisera bara, väck aldrig agenten",
+  "111a44209dc6e701": "Ta bort",
+  "f1e5c1be1ac92361": "Godkänn",
   "5bfa4174643520be": "nya trådar maskin server värd starta fjärr lokal",
   "885ca9d1d9af4364": "Det gick inte att läsa filerna som ska godkännas.",
   "43fcb5aabe23e3e3": "Inte godkänd. Filen kan ha ändrats: granska den igen.",
@@ -3050,7 +3065,6 @@
   "e0f357999b401497": "Nya eller ändrade arbetsflödesfiler körs med full åtkomst till den här servern, så de väntar tills du har läst och godkänt dem. En godkänd fil som ändras behöver godkännas igen.",
   "ab5002891e589e59": "Godkännande kräver terminalåtkomst och läsåtkomst till filer på den här servern.",
   "938e1d5ff4df0282": "Granska",
-  "f1e5c1be1ac92361": "Godkänn",
   "4d71697ed52788cd": "Markerade {count, plural, one {{count} tråd som klar} other {{count} trådar som klara}}",
   "96f74e61e5e2394a": "Snoozade {count, plural, one {{count} tråd} other {{count} trådar}}",
   "158d77e7a872186e": "Lossade {count, plural, one {{count} tråd} other {{count} trådar}}",
@@ -9046,7 +9060,6 @@
       "v": "v"
     }
   ],
-  "111a44209dc6e701": "Ta bort",
   "a3538ba5ca802bd7": [
     "Ta bort ",
     {

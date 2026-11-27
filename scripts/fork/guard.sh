@@ -200,10 +200,27 @@ required=(
   # and a thread hidden by a tag filter leaves the panel.
   'apps/web/src/components/ChatView.tsx:activeThread\?\.projectId !== panelHostShell\?\.projectId'
   'apps/web/src/components/chat/SideThreadPane.tsx:useCloseWhenHidden\(threadRef, props\.onClose\)'
+  # WI-2.11: a scheduled task's check script decides whether its run wakes the agent.
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:import \* as CheckScripts from "\.\./fork/checkScripts/CheckScripts\.ts";'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:const checkScripts = yield\* CheckScripts\.CheckScripts;'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:const checked = yield\* checkScripts\.gate\('
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:checked\?\._tag === "Wake" \? checked\.prompt : \(webhook\?\.prompt \?\? active\.prompt\)'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:const dispatchExit = CheckScripts\.exitAfter\(checked\);'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:\? yield\* dispatchExit\( +threadLaunch'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:: yield\* dispatchExit\( +// The stored selection'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:\(checked\?\._tag !== "Failed" \|\| checked\.counts\) &&'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:runTask\(task, "scheduled"\)\.pipe\(checkScripts\.runsAside\(task\.id, serviceScope\)\)'
+  'apps/server/src/persistence/ForkSchema.ts:yield\* ensureCheckScriptsSchema\(\)'
+  'apps/web/src/components/settings/ScheduledTasksSettings.tsx:import \{ ScheduledTaskCheckControl \} from "~/fork/ScheduledTaskCheck";'
+  'apps/web/src/components/settings/ScheduledTasksSettings.tsx:<ScheduledTaskCheckControl environmentId=\{environmentId\} task=\{task\} />'
 )
 # 6. Only a person approves a workflow file: no MCP tool may reach the trust gate (WI-1.06).
 hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts)"
 [ -z "$hits" ] || bad "MCP code reaches the workflow trust gate: $hits"
+
+# 7. Only a person approves a check script: no MCP code may reach its approval (WI-2.11).
+hits="$(git grep -l -E '\.approve\(|checkScriptsApprove' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts apps/server/src/fork/checkScripts/mcpTools.ts)"
+[ -z "$hits" ] || bad "MCP code reaches check script approval: $hits"
 
 for entry in "${required[@]}"; do
   file="${entry%%:*}"

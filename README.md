@@ -62,7 +62,8 @@ tagging `vN`; see [docs/operations/03_release.md](./docs/operations/03_release.m
 ## License and credit
 
 CMDeck is built on the T3 Code source code by T3 Tools, Inc., and includes work ported from
-[m3code](https://github.com/MiaAI-Lab/m3code) by MiaAI-Lab, both used under the
+[m3code](https://github.com/MiaAI-Lab/m3code) by MiaAI-Lab and
+[Sillage](https://github.com/MarlBurroW/sillage) by MarlBurroW, all used under the
 [MIT License](./LICENSE). The MIT License covers the source only; the T3 Code name, logos, and
 icons are T3 Tools' trademarks (see [TRADEMARK.md](./TRADEMARK.md)) and are not used for this
 fork's branding.

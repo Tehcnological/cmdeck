@@ -3043,6 +3043,21 @@
   "5286d58e5798009f": "Delivery failing: {error}",
   "622b16e8b9e8e4c5": "Send to {name}",
   "da49b8271b9dffa0": "Delete",
+  "53cb258371dc7cf2": "Check script needs approval",
+  "152f0a75ce4df9a7": "Check script",
+  "9cb836a79c4ed849": "Add a check script",
+  "0a604cc459e9a708": "The script is too long.",
+  "2ca6573e20bfd938": "Use a timeout from 5 to 1800 seconds.",
+  "b1c54d1b68de6c3b": "Not saved. The script may have changed: close and open it again.",
+  "e7f3dc239f52c255": "Check script for {title}",
+  "c31d9ff22d28a6e3": "Runs before each run, in the project folder. Exit 0 wakes the agent with the script's output; exit {skip} skips the run with no turn; any other exit fails it.",
+  "2a2755cafd996d81": "Script",
+  "c2cfe9ce727696d0": "An agent wrote or changed this script. It runs with this server's full access, so it does not run until you read and approve it.",
+  "12c6b3d80f48de17": "Interpreter",
+  "a92fc82b0f6efbee": "Timeout (s)",
+  "da83d66f0c1dd59a": "Notify only, never wake the agent",
+  "111a44209dc6e701": "Remove",
+  "f1e5c1be1ac92361": "Approve",
   "5bfa4174643520be": "new threads machine server host start remote local",
   "885ca9d1d9af4364": "Could not read the files to approve.",
   "43fcb5aabe23e3e3": "Not approved. The file may have changed: review it again.",
@@ -3050,7 +3065,6 @@
   "e0f357999b401497": "New or changed workflow files run with this server's full access, so they wait until you read and approve them. Changing an approved file needs approval again.",
   "ab5002891e589e59": "Approving needs terminal and file read access to this server.",
   "938e1d5ff4df0282": "Review",
-  "f1e5c1be1ac92361": "Approve",
   "4d71697ed52788cd": "Settled {count, plural, one {{count} thread} other {{count} threads}}",
   "96f74e61e5e2394a": "Snoozed {count, plural, one {{count} thread} other {{count} threads}}",
   "158d77e7a872186e": "Unpinned {count, plural, one {{count} thread} other {{count} threads}}",
@@ -9048,7 +9062,6 @@
       "v": "v"
     }
   ],
-  "111a44209dc6e701": "Remove",
   "a3538ba5ca802bd7": [
     "Remove ",
     {

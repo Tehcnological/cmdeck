@@ -7,6 +7,8 @@ import * as AuditLog from "./audit/AuditLog.ts";
 import * as Notifications from "./notifications/Notifications.ts";
 import * as MemoryStore from "./memory/MemoryStore.ts";
 import * as TurnContext from "./memory/TurnContext.ts";
+import * as CheckScripts from "./checkScripts/CheckScripts.ts";
+import * as CheckScriptAlerts from "./checkScripts/alerts.ts";
 
 /**
  * Every fork service the server provides, in one place so `server.ts` carries a single fork line.
@@ -17,14 +19,20 @@ export const layer = Layer.mergeAll(
   RemoteMcpTokens.layer,
   PublicAddressCheck.layer,
   // Notifications writes channel changes and delivery failures to the audit log.
-  Notifications.layer.pipe(Layer.provideMerge(AuditLog.layer)),
+  CheckScriptAlerts.layer.pipe(
+    Layer.provideMerge(Notifications.layer.pipe(Layer.provideMerge(AuditLog.layer))),
+  ),
 );
 
 /**
  * Fork services orchestration reads, provided beneath it. They may depend only on what lies below
  * orchestration: settings, persistence and the project store.
  */
-export const layerBeneathOrchestration = TurnContext.layer.pipe(
-  Layer.provideMerge(MemoryStore.layer),
-  Layer.provide(ProjectionStore.layer),
+export const layerBeneathOrchestration = Layer.merge(
+  TurnContext.layer.pipe(
+    Layer.provideMerge(MemoryStore.layer),
+    Layer.provide(ProjectionStore.layer),
+  ),
+  // The scheduler gates runs on it (WI-2.11).
+  CheckScripts.layer,
 );

@@ -26,6 +26,13 @@ import {
   NotificationChannelIdInput,
   NotificationChannelSetEnabledInput,
 } from "./notifications.ts";
+import {
+  CheckScriptError,
+  ScheduledTaskCheckApproveInput,
+  ScheduledTaskCheckListResult,
+  ScheduledTaskCheckSetInput,
+  ScheduledTaskCheckSetResult,
+} from "./checkScripts.ts";
 
 // The `cmdeck.` prefix keeps fork methods clear of upstream's names. Append new methods here.
 export const CMDECK_WS_METHODS = {
@@ -39,6 +46,9 @@ export const CMDECK_WS_METHODS = {
   notificationChannelsSetEnabled: "cmdeck.notifications.channels.setEnabled",
   notificationChannelsRemove: "cmdeck.notifications.channels.remove",
   notificationsSubscribeAlerts: "cmdeck.notifications.subscribeAlerts",
+  checkScriptsList: "cmdeck.checkScripts.list",
+  checkScriptsSet: "cmdeck.checkScripts.set",
+  checkScriptsApprove: "cmdeck.checkScripts.approve",
 } as const;
 
 /** Fork stream methods the client runtime subscribes to like upstream's. */
@@ -113,6 +123,26 @@ const CmdeckNotificationsSubscribeAlertsRpc = Rpc.make(
   },
 );
 
+const CheckScriptsError = Schema.Union([CheckScriptError, EnvironmentAuthorizationError]);
+
+const CmdeckCheckScriptsListRpc = Rpc.make(CMDECK_WS_METHODS.checkScriptsList, {
+  payload: Schema.Struct({}),
+  success: ScheduledTaskCheckListResult,
+  error: CheckScriptsError,
+});
+
+const CmdeckCheckScriptsSetRpc = Rpc.make(CMDECK_WS_METHODS.checkScriptsSet, {
+  payload: ScheduledTaskCheckSetInput,
+  success: ScheduledTaskCheckSetResult,
+  error: CheckScriptsError,
+});
+
+const CmdeckCheckScriptsApproveRpc = Rpc.make(CMDECK_WS_METHODS.checkScriptsApprove, {
+  payload: ScheduledTaskCheckApproveInput,
+  success: Schema.Struct({}),
+  error: CheckScriptsError,
+});
+
 /** Merged into `WsRpcGroup`, so fork methods share its scope middleware. */
 export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckStatusRpc,
@@ -125,6 +155,9 @@ export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckNotificationChannelsSetEnabledRpc,
   CmdeckNotificationChannelsRemoveRpc,
   CmdeckNotificationsSubscribeAlertsRpc,
+  CmdeckCheckScriptsListRpc,
+  CmdeckCheckScriptsSetRpc,
+  CmdeckCheckScriptsApproveRpc,
 );
 
 /** Spread into `CLIENT_GUARDED_RPC_SCOPES`; every fork method needs one. */
@@ -142,4 +175,8 @@ export const FORK_RPC_SCOPES = {
   [CMDECK_WS_METHODS.notificationChannelsSetEnabled]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.notificationChannelsRemove]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.notificationsSubscribeAlerts]: AuthOrchestrationReadScope,
+  // Scripts are task data, read like prompts. Saving or approving one lets the server run it.
+  [CMDECK_WS_METHODS.checkScriptsList]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.checkScriptsSet]: AuthTerminalOperateScope,
+  [CMDECK_WS_METHODS.checkScriptsApprove]: AuthTerminalOperateScope,
 } as const satisfies Record<RpcGroup.Rpcs<typeof ForkWsRpcGroup>["_tag"], AuthEnvironmentScope>;

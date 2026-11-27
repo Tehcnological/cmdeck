@@ -15,6 +15,7 @@ import * as AuditLog from "../audit/AuditLog.ts";
 import { installPreset } from "../presets/install.ts";
 import { WorkflowTrust } from "../workflowTrust/WorkflowTrust.ts";
 import * as Notifications from "../notifications/Notifications.ts";
+import { CheckScripts } from "../checkScripts/CheckScripts.ts";
 
 /** Spread into the server's WS handlers; each fork module adds its methods here. */
 export const make = Effect.gen(function* () {
@@ -26,6 +27,7 @@ export const make = Effect.gen(function* () {
   const noTrust = Effect.fail(new WorkflowTrustError({ reason: "Workflows are not available." }));
   const notifications = yield* Effect.serviceOption(Notifications.Notifications);
   const noNotifications = Effect.fail(new NotificationChannelError({}));
+  const checks = yield* CheckScripts;
   return ForkWsRpcGroup.of({
     [CMDECK_WS_METHODS.status]: () => Effect.succeed({ version: CMDECK_RPC_VERSION }),
     [CMDECK_WS_METHODS.auditList]: (input) =>
@@ -52,5 +54,10 @@ export const make = Effect.gen(function* () {
       Option.isSome(notifications)
         ? Stream.unwrap(notifications.value.subscribeAlerts)
         : Stream.empty,
+    [CMDECK_WS_METHODS.checkScriptsList]: () =>
+      Effect.map(checks.list, (list) => ({ checks: list })),
+    [CMDECK_WS_METHODS.checkScriptsSet]: (input) =>
+      Effect.map(checks.set({ ...input, by: "user" }), (check) => ({ check })),
+    [CMDECK_WS_METHODS.checkScriptsApprove]: (input) => Effect.as(checks.approve(input), {}),
   });
 });
