@@ -809,7 +809,11 @@ export const layer = Layer.effect(
       sql`
         UPDATE scheduled_tasks
         SET updated_at = ${input.completedAtIso},
-            next_run_at = ${input.nextRunAtIso},
+            -- An earlier run's usage-limit hold may have moved next_run_at past this occurrence.
+            next_run_at = CASE
+              WHEN ${input.nextRunAtIso} IS NOT NULL AND next_run_at IS NOT NULL
+                AND julianday(next_run_at) > julianday(${input.nextRunAtIso})
+              THEN next_run_at ELSE ${input.nextRunAtIso} END,
             last_run_status = ${input.status},
             last_run_error = ${input.error},
             run_count = run_count + 1
