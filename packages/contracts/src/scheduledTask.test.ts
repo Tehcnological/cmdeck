@@ -1,14 +1,34 @@
 import { describe, expect, it } from "vite-plus/test";
 import * as Schema from "effect/Schema";
 
+import { ForwardCompatibleArray } from "./baseSchemas.ts";
 import {
   MIN_SCHEDULED_TASK_INTERVAL_MS,
+  ScheduledTask,
+  ScheduledTaskListResult,
   ScheduledTaskSchedule,
   ScheduledTaskUpsertSchedule,
 } from "./scheduledTask.ts";
 
 const decodeSchedule = Schema.decodeUnknownSync(ScheduledTaskSchedule);
 const decodeUpsertSchedule = Schema.decodeUnknownSync(ScheduledTaskUpsertSchedule);
+const decodeList = Schema.decodeUnknownSync(ScheduledTaskListResult);
+// The list as an official app built before cron decodes it.
+const decodePreCronList = Schema.decodeUnknownSync(
+  Schema.Struct({
+    ...ScheduledTaskListResult.fields,
+    tasks: ForwardCompatibleArray(
+      Schema.Struct({
+        ...ScheduledTask.fields,
+        schedule: Schema.Union(
+          ScheduledTaskSchedule.members.filter(
+            (member) => !Schema.is(member)({ type: "cron", expression: "0 9 * * *" }),
+          ),
+        ),
+      }),
+    ),
+  }),
+);
 
 describe("ScheduledTaskSchedule", () => {
   it("keeps legacy sub-minute persisted schedules readable", () => {
@@ -72,5 +92,72 @@ describe("webhook filters", () => {
     expect(accepts([{ path: "body.label.name", op: "in", value: ["needs review"] }])).toBe(true);
     expect(accepts([{ path: "body.action", op: "equals" }])).toBe(false);
     expect(accepts([{ path: "body.action", op: "matches", value: "^opened$" }])).toBe(false);
+  });
+});
+
+describe("cron schedules", () => {
+  const rejection = (schedule: unknown) => {
+    try {
+      decodeUpsertSchedule(schedule);
+      return null;
+    } catch (error) {
+      return String(error);
+    }
+  };
+
+  it("accepts five-field expressions with lists, ranges, steps and names", () => {
+    for (const expression of ["0 9 * * 1-5", "*/15 8-18 * * mon-fri", "0 0 1,15 jan,jul *"]) {
+      expect(rejection({ type: "cron", expression, timeZone: "Europe/London" })).toBeNull();
+    }
+    expect(rejection({ type: "cron", expression: "0 9 * * 7" })).toBeNull();
+  });
+
+  it("rejects invalid expressions and zones with a readable reason", () => {
+    expect(rejection({ type: "cron", expression: "0 9 * *" })).toContain("five fields");
+    expect(rejection({ type: "cron", expression: "60 9 * * *" })).toContain(
+      'The minute field "60" is not valid.',
+    );
+    expect(rejection({ type: "cron", expression: "0 9 * * 5-1" })).toContain("day-of-week");
+    expect(rejection({ type: "cron", expression: "0 9 * * */0" })).toContain("day-of-week");
+    expect(rejection({ type: "cron", expression: "0 0 31 2 *" })).toContain("never runs");
+    expect(
+      rejection({ type: "cron", expression: "0 9 * * *", timeZone: "Europe/Atlantis" }),
+    ).toContain("IANA time zone");
+  });
+
+  it("drops cron rows for a client that predates them without failing the list", () => {
+    const task = (id: string, schedule: unknown) => ({
+      id,
+      title: "Review",
+      prompt: "Review the open pull requests.",
+      enabled: true,
+      schedule,
+      projectId: "project:test",
+      threadId: null,
+      workspaceStrategy: { type: "root" },
+      modelSelection: { instanceId: "codex", model: "gpt-5.4" },
+      runtimeMode: "full-access",
+      interactionMode: "default",
+      createdBy: "user",
+      creationSource: "web",
+      createdAt: "2026-11-01T00:00:00.000Z",
+      updatedAt: "2026-11-01T00:00:00.000Z",
+      nextRunAt: null,
+      lastRunAt: null,
+      lastRunStatus: "never",
+      lastRunError: null,
+      runCount: 0,
+    });
+    const list = {
+      tasks: [
+        task("task:interval", { type: "interval", everyMs: 60_000 }),
+        task("task:cron", { type: "cron", expression: "0 9 * * 1-5", timeZone: "Europe/London" }),
+      ],
+    };
+    expect(decodePreCronList(list).tasks.map((decoded) => decoded.id)).toEqual(["task:interval"]);
+    expect(decodeList(list).tasks.map((decoded) => decoded.id)).toEqual([
+      "task:interval",
+      "task:cron",
+    ]);
   });
 });

@@ -53,6 +53,9 @@ Enable **Settings → Source control & issues → Automatically pull** to fast-f
 Create and manage scheduled tasks in **Settings → Scheduled tasks** (web, desktop, and mobile).
 
 - **Schedules**: Recurring fixed-time schedules use the target environment's time zone. **Once** uses your local time zone (runs on reconnect if offline).
+- **Cron** (web and desktop): Five fields, `minute hour day-of-month month day-of-week`, with lists, ranges, steps, and names (`*/15 8-18 * * mon-fri`). Set an IANA time zone such as `Europe/London` to keep the local time across daylight-saving changes; leave it blank for the environment's zone. A time skipped when clocks go forward runs an hour later; a time repeated when they go back runs once. Mobile edits everything but the expression; mobile apps that predate cron, including the official T3 Code app, do not list cron tasks.
+- **Failures**: Three failed scheduled runs in a row pause the task, and the list shows why. Resume it once the cause is fixed. Runs you start by hand do not count.
+- **Usage limits**: When a run stops because the provider account hit its usage limit and the provider reports a reset time, the task waits for the reset and runs once then instead of failing on every occurrence.
 - **Destination**: Choose **New thread each run**, **One thread (continue conversation)**, or **One thread (fresh session each run)**. Deleting a target thread deletes tasks bound to it; archiving a target thread causes runs to fail (settle it instead).
 - **Controls**: Edit, pause, resume, run now (except webhook tasks), or delete from the list.
 

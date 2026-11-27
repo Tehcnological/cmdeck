@@ -139,6 +139,12 @@ function describeSchedule(
   }
   if (task.schedule.type === "interval")
     return formatScheduledTaskInterval(task.schedule.everyMs, resolve);
+  if (task.schedule.type === "cron") {
+    const expression = task.schedule.expression;
+    return task.schedule.timeZone === undefined
+      ? resolve(msg("Cron {expression}", { expression }))
+      : resolve(msg("Cron {expression} {zone}", { expression, zone: task.schedule.timeZone }));
+  }
   const days = task.schedule.weekdays?.length
     ? repeatLabel(task.schedule.weekdays, resolve, locale)
     : resolve(msg("Every day"));
@@ -1167,6 +1173,10 @@ function TaskForm({
                     ]
                   : []),
                 { value: "interval", label: gt("Interval") },
+                // Cron is edited on web; a cron task can switch away and back.
+                ...(draft.schedule.cron === null
+                  ? []
+                  : [{ value: "cron" as const, label: gt("Cron") }]),
                 ...(webhookDenial === undefined || draft.schedule.mode === "webhook"
                   ? [{ value: "webhook" as const, label: gt("On webhook") }]
                   : []),
