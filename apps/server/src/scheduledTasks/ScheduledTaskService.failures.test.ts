@@ -116,17 +116,23 @@ interface Outcome {
   };
 }
 
-// A task bound to one thread whose runs end as `outcome` says, once `gate` opens.
+// A task bound to one thread whose runs end as `outcome` says, once the `gate` set when each was
+// sent opens.
 const boundThreadLayer = Effect.gen(function* () {
   const outcome = yield* Ref.make<Outcome>({ status: "completed" });
   const gate = yield* Ref.make(yield* Deferred.make<void>());
   yield* Deferred.succeed(yield* Ref.get(gate), undefined);
   const sent = yield* Ref.make<ReadonlyArray<string>>([]);
+  const gates = new Map<string, Deferred.Deferred<void>>();
   const runDueWork = yield* Ref.make<Effect.Effect<void>>(Effect.void);
   const runOf = (messageId: string) => `run:${messageId}`;
   const threadManagement = Layer.mock(ThreadManagementService.ThreadManagementService)({
     sendToThread: (input) =>
-      Ref.update(sent, (current) => [...current, input.messageId]).pipe(Effect.as({} as never)),
+      Ref.get(gate).pipe(
+        Effect.tap((current) => Effect.sync(() => gates.set(runOf(input.messageId), current))),
+        Effect.andThen(Ref.update(sent, (current) => [...current, input.messageId])),
+        Effect.as({} as never),
+      ),
     getThreadShell: () =>
       Effect.succeed({ projectId: "project:test", archivedAt: null, deletedAt: null } as never),
     getThreadRecords: () => Effect.succeed({ runs: [], messages: [] } as never),
@@ -150,7 +156,10 @@ const boundThreadLayer = Effect.gen(function* () {
         } as never;
       }),
     waitForThread: (input) =>
-      Ref.get(gate).pipe(
+      Effect.suspend(() => {
+        const sentWith = input.runId === undefined ? undefined : gates.get(input.runId);
+        return sentWith === undefined ? Ref.get(gate) : Effect.succeed(sentWith);
+      }).pipe(
         Effect.flatMap(Deferred.await),
         Effect.andThen(Ref.get(outcome)),
         Effect.map(
@@ -267,6 +276,52 @@ it.effect("counts a run's failure even after a newer occurrence has started", ()
         nextRunAt: null,
         lastRunError: "Paused after 3 failed runs in a row. Last error: The model is overloaded.",
       });
+    }).pipe(Effect.provide(layer));
+  }).pipe(Effect.scoped, Effect.provide(SqlitePersistence.layerMemory)),
+);
+
+it.effect("a deleted task's run does not count against a task recreated with its id", () =>
+  Effect.gen(function* () {
+    yield* TestClock.setTime(Date.parse("2026-11-02T08:00:00.000Z"));
+    const { outcome, gate, runDueWork, layer } = yield* boundThreadLayer;
+    yield* Effect.gen(function* () {
+      const service = yield* ScheduledTaskService.ScheduledTaskService;
+      const input = yield* taskInput({ type: "interval", everyMs: 60_000 }, "thread:review");
+      const { task } = yield* service.upsert(input);
+      const nextMinute = Effect.andThen(
+        TestClock.adjust("1 minute"),
+        Effect.flatten(Ref.get(runDueWork)),
+      );
+      yield* Ref.set(outcome, {
+        status: "failed",
+        failure: { message: "The model is overloaded." },
+      });
+      const oldRun = yield* Deferred.make<void>();
+      yield* Ref.set(gate, oldRun);
+      yield* nextMinute;
+      yield* service.delete({ id: task.id });
+      yield* service.upsert({ ...input, id: task.id });
+
+      // Two failures of its own leave the replacement one short of a pause.
+      const open = yield* Deferred.make<void>();
+      yield* Deferred.succeed(open, undefined);
+      yield* Ref.set(gate, open);
+      for (const runCount of [1, 2]) {
+        yield* nextMinute;
+        yield* awaitTask(
+          service,
+          (current) => current.runCount === runCount && current.lastRunStatus === "failed",
+        );
+      }
+
+      const changes = yield* Queue.unbounded<ReadonlyArray<ScheduledTask>>();
+      yield* service.subscribeList().pipe(
+        Stream.runForEach(({ tasks }) => Queue.offer(changes, tasks)),
+        Effect.forkScoped,
+      );
+      yield* Queue.take(changes);
+      yield* Deferred.succeed(oldRun, undefined);
+      expect((yield* Queue.take(changes))[0]).toMatchObject({ id: task.id, enabled: true });
     }).pipe(Effect.provide(layer));
   }).pipe(Effect.scoped, Effect.provide(SqlitePersistence.layerMemory)),
 );

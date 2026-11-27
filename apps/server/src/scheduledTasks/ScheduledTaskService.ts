@@ -832,7 +832,12 @@ export const layer = Layer.effect(
     // Nth failed scheduled run in a row pauses it. Manual, held, stopped and interrupted runs are
     // not counted; any completed run starts the count again. `latestRunAt` limits the count to the
     // run the row shows; a run's outcome passes null, since a newer dispatch may already show.
-    const countFailedRun = (taskId: ScheduledTaskId, latestRunAt: string | null, error: string) =>
+    const countFailedRun = (
+      taskId: ScheduledTaskId,
+      createdAt: string,
+      latestRunAt: string | null,
+      error: string,
+    ) =>
       sql<{ enabled: number }>`
         UPDATE scheduled_tasks
         SET failure_streak = CASE WHEN failure_streak + 1 >= ${FAILED_RUNS_BEFORE_PAUSE}
@@ -842,7 +847,7 @@ export const layer = Layer.effect(
               THEN NULL ELSE next_run_at END,
             last_run_error = CASE WHEN failure_streak + 1 >= ${FAILED_RUNS_BEFORE_PAUSE}
               THEN ${pausedAfterFailuresError(error)} ELSE last_run_error END
-        WHERE task_id = ${taskId} AND enabled = 1
+        WHERE task_id = ${taskId} AND created_at = ${createdAt} AND enabled = 1
           AND ${latestRunAt === null ? sql`1 = 1` : sql`last_run_at = ${latestRunAt} AND last_run_status = 'failed'`}
           AND json_extract(schedule_json, '$.type') IN ('interval', 'fixed_time', 'cron')
         RETURNING enabled
@@ -932,12 +937,13 @@ export const layer = Layer.effect(
       ),
     );
 
-    // A dispatch is recorded once the message is accepted; the provider can still
-    // reject the turn after that, so follow the run and record its failure. A one-time
-    // task whose turn completed at or after its runAt is spent, so it is removed; its
-    // thread stays. A paused task always has a NULL next_run_at, so that alone proves nothing.
+    // The provider can reject a turn after its message is accepted, so follow the run and record
+    // its failure; `createdAt` keeps it off a task recreated with the same id. A one-time task whose
+    // turn completed at or after its runAt is spent and removed; its thread stays. A paused task
+    // always has a NULL next_run_at, so that alone proves nothing.
     const recordRunOutcome = Effect.fn("ScheduledTaskService.recordRunOutcome")(function* (
       taskId: ScheduledTaskId,
+      createdAt: string,
       startedAtIso: string,
       threadId: ThreadId,
       messageId: MessageId,
@@ -957,7 +963,8 @@ export const layer = Layer.effect(
       if (run === null || !ThreadManagementService.isTerminalRunStatus(run.status)) return;
       if (run.status === "completed") {
         const reset = yield* sql`UPDATE scheduled_tasks SET failure_streak = 0
-          WHERE task_id = ${taskId} AND failure_streak <> 0 RETURNING task_id`;
+          WHERE task_id = ${taskId} AND created_at = ${createdAt} AND failure_streak <> 0
+          RETURNING task_id`;
         const removed = yield* sql`
           DELETE FROM scheduled_tasks
           WHERE task_id = ${taskId} AND last_run_at = ${startedAtIso}
@@ -1014,7 +1021,7 @@ export const layer = Layer.effect(
             // next one waits for it and runs once then.
             const held = yield* sql`
               UPDATE scheduled_tasks SET next_run_at = ${iso(resetAt.value)}
-              WHERE task_id = ${taskId} AND enabled = 1
+              WHERE task_id = ${taskId} AND created_at = ${createdAt} AND enabled = 1
                 AND next_run_at IS NOT NULL AND next_run_at < ${iso(resetAt.value)}
                 AND json_extract(schedule_json, '$.type') IN ('interval', 'fixed_time', 'cron')
               RETURNING task_id
@@ -1022,7 +1029,7 @@ export const layer = Layer.effect(
             return updated.length > 0 || held.length > 0;
           }
           if (scheduled && run.status === "failed") {
-            yield* countFailedRun(taskId, null, error);
+            yield* countFailedRun(taskId, createdAt, null, error);
             return true;
           }
           return updated.length > 0;
@@ -1271,7 +1278,7 @@ export const layer = Layer.effect(
             written &&
             trigger === "scheduled" &&
             lastRunError !== null &&
-            (yield* countFailedRun(task.id, startedAtIso, lastRunError))
+            (yield* countFailedRun(task.id, active.createdAt, startedAtIso, lastRunError))
           ) {
             const paused = {
               enabled: false,
@@ -1301,6 +1308,7 @@ export const layer = Layer.effect(
         if (written && threadId !== null) {
           yield* recordRunOutcome(
             active.id,
+            active.createdAt,
             startedAtIso,
             threadId,
             messageId,
