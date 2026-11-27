@@ -84,6 +84,18 @@ describe("buildThreadActionMenuItems", () => {
     expect(items.map((item) => item.id)).not.toContain("mark-unread");
   });
 
+  it("offers Open beside only where the thread on screen can host it, even without operate", () => {
+    const ids = (state: ThreadActionMenuState) =>
+      buildThreadActionMenuItems(state).map((item) => item.id);
+    expect(ids(baseState)).not.toContain("open-beside");
+    const readOnly = buildThreadActionMenuItems({
+      ...baseState,
+      canOperate: false,
+      canOpenBeside: true,
+    });
+    expect(readOnly.find((item) => item.id === "open-beside")?.disabled).toBeFalsy();
+  });
+
   it("disables only rename where no inline title editor exists", () => {
     const items = buildThreadActionMenuItems({ ...baseState, canRename: false });
     expect(items.filter((item) => item.disabled).map((item) => item.id)).toEqual(["rename"]);

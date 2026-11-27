@@ -127,6 +127,11 @@ required=(
   'packages/contracts/src/settings.ts:cmdeck: Schema\.optionalKey\(CmdeckSettingsPatch\)'
   'apps/web/src/components/CommandPalette.tsx:const forkCommandItems = useForkCommandItems\(\);'
   'apps/web/src/components/CommandPalette.tsx:actionItems\.push\(\.\.\.forkCommandItems\);'
+  # WI-1.12: any thread opens beside the current one from the sidebar menu.
+  'apps/web/src/components/threadActionMenu.logic.ts:id: "open-beside" as const'
+  'apps/web/src/components/Sidebar.tsx:canOpenBeside: canOpenThreadBeside\(threadRef, routeThreadRef\)'
+  'apps/web/src/components/Sidebar.tsx:case "open-beside": +if \(openThreadBeside\('
+  'apps/web/src/lib/sideChatPane.ts:export function canOpenThreadInPanel\('
   # The star prompt stars CMDeck's repository, not upstream's.
   'apps/web/src/components/GitHubStarPrompt.tsx:const REPOSITORY = APP_RELEASE_REPOSITORY;'
   # WI-1.11: the Amazon Bedrock preset in the Claude provider dialog.
@@ -174,6 +179,10 @@ required=(
   'apps/web/src/components/workflows/WorkflowsPage.tsx:<WorkflowApprovals environmentId=\{environmentId\} />'
   # WI-1.03: remote MCP tokens changed from the CLI are audited too.
   'apps/server/src/cli/auth.ts:AuditLog\.layerAtDatabase\(config\.dbPath\),'
+  # Open beside: an unrelated project's thread never runs code blocks in the host's terminal,
+  # and a thread hidden by a tag filter leaves the panel.
+  'apps/web/src/components/ChatView.tsx:activeThread\?\.projectId !== panelHostShell\?\.projectId'
+  'apps/web/src/components/chat/SideThreadPane.tsx:useCloseWhenHidden\(threadRef, props\.onClose\)'
 )
 # 6. Only a person approves a workflow file: no MCP tool may reach the trust gate (WI-1.06).
 hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts)"
