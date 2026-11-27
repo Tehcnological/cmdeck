@@ -77,7 +77,7 @@ const presetUntilChecked = (name, options) =>
           kind: "stuck",
           title: options.title + " still fails its check after " + tries + " tries.",
           choices: ["retry", "skip", "stop"],
-          data: { output: checked.output },
+          data: { body: "~~~~\n" + checked.output + "\n~~~~", output: checked.output },
         });
         if (Option.isNone(answer) || answer.value.choice === "stop") {
           return yield* T3.stop(options.title + " kept failing its check.");

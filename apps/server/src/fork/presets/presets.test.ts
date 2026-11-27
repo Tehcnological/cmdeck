@@ -163,8 +163,21 @@ it.effect(
           const [question] = (yield* workflows.questions).filter((asked) => asked.runId === runId);
           assert.include(JSON.stringify(question?.request), "node check.mjs");
           assert.include(JSON.stringify(question?.request), "server's user");
+          // Clients show only data.body, so the spec, the tasks and the command must be in it.
+          const bodyOf = (request: unknown) =>
+            String((request as { data?: { body?: unknown } } | undefined)?.data?.body);
+          for (const text of [
+            "Say hello in three files.",
+            "1. Part 1",
+            "3. Part 3",
+            "node check.mjs",
+          ]) {
+            assert.include(bodyOf(question?.request), text);
+          }
           yield* workflows.answer(runId, "approve-1", { choice: "approve" });
           yield* workflows.waitFor(runId, askedAt("task-2-stuck-1"));
+          const [stuck] = (yield* workflows.questions).filter((asked) => asked.runId === runId);
+          assert.include(bodyOf(stuck?.request), "~~~~");
           return runId;
         }),
       );

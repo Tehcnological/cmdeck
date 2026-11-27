@@ -141,7 +141,17 @@ workflow(
               ? "No check command is set: each task passes when its agent finishes."
               : "After each one, this command runs in the run's worktree as the server's user: " +
                 input.verify),
-        data: { spec: plan.spec, tasks: plan.tasks, verify: input.verify ?? null },
+        data: {
+          // Clients render only data.body, so the plan a person approves must be in it.
+          body:
+            plan.spec +
+            "\n\n**Tasks**\n\n" +
+            plan.tasks.map((task, i) => i + 1 + ". " + task.title).join("\n") +
+            (input.verify === undefined ? "" : "\n\n**Check command**\n\n~~~~\n" + input.verify + "\n~~~~"),
+          spec: plan.spec,
+          tasks: plan.tasks,
+          verify: input.verify ?? null,
+        },
       }),
     );
     const { spec, tasks } = planned.value;
