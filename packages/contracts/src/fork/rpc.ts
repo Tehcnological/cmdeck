@@ -5,6 +5,7 @@ import * as RpcGroup from "effect/rpc/RpcGroup";
 import {
   AuthAccessReadScope,
   AuthFilesystemReadScope,
+  AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
   AuthTerminalOperateScope,
   AuthSettingsWriteScope,
@@ -27,6 +28,15 @@ import {
   NotificationChannelSetEnabledInput,
 } from "./notifications.ts";
 import { DecisionConsentSetInput, DecisionsError, DecisionsStatus } from "./decisions.ts";
+import {
+  BotCreateInput,
+  BotIdInput,
+  BotProfile,
+  BotScheduleInput,
+  BotsError,
+  BotUpdateInput,
+  BotWakeResult,
+} from "./bots.ts";
 
 // The `cmdeck.` prefix keeps fork methods clear of upstream's names. Append new methods here.
 export const CMDECK_WS_METHODS = {
@@ -42,6 +52,13 @@ export const CMDECK_WS_METHODS = {
   notificationsSubscribeAlerts: "cmdeck.notifications.subscribeAlerts",
   decisionsStatus: "cmdeck.decisions.status",
   decisionsSetConsent: "cmdeck.decisions.setConsent",
+  botsList: "cmdeck.bots.list",
+  botsCreate: "cmdeck.bots.create",
+  botsUpdate: "cmdeck.bots.update",
+  botsDelete: "cmdeck.bots.delete",
+  botsRestore: "cmdeck.bots.restore",
+  botsSchedule: "cmdeck.bots.schedule",
+  botsWake: "cmdeck.bots.wake",
 } as const;
 
 /** Fork stream methods the client runtime subscribes to like upstream's. */
@@ -127,6 +144,50 @@ const CmdeckDecisionsSetConsentRpc = Rpc.make(CMDECK_WS_METHODS.decisionsSetCons
   error: Schema.Union([DecisionsError, EnvironmentAuthorizationError]),
 });
 
+const BotsRpcError = Schema.Union([BotsError, EnvironmentAuthorizationError]);
+
+const CmdeckBotsListRpc = Rpc.make(CMDECK_WS_METHODS.botsList, {
+  payload: Schema.Struct({}),
+  success: Schema.Array(BotProfile),
+  error: BotsRpcError,
+});
+
+const CmdeckBotsCreateRpc = Rpc.make(CMDECK_WS_METHODS.botsCreate, {
+  payload: BotCreateInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsUpdateRpc = Rpc.make(CMDECK_WS_METHODS.botsUpdate, {
+  payload: BotUpdateInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsDeleteRpc = Rpc.make(CMDECK_WS_METHODS.botsDelete, {
+  payload: BotIdInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsRestoreRpc = Rpc.make(CMDECK_WS_METHODS.botsRestore, {
+  payload: BotIdInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsScheduleRpc = Rpc.make(CMDECK_WS_METHODS.botsSchedule, {
+  payload: BotScheduleInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsWakeRpc = Rpc.make(CMDECK_WS_METHODS.botsWake, {
+  payload: BotIdInput,
+  success: BotWakeResult,
+  error: BotsRpcError,
+});
+
 /** Merged into `WsRpcGroup`, so fork methods share its scope middleware. */
 export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckStatusRpc,
@@ -141,6 +202,13 @@ export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckNotificationsSubscribeAlertsRpc,
   CmdeckDecisionsStatusRpc,
   CmdeckDecisionsSetConsentRpc,
+  CmdeckBotsListRpc,
+  CmdeckBotsCreateRpc,
+  CmdeckBotsUpdateRpc,
+  CmdeckBotsDeleteRpc,
+  CmdeckBotsRestoreRpc,
+  CmdeckBotsScheduleRpc,
+  CmdeckBotsWakeRpc,
 );
 
 /** Spread into `CLIENT_GUARDED_RPC_SCOPES`; every fork method needs one. */
@@ -161,4 +229,12 @@ export const FORK_RPC_SCOPES = {
   [CMDECK_WS_METHODS.decisionsStatus]: AuthOrchestrationReadScope,
   // Consent decides whether turn text may reach a model API, so only a settings writer grants it.
   [CMDECK_WS_METHODS.decisionsSetConsent]: AuthSettingsWriteScope,
+  [CMDECK_WS_METHODS.botsList]: AuthOrchestrationReadScope,
+  // A bot is a thread plus scheduled tasks, so changing one needs what those commands need.
+  [CMDECK_WS_METHODS.botsCreate]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsUpdate]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsDelete]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsRestore]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsSchedule]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsWake]: AuthOrchestrationOperateScope,
 } as const satisfies Record<RpcGroup.Rpcs<typeof ForkWsRpcGroup>["_tag"], AuthEnvironmentScope>;

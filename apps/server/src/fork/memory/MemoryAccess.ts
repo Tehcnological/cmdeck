@@ -6,7 +6,7 @@ export interface MemoryThreadContext {
   readonly projectId: string | null;
   /** The repository's grouping key, shared by every worktree and clone of it. */
   readonly repoKey: string | null;
-  /** Set for a bot's own thread (bot profiles register later). */
+  /** Set for a live bot's own thread; its `bot:<id>` memory is visible nowhere else. */
   readonly botId: string | null;
   readonly mode: ThreadMemoryMode;
 }

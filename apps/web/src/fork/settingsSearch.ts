@@ -10,4 +10,10 @@ export const FORK_SETTINGS_SEARCH_ITEMS = [
     to: "/settings/threads",
     searchTerms: [msg("new threads machine server host start remote local")],
   },
+  {
+    id: "bots",
+    title: msg("Bots"),
+    to: "/settings/threads",
+    searchTerms: [msg("bot persistent agent schedule wake private memory crew")],
+  },
 ] as const satisfies ReadonlyArray<SettingsSearchItem>;

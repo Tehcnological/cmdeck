@@ -21,6 +21,7 @@ import * as SqlClient from "effect/sql/SqlClient";
 import * as ProjectionStore from "../../orchestration-v2/ProjectionStore.ts";
 import * as ProjectStore from "../../orchestration-v2/ProjectStore.ts";
 import * as ServerSettings from "../../serverSettings.ts";
+import { activeBotForThread } from "../bots/schema.ts";
 import * as MemoryAccess from "./MemoryAccess.ts";
 import { ftsQuery, rankByRelevance } from "./retrieval.ts";
 
@@ -144,6 +145,14 @@ export class MemoryStore extends Context.Service<
     readonly revisions: (
       itemId: string,
     ) => Effect.Effect<ReadonlyArray<MemoryRevision>, MemoryStoreError>;
+    /** Retires every live item in a scope (a deleted bot's memory); returns their ids. */
+    readonly retireScope: (
+      scope: MemoryScope,
+    ) => Effect.Effect<ReadonlyArray<string>, MemoryStoreError>;
+    /** Puts retired items back to the status they had before they were retired. */
+    readonly restoreRetired: (
+      itemIds: ReadonlyArray<string>,
+    ) => Effect.Effect<void, MemoryStoreError>;
     readonly recordInjections: (input: {
       readonly threadId: ThreadId;
       readonly runId: string;
@@ -219,11 +228,12 @@ const make = Effect.gen(function* () {
       const mode = yield* threadMode(thread.id);
       const project = yield* projects.getShell(thread.projectId);
       const identity = Option.getOrUndefined(project)?.repositoryIdentity;
+      const bot = yield* activeBotForThread(sql, thread.id);
       return {
         threadId: thread.id,
         projectId: thread.projectId,
         repoKey: identity == null ? null : repositoryGroupingKeyOf(identity),
-        botId: null,
+        botId: bot?.id ?? null,
         mode,
       } satisfies MemoryAccess.MemoryThreadContext;
     },
@@ -433,6 +443,33 @@ const make = Effect.gen(function* () {
     },
   );
 
+  const retireScope: MemoryStore["Service"]["retireScope"] = Effect.fn("MemoryStore.retireScope")(
+    function* (scope) {
+      const live = yield* sql<ItemRow>`${selectItems}
+        WHERE scope = ${scope} AND status IN ('active', 'pending')`;
+      const at = yield* now;
+      for (const row of live) {
+        const before = toItem(row);
+        yield* saveItem(before, { ...before, status: "retired", updatedAt: at }, "user");
+      }
+      return live.map((row) => row.id);
+    },
+    failsTo("retire the scope"),
+  );
+
+  const restoreRetired: MemoryStore["Service"]["restoreRetired"] = Effect.fn(
+    "MemoryStore.restoreRetired",
+  )(function* (itemIds) {
+    for (const itemId of itemIds) {
+      const current = Option.getOrUndefined(yield* findItem(itemId));
+      if (current?.status !== "retired") continue;
+      const history = yield* revisions(itemId);
+      const status = history.findLast((entry) => entry.after.status === "retired")?.before?.status;
+      if (status === undefined || status === "retired") continue;
+      yield* saveItem(current, { ...current, status, updatedAt: yield* now }, "user");
+    }
+  }, failsTo("restore the items"));
+
   return MemoryStore.of({
     enabled: settings.getSettings.pipe(
       Effect.map((current) => current.cmdeck.memoryEnabled),
@@ -454,6 +491,8 @@ const make = Effect.gen(function* () {
     revert,
     get: Effect.fn("MemoryStore.get")((itemId) => findItem(itemId), failsTo("read the item")),
     revisions,
+    retireScope,
+    restoreRetired,
     recordInjections: Effect.fn("MemoryStore.recordInjections")(function* (input) {
       const at = yield* now;
       for (const itemId of input.itemIds) {

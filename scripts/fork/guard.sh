@@ -202,6 +202,11 @@ required=(
   'apps/web/src/components/chat/SideThreadPane.tsx:useCloseWhenHidden\(threadRef, props\.onClose\)'
   # WI-2.10: scheduled tasks start new threads on the decision service's routed model.
   'apps/server/src/scheduledTasks/ScheduledTaskService.ts:modelSelection: yield\* Decisions\.routeScheduledTask\(active\),'
+  # WI-2.04: bots list in Settings > Threads, and a badge on bot threads in the sidebar.
+  'apps/web/src/components/settings/SettingsPanels.tsx:import \{ BotsSection \} from "~/fork/BotsSection";'
+  'apps/web/src/components/settings/SettingsPanels.tsx:<BotsSection />'
+  'apps/web/src/components/sidebar/SidebarThreadRow.tsx:import \{ BotThreadBadge \} from "\.\./\.\./fork/BotThreadBadge";'
+  'apps/web/src/components/sidebar/SidebarThreadRow.tsx:<BotThreadBadge environmentId=\{thread\.environmentId\} threadId=\{thread\.id\} />'
 )
 # 6. Only a person approves a workflow file: no MCP tool may reach the trust gate (WI-1.06).
 hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts)"

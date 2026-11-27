@@ -4,6 +4,7 @@ import * as RemoteMcpTokens from "../auth/RemoteMcpTokens.ts";
 import * as PublicAddressCheck from "../environment/PublicAddressCheck.ts";
 import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
 import * as AuditLog from "./audit/AuditLog.ts";
+import * as Bots from "./bots/Bots.ts";
 import * as Decisions from "./decisions/Decisions.ts";
 import * as Notifications from "./notifications/Notifications.ts";
 import * as MemoryStore from "./memory/MemoryStore.ts";
@@ -19,6 +20,7 @@ export const layer = Layer.mergeAll(
   PublicAddressCheck.layer,
   // Notifications writes channel changes and delivery failures to the audit log.
   Notifications.layer.pipe(Layer.provideMerge(AuditLog.layer)),
+  Bots.layer,
 );
 
 /**

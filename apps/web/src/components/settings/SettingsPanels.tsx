@@ -3,6 +3,7 @@ import { m as resolveMessage } from "~/i18n/messages";
 import { useAtomValue } from "@effect/atom-react";
 import { NotificationSettings } from "./NotificationSettings";
 import { NotificationChannelsSection } from "~/fork/NotificationChannelsSection";
+import { BotsSection } from "~/fork/BotsSection";
 import { PRIVACY_POLICY_URL } from "../../legalLinks";
 import { CheckIcon } from "lucide-react";
 import { msg, T, useGT, useMessages } from "gt-react";
@@ -2459,6 +2460,7 @@ export function ThreadsSettingsPanel() {
           />
         </AdvancedSettings>
       </SettingsSection>
+      <BotsSection />
     </SettingsPageContainer>
   );
 }

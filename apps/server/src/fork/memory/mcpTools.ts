@@ -56,9 +56,11 @@ const MemoryRememberTool = Tool.make("memory_remember", {
       description:
         "rule: applies to every turn, such as 'Use pnpm, not npm'. fact: recalled when relevant. Default fact.",
     }),
-    scope: Schema.optionalKey(Schema.Literals(["project", "repo", "thread", "global"])).annotate({
+    scope: Schema.optionalKey(
+      Schema.Literals(["project", "repo", "thread", "global", "bot"]),
+    ).annotate({
       description:
-        "Who sees it: this project (default), every checkout of this repository, this thread, or every project.",
+        "Who sees it: this project, every checkout of this repository, this thread, every project, or only this bot (in a bot's thread). Default: bot in a bot's thread, else project.",
     }),
   }),
   success: Schema.Struct({
@@ -117,9 +119,11 @@ const toFailure = (
 
 const scopeFor = (
   context: MemoryThreadContext,
-  scope: "project" | "repo" | "thread" | "global",
+  scope: "project" | "repo" | "thread" | "global" | "bot",
 ): MemoryScope | undefined => {
   switch (scope) {
+    case "bot":
+      return context.botId === null ? undefined : `bot:${context.botId}`;
     case "global":
       return "global";
     case "thread":
@@ -175,11 +179,12 @@ export const layer = McpToolAccess.toLayer(
       memory_remember: McpToolAccess.actsAsCaller(({ content, kind, scope }) =>
         withCaller((store, context) =>
           Effect.gen(function* () {
-            const target = scopeFor(context, scope ?? "project");
+            const requested = scope ?? (context.botId === null ? "project" : "bot");
+            const target = scopeFor(context, requested);
             if (target === undefined) {
               return yield* new OrchestratorMcpFailure({
                 code: "invalid_request",
-                message: `This thread has no ${scope ?? "project"} scope. Use project or global.`,
+                message: `This thread has no ${requested} scope. Use project or global.`,
               });
             }
             const item = yield* store.remember({
