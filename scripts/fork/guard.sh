@@ -116,6 +116,17 @@ required=(
   'packages/contracts/src/settings.ts:requireConnectDeviceApproval: Schema\.Boolean\.pipe\( +Schema\.withDecodingDefault\(Effect\.succeed\(true\)\)'
   'apps/mobile/app.config.ts:updates: \{ +enabled: false,'
   'apps/server/src/provider/acp/AntigravityAcpSupport.ts:clientInfo: \{ name: "t3-code",'
+  # Fork extension seams (docs/operations/fork-upstream-sync.md#where-fork-code-goes).
+  'apps/server/src/server.ts:Layer\.provideMerge\(ForkLayer\.layer\)'
+  'apps/server/src/ws.ts:\.\.\.\(yield\* ForkRpcHandlers\.make\)'
+  'apps/server/src/mcp/McpHttpServer.ts:ForkMcpToolkits\.layer\(toolkitRegistration\)'
+  'packages/contracts/src/rpc.ts:\.merge\(ForkWsRpcGroup\)'
+  'packages/contracts/src/clientRpcPermissions.ts:\.\.\.FORK_RPC_SCOPES,'
+  'packages/contracts/src/index.ts:export \* from "\./fork/index\.ts";'
+  'packages/contracts/src/settings.ts:cmdeck: CmdeckSettings\.pipe\(Schema\.withDecodingDefault'
+  'packages/contracts/src/settings.ts:cmdeck: Schema\.optionalKey\(CmdeckSettingsPatch\)'
+  'apps/web/src/components/CommandPalette.tsx:const forkCommandItems = useForkCommandItems\(\);'
+  'apps/web/src/components/CommandPalette.tsx:actionItems\.push\(\.\.\.forkCommandItems\);'
 )
 for entry in "${required[@]}"; do
   file="${entry%%:*}"

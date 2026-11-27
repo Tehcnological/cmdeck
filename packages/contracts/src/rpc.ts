@@ -53,6 +53,7 @@ import {
   ChatGptHandoffInput,
   ChatGptHandoffState,
 } from "./providerSetup.ts";
+import { ForkWsRpcGroup } from "./fork/rpc.ts";
 import * as Schema from "effect/Schema";
 import * as Rpc from "effect/rpc/Rpc";
 import * as RpcGroup from "effect/rpc/RpcGroup";
@@ -2880,4 +2881,6 @@ export const WsRpcGroup = RpcGroup.make(
   WsOrchestrationV2SubscribeThreadRpc,
   WsOrchestrationV2SubscribeCommandOutputRpc,
   WsOrchestrationV2SubscribePromptSuggestionRpc,
-).middleware(RpcScopeAuthorization);
+)
+  .merge(ForkWsRpcGroup)
+  .middleware(RpcScopeAuthorization);
