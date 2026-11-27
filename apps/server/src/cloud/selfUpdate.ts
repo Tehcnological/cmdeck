@@ -202,12 +202,6 @@ export const make = Effect.fn("cloud.server_self_update.make")(function* () {
       );
     }
 
-    // Private fork: the default release source is upstream's GitHub, which would replace this fork.
-    if (releaseBaseUrl === undefined) {
-      return yield* failWith(
-        `This private fork does not install published t3 releases. Set a managed update mirror or ${CLI_RELEASE_BASE_URL_ENV} to a source of this fork's builds.`,
-      );
-    }
     const unsafeCrossing = crossesTrackUnsafely(input);
     if (unsafeCrossing !== null) return yield* failWith(unsafeCrossing);
     const targetVersion = input.targetVersion.trim();

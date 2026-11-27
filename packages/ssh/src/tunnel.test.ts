@@ -338,7 +338,10 @@ describe("ssh tunnel scripts", () => {
           assert.include(result.stderr, "download attempt");
           // A bare curl error does not tell the user that t3 itself could not be downloaded.
           assert.include(result.stderr, ARCHIVE.archiveVersion);
-          assert.include(result.stderr, "https://t3code-release-base-url-not-set.invalid");
+          assert.include(
+            result.stderr,
+            `https://github.com/Tehcnological/cmdeck/releases/download/v${ARCHIVE.archiveVersion}/`,
+          );
         } else {
           assert.notInclude(result.stderr, "download attempt");
           assert.include(result.stderr, "has no t3 release archive.");
@@ -348,6 +351,49 @@ describe("ssh tunnel scripts", () => {
       }
     },
   );
+
+  it("downloads a CMDeck release from its GitHub tag and rejects a checksum mismatch", () => {
+    const root = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "t3-ssh-runner-"));
+    try {
+      const bin = NodePath.join(root, "bin");
+      const release = NodePath.join(root, "release");
+      NodeFS.mkdirSync(bin);
+      NodeFS.mkdirSync(release);
+      NodeFS.mkdirSync(NodePath.join(root, "home"));
+      NodeFS.writeFileSync(NodePath.join(release, "t3-2.0.0-linux-x64.tar.gz"), "tampered");
+      NodeFS.writeFileSync(
+        NodePath.join(release, "SHA256SUMS"),
+        `${"0".repeat(64)}  t3-2.0.0-linux-x64.tar.gz\n`,
+      );
+      NodeFS.writeFileSync(
+        NodePath.join(bin, "uname"),
+        '#!/bin/sh\ncase "$1" in -s) echo Linux ;; -m) echo x86_64 ;; esac\n',
+        { mode: 0o755 },
+      );
+      NodeFS.writeFileSync(
+        NodePath.join(bin, "curl"),
+        `#!/bin/sh\nfor last; do :; done\nfor a; do case "$a" in http*) echo "fetch $a" >&2; src="${release}/\${a##*/}" ;; esac; done\nexec cat "$src" > "$last"\n`,
+        { mode: 0o755 },
+      );
+      const runner = NodePath.join(root, "run-t3.sh");
+      NodeFS.writeFileSync(
+        runner,
+        SshTunnel.buildRemoteT3RunnerScript({ archiveVersion: "2.0.0" }),
+      );
+      const result = NodeChildProcess.spawnSync("sh", [runner, "--version"], {
+        encoding: "utf8",
+        env: { HOME: NodePath.join(root, "home"), PATH: `${bin}:${process.env.PATH ?? ""}` },
+      });
+      const github = "https://github.com/Tehcnological/cmdeck/releases/download/v2";
+      assert.include(result.stderr, `fetch ${github}/SHA256SUMS`);
+      assert.include(result.stderr, `fetch ${github}/t3-2.0.0-linux-x64.tar.gz`);
+      assert.include(result.stderr, "Checksum mismatch for t3-2.0.0-linux-x64.tar.gz.");
+      assert.notEqual(result.status, 0);
+      assert.isFalse(NodeFS.existsSync(NodePath.join(root, "home/.cmdeck/runtime/versions/2.0.0")));
+    } finally {
+      NodeFS.rmSync(root, { recursive: true, force: true });
+    }
+  });
 
   it.each([
     { installed: ARCHIVE.archiveVersion, status: 0, reuses: true },

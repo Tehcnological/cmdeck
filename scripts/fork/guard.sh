@@ -77,6 +77,12 @@ fi
   grep -q -E '^export const APP_RELEASE_REPO = "cmdeck";$' packages/shared/src/appIdentity.ts; } ||
   bad "packages/shared/src/appIdentity.ts no longer names Tehcnological/cmdeck as the release feed"
 
+# 4b. Without T3CODE_RELEASE_BASE_URL, installs, SSH bootstraps and `cmdeck update` download CLI
+#     archives from CMDeck's own GitHub releases (the repository pinned in 4), never another host.
+{ grep -q -F 'export const APP_RELEASE_DOWNLOAD_BASE_URL = `https://github.com/${APP_RELEASE_REPOSITORY}/releases/download`;' packages/shared/src/appIdentity.ts &&
+  grep -q -x -F 'const CLI_RELEASE_DEFAULT_BASE_URL = APP_RELEASE_DOWNLOAD_BASE_URL;' packages/shared/src/cliRelease.ts; } ||
+  bad "the default CLI release base URL is no longer CMDeck's GitHub releases (packages/shared/src/cliRelease.ts)"
+
 # 5. Fork hooks and the CMDeck identity live in upstream files; a merge that takes upstream's side drops them.
 required=(
   'apps/server/src/cloud/pinnedRuntime.ts:FORK_RUNTIME_MARKER_FILE'
