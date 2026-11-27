@@ -161,6 +161,7 @@ const layerServer = (
 const runClaudeInstance = (input: {
   readonly settings: Parameters<typeof ServerSettings.layerTest>[0];
   readonly claude: Partial<ClaudeSettings>;
+  readonly environment?: ReadonlyArray<{ name: string; value: string; sensitive: boolean }>;
 }) => {
   const requests: Array<string> = [];
   const commandLines: Array<string> = [];
@@ -217,7 +218,10 @@ const runClaudeInstance = (input: {
         [instanceId]: {
           driver: ProviderDriverKind.make("claudeAgent"),
           enabled: true,
-          environment: [{ name: "PATH", value: npmDir, sensitive: false }],
+          environment: [
+            { name: "PATH", value: npmDir, sensitive: false },
+            ...(input.environment ?? []),
+          ],
           config: {
             ...ClaudeDriver.defaultConfig(),
             enabled: true,
@@ -269,6 +273,21 @@ describe.skipIf(HostProcess.Platform.defaultValue() === "darwin")("server egress
         ]),
       );
       expect(npmLookups).toBeGreaterThan(0);
+    }),
+  );
+
+  it.effect("a Bedrock instance leaves AWS to Claude Code and calls no AWS host itself", () =>
+    Effect.gen(function* () {
+      const { requests } = yield* runClaudeInstance({
+        settings: {},
+        claude: {},
+        environment: [
+          { name: "CLAUDE_CODE_USE_BEDROCK", value: "1", sensitive: false },
+          { name: "AWS_PROFILE", value: "bedrock-dev", sensitive: false },
+          { name: "AWS_REGION", value: "us-west-2", sensitive: false },
+        ],
+      });
+      expect(requests.filter((url) => !isAllowed(url))).toEqual([]);
     }),
   );
 

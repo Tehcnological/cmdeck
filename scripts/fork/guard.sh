@@ -129,6 +129,9 @@ required=(
   'apps/web/src/components/CommandPalette.tsx:actionItems\.push\(\.\.\.forkCommandItems\);'
   # The star prompt stars CMDeck's repository, not upstream's.
   'apps/web/src/components/GitHubStarPrompt.tsx:const REPOSITORY = APP_RELEASE_REPOSITORY;'
+  # WI-1.11: the Amazon Bedrock preset in the Claude provider dialog.
+  'apps/web/src/components/settings/AddProviderInstanceDialog.tsx:<BedrockPresetSection'
+  'apps/web/src/components/settings/AddProviderInstanceDialog.tsx:environment: bedrockEnvironmentForSave\(bedrockEnvironment\)'
 )
 for entry in "${required[@]}"; do
   file="${entry%%:*}"
