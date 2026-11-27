@@ -1,6 +1,31 @@
 {
   "customNotices": [
     {
+      "license": "Apache-2.0",
+      "name": "Kiro Crew decision points (question shapes, routing tiers, memory recall, wake and tool-risk rubrics)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/decisions",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "Ported to TypeScript for CMDeck's decision service (apps/server/src/fork/decisions). Changes: answers come from a configured local model API with a stated confidence instead of sampled probabilities, deterministic rules run first, and no hosted endpoint is used."
+          ]
+        }
+      ]
+    },
+    {
+      "license": "MIT",
+      "name": "LiteLLM complexity router heuristic",
+      "sourceUrl": "https://github.com/BerriAI/litellm/tree/7351177434c7b9d19e0a53cd3e9bc63706af2ab2/litellm/router_strategy/complexity_router",
+      "generatedNotices": [
+        {
+          "licenseId": "MIT",
+          "copyrights": ["Copyright (c) 2023 Berri AI"]
+        }
+      ]
+    },
+    {
       "bundles": ["desktop", "mobile"],
       "license": "MIT",
       "name": "Apple Speech engine (adapted from @react-native-ai/apple)",
