@@ -412,6 +412,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: [msg("latex tex katex equations formulas markdown")],
   },
   {
+    id: "site-icons",
+    title: msg("Show site icons"),
+    to: "/settings/appearance",
+    searchTerms: [msg("favicon link website privacy images")],
+  },
+  {
     id: "panel-animations",
     title: msg("Panel animations"),
     to: "/settings/appearance",

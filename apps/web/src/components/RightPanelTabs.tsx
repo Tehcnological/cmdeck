@@ -94,6 +94,7 @@ import { useBrowserDefaults } from "~/browser/browserDefaults";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { PanelTabCloseButton } from "~/components/ui/panel-tab-close-button";
 import { faviconUrlForOrigin } from "@t3tools/shared/favicon";
+import { useClientSettings } from "~/hooks/useSettings";
 import { useTheme } from "~/hooks/useTheme";
 import { useDeviceState } from "~/state/device";
 import type { PreviewPanelInlineSize } from "~/hooks/usePreviewPanelInlineSize";
@@ -640,7 +641,8 @@ function surfaceTitle(
 }
 
 function PreviewFavicon({ capturedUrl, url }: { capturedUrl: string | null; url: string | null }) {
-  const publicProviderUrl = faviconUrlForOrigin(url, 32);
+  const siteIconsEnabled = useClientSettings((settings) => settings.siteIconsEnabled);
+  const publicProviderUrl = siteIconsEnabled ? faviconUrlForOrigin(url, 32) : null;
   return (
     <FaviconImage
       sources={[capturedUrl, publicProviderUrl]}

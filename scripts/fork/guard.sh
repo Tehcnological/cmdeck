@@ -50,9 +50,11 @@ forbidden=(
   # Agents must not be told to follow text from upstream's repository during triage.
   'raw\.githubusercontent\.com/pingdotgg'
   't3\.codes/install'
+  # Link icons come from the site itself (opt-in), never a third-party icon service.
+  'google\.com/s2/favicons'
 )
 for pattern in "${forbidden[@]}"; do
-  hits="$(git grep -n -i -E "$pattern" -- apps packages scripts ':!scripts/fork/**' ':!**/*.md' ':!apps/marketing/**' ':!**/*.graphql' ':!**/*.test.ts' ':!**/*.test.tsx' ':!packages/contracts/src/relay.ts' | head -5)"
+  hits="$(git grep -n -i -E "$pattern" -- apps packages scripts ':!scripts/fork/**' ':!**/*.md' ':!apps/marketing/**' ':!**/*.graphql' ':!**/*.test.ts' ':!**/*.test.tsx' ':!**/testkit/fixtures/**' ':!packages/contracts/src/relay.ts' | head -5)"
   [ -z "$hits" ] || bad "forbidden pattern '$pattern' is back:"$'\n'"$hits"
 done
 

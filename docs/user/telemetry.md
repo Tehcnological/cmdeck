@@ -24,6 +24,9 @@ Besides the traffic you or your tools create, these are the outbound calls CMDec
 - **Provider traffic**: your prompts, replies, and file context go to the model providers you
   configure (Anthropic, OpenAI, and so on), under their own privacy policies. In a Codex thread,
   `/feedback` uploads that conversation and Codex logs to OpenAI, only when you send it.
+- **Site icons**: off by default. With **Settings → Appearance → Show site icons** on, link,
+  browser-tab and agent tool icons load from each site itself (`<site>/favicon.ico`, or the
+  provider's logo URL for a tool). No third-party icon service is used.
 - **Model catalog updates**: `model-manifest.json` from the CMDeck repository
   (`raw.githubusercontent.com/Tehcnological/cmdeck`), which receives T3 Code's catalog through
   upstream merges. It is fetched about once an hour while provider status is checked, and again

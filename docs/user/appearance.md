@@ -1,6 +1,6 @@
 # Appearance and themes
 
-Customize CMDeck's theme, light/dark appearance, math rendering, motion, and custom CSS. Appearance settings are saved per device or browser.
+Customize CMDeck's theme, light/dark appearance, math rendering, site icons, motion, and custom CSS. Appearance settings are saved per device or browser.
 
 ## Switch themes and appearance
 
@@ -22,6 +22,13 @@ Turn on **Settings → Appearance → Render math** (per device) to render LaTeX
 - Supports `$…$`, `$$…$$`, `\(…\)`, `\[…\]`, and fenced `math` blocks outside of code.
 - Currency like `$5 and $10` stays plain text; use `\$` to escape other literal dollar signs.
 - Copying a formula or exporting a table preserves the raw TeX. The composer keeps TeX source editable.
+
+## Site icons
+
+Links in chat, browser tabs, and agents' web tool rows show a generic globe unless you turn on
+**Settings → Appearance → Show site icons** (per device; on mobile, **Settings → Appearance → Text**).
+With it on, each icon loads from the site it belongs to, so that site sees a request from your device.
+No icon service in between ever sees your links.
 
 ## Motion
 

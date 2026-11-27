@@ -24,6 +24,7 @@ import {
   ZapIcon,
 } from "lucide-react";
 import { useAssetUrlState } from "../../assets/assetUrls";
+import { useClientSettings } from "~/hooks/useSettings";
 import { cn } from "~/lib/utils";
 import { TimelineRowCtx } from "./timelineRowContext";
 
@@ -83,12 +84,13 @@ export function ToolActivityIconView(props: {
   muted: boolean;
 }) {
   const { resolvedTheme } = use(TimelineRowCtx);
+  const siteIconsEnabled = useClientSettings((settings) => settings.siteIconsEnabled);
   const fallbackClassName = cn(props.className, props.muted && "opacity-70 light:brightness-60");
   if (!props.icon) {
     return <WorkEntryIcon name={props.fallbackName} className={fallbackClassName} />;
   }
   if (props.icon._tag === "website") {
-    const src = toolActivityFaviconUrl(props.icon, resolvedTheme, 32);
+    const src = siteIconsEnabled ? toolActivityFaviconUrl(props.icon, resolvedTheme, 32) : null;
     return src ? (
       <ToolActivityImageIcon
         key={src}
@@ -107,6 +109,10 @@ export function ToolActivityIconView(props: {
       resolvedTheme === "dark"
         ? (props.icon.logoUrlDark ?? props.icon.logoUrl)
         : props.icon.logoUrl;
+    // Provider logos are often remote (Claude sends icon-service URLs); data: logos load nothing.
+    if (!siteIconsEnabled && !src.startsWith("data:")) {
+      return <WorkEntryIcon name={props.fallbackName} className={fallbackClassName} />;
+    }
     return (
       <ToolActivityImageIcon
         key={src}

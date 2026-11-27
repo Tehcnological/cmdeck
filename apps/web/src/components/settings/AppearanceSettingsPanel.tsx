@@ -410,6 +410,29 @@ export function AppearanceSettingsPanel() {
             />
           }
         />
+        <SettingsRow
+          {...searchableSetting("site-icons")}
+          description={gt(
+            "Load icons for links and websites from each site. Off by default, so sites don't learn which links appear in your chats.",
+          )}
+          resetAction={
+            settings.siteIconsEnabled !== DEFAULT_UNIFIED_SETTINGS.siteIconsEnabled ? (
+              <SettingResetButton
+                ariaLabel={gt("Reset site icons to default")}
+                onClick={() =>
+                  updateSettings({ siteIconsEnabled: DEFAULT_UNIFIED_SETTINGS.siteIconsEnabled })
+                }
+              />
+            ) : null
+          }
+          control={
+            <Switch
+              checked={settings.siteIconsEnabled}
+              onCheckedChange={(checked) => updateSettings({ siteIconsEnabled: Boolean(checked) })}
+              aria-label={gt("Show site icons")}
+            />
+          }
+        />
         <AdvancedSettings
           targetIds={[
             searchableSetting("panel-animations").id,
