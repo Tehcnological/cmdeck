@@ -8,6 +8,7 @@ import * as Layer from "effect/Layer";
 import * as TestClock from "effect/testing/TestClock";
 
 import * as ServerConfig from "../config.ts";
+import * as AuditLog from "../fork/audit/AuditLog.ts";
 import * as RemoteMcpTokens from "./RemoteMcpTokens.ts";
 import * as ServerSecretStore from "./ServerSecretStore.ts";
 
@@ -108,4 +109,45 @@ it.effect.each([
     expect((yield* tokens.status).envOverride).toBe(envOverride);
     expect(RemoteMcpTokens.isEnabled(envOverride, true)).toBe(envOverride ?? true);
   }).pipe(Effect.provide(layerTokensWithEnv(env))),
+);
+
+it.effect("audits token creation, revocation and use, recording use at most hourly", () =>
+  Effect.gen(function* () {
+    const appended: Array<AuditLog.AuditEventInput> = [];
+    const kinds = () => appended.map((event) => `${event.kind}:${event.subject}`);
+    const audited = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      Effect.provideService(
+        effect,
+        AuditLog.AuditLog,
+        AuditLog.AuditLog.of({
+          append: (event) => Effect.sync(() => void appended.push(event)),
+          list: () => Effect.die("unused"),
+          verify: Effect.die("unused"),
+          prune: Effect.succeed(0),
+        }),
+      );
+    const tokens = yield* RemoteMcpTokens.RemoteMcpTokens;
+    const created = yield* audited(tokens.create({ label: "laptop", access: "auto" }));
+    const id = created.token.id;
+    expect(appended[0]).toEqual({
+      kind: "mcp_token.created",
+      subject: id,
+      detail: { label: "laptop", access: "auto" },
+    });
+    expect(JSON.stringify(appended)).not.toContain(created.secret);
+
+    const verifier = yield* RemoteMcpTokens.makeVerifier;
+    yield* audited(verifier.verify(created.secret));
+    yield* audited(verifier.verify(created.secret));
+    yield* TestClock.adjust("1 hour");
+    yield* audited(verifier.verify(created.secret));
+    yield* audited(tokens.revoke(id));
+    yield* audited(tokens.revoke(id));
+    expect(kinds()).toEqual([
+      `mcp_token.created:${id}`,
+      `mcp_token.used:${id}`,
+      `mcp_token.used:${id}`,
+      `mcp_token.revoked:${id}`,
+    ]);
+  }).pipe(Effect.provide(layerTokensWithEnv({}))),
 );

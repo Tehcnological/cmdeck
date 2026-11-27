@@ -43,6 +43,7 @@ import { SettingsPageContainer, SettingsSection } from "./settingsLayout";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useSettingsScope } from "./SettingsScopeContext";
 import { SharedTooltipTrigger } from "../ui/shared-tooltip";
+import { AuditLogSection } from "~/fork/AuditLogSection";
 
 const NUMBER_FORMAT = new Intl.NumberFormat();
 
@@ -940,6 +941,7 @@ function DiagnosticsSettingsBody() {
           }
         />
       </SettingsSection>
+      <AuditLogSection environmentId={environmentId} />
     </SettingsPageContainer>
   );
 }

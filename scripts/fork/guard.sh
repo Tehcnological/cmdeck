@@ -153,6 +153,21 @@ required=(
   'apps/web/src/components/ChatView.tsx:\.\.\.forkComposerBannerItems,'
   'apps/web/src/components/settings/ProjectDefaultsSettings.tsx:<DefaultThreadEnvironmentRow />'
   'apps/web/src/components/settings/settingsSearch.ts:\.\.\.FORK_SETTINGS_SEARCH_ITEMS,'
+  # WI-1.03: the audit log's CLI, Diagnostics viewer and event hooks.
+  'apps/server/src/binCli.ts:import \{ auditCommand \} from "\./fork/audit/auditCommand\.ts";'
+  'apps/server/src/binCli.ts:auditCommand,'
+  'apps/server/src/auth/http.ts:import \* as AuditLog from "\.\./fork/audit/AuditLog\.ts";'
+  'apps/server/src/auth/http.ts:if \(approved\) yield\* AuditLog\.notePairingApproved\(args\.payload\.pairingLinkId\);'
+  'apps/server/src/secrets/SecretRequests.ts:import \* as AuditLog from "\.\./fork/audit/AuditLog\.ts";'
+  'apps/server/src/secrets/SecretRequests.ts:yield\* AuditLog\.noteSecretReveal\("ref", input\.projectId\);'
+  'apps/server/src/secrets/SecretRequests.ts:yield\* AuditLog\.noteSecretReveal\("file", input\.threadId\);'
+  'apps/web/src/components/settings/DiagnosticsSettings.tsx:import \{ AuditLogSection \} from "~/fork/AuditLogSection";'
+  'apps/web/src/components/settings/DiagnosticsSettings.tsx:<AuditLogSection environmentId=\{environmentId\} />'
+  # WI-1.03: remote MCP tokens changed from the CLI are audited too.
+  'apps/server/src/cli/auth.ts:AuditLog\.layerAtDatabase\(config\.dbPath\),'
+  # WI-1.03: a pairing approved from the CLI without a server is audited too.
+  'apps/server/src/cli/auth.ts:Effect\.tap\(AuditLog\.notePairingApprovedLocally\(flags\.id\)\)'
+  'apps/server/src/cli/auth.ts:Effect\.tap\(AuditLog\.notePairingApprovedLocally\(pairingLinkId\)\)'
   # Memory (WI-1.07): fork services orchestration reads, and the turn-context block in the provider prompt.
   'apps/server/src/server.ts:Layer\.provideMerge\(ForkLayer\.layerBeneathOrchestration\)'
   'apps/server/src/orchestration-v2/ProviderTurnStartService.ts:import \* as TurnContext from "\.\./fork/memory/TurnContext\.ts";'
