@@ -102,6 +102,7 @@ T3 Code is an open-source control plane for coding agents. It gives the coding a
 - [Guest links](./guest-links.md) — Need T3 Connect, removed in CMDeck.
 - [Outside agents](./outside-agents.md) — Connecting Claude Code, Codex, ChatGPT, or bots to T3 Code over MCP, plus `t3 thread` host scripting.
 - [Secrets](./secrets.md) — 1Password CLI references and private in-thread agent secret cards.
+- [Secrets at rest](./secrets-at-rest.md) — How CMDeck encrypts the credentials it stores and where the key lives.
 - [1Password service account](./secrets-1password-service-account.md) — Headless 1Password setup with a service account token.
 - [1Password Connect](./secrets-1password-connect.md) — Headless 1Password setup with a Connect server.
 
