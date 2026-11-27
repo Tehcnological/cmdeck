@@ -87,8 +87,6 @@ import * as SourceControlSignIn from "./sourceControl/SourceControlSignIn.ts";
 import { BUILT_IN_SOURCE_CONTROL_DRIVER_LIST } from "./sourceControl/sourceControlDefinitions.ts";
 import * as TextGeneration from "./textGeneration/TextGeneration.ts";
 import * as SecretCheck from "./secrets/SecretCheck.ts";
-import * as RemoteMcpTokens from "./auth/RemoteMcpTokens.ts";
-import * as PublicAddressCheck from "./environment/PublicAddressCheck.ts";
 import * as SecretResolver from "./secrets/SecretResolver.ts";
 import * as ProviderInstanceRegistryHydration from "./provider/ProviderInstanceRegistryHydration.ts";
 import * as ProviderHostPathWatcher from "./provider/ProviderHostPathWatcher.ts";
@@ -125,6 +123,7 @@ import * as AgentAwarenessRelay from "./relay/AgentAwarenessRelay.ts";
 import { hasCloudPublicConfig } from "./cloud/publicConfig.ts";
 import * as ServerSettings from "./serverSettings.ts";
 import * as ForkAlerts from "./fork/ForkAlerts.ts";
+import * as ForkLayer from "./fork/ForkLayer.ts";
 import * as ManagedLimits from "./policy/managedLimits.ts";
 import * as ManagedPolicy from "./policy/ManagedPolicy.ts";
 import * as ProjectEnrichmentService from "./project/ProjectEnrichmentService.ts";
@@ -792,15 +791,14 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
   Layer.effectDiscard(ServerActivation.forkParked(ProjectSettingsOverrideSweep.sweep)),
 )
   .pipe(
+    Layer.provideMerge(ForkLayer.layer),
     Layer.provideMerge(layerOrchestrationApplication),
     // One hub, which the feeders above and the workflow store inside the runtime publish to.
     Layer.provideMerge(MilestoneHub.layer),
     Layer.provideMerge(Layer.merge(layerTaskFolders, LayoutCommandApprovalWrites.layer)),
     Layer.provideMerge(RuntimeLayer.layerEventInfrastructure),
     Layer.provideMerge(Layer.merge(ProjectStore.layer, ThreadSearch.layer)),
-    Layer.provideMerge(
-      Layer.mergeAll(SecretCheck.layer, RemoteMcpTokens.layer, PublicAddressCheck.layer),
-    ),
+    Layer.provideMerge(SecretCheck.layer),
     Layer.provideMerge(SecretResolver.layer),
     // Above the settings it writes when a theme is applied.
     Layer.provideMerge(EnvironmentTheme.layer),

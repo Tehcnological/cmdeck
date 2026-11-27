@@ -258,6 +258,7 @@ import {
   sourceControlHostIcon,
 } from "./CommandPaletteAddProject";
 import { useCommandPaletteThreadActions } from "./CommandPaletteThreadActions";
+import { useForkCommandItems } from "../fork/commands";
 import {
   CommandPaletteThreadQueryContext,
   useCommandPaletteThreadItems,
@@ -793,6 +794,7 @@ function OpenCommandPaletteDialog(props: {
     threadRef: activeThread ? scopeThreadRef(activeThread.environmentId, activeThread.id) : null,
     projectCwd: currentProjectCwd,
   });
+  const forkCommandItems = useForkCommandItems();
   const currentProjectCwdForBrowse =
     browseEnvironmentId && currentProjectEnvironmentId === browseEnvironmentId
       ? currentProjectCwd
@@ -1640,6 +1642,7 @@ function OpenCommandPaletteDialog(props: {
   }
 
   actionItems.push(...currentThreadActionItems);
+  actionItems.push(...forkCommandItems);
 
   actionItems.push({
     kind: "action",

@@ -338,6 +338,10 @@ Total: 59 WIs. Approvals A1–A15 were answered on 2026-11-26 ([RESEARCH_LEDGER.
 - **Security:** fork methods go through the same group middleware (`auth/RpcAuthorization.ts`).
 - **Mobile:** additive only. **Upstream:** every hotspot drops to one fork line.
 - **Conflicts:** touches every hotspot once; land alone, then everything else rebases.
+- **As built:** the right-panel `cmdeck` surface kind and `apps/web/src/fork/panels.ts` were left out
+  because nothing in Phase 1 opens a fork panel; the first WI that needs one adds them. Existing fork
+  layers other than `RemoteMcpTokens` and `PublicAddressCheck` stay put (`ForkAlerts` feeds
+  `ServerSettings`). Seams are listed in `docs/operations/fork-upstream-sync.md`.
 
 ### WI-1.02 Shared redaction module
 

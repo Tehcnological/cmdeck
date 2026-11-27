@@ -101,6 +101,7 @@ import {
 import * as HtmlHandlers from "./toolkits/html/handlers.ts";
 import { MessageToolkit } from "./toolkits/message/tools.ts";
 import * as MessageHandlers from "./toolkits/message/handlers.ts";
+import * as ForkMcpToolkits from "../fork/mcpToolkits.ts";
 import { HtmlPreviewTool, HtmlPreviewToolkit, HtmlRenderToolkit } from "./toolkits/html/tools.ts";
 import { MCP_HTTP_PATH } from "../httpCors.ts";
 import { requestUrl } from "../requestUrl.ts";
@@ -1372,6 +1373,7 @@ export const layerTools = Layer.mergeAll(
   layerDeviceToolkit,
   layerHtmlToolkit,
   layerMessageToolkit,
+  ForkMcpToolkits.layer(toolkitRegistration),
 );
 
 const layerToolExposure = Layer.effect(

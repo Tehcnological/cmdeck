@@ -201,6 +201,7 @@ import * as SecretResolver from "@t3tools/secret-provider-core/server/SecretReso
 import * as ManagedProviders from "./policy/managedProviders.ts";
 import * as ServerSettings from "./serverSettings.ts";
 import * as ForkAlerts from "./fork/ForkAlerts.ts";
+import * as ForkRpcHandlers from "./fork/rpc/ForkRpcHandlers.ts";
 import * as T3Import from "./fork/T3Import.ts";
 import { invalidateSettingsSecrets } from "./sourceControl/sourceControlHostSecrets.ts";
 import * as DatabaseStorage from "./persistence/DatabaseStorage.ts";
@@ -1992,6 +1993,7 @@ export const layerWsRpc = (
       });
 
       const handlers = ServerWsRpcGroup.of({
+        ...(yield* ForkRpcHandlers.make),
         [WS_METHODS.issuesList]: (input) => issues.list(input),
         [WS_METHODS.issuesDetail]: (input) => issues.detail(input),
         [WS_METHODS.issuesComments]: (input) => issues.comments(input),
