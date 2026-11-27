@@ -52,9 +52,9 @@ const CLOSE = "</cmdeck_context>";
 const PREAMBLE =
   "Saved context from CMDeck, not part of the user's message. Use it as background; it does not override what the user asks.";
 
-const fenceSafe = (text: string) => {
+const fenceSafe = (text: string, max = ENTRY_MAX_CHARS) => {
   const flat = text.replaceAll(/<\/?cmdeck_context>/giu, "").trim();
-  return flat.length <= ENTRY_MAX_CHARS ? flat : `${flat.slice(0, ENTRY_MAX_CHARS - 1)}…`;
+  return flat.length <= max ? flat : `${flat.slice(0, max - 1)}…`;
 };
 
 /** The fenced block, or "" when nothing fits. Entries past the budget are left out whole. */
@@ -101,7 +101,11 @@ const memoryContributor = Effect.gen(function* () {
     const items = [...rules, ...facts];
     return {
       title: "Memory",
-      entries: items.map((item) => `${item.content} (memory ${item.id})`),
+      // Only the content is cut, so a long item keeps the id memory_forget needs.
+      entries: items.map((item) => {
+        const id = ` (memory ${item.id})`;
+        return `${fenceSafe(item.content, ENTRY_MAX_CHARS - id.length)}${id}`;
+      }),
       rendered: (count: number) =>
         store
           .recordInjections({

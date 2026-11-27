@@ -50,6 +50,13 @@ describe("TurnContext", () => {
           content: "Use pnpm, not npm",
           actor: "user",
         });
+        const longRule = yield* store.remember({
+          context,
+          scope: "project:project-app",
+          kind: "rule",
+          content: `Keep commits small. ${"Explain why in the body. ".repeat(38)}`,
+          actor: "user",
+        });
         const fact = yield* store.remember({
           context,
           scope: "global",
@@ -74,10 +81,14 @@ describe("TurnContext", () => {
         const block = yield* turnContext.contribute(input);
         expect(block).toContain(`Use pnpm, not npm (memory ${rule.id})`);
         expect(block).toContain(`The deploy script is scripts/ship.sh (memory ${fact.id})`);
+        // Cut to fit, the long rule keeps its whole id.
+        expect(block).toContain(`… (memory ${longRule.id})`);
         expect(block).not.toContain("lunch");
         const injected = yield* sql<{ readonly itemId: string }>`
           SELECT item_id AS "itemId" FROM memory_injections WHERE run_id = 'run-1' ORDER BY item_id`;
-        expect(injected.map(({ itemId }) => itemId)).toEqual([rule.id, fact.id].toSorted());
+        expect(injected.map(({ itemId }) => itemId)).toEqual(
+          [rule.id, longRule.id, fact.id].toSorted(),
+        );
 
         expect(
           yield* turnContext.contribute({ ...input, runId: RunId.make("run-2"), inject: false }),
