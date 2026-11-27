@@ -60,7 +60,7 @@ Create and manage scheduled tasks in **Settings → Scheduled tasks** (web, desk
 
 Choose **On webhook** as a task's schedule to trigger runs from external services (e.g., GitHub PR or CI events). A public URL needs your own [Cloudflare Tunnel](./cloudflare-tunnel.md#webhooks) with an Access bypass for the hooks path; click **Rotate** to invalidate and replace the URL.
 
-- **Prompt placeholders**: Insert `{{body.path}}`, `{{headers.name}}`, `{{query.name}}`, `{{body}}`, or `{{request}}`. Missing values render empty.
+- **Prompt placeholders**: Insert `{{body.path}}`, `{{headers.name}}`, `{{query.name}}`, `{{body}}`, or `{{request}}`. Missing values render empty. The whole-payload placeholders (`{{body}}`, `{{request}}`, `{{headers}}`, `{{query}}`) replace recognisable credentials (API tokens, private keys, `password=` style values) with `[redacted]`; a named field such as `{{body.path}}` is passed as is.
 - **Untrusted input protection**: Placeholder values are wrapped in `<webhook-data-…>` tags, and `$`/`@`/leading `/` tokens are neutralized so untrusted payloads can't invoke skills or commands.
 - **Signatures** (web/desktop setup): Enable **Require signature** to verify HMAC signatures (for GitHub, keep `x-hub-signature-256`, hex, and `sha256=` prefix with the same secret and `application/json`).
 - **Filters**: Add conditions (using paths without braces, e.g. `headers.x-github-event` equals `pull_request`, or `body.action` is one of `opened, reopened`). All filters must match; non-matching requests are logged as **Filtered**.

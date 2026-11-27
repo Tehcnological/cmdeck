@@ -106,4 +106,18 @@ describe("ServerLoggerLive", () => {
       assert.notInclude(output, "secret-token-value");
     }),
   );
+
+  it.effect("keeps a known token out of fields, causes and annotations", () =>
+    Effect.gen(function* () {
+      // Assembled at runtime so secret scanners do not flag the test.
+      const token = ["gh", "p_", "aB3dE5gH7jK9mN1pQ2rS4tU6vW8xY0z12345"].join("");
+      const output = yield* printThroughConsole({
+        detail: `pushed with ${token}`,
+        cause: Cause.fail(new Error(`git failed: https://x:${token}@github.com`)),
+      }).pipe(Effect.annotateLogs("auth", `Bearer ${token}`));
+
+      assert.notInclude(output, token.slice(4));
+      assert.include(output, "detail: 'pushed with [redacted]'");
+    }),
+  );
 });

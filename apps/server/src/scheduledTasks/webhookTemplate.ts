@@ -1,6 +1,8 @@
 // Frame untrusted values with unpredictable per-request tags and break their mentions, preserving template mentions.
 // Whole-set placeholders redact credentials; named placeholders return raw values.
 
+import { redactSecrets } from "@t3tools/shared/redaction";
+
 export interface WebhookRequest {
   readonly method: string;
   readonly path: string;
@@ -168,7 +170,9 @@ export function renderWebhookPrompt(
     if (text === "") return "";
     if (raw) return text;
     framed = true;
-    return `<${tag}>${text.replace(MENTION, "$&\u2060")}</${tag}>`;
+    // Fork: only the prompt is redacted; filters and replay keys read the raw request.
+    const shown = expression.includes(".") ? text : redactSecrets(text);
+    return `<${tag}>${shown.replace(MENTION, "$&\u2060")}</${tag}>`;
   });
   if (!framed) return { prompt, missing };
   return {

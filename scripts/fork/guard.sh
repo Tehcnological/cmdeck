@@ -132,6 +132,11 @@ required=(
   # WI-1.11: the Amazon Bedrock preset in the Claude provider dialog.
   'apps/web/src/components/settings/AddProviderInstanceDialog.tsx:<BedrockPresetSection'
   'apps/web/src/components/settings/AddProviderInstanceDialog.tsx:environment: bedrockEnvironmentForSave\(bedrockEnvironment\)'
+  # WI-1.02: the shared redactor applies at log, feedback and webhook-prompt egress.
+  'packages/shared/package.json:"\./redaction"'
+  'apps/server/src/serverLogger.ts:redactingSecrets\(redactingCredentials\(Logger\.consolePretty\(\)\)\)'
+  'apps/server/src/feedback/scrubFeedback.ts:\.\.\.SECRET_PATTERNS,'
+  'apps/server/src/scheduledTasks/webhookTemplate.ts:expression\.includes\("\."\) \? text : redactSecrets\(text\)'
 )
 for entry in "${required[@]}"; do
   file="${entry%%:*}"

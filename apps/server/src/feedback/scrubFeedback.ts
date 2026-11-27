@@ -1,3 +1,5 @@
+import { SECRET_PATTERNS } from "@t3tools/shared/redaction";
+
 const FEEDBACK_TEXT_MAX_CHARS = 300;
 
 const REDACTED = "[redacted]";
@@ -110,7 +112,14 @@ export function scrubFeedbackText(
     ),
   ].map((value) => new RegExp(`(?<![A-Za-z0-9_])${escapeRegExp(value)}(?![A-Za-z0-9_])`, "gu"));
   // Secrets and known values on the original text, before either can break the other's match.
-  scrubbed = redactAll(scrubbed, [CREDENTIAL_URL, TOKEN_PREFIX, JWT, EMAIL, ...known])
+  scrubbed = redactAll(scrubbed, [
+    CREDENTIAL_URL,
+    TOKEN_PREFIX,
+    JWT,
+    EMAIL,
+    ...SECRET_PATTERNS,
+    ...known,
+  ])
     .replaceAll(QUOTED_PATH, (quoted) => `${quoted[0]}${REDACTED}${quoted[0]}`)
     .replaceAll(PATH, REDACTED)
     .replaceAll(LONG_RUN, (run) =>
