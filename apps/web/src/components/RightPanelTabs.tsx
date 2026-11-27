@@ -757,7 +757,7 @@ function SideChatTabIcon(props: { environmentId: EnvironmentId | null; threadId:
     props.environmentId === null ? null : scopeThreadRef(props.environmentId, props.threadId),
   );
   const state = sideChatTabState(shell);
-  const Icon = shell !== null && shell.lineage.sideChat !== true ? Bot : MessagesSquare;
+  const Icon = shell?.lineage.relationshipToParent === "subagent" ? Bot : MessagesSquare;
   return (
     <>
       <Icon className="size-3 shrink-0" />

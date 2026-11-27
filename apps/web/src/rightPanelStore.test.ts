@@ -3,6 +3,7 @@ import { EnvironmentId, RunId, ThreadId } from "@t3tools/contracts";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 
 import { useClosedViewStore } from "./closedViewStore";
+import { openThreadBeside } from "./fork/openThreadBeside";
 import { linkedThreadTitle } from "./linkedThreadSurface";
 import { reopenClosedView } from "./reopenClosedView";
 import {
@@ -605,6 +606,20 @@ describe("rightPanelStore", () => {
     const panel = selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, refA);
     expect(panel.surfaces.map((surface) => surface.id)).toEqual(["thread:child", "diff"]);
     expect(panel.activeSurfaceId).toBe("thread:child");
+  });
+
+  it("opens any thread of the panel's environment beside it, and closes it with its tab", () => {
+    const elsewhere = scopeThreadRef("env-2" as EnvironmentId, ThreadId.make("thread-C"));
+    expect(openThreadBeside(refB, refA)).toBe(true);
+    expect(openThreadBeside(refA, refA)).toBe(false);
+    expect(openThreadBeside(elsewhere, refA)).toBe(false);
+    expect(openThreadBeside(refB, null)).toBe(false);
+    const opened = selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, refA);
+    expect(opened.isOpen).toBe(true);
+    expect(opened.surfaces.map((surface) => surface.id)).toEqual(["thread:thread-B"]);
+    useRightPanelStore.getState().closeSurface(refA, "thread:thread-B");
+    const closed = selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, refA);
+    expect(closed.surfaces).toEqual([]);
   });
 
   it("keeps side chat tabs saved before they became thread surfaces", () => {
