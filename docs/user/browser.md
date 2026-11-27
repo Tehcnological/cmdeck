@@ -29,3 +29,13 @@ Agents can open tabs, navigate, click, type, inspect accessibility snapshots, an
 - Toggle **Settings → Browser → Agent browser access** (per environment or project override; takes effect when the next agent session starts).
 - **Floating preview**: By default, agent-opened tabs float over chat (**Settings → Browser → Auto-show floating preview**). Turn this off to open them in the right panel instead.
 - **Take control**: Click **Take control** before interacting with an agent's tab, and release control when you want the agent to resume.
+
+## Design critique
+
+Ask an agent to review the design of the page in your preview. It resizes its tab to phone (390px), tablet (768px) and desktop (1280px) widths, checks light and dark, measures text contrast, and reads the page's accessibility tree, then reports a few findings with a screenshot at each width.
+
+- **Start it**: With the preview open in a thread, open the command palette and choose **Critique this preview**. It adds the request to your draft; read it, add anything the agent should focus on, and send.
+- **Better results with the skill**: Copy the [`design-critique` skill](https://github.com/Tehcnological/cmdeck/tree/main/skills/design-critique) folder into your agent's skills folder (e.g. `~/.claude/skills/` or `~/.agents/skills/`). The request works without it, but the skill carries the full rubric and severity rules.
+- **Your tab stays yours**: If you are driving the preview tab, the agent opens its own tab on the same page instead of resizing yours.
+- **Needs agent browser access**, and the page must load in the preview. A sign-in wall stops the review: the agent asks for a way in rather than critiquing the login page.
+- It is an expert review, not an accessibility audit or certification.
