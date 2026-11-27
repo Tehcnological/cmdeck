@@ -136,6 +136,9 @@ const ENGINE_BY_OWNER: Readonly<Record<string, string>> = {
   llamacpp: "llama.cpp",
   library: "Ollama",
   organization_owner: "LM Studio",
+  omlx: "oMLX",
+  osaurus: "Osaurus",
+  locals: "Locals",
 };
 
 /** llama.cpp's /props: one loaded model, with or without a vision projector. */
@@ -207,6 +210,15 @@ function sumMetrics(text: string): ReadonlyMap<string, number> {
     totals.set(match[1]!, (totals.get(match[1]!) ?? 0) + value);
   }
   return totals;
+}
+
+/** oMLX's `/api/status`: requests generating now and requests queued behind them. */
+function readOmlxLoad(status: unknown): InferenceServerLoad | undefined {
+  if (!isRecord(status)) return undefined;
+  const { active_requests: running, waiting_requests: waiting } = status;
+  if (typeof running !== "number" || !Number.isFinite(running) || running < 0) return undefined;
+  if (typeof waiting !== "number" || !Number.isFinite(waiting) || waiting < 0) return undefined;
+  return { running: Math.round(running), waiting: Math.round(waiting) };
 }
 
 /** The first engine whose two load gauges are present. */
@@ -521,7 +533,7 @@ export const make = Effect.gen(function* () {
     const { engine: ownerEngine } = list;
 
     // Optional: a failure here never downgrades the model list above.
-    const [health, metricsText, slots, protocols, reported] = yield* Effect.all(
+    const [health, metricsText, slots, omlxStatus, protocols, reported] = yield* Effect.all(
       [
         ownerEngine === "TensorFold"
           ? enrichmentJson(`${endpoint.origin}/health`, key)
@@ -529,6 +541,10 @@ export const make = Effect.gen(function* () {
         fetchText(`${endpoint.origin}/metrics`, key, ENRICHMENT_TIMEOUT),
         ownerEngine === "llama.cpp"
           ? enrichmentJson(`${endpoint.origin}/slots`, key)
+          : Effect.undefined,
+        // oMLX serves no /metrics; its status endpoint carries the same two counts.
+        ownerEngine === "oMLX"
+          ? enrichmentJson(`${endpoint.origin}/api/status`, key)
           : Effect.undefined,
         Effect.forEach(
           PROTOCOL_PATHS,
@@ -567,6 +583,7 @@ export const make = Effect.gen(function* () {
       return next;
     });
     const engine = ownerEngine ?? metrics?.engine;
+    const load = metrics?.load ?? (engine === "oMLX" ? readOmlxLoad(omlxStatus) : undefined);
     // Batch size means concurrent requests only where that is verified for the engine.
     const maxConcurrentRequests =
       engine === "TensorFold" && isRecord(health)
@@ -580,7 +597,7 @@ export const make = Effect.gen(function* () {
       checkedAt,
       models,
       ...(engine === undefined ? {} : { engine }),
-      ...(metrics === undefined ? {} : { load: metrics.load }),
+      ...(load === undefined ? {} : { load }),
       ...(maxConcurrentRequests === undefined ? {} : { maxConcurrentRequests }),
       ...(protocols.length === 0 ? {} : { apiProtocols: protocols }),
       ...(cache === undefined ? {} : { promptCache: cache }),

@@ -327,6 +327,65 @@ describe("InferenceServerRegistry probes", () => {
       }),
   );
 
+  it.effect(
+    "names oMLX and reads its load from /api/status, which it serves instead of /metrics",
+    () =>
+      Effect.gen(function* () {
+        const snapshot = yield* probe({
+          [`${HOST}/v1/models`]: {
+            object: "list",
+            data: [{ id: "Qwen3.5-4B-MLX-4bit", object: "model", owned_by: "omlx" }],
+          },
+          [`${HOST}/api/status`]: {
+            status: "ok",
+            active_requests: 1,
+            waiting_requests: 2,
+            total_prompt_tokens: 225,
+            total_cached_tokens: 0,
+          },
+        });
+        expect(snapshot).toMatchObject({
+          status: "ready",
+          engine: "oMLX",
+          models: [{ id: "Qwen3.5-4B-MLX-4bit" }],
+          load: { running: 1, waiting: 2 },
+        });
+        expect(snapshot?.maxConcurrentRequests).toBeUndefined();
+      }),
+  );
+
+  it.effect("leaves oMLX's load out when its status does not carry both counts", () =>
+    Effect.gen(function* () {
+      const snapshot = yield* probe({
+        [`${HOST}/v1/models`]: {
+          object: "list",
+          data: [{ id: "Qwen3.5-4B-MLX-4bit", object: "model", owned_by: "omlx" }],
+        },
+        [`${HOST}/api/status`]: { status: "ok", active_requests: 1 },
+      });
+      expect(snapshot).toMatchObject({ status: "ready", engine: "oMLX" });
+      expect(snapshot?.load).toBeUndefined();
+    }),
+  );
+
+  it.effect.each([
+    ["Osaurus", { id: "gemma-4-e4b-it-mxfp4", object: "model", owned_by: "osaurus" }],
+    [
+      "Locals",
+      { id: "locals/qwen3.5-4b", object: "model", owned_by: "locals", context_length: 217088 },
+    ],
+  ] as const)("names %s models, without load", ([engine, model]) =>
+    Effect.gen(function* () {
+      const snapshot = yield* probe({
+        [`${HOST}/v1/models`]: { object: "list", data: [model] },
+        // Only oMLX's status is read; another engine's is never asked for.
+        [`${HOST}/api/status`]: { active_requests: 9, waiting_requests: 9 },
+      });
+      expect(snapshot).toMatchObject({ status: "ready", engine, models: [{ id: model.id }] });
+      expect(snapshot?.load).toBeUndefined();
+    }),
+  );
+
   it.effect("skips entries without an id and ignores metadata of the wrong type", () =>
     Effect.gen(function* () {
       const snapshot = yield* probe({
