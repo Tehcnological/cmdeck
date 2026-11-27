@@ -308,6 +308,15 @@ export const notePairingApproved = (pairingLinkId: string) =>
 export const noteSecretReveal = (via: "ref" | "file", subject: string) =>
   note({ kind: "secret.revealed", subject, detail: { via } });
 
+// A CLI write can meet the server's write lock; wait like the server does instead of losing the entry.
+const cliDatabase = (dbPath: string) =>
+  Layer.effectDiscard(
+    Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+      yield* sql`PRAGMA busy_timeout = 5000`;
+    }),
+  ).pipe(Layer.provideMerge(NodeSqliteClient.layer({ filename: dbPath })));
+
 /**
  * The log in the database at `dbPath`, for CLI commands that change what the log records while a
  * server may or may not run. SQLite's write lock orders appends across processes. Nothing is
@@ -322,7 +331,7 @@ export const layerAtDatabase = (dbPath: string) =>
       }
       return Layer.effectDiscard(ensureAuditSchema()).pipe(
         Layer.provideMerge(layerService),
-        Layer.provideMerge(NodeSqliteClient.layer({ filename: dbPath })),
+        Layer.provideMerge(cliDatabase(dbPath)),
       );
     }),
   );
@@ -335,9 +344,7 @@ export const appendToDatabase = Effect.fn("AuditLog.appendToDatabase")(
   },
   (effect, dbPath) =>
     effect.pipe(
-      Effect.provide(
-        layerService.pipe(Layer.provideMerge(NodeSqliteClient.layer({ filename: dbPath }))),
-      ),
+      Effect.provide(layerService.pipe(Layer.provideMerge(cliDatabase(dbPath)))),
       Effect.catch((cause) => Effect.logWarning("Could not write an audit entry", { cause })),
     ),
 );
