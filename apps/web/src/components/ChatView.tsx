@@ -365,6 +365,7 @@ import { useProactivePanels } from "../hooks/useProactivePanels";
 import { useIncrementalTimelineEntries } from "../hooks/useIncrementalTimelineEntries";
 import { useRightPanelSurfaceClose } from "../hooks/useRightPanelSurfaceClose";
 import { ComposerBannerStack, type ComposerBannerStackItem } from "./chat/ComposerBannerStack";
+import { useForkComposerBannerItems } from "../fork/composerBanners";
 import { modelFallbackBannerItem } from "./chat/ComposerUsageLimits";
 import { ComposerSurface } from "./chat/ComposerSurface";
 import { resolveThreadSyncPhase } from "../threadSync";
@@ -1436,6 +1437,9 @@ export default function ChatView(props: ChatViewProps) {
     hasMultipleRegisteredEnvironments: environments.length > 1,
     automaticEnvironment,
     autoUpdateEnvironments,
+  });
+  const forkComposerBannerItems = useForkComposerBannerItems({
+    draftThread: isServerThread ? null : draftThread,
   });
   const providerInstanceEntries = providerInstanceEntriesFor(
     providerStatuses,
@@ -2861,6 +2865,7 @@ export default function ChatView(props: ChatViewProps) {
         ...freshSessionItems,
         ...heldSendItems,
         ...systemComposerBannerItems,
+        ...forkComposerBannerItems,
       ];
     }
     return [
@@ -2874,6 +2879,7 @@ export default function ChatView(props: ChatViewProps) {
       ...freshSessionItems,
       ...heldSendItems,
       ...systemComposerBannerItems,
+      ...forkComposerBannerItems,
       branchMismatchBannerItem(
         {
           mismatchKey: activeBranchMismatchKey,

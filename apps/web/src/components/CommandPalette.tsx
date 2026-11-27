@@ -157,11 +157,11 @@ import {
   waitForProject,
 } from "../state/entities";
 import { isShownUnderParent, visibleLinkedThreads } from "@t3tools/client-runtime/state/threads";
+import { resolveThreadActionProjectRef, threadHasStarted } from "../lib/chatThreadActions";
 import {
-  resolveThreadActionProjectRef,
+  preferDefaultThreadEnvironment,
   startNewThreadFromContext,
-  threadHasStarted,
-} from "../lib/chatThreadActions";
+} from "../fork/defaultThreadEnvironment";
 import {
   appendBrowsePathSegment,
   getBrowseDirectoryPath,
@@ -953,9 +953,11 @@ function OpenCommandPaletteDialog(props: {
                 isPickableProjectMember(member),
             );
           await handleNewThread(
-            contextualProjectIsEligible
-              ? contextualProjectRef
-              : scopeProjectRef(project.environmentId, project.id),
+            preferDefaultThreadEnvironment(
+              contextualProjectIsEligible
+                ? contextualProjectRef
+                : scopeProjectRef(project.environmentId, project.id),
+            ),
           );
         },
       });

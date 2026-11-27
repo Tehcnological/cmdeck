@@ -138,7 +138,11 @@ import { useSidebarProjectGroups } from "../hooks/useSidebarProjectGroups";
 import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
 import { openAddProjectDialog } from "./AddProjectDialog";
 import { registerSettleAndAdvance } from "../settleAndAdvance";
-import { resolveThreadActionProjectRef, startNewThreadFromContext } from "../lib/chatThreadActions";
+import { resolveThreadActionProjectRef } from "../lib/chatThreadActions";
+import {
+  preferDefaultThreadEnvironment,
+  startNewThreadFromContext,
+} from "../fork/defaultThreadEnvironment";
 import { useClientSettings } from "../hooks/useSettings";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { useLocalStorage } from "../hooks/useLocalStorage";
@@ -1299,7 +1303,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
       }),
     });
     const target = entry?.targetProject ?? group;
-    void handleNewThread(scopeProjectRef(target.environmentId, target.id));
+    void handleNewThread(
+      preferDefaultThreadEnvironment(scopeProjectRef(target.environmentId, target.id)),
+    );
   });
   const handleProjectFolderContextMenu = useStableCallback(
     (
