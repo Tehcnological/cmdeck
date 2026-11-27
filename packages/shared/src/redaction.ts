@@ -43,7 +43,7 @@ export const SECRET_PATTERNS: ReadonlyArray<RegExp> = [
   new RegExp(
     String.raw`((?<![\w.-])[\w.-]*?${LABEL_NAME}["']?[ \t]*[:=][ \t]*(["'\x60]?))(?!<redacted>)` +
       String.raw`(?:(?<=["'\x60])(?:\\.|(?!\2)[^\\\r\n])+|(?<!["'\x60])` +
-      String.raw`(?!(?:null|undefined|true|false)(?![^\s"'\x60,;&]))[^\s"'\x60,;&]{3,})`,
+      String.raw`(?!(?:null|undefined|true|false)(?![^\s"'\x60,;&)\]}]))[^\s"'\x60,;&)\]}]{3,})`,
     "gi",
   ),
 ];

@@ -144,6 +144,9 @@ describe("redactSecrets", () => {
     expect(redactSecrets('{"password":"true-secret-suffix"}')).toBe('{"password":"[redacted]"}');
     expect(redactSecrets('{"password":"false"}')).toBe('{"password":"[redacted]"}');
     expect(redactSecrets("token=null, secret: undefined")).toBe("token=null, secret: undefined");
+    const nested = '{"payload":{"password":null},"list":[{"token":true}],"action":"deploy"}';
+    expect(redactSecrets(nested)).toBe(nested);
+    expect(redactSecrets('{"a":{"secret":abc123}}')).toBe('{"a":{"secret":[redacted]}}');
   });
 
   // Quadratic scanning took about 5 s here, past the test timeout; linear takes milliseconds.
