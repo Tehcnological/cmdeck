@@ -288,18 +288,6 @@ export const updateCommand = Command.make("update", {
     Effect.gen(function* () {
       const logLevel = yield* GlobalFlag.LogLevel;
       const config = yield* resolveCliAuthConfig(flags, logLevel);
-      // Private fork: published releases are upstream builds. Only an admin-configured mirror
-      // (which serves this fork's own builds) may be installed from.
-      const hasMirror = yield* Effect.gen(function* () {
-        const policy = yield* ManagedPolicy.ManagedPolicy;
-        return managedUpdateMirror(policy.document) !== undefined;
-      }).pipe(Effect.provide(ManagedPolicy.layer));
-      if (!hasMirror) {
-        return yield* new CliUpdateError({
-          reason:
-            "This private fork does not install published t3 releases. Merge upstream with scripts/fork/sync-upstream.sh and rebuild, or configure a managed update mirror that serves this fork's builds.",
-        });
-      }
       return yield* runUpdate({
         baseDir: config.baseDir,
         logsDir: config.logsDir,

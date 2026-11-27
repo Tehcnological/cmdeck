@@ -262,13 +262,15 @@ it.layer(NodeServices.layer)("server self update", (it) => {
     }),
   );
 
-  it.effect("refuses to install upstream releases without a release mirror", () =>
+  it.effect("installs from CMDeck's GitHub releases without a release mirror", () =>
     Effect.gen(function* () {
-      const { selfUpdate, order, urls } = yield* makeHarness({ withoutReleaseMirror: true });
-      expect((yield* selfUpdate.update({ targetVersion: "1.1.0" }).pipe(Effect.flip)).reason).toBe(
-        `This private fork does not install published t3 releases. Set a managed update mirror or ${CLI_RELEASE_BASE_URL_ENV} to a source of this fork's builds.`,
-      );
-      expect([...order, ...urls]).toEqual([]);
+      const { selfUpdate, urls } = yield* makeHarness({ withoutReleaseMirror: true });
+      expect((yield* selfUpdate.update({ targetVersion: "1.1.0" })).updateId).toBe("launcher-id");
+      expect(urls.length).toBeGreaterThan(0);
+      for (const url of urls)
+        expect(url).toMatch(
+          /^https:\/\/github\.com\/Tehcnological\/cmdeck\/releases\/download\/v1\.1\.0\//,
+        );
     }),
   );
 

@@ -37,6 +37,8 @@ export const SERVICE_LAUNCHD_LABEL = "com.tehcnological.cmdeck.service";
 export const APP_RELEASE_OWNER = "Tehcnological";
 export const APP_RELEASE_REPO = "cmdeck";
 export const APP_RELEASE_REPOSITORY = `${APP_RELEASE_OWNER}/${APP_RELEASE_REPO}`;
+/** Where installs, SSH bootstraps and `cmdeck update` download CLI archives without a mirror. */
+export const APP_RELEASE_DOWNLOAD_BASE_URL = `https://github.com/${APP_RELEASE_REPOSITORY}/releases/download`;
 
 const RELEASE_VERSION = /^([1-9]\d*)\.0\.0(-beta\.[1-9]\d*)?$/u;
 

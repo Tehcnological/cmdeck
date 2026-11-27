@@ -2,6 +2,8 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   cliArchiveTarCommand,
+  cliReleaseAssetUrl,
+  cliReleaseDownloadBaseUrl,
   desktopTrackOffers,
   desktopUpdateChannelOf,
   newestCliReleaseVersion,
@@ -31,6 +33,21 @@ describe("cliRelease", () => {
     expect(cliArchiveTarCommand("win32", {})).toBe("C:\\Windows\\System32\\tar.exe");
   });
 
+  it("downloads from CMDeck's GitHub release tags unless a mirror is set", () => {
+    const github = "https://github.com/Tehcnological/cmdeck/releases/download";
+    expect(cliReleaseAssetUrl("2.0.0", "SHA256SUMS")).toBe(`${github}/v2/SHA256SUMS`);
+    expect(cliReleaseAssetUrl("3.0.0-beta.1", "t3-3.0.0-beta.1-linux-x64.tar.gz", " ")).toBe(
+      `${github}/v3-beta.1/t3-3.0.0-beta.1-linux-x64.tar.gz`,
+    );
+    expect(cliReleaseDownloadBaseUrl("2.0.0")).toBe(`${github}/v2`);
+    expect(cliReleaseDownloadBaseUrl("2.0.0", "https://mirror.example/cmdeck/")).toBe(
+      "https://mirror.example/cmdeck/v2.0.0",
+    );
+    expect(cliReleaseAssetUrl("2.0.0", "SHA256SUMS", "https://mirror.example/c?token=x")).toBe(
+      "https://mirror.example/c/v2.0.0/SHA256SUMS?token=x",
+    );
+  });
+
   it("picks the newest non-draft release on the requested channel", () => {
     const releases = [
       { tag_name: "v1.2.4-preview.20260912.9", draft: true },
@@ -44,6 +61,9 @@ describe("cliRelease", () => {
     expect(newestCliReleaseVersion(releases, "nightly")).toBe("1.2.4-nightly.20260912.7");
     expect(newestCliReleaseVersion(releases, "stable")).toBe("1.2.3");
     expect(newestCliReleaseVersion([{ tag_name: "v1.2.3" }], "preview")).toBeUndefined();
+    expect(newestCliReleaseVersion([{ tag_name: "v3-beta.1" }, { tag_name: "v2" }], "stable")).toBe(
+      "2.0.0",
+    );
   });
 
   it("puts betas on the Beta track, stored as nightly", () => {
