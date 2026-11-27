@@ -189,6 +189,10 @@ required=(
   # WI-1.03: a pairing approved from the CLI without a server is audited too.
   'apps/server/src/cli/auth.ts:Effect\.tap\(AuditLog\.notePairingApprovedLocally\(flags\.id\)\)'
   'apps/server/src/cli/auth.ts:Effect\.tap\(AuditLog\.notePairingApprovedLocally\(pairingLinkId\)\)'
+  # WI-2.16: an accept the approval policy denies is turned into a decline where it is dispatched.
+  'apps/server/src/orchestration-v2/Orchestrator.ts:import \* as ApprovalGate from "\.\./fork/approvalPolicy/ApprovalGate\.ts";'
+  'apps/server/src/orchestration-v2/Orchestrator.ts:const forkApprovalGate = yield\* ApprovalGate\.forRuntimeResponse;'
+  'apps/server/src/orchestration-v2/Orchestrator.ts:command = yield\* forkApprovalGate\(command, context\);'
   # Memory (WI-1.07): fork services orchestration reads, and the turn-context block in the provider prompt.
   'apps/server/src/server.ts:Layer\.provideMerge\(ForkLayer\.layerBeneathOrchestration\)'
   'apps/server/src/orchestration-v2/ProviderTurnStartService.ts:import \* as TurnContext from "\.\./fork/memory/TurnContext\.ts";'

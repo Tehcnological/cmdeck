@@ -16,6 +16,12 @@ describe("cmdeck settings key", () => {
       decisionModel: null,
       routingTierModels: {},
       usageAlertPercents: [80],
+      approvalPolicy: {
+        denyCommands: [],
+        denyTools: [],
+        protectedPaths: [],
+        denyWritesOutsideWorkspace: false,
+      },
     };
     expect(decodeServerSettings({}).cmdeck).toEqual(defaults);
     expect(decodeServerSettings({ cmdeck: {} }).cmdeck).toEqual(defaults);
