@@ -42,13 +42,6 @@ export const ensureMemorySchema = Effect.fn("ensureMemorySchema")(function* () {
   )`;
   yield* sql`CREATE INDEX IF NOT EXISTS idx_memory_injections_thread
     ON memory_injections(thread_id, injected_at)`;
-  // The turn each thread last started, so memory_remember knows whether a person asked for it.
-  yield* sql`CREATE TABLE IF NOT EXISTS memory_turns (
-    thread_id TEXT PRIMARY KEY,
-    run_id TEXT NOT NULL,
-    user_authored INTEGER NOT NULL,
-    started_at TEXT NOT NULL
-  )`;
   // As in migration 069: a SQLite build without FTS5 leaves search empty instead of failing startup.
   const created = yield* sql`CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(
     content,

@@ -82,9 +82,6 @@ describe("TurnContext", () => {
         expect(
           yield* turnContext.contribute({ ...input, runId: RunId.make("run-2"), inject: false }),
         ).toBe("");
-        const turn = yield* sql<{ readonly runId: string }>`
-          SELECT run_id AS "runId" FROM memory_turns WHERE thread_id = ${threads.main.id}`;
-        expect(turn).toEqual([{ runId: "run-2" }]);
       }),
     );
   });

@@ -355,9 +355,7 @@ describe("memory", () => {
           inject: true,
         });
         expect(block).toBe("");
-        expect(
-          yield* sql`SELECT run_id FROM memory_turns UNION ALL SELECT run_id FROM memory_injections`,
-        ).toEqual([]);
+        expect(yield* sql`SELECT run_id FROM memory_injections`).toEqual([]);
         for (const [name, args] of [
           ["memory_search", { query: "pnpm" }],
           ["memory_remember", { content: "Never saved" }],

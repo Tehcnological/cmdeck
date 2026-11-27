@@ -1,5 +1,4 @@
 import { describe, expect, it } from "@effect/vitest";
-import { RunId } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import { McpServer } from "effect/ai";
 
@@ -38,13 +37,9 @@ describe("memory MCP tools", () => {
         expect((yield* callTool("memory_forget", { id })).isError).toBe(false);
         expect(yield* searchContents("deploys")).toEqual([]);
 
-        yield* store.recordTurn({
-          threadId: threads.main.id,
-          runId: RunId.make("run-user"),
-          userAuthored: true,
-        });
+        // Even in a turn a person started, the agent's write is a proposal.
         const saved = yield* callTool("memory_remember", { content: "Use pnpm", kind: "rule" });
-        expect(saved.structuredContent).toMatchObject({ status: "active" });
+        expect(saved.structuredContent).toMatchObject({ status: "pending" });
       }),
     );
 

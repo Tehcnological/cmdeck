@@ -85,9 +85,6 @@ export const renderBlock = (
   };
 };
 
-const userAuthored = (message: TurnContextInput["message"]) =>
-  message.createdBy === "user" && message.scheduledTaskId === undefined;
-
 const memoryContributor = Effect.gen(function* () {
   const store = yield* MemoryStore.MemoryStore;
   return Effect.fn("TurnContext.memory")(function* (
@@ -95,11 +92,6 @@ const memoryContributor = Effect.gen(function* () {
   ): Effect.fn.Return<TurnContextSection | undefined, MemoryStore.MemoryStoreError> {
     if (!(yield* store.enabled)) return undefined;
     const context = yield* store.threadContext(input.thread);
-    yield* store.recordTurn({
-      threadId: input.thread.id,
-      runId: input.runId,
-      userAuthored: userAuthored(input.message),
-    });
     if (!input.inject) return undefined;
     const { rules, facts } = yield* store.forTurn({
       context,

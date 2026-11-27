@@ -144,11 +144,6 @@ export class MemoryStore extends Context.Service<
     readonly revisions: (
       itemId: string,
     ) => Effect.Effect<ReadonlyArray<MemoryRevision>, MemoryStoreError>;
-    readonly recordTurn: (input: {
-      readonly threadId: ThreadId;
-      readonly runId: string;
-      readonly userAuthored: boolean;
-    }) => Effect.Effect<void, MemoryStoreError>;
     readonly recordInjections: (input: {
       readonly threadId: ThreadId;
       readonly runId: string;
@@ -251,13 +246,6 @@ const make = Effect.gen(function* () {
       : yield* threadContext({ id: thread.id, projectId: thread.projectId });
   });
 
-  const turnIsUserAuthored = (threadId: ThreadId) =>
-    sql<{
-      readonly userAuthored: number;
-    }>`SELECT user_authored AS "userAuthored" FROM memory_turns WHERE thread_id = ${threadId}`.pipe(
-      Effect.map((rows) => rows[0]?.userAuthored === 1),
-    );
-
   const remember: MemoryStore["Service"]["remember"] = Effect.fn("MemoryStore.remember")(
     function* (input) {
       const { context } = input;
@@ -268,9 +256,9 @@ const make = Effect.gen(function* () {
           scope: input.scope,
         });
       }
-      const asked =
-        input.actor === "user" ||
-        (yield* turnIsUserAuthored(context.threadId).pipe(failsTo("read the turn")));
+      // An agent's write is a proposal even in a turn a person started: text it read in that
+      // turn (a file, a web page) could otherwise plant a standing rule. A person accepts it.
+      const asked = input.actor === "user";
       const at = yield* now;
       const item: MemoryItem = {
         id: yield* random.uuidV4().pipe(failsTo("name the item")),
@@ -458,13 +446,6 @@ const make = Effect.gen(function* () {
     revert,
     get: Effect.fn("MemoryStore.get")((itemId) => findItem(itemId), failsTo("read the item")),
     revisions,
-    recordTurn: Effect.fn("MemoryStore.recordTurn")(function* (input) {
-      const at = yield* now;
-      yield* sql`INSERT INTO memory_turns (thread_id, run_id, user_authored, started_at)
-          VALUES (${input.threadId}, ${input.runId}, ${input.userAuthored ? 1 : 0}, ${at})
-          ON CONFLICT (thread_id) DO UPDATE SET run_id = excluded.run_id,
-            user_authored = excluded.user_authored, started_at = excluded.started_at`;
-    }, failsTo("record the turn")),
     recordInjections: Effect.fn("MemoryStore.recordInjections")(function* (input) {
       const at = yield* now;
       for (const itemId of input.itemIds) {

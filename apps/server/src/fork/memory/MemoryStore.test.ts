@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { RunId, ThreadId } from "@t3tools/contracts";
+import { ThreadId } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -96,11 +96,6 @@ describe("MemoryStore", () => {
             actor: "agent",
           });
 
-        yield* store.recordTurn({
-          threadId: threads.main.id,
-          runId: RunId.make("run-scheduled"),
-          userAuthored: false,
-        });
         const proposed = yield* remember("Run the linter before committing");
         expect(proposed).toMatchObject({ status: "pending", provenance: "agent_inferred" });
         expect(yield* contentsForTurn(threads.main)).not.toContain(
@@ -110,15 +105,16 @@ describe("MemoryStore", () => {
         yield* store.accept(proposed.id);
         expect(yield* contentsForTurn(threads.main)).toContain("Run the linter before committing");
 
-        yield* store.recordTurn({
-          threadId: threads.main.id,
-          runId: RunId.make("run-user"),
-          userAuthored: true,
-        });
-        expect(yield* remember("Use pnpm, not npm")).toMatchObject({
-          status: "active",
-          provenance: "user_explicit",
-        });
+        // Only a person makes a standing rule directly; an agent's write waits for acceptance.
+        expect(
+          yield* store.remember({
+            context,
+            scope: "project:project-app",
+            kind: "rule",
+            content: "Use pnpm, not npm",
+            actor: "user",
+          }),
+        ).toMatchObject({ status: "active", provenance: "user_explicit" });
       }),
     );
 
