@@ -200,12 +200,27 @@ required=(
   # and a thread hidden by a tag filter leaves the panel.
   'apps/web/src/components/ChatView.tsx:activeThread\?\.projectId !== panelHostShell\?\.projectId'
   'apps/web/src/components/chat/SideThreadPane.tsx:useCloseWhenHidden\(threadRef, props\.onClose\)'
+  # WI-2.17: secrets at rest. The desktop app hands the key over in the bootstrap envelope.
+  'packages/contracts/src/desktopBootstrap.ts:cmdeckSecretsKey: Schema\.optionalKey\(Schema\.String\)'
+  'apps/server/src/config.ts:readonly cmdeckSecretsKey\?: Redacted\.Redacted<string> \| undefined;'
+  'apps/server/src/cli/config.ts:cmdeckSecretsKey: Redacted\.make\(bootstrap\.cmdeckSecretsKey\)'
+  'apps/server/src/auth/serverInternalPaths.ts:isWithinRoot\(path, file, path\.join\(path\.dirname\(stateDir\), "keys"\)\)'
+  'apps/desktop/src/main.ts:Layer\.provideMerge\(DesktopSecretsKey\.layer\)'
+  'apps/desktop/src/backend/DesktopBackendConfiguration.ts:const secretsKey = yield\* DesktopSecretsKey\.DesktopSecretsKey;'
+  'apps/desktop/src/backend/DesktopBackendConfiguration.ts:Effect\.flatMap\(DesktopSecretsKey\.withSecretsKey\(secretsKey, environment\.baseDir\)\)'
   # WI-2.10: scheduled tasks start new threads on the decision service's routed model.
   'apps/server/src/scheduledTasks/ScheduledTaskService.ts:modelSelection: yield\* Decisions\.routeScheduledTask\(active\),'
 )
 # 6. Only a person approves a workflow file: no MCP tool may reach the trust gate (WI-1.06).
 hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts)"
 [ -z "$hits" ] || bad "MCP code reaches the workflow trust gate: $hits"
+
+# 7. WI-2.17: a file that builds the secret store must build the encrypting one, or it reads and
+#    writes envelopes as raw bytes. Its `ServerSecretStore` import names the fork module instead.
+for file in $(git grep -l -E 'ServerSecretStore\.layer([^A-Za-z]|$)' -- apps/server/src ':!apps/server/src/fork/**' ':!**/*.test.ts' ':!**/*.testkit.ts' ':!**/testkit/**'); do
+  grep -q -E '^import \* as ServerSecretStore from "(\./|(\.\./)+)fork/secrets/EncryptedSecretStore\.ts";' "$file" ||
+    bad "$file builds ServerSecretStore.layer without fork/secrets/EncryptedSecretStore.ts"
+done
 
 for entry in "${required[@]}"; do
   file="${entry%%:*}"

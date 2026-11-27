@@ -290,6 +290,21 @@
           ]
         }
       ]
+    },
+    {
+      "bundles": ["desktop"],
+      "license": "Apache-2.0",
+      "name": "Kiro Crew secret envelope (adapted)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/blob/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/secrets/vault.py",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "The AES-256-GCM envelope and its name-bound AAD in apps/server/src/fork/secrets/envelope.ts are adapted from Kiro Crew's vault: one binary envelope per secret file instead of a JSON map, a \"cmdeck\" AAD scope, and no item types."
+          ]
+        }
+      ]
     }
   ],
   "packageOverrides": [

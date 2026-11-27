@@ -30,6 +30,7 @@ export const DesktopBackendBootstrap = Schema.Struct({
   desktopBrowserFd: Schema.optionalKey(PositiveInt),
   desktopBrowserControlFd: Schema.optionalKey(PositiveInt),
   resourceMonitorPath: Schema.optionalKey(TrimmedNonEmptyString),
+  cmdeckSecretsKey: Schema.optionalKey(Schema.String), // Fork: base64url key for secrets at rest (WI-2.17).
 });
 
 export type DesktopBackendBootstrap = typeof DesktopBackendBootstrap.Type;

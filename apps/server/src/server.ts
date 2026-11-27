@@ -182,7 +182,7 @@ import * as DirectEndpoints from "./environment/DirectEndpoints.ts";
 import * as RemoteOpenTargets from "./environment/RemoteOpenTargets.ts";
 import * as AuthHttp from "./auth/http.ts";
 import * as ReplayMarkers from "./auth/replayMarkers.ts";
-import * as ServerSecretStore from "./auth/ServerSecretStore.ts";
+import * as ServerSecretStore from "./fork/secrets/EncryptedSecretStore.ts";
 import * as ServerE2eeIdentity from "./auth/ServerE2eeIdentity.ts";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as CodexManagedTokenBroker from "./provider/CodexManagedTokenBroker.ts";
