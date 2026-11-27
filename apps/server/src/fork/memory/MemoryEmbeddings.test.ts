@@ -187,6 +187,34 @@ describe("an embedder outside the local network", () => {
   });
 });
 
+describe("an item edited while it is embedded", () => {
+  const calls: Array<Recorded> = [];
+  let editDuringRequest: Effect.Effect<void> = Effect.void;
+  const answering = fakeServer(calls);
+  const editingServer = HttpClient.make((request) =>
+    editDuringRequest.pipe(Effect.andThen(answering.execute(request))),
+  );
+  it.layer(layerMemoryTest({ memoryEnabled: true, settings: settings(), embedder: editingServer }))(
+    (it) => {
+      it.effect("keeps no vector of the old text", () =>
+        Effect.gen(function* () {
+          yield* seed;
+          const sql = yield* SqlClient.SqlClient;
+          editDuringRequest = sql`UPDATE memory_items SET content = 'Use bun'
+          WHERE content = 'Use pnpm, not npm'`.pipe(Effect.orDie, Effect.asVoid);
+          const embeddings = yield* MemoryEmbeddings.MemoryEmbeddings;
+          expect(yield* embeddings.backfill).toBe(3);
+          expect(yield* embeddings.status).toMatchObject({ embedded: 2, total: 3 });
+          editDuringRequest = Effect.void;
+          expect(yield* embeddings.backfill).toBe(1);
+          expect(calls.at(-1)!.input).toEqual(["Use bun"]);
+          expect(yield* embeddings.status).toMatchObject({ embedded: 3, total: 3 });
+        }),
+      );
+    },
+  );
+});
+
 describe("backfill", () => {
   const calls: Array<Recorded> = [];
   it.layer(

@@ -239,16 +239,19 @@ const make = Effect.gen(function* () {
 
   const store = Effect.fn("MemoryEmbeddings.store")(function* (
     signature: string,
-    items: ReadonlyArray<{ readonly id: string }>,
+    items: ReadonlyArray<{ readonly id: string; readonly content: string }>,
     vectors: ReadonlyArray<Float32Array>,
   ) {
     const at = yield* now;
+    // The content check and the write are one statement: an item edited while its old text was
+    // being embedded keeps no vector, so the next search embeds the new text.
     yield* sql.withTransaction(
       Effect.forEach(
         items,
         (item, index) =>
           sql`INSERT INTO memory_embeddings (item_id, signature, vector, embedded_at)
-            VALUES (${item.id}, ${signature}, ${toBlob(vectors[index]!)}, ${at})
+            SELECT id, ${signature}, ${toBlob(vectors[index]!)}, ${at} FROM memory_items
+            WHERE id = ${item.id} AND content = ${item.content}
             ON CONFLICT (item_id) DO UPDATE SET signature = excluded.signature,
               vector = excluded.vector, embedded_at = excluded.embedded_at`,
         { discard: true },
