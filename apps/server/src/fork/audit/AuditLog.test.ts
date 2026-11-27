@@ -17,6 +17,7 @@ import * as Queue from "effect/Queue";
 import * as SqlClient from "effect/sql/SqlClient";
 import * as TestClock from "effect/testing/TestClock";
 
+import * as ServerConfig from "../../config.ts";
 import * as MilestoneHub from "../../milestones/MilestoneHub.ts";
 import * as Sqlite from "../../persistence/Sqlite.ts";
 import * as AuditLog from "./AuditLog.ts";
@@ -224,6 +225,12 @@ it.effect("a CLI command records in an existing database and creates none that i
     yield* AuditLog.note({ kind: "mcp_token.revoked", subject: "t1" }).pipe(
       Effect.provide(AuditLog.layerAtDatabase(dbPath)),
     );
+    // A pairing approved without a server: only an approval that happened is recorded.
+    for (const approved of [false, true]) {
+      yield* AuditLog.notePairingApprovedLocally("link-9")(approved).pipe(
+        Effect.provideService(ServerConfig.ServerConfig, { dbPath } as never),
+      );
+    }
     const { entries } = yield* Effect.gen(function* () {
       return yield* (yield* AuditLog.AuditLog).list({});
     }).pipe(
@@ -233,6 +240,10 @@ it.effect("a CLI command records in an existing database and creates none that i
         ),
       ),
     );
-    expect(entries.map((entry) => entry.kind)).toEqual(["mcp_token.revoked", "import.run"]);
+    expect(entries.map((entry) => [entry.kind, entry.actor])).toEqual([
+      ["device.pairing_approved", "cli"],
+      ["mcp_token.revoked", null],
+      ["import.run", "cli"],
+    ]);
   }).pipe(Effect.scoped, Effect.provide(Layer.merge(NodeServices.layer, NodeCrypto.layer))),
 );
