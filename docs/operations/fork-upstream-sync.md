@@ -79,6 +79,11 @@ the guard. Adding a feature should not need another edit to a busy upstream file
   `cmdeck` key that upstream clients, including the official mobile app, ignore. A missing field means
   the module is off.
 - **MCP tools:** `apps/server/src/fork/mcpToolkits.ts`.
+- **Services orchestration reads:** `ForkLayer.layerBeneathOrchestration`, provided beneath
+  orchestration in `server.ts`, so it may depend only on settings, persistence and the project store.
+- **Turn context:** contributors in `apps/server/src/fork/memory/TurnContext.ts` add one fenced block to
+  the provider prompt at turn start (`ProviderTurnStartService.ts`). The stored message never holds it,
+  so events and the official mobile app are unchanged.
 - **Command palette:** `apps/web/src/fork/commands.ts`.
 
 Fork RPCs and settings are additive and never change `ORCHESTRATION_PROTOCOL_VERSION`. An optional
