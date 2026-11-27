@@ -3,6 +3,7 @@ import * as Layer from "effect/Layer";
 import * as RemoteMcpTokens from "../auth/RemoteMcpTokens.ts";
 import * as PublicAddressCheck from "../environment/PublicAddressCheck.ts";
 import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
+import * as ApprovalGate from "./approvalPolicy/ApprovalGate.ts";
 import * as ApprovalPolicy from "./approvalPolicy/ApprovalPolicy.ts";
 import * as AuditLog from "./audit/AuditLog.ts";
 import * as Decisions from "./decisions/Decisions.ts";
@@ -30,7 +31,7 @@ export const layer = Layer.mergeAll(
  * Fork services orchestration reads, provided beneath it. They may depend only on what lies below
  * orchestration: settings, persistence and the project store.
  */
-export const layerBeneathOrchestration = TurnContext.layer.pipe(
+export const layerBeneathOrchestration = Layer.mergeAll(TurnContext.layer, ApprovalGate.layer).pipe(
   Layer.provideMerge(MemoryStore.layer),
   // TurnContext narrows memory and the scheduler routes models through it.
   Layer.provideMerge(Decisions.layer),

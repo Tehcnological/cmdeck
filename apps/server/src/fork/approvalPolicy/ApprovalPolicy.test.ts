@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { EnvironmentToolkit } from "../../mcp/toolkits/environment/tools.ts";
 import { makeManagedSettings } from "../../policy/managedSettings.ts";
-import { approvalFacts } from "./ApprovalPolicy.ts";
+import { approvalFacts, gateAnswer } from "./ApprovalGate.ts";
 
 type ApprovalItem = Extract<OrchestrationV2TurnItem, { readonly type: "approval_request" }>;
 
@@ -45,6 +45,7 @@ describe("approval facts", () => {
 
   it("takes the command from the tool call over the card's prompt", () => {
     const facts = approvalFacts(
+      "command",
       card("command", "List the files"),
       [tool({ type: "command_execution", input: "cat ~/.ssh/id_rsa" })],
       "/work/app",
@@ -54,14 +55,17 @@ describe("approval facts", () => {
   });
 
   it("falls back to a command card's prompt when the tool call is not stored yet", () => {
-    expect(approvalFacts(card("command", "rm -rf /"), [], undefined).command).toBe("rm -rf /");
-    expect(approvalFacts(card("permission", "Use WebFetch"), [], undefined).command).toBe(
-      undefined,
+    expect(approvalFacts("command", card("command", "rm -rf /"), [], undefined).command).toBe(
+      "rm -rf /",
     );
+    expect(
+      approvalFacts("permission", card("permission", "Use WebFetch"), [], undefined).command,
+    ).toBe(undefined);
   });
 
   it("collects the tool name and the paths a file change writes", () => {
     const facts = approvalFacts(
+      "file-change",
       card("file-change"),
       [
         tool({
@@ -79,5 +83,38 @@ describe("approval facts", () => {
     );
     expect(facts.toolName).toBe("Write");
     expect(facts.writePaths).toEqual(["/etc/hosts", "a.ts", "b.ts", "a.ts"]);
+  });
+});
+
+describe("answers to a judged approval", () => {
+  const deny = {
+    decision: "deny",
+    rule: "denyTools: Bash",
+    reason: "the tool Bash is denied",
+  } as const;
+  const allow = { decision: "allow" } as const;
+
+  it.each(["accept", "acceptForSession", "acceptAlways"] as const)(
+    "turns %s into a decline when the rules deny it",
+    (decision) => {
+      expect(gateAnswer({ decision }, deny, true)).toEqual({
+        decision: "decline",
+        feedback: expect.stringContaining("the tool Bash is denied"),
+      });
+      expect(gateAnswer({ decision }, deny, false)).toEqual({ decision: "decline" });
+    },
+  );
+
+  it("narrows a standing grant to this request while rules apply", () => {
+    expect(gateAnswer({ decision: "acceptForSession" }, allow, false)).toEqual({
+      decision: "accept",
+    });
+    expect(gateAnswer({ decision: "accept" }, allow, false)).toEqual({ decision: "accept" });
+  });
+
+  it("leaves declines and cancels alone", () => {
+    const declined = { decision: "decline", feedback: "not now" } as const;
+    expect(gateAnswer(declined, deny, true)).toBe(declined);
+    expect(gateAnswer({ decision: "cancel" }, deny, true)).toEqual({ decision: "cancel" });
   });
 });

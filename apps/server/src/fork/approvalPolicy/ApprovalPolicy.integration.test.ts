@@ -1,11 +1,14 @@
 import { assert, it } from "@effect/vitest";
 import {
+  type ApprovalPolicyRules,
   CommandId,
+  DEFAULT_SERVER_SETTINGS,
   MessageId,
   NodeId,
   type OrchestrationV2ProviderSession,
   type OrchestrationV2ProviderThread,
   ProjectId,
+  type ProviderApprovalDecision,
   ProviderDriverKind,
   ProviderInstanceId,
   ProviderThreadId,
@@ -33,7 +36,9 @@ import * as ProviderAdapterRegistry from "../../orchestration-v2/ProviderAdapter
 import * as ProviderReplayHarness from "../../orchestration-v2/testkit/ProviderReplayHarness.ts";
 import * as SqlitePersistence from "../../persistence/Sqlite.ts";
 import * as ServerSettings from "../../serverSettings.ts";
+import { makeManagedSettings } from "../../policy/managedSettings.ts";
 import * as AuditLog from "../audit/AuditLog.ts";
+import * as ApprovalGate from "./ApprovalGate.ts";
 import * as ApprovalPolicy from "./ApprovalPolicy.ts";
 
 const driver = ProviderDriverKind.make("codex");
@@ -275,30 +280,35 @@ const approvalAdapter = (
     }),
 });
 
-/** The orchestration runtime with the policy above it, both on one database. */
-const runtime = (
-  name: string,
-  responses: Ref.Ref<ReadonlyArray<Response>>,
-  audited: Ref.Ref<ReadonlyArray<AuditLog.AuditEventInput>>,
-  approvalPolicy: object,
-) => {
+/**
+ * The orchestration runtime with the gate beneath it, as in the server, on one database. Without
+ * `subscriber`, nothing screens a request until someone answers it.
+ */
+const runtime = (input: {
+  readonly name: string;
+  readonly responses: Ref.Ref<ReadonlyArray<Response>>;
+  readonly audited: Ref.Ref<ReadonlyArray<AuditLog.AuditEventInput>>;
+  readonly approvalPolicy: Partial<ApprovalPolicyRules>;
+  readonly subscriber: boolean;
+}) => {
   const database = SqlitePersistence.layerMemory;
-  return ApprovalPolicy.layer.pipe(
-    Layer.provideMerge(
-      Layer.mergeAll(
-        ProviderReplayHarness.layerWithRegistry(
-          { name },
-          ProviderAdapterRegistry.layerSingle(approvalAdapter(responses)),
-          { databaseLayer: database },
-        ),
-        ProjectionStore.layer.pipe(Layer.provide(database)),
-        ServerSettings.layerTest({ cmdeck: { approvalPolicy } }),
-        Layer.mock(AuditLog.AuditLog)({
-          append: (event) => Ref.update(audited, (current) => [...current, event]),
-        }),
-      ),
-    ),
+  const projections = ProjectionStore.layer.pipe(Layer.provide(database));
+  const gate = ApprovalGate.layer.pipe(
+    Layer.provide(projections),
+    Layer.provide(ServerSettings.layerTest({ cmdeck: { approvalPolicy: input.approvalPolicy } })),
   );
+  const base = Layer.mergeAll(
+    ProviderReplayHarness.layerWithRegistry(
+      { name: input.name },
+      ProviderAdapterRegistry.layerSingle(approvalAdapter(input.responses)),
+      { databaseLayer: database },
+    ).pipe(Layer.provideMerge(gate)),
+    projections,
+    Layer.mock(AuditLog.AuditLog)({
+      append: (event) => Ref.update(input.audited, (current) => [...current, event]),
+    }),
+  );
+  return input.subscriber ? ApprovalPolicy.layer.pipe(Layer.provideMerge(base)) : base;
 };
 
 const startThread = Effect.fn("startThread")(function* (cwd: string) {
@@ -353,66 +363,111 @@ const startThread = Effect.fn("startThread")(function* (cwd: string) {
   return { pending, completed };
 });
 
-it.live("declines a shell approval that reads a protected credentials file", () =>
-  Effect.gen(function* () {
-    const cwd = yield* checkpointWorkspace("approval-policy-deny");
-    const responses = yield* Ref.make<ReadonlyArray<Response>>([]);
-    const audited = yield* Ref.make<ReadonlyArray<AuditLog.AuditEventInput>>([]);
-    const projection = yield* Effect.gen(function* () {
-      const { completed } = yield* startThread(cwd);
-      yield* Fiber.join(completed);
-      yield* (yield* EffectWorker.OrchestrationEffectWorkerV2).drain();
-      return yield* (yield* Orchestrator.OrchestratorV2).getThreadProjection(threadId);
-    }).pipe(
-      Effect.provide(
-        runtime("approval-policy-deny", responses, audited, { protectedPaths: ["~/.aws"] }),
-      ),
-    );
+const run = Effect.fn("run")(function* (
+  name: string,
+  approvalPolicy: Partial<ApprovalPolicyRules>,
+  options: { readonly subscriber: boolean; readonly accept?: ProviderApprovalDecision },
+) {
+  const cwd = yield* checkpointWorkspace(name);
+  const responses = yield* Ref.make<ReadonlyArray<Response>>([]);
+  const audited = yield* Ref.make<ReadonlyArray<AuditLog.AuditEventInput>>([]);
+  const projection = yield* Effect.gen(function* () {
+    const orchestrator = yield* Orchestrator.OrchestratorV2;
+    const { pending, completed } = yield* startThread(cwd);
+    if (options.accept !== undefined) {
+      yield* Fiber.join(pending);
+      yield* orchestrator.dispatch({
+        type: "runtime-request.respond",
+        commandId: CommandId.make("command:policy:answer"),
+        threadId,
+        requestId,
+        decision: options.accept,
+      });
+    }
+    yield* Fiber.join(completed);
+    yield* (yield* EffectWorker.OrchestrationEffectWorkerV2).drain();
+    return yield* orchestrator.getThreadProjection(threadId);
+  }).pipe(
+    Effect.provide(
+      runtime({ name, responses, audited, approvalPolicy, subscriber: options.subscriber }),
+    ),
+  );
+  const declines = (yield* Ref.get(audited)).filter(
+    (event) => event.kind === "approval.policy_declined",
+  );
+  return {
+    responses: yield* Ref.get(responses),
+    declines,
+    request: projection.runtimeRequests.find((candidate) => candidate.id === requestId),
+  };
+});
 
-    const [response, ...rest] = yield* Ref.get(responses);
+const credentialFloor = { protectedPaths: ["~/.aws"] };
+
+it.live("declines a protected read nobody answers, with the reason", () =>
+  Effect.gen(function* () {
+    const { responses, declines, request } = yield* run("approval-policy-deny", credentialFloor, {
+      subscriber: true,
+    });
+    const [response, ...rest] = responses;
     assert.deepEqual(rest, []);
     assert.equal(response?.decision, "decline");
     assert.include(response?.feedback ?? "", "it touches the protected path ~/.aws");
-    const request = projection.runtimeRequests.find((candidate) => candidate.id === requestId);
     assert.equal(request?.status, "resolved");
     assert.equal(request?.decision, "decline");
-    const [entry] = (yield* Ref.get(audited)).filter(
-      (event) => event.kind === "approval.policy_declined",
-    );
+    const [entry] = declines;
     assert.equal(entry?.actor, "policy");
     assert.equal(entry?.subject, threadId);
     assert.equal(entry?.detail?.rule, "protectedPaths: ~/.aws");
+    assert.equal(entry?.detail?.overrode, null);
     // The annotation ran after the decision and left it alone.
     assert.equal(entry?.detail?.risk, "risky");
   }).pipe(Effect.scoped),
 );
 
-it.live("with no rules, leaves the same approval to the user", () =>
+it.live("turns an accept that arrives before the screen into a decline with the reason", () =>
   Effect.gen(function* () {
-    const cwd = yield* checkpointWorkspace("approval-policy-none");
-    const responses = yield* Ref.make<ReadonlyArray<Response>>([]);
-    const audited = yield* Ref.make<ReadonlyArray<AuditLog.AuditEventInput>>([]);
-    yield* Effect.gen(function* () {
-      const orchestrator = yield* Orchestrator.OrchestratorV2;
-      const { pending, completed } = yield* startThread(cwd);
-      yield* Fiber.join(pending);
-      assert.isNull(yield* (yield* ApprovalPolicy.ApprovalPolicy).screen(threadId, requestId));
-      const projection = yield* orchestrator.getThreadProjection(threadId);
-      assert.equal(
-        projection.runtimeRequests.find((candidate) => candidate.id === requestId)?.status,
-        "pending",
-      );
-      yield* orchestrator.dispatch({
-        type: "runtime-request.respond",
-        commandId: CommandId.make("command:policy:accept"),
-        threadId,
-        requestId,
-        decision: "accept",
-      });
-      yield* Fiber.join(completed);
-    }).pipe(Effect.provide(runtime("approval-policy-none", responses, audited, {})));
+    const { responses, declines, request } = yield* run("approval-policy-race", credentialFloor, {
+      subscriber: false,
+      accept: "acceptForSession",
+    });
+    assert.equal(responses.length, 1);
+    assert.equal(responses[0]?.decision, "decline");
+    assert.include(responses[0]?.feedback ?? "", "it touches the protected path ~/.aws");
+    assert.equal(request?.decision, "decline");
+    assert.equal(declines[0]?.detail?.overrode, "acceptForSession");
+  }).pipe(Effect.scoped),
+);
 
-    assert.deepEqual(yield* Ref.get(responses), [{ decision: "accept", feedback: undefined }]);
-    assert.deepEqual(yield* Ref.get(audited), []);
+it.live("an accept cannot override a rule a managed policy locks", () =>
+  Effect.gen(function* () {
+    const managed = makeManagedSettings({
+      "cmdeck.approvalPolicy.protectedPaths": { value: ["~/.aws"], locked: true },
+    });
+    if (managed._tag !== "Valid") return yield* Effect.die(managed.reason);
+    // The user's own settings say nothing; the lock alone carries the rule.
+    const locked = managed.settings.applyLocks(DEFAULT_SERVER_SETTINGS).cmdeck.approvalPolicy;
+    const { responses, declines } = yield* run("approval-policy-locked", locked, {
+      subscriber: false,
+      accept: "accept",
+    });
+    assert.deepEqual(
+      responses.map((response) => response.decision),
+      ["decline"],
+    );
+    assert.equal(declines[0]?.detail?.rule, "protectedPaths: ~/.aws");
+  }).pipe(Effect.scoped),
+);
+
+it.live("with no rules, an accept passes unchanged and nothing screens the request", () =>
+  Effect.gen(function* () {
+    const { responses, declines, request } = yield* run(
+      "approval-policy-none",
+      {},
+      { subscriber: true, accept: "acceptForSession" },
+    );
+    assert.deepEqual(responses, [{ decision: "acceptForSession", feedback: undefined }]);
+    assert.equal(request?.decision, "acceptForSession");
+    assert.deepEqual(declines, []);
   }).pipe(Effect.scoped),
 );

@@ -1,6 +1,6 @@
 # Approval policy
 
-The approval policy declines approval requests that break rules you set, before you see them. Use it for things an agent should never do on this machine, whatever reason it gives: reading credential folders, running a command you have banned, or using a tool you do not trust.
+The approval policy declines approval requests that break rules you set, usually before you see them, and turns your own approval of such a request into a decline. Use it for things an agent should never do on this machine, whatever reason it gives: reading credential folders, running a command you have banned, or using a tool you do not trust.
 
 Each decline is answered as **Declined**, recorded in the [audit log](./audit-log.md), and announced as an alert in the open app and on notification channels that take alerts. Claude also gets the reason, so it can carry on without the request.
 
@@ -34,10 +34,11 @@ With no rules, nothing changes. Add rules under `cmdeck.approvalPolicy` in the s
 
 Agents cannot change these rules through CMDeck's MCP tools. An agent with a shell could still edit `settings.json`, but only through a command you approve.
 
-To set rules for every user on a machine and stop users from changing them, put the same value in a [managed policy](./managed-policy.md#settings) under the path `cmdeck.approvalPolicy` with `"locked": true`.
+To set rules for every user on a machine and stop users from changing them, set each rule in a [managed policy](./managed-policy.md#settings) by its own path with `"locked": true`, for example `"cmdeck.approvalPolicy.protectedPaths": { "value": ["~/.aws"], "locked": true }`. Approving a request in the app does not get past a locked rule.
 
 ## Limits
 
 - The rules match the text of a request. A command that builds a path at run time, for example from pieces or an encoded string, does not name it and is not caught. Prefer protecting whole folders such as `~/.aws`, and add a relative entry (`.aws`) to catch paths written relative to the working folder.
-- A declined request can show for a moment as waiting before it is answered, and a notification channel may announce it in that moment.
-- If CMDeck cannot check a request, for example because its database is busy, the request stays with you as usual.
+- A declined request can show for a moment as waiting before it is answered, and a notification channel may announce it in that moment. Approving it in that moment declines it.
+- While any rule is set, **Always allow** answers approve only the request in front of you. Otherwise the provider would approve later requests itself, where the policy cannot see them.
+- If CMDeck cannot check a request in the background, it stays with you, and CMDeck checks it again when you answer. An approval CMDeck cannot check is declined.
