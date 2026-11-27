@@ -42,6 +42,16 @@ The Beta track is stored as `nightly`, the value official T3 Code clients and se
 saved Nightly setting is Beta. Track switches move only the desktop app: CMDeck has no npm release
 for the multi-machine switch.
 
+`fork-release.yml` and `fork-desktop-build.yml` can run their Windows and macOS jobs (not `publish`)
+on the owner's machines: CMD1 (`self-hosted, cmd1, windows, x64`) and the Mac mini
+(`self-hosted, macmini, macos, arm64`). Their `pick-runner` job picks a machine only when the repo
+variable `SELF_HOSTED` is `on`, `Tehcnological` started the run by a push or by hand, and the
+machine's runner is online and idle, checked with the `RUNNER_STATUS_TOKEN` secret (a fine-grained
+token with only Administration: Read-only on this repository). Otherwise those jobs use
+`windows-2025` and `macos-26` as before. The runners' job-started hooks enforce the same rules, so a
+fork that edits `runs-on` is refused there. Turn it off with
+`gh variable delete SELF_HOSTED -R Tehcnological/cmdeck`.
+
 The rest of this runbook describes upstream T3 Code's release pipeline, which this fork does not
 run.
 

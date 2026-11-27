@@ -2,7 +2,8 @@
 # update feeds the desktop app reads and their blockmaps, as a GitHub release of this repository.
 # Stable tag vN is app version N.0.0, carries latest*.yml and becomes the latest release. Beta tag
 # vN-beta.M is app version N.0.0-beta.M, carries beta*.yml and is published as a prerelease, which
-# GitHub never makes the latest release, so Stable apps never see it. No secrets besides the token.
+# GitHub never makes the latest release, so Stable apps never see it. No secrets besides the token
+# and pick-runner's read-only runner-status token.
 name: Fork release
 
 on:
@@ -25,6 +26,28 @@ env:
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
+  # Picks the self-hosted runner only when the repo variable SELF_HOSTED is 'on', Tehcnological started the run
+  # (never a fork PR or anyone else), and the machine is online and idle. Otherwise the GitHub-hosted runner, as before,
+  # so a job never waits on a machine that is off. RUNNER_STATUS_TOKEN is a fine-grained PAT with only
+  # Administration: read on this repo. The runners re-check the same rules in their own job-started hooks.
+  pick-runner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    outputs:
+      windows: ${{ steps.pick.outputs.windows }}
+      macos: ${{ steps.pick.outputs.macos }}
+    steps:
+      - id: pick
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RUNNER_STATUS_TOKEN }}
+          TRUSTED: ${{ vars.SELF_HOSTED == 'on' && github.repository_owner == 'Tehcnological' && github.actor == 'Tehcnological' && github.triggering_actor == 'Tehcnological' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        run: |
+          idle() { [ "$TRUSTED" = true ] && [ -n "$GH_TOKEN" ] && [ "$(timeout 30 gh api "repos/$GITHUB_REPOSITORY/actions/runners" --jq "[.runners[] | select(.status == \"online\" and (.busy | not) and any(.labels[]; .name == \"$1\"))] | length" 2>/dev/null || echo 0)" -gt 0 ] 2>/dev/null; }
+          if idle cmd1; then echo 'windows=["self-hosted","cmd1","windows","x64"]'; else echo 'windows="windows-2025"'; fi >> "$GITHUB_OUTPUT"
+          if idle macmini; then echo 'macos=["self-hosted","macmini","macos","arm64"]'; else echo 'macos="macos-26"'; fi >> "$GITHUB_OUTPUT"
+
   check-version:
     name: Check tag and version
     runs-on: ubuntu-24.04
@@ -56,8 +79,8 @@ jobs:
 
   windows-x64:
     name: Windows x64 installer
-    needs: check-version
-    runs-on: windows-2025
+    needs: [check-version, pick-runner]
+    runs-on: ${{ fromJSON(needs.pick-runner.outputs.windows) }}
     timeout-minutes: 90
     steps:
       - name: Checkout
@@ -104,8 +127,8 @@ jobs:
   macos-arm64:
     name: macOS arm64 disk image and zip
     # The Apple Speech helper needs Xcode 26.
-    runs-on: macos-26
-    needs: check-version
+    runs-on: ${{ fromJSON(needs.pick-runner.outputs.macos) }}
+    needs: [check-version, pick-runner]
     timeout-minutes: 90
     steps:
       - name: Checkout
@@ -191,18 +214,19 @@ jobs:
   # unsigned. There is no darwin-x64 archive because Node single-executables do not run there.
   cli-archives:
     name: CLI archive ${{ matrix.key }}
-    needs: check-version
-    runs-on: ${{ matrix.runner }}
+    needs: [check-version, pick-runner]
+    # Entries with `pick` take their runner from pick-runner; `runner` is the hosted label it falls back to.
+    runs-on: ${{ matrix.pick && fromJSON(needs.pick-runner.outputs[matrix.pick]) || matrix.runner }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { key: darwin-arm64, platform: mac, arch: arm64, runner: macos-26 }
+          - { key: darwin-arm64, platform: mac, arch: arm64, runner: macos-26, pick: macos }
           - { key: linux-arm64, platform: linux, arch: arm64, runner: ubuntu-24.04-arm }
           - { key: linux-x64, platform: linux, arch: x64, runner: ubuntu-24.04 }
           - { key: win32-arm64, platform: win, arch: arm64, runner: windows-11-arm }
-          - { key: win32-x64, platform: win, arch: x64, runner: windows-2025 }
+          - { key: win32-x64, platform: win, arch: x64, runner: windows-2025, pick: windows }
     defaults:
       run:
         shell: bash
