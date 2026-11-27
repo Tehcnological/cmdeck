@@ -153,13 +153,8 @@ const make = Effect.gen(function* () {
           },
         ];
       }).pipe(
-        // Gone since: nothing is left to approve.
-        Effect.catch(() =>
-          Effect.sync(() => {
-            held.delete(file);
-            return [];
-          }),
-        ),
+        // Kept while unreadable: an editor's atomic save briefly leaves no file to read.
+        Effect.orElseSucceed(() => []),
       ),
     ).pipe(Effect.map((files) => files.flat())),
   );

@@ -85,3 +85,27 @@ export default tag("v1");
       ]);
     }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
 );
+
+it.effect("a held file stays held while it cannot be read for a moment", () =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const services = yield* Layer.build(
+      WorkflowTrust.layer.pipe(Layer.provide(Layer.merge(Sqlite.layerMemory, NodeCrypto.layer))),
+    );
+    const trust = Context.get(services, WorkflowTrust.WorkflowTrust);
+    const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-trust-" });
+    const file = path.join(directory, "flow.ts");
+    yield* fileSystem.writeFileString(file, "v1");
+    yield* trust.gated(file, () => Effect.die("not approved"));
+
+    // An atomic save: the file is gone until the new one is renamed into place.
+    yield* fileSystem.rename(file, `${file}.saving`);
+    assert.deepStrictEqual(yield* trust.pending, []);
+    yield* fileSystem.rename(`${file}.saving`, file);
+
+    const [shown] = yield* trust.pending;
+    assert.equal(shown?.path, file);
+    yield* trust.approve(shown!.path, shown!.sha256);
+  }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+);
