@@ -41,7 +41,7 @@ export const SECRET_PATTERNS: ReadonlyArray<RegExp> = [
   // A quoted value runs to its own closing quote (Node's inspect may use a backtick), past escapes.
   // Only a whole unquoted `null`/`undefined`/`true`/`false` is exempt, never `true-horse-…`.
   new RegExp(
-    String.raw`((?<![\w.-])[\w.-]*?${LABEL_NAME}["']?[ \t]*[:=][ \t]*(["'\x60]?))(?!<redacted>)` +
+    String.raw`((?<![\w.-])[\w.-]*?${LABEL_NAME}["']?[ \t]*[:=][ \t]*(["'\x60]?))(?!<redacted>|\[redacted\])` +
       String.raw`(?:(?<=["'\x60])(?:\\.|(?!\2)[^\\\r\n])+|(?<!["'\x60])` +
       String.raw`(?!(?:null|undefined|true|false)(?![^\s"'\x60,;&)\]}]))[^\s"'\x60,;&)\]}]{3,})`,
     "gi",
