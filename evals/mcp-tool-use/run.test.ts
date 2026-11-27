@@ -22,6 +22,7 @@ import {
   failedEarly,
   executeCodex,
   gradeSample,
+  invokedSkillPrompt,
   modelRequests,
   makeSample,
   ranCalls,
@@ -5398,4 +5399,32 @@ it.each([
     }),
     [],
   );
+});
+
+it("sends an invoked repo skill's body from this checkout, front matter dropped", () => {
+  const skillFile = NodeFS.readFileSync(
+    new URL("../../skills/design-critique/SKILL.md", import.meta.url),
+    "utf8",
+  );
+  const sent = invokedSkillPrompt("design-critique", skillFile, "Critique the pricing page.");
+  assert.isTrue(sent.startsWith("Base directory for this skill: ~/.claude/skills/design-critique"));
+  assert.notInclude(sent, "\nname: design-critique");
+  assert.include(sent, "# Design critique");
+  assert.isTrue(sent.endsWith("ARGUMENTS: Critique the pricing page."));
+  assert.notInclude(invokedSkillPrompt("design-critique", skillFile, " "), "ARGUMENTS:");
+
+  const cases = NodeFS.readFileSync(
+    new URL("./cases/design-critique.ndjson", import.meta.url),
+    "utf8",
+  )
+    .trim()
+    .split("\n")
+    .map((line) => decodeDeviceCase(line));
+  assert.isAbove(cases.length, 0);
+  for (const testCase of cases) {
+    assert.isTrue(
+      NodeFS.existsSync(new URL(`../../skills/${testCase.setup.skill}/SKILL.md`, import.meta.url)),
+      testCase.id,
+    );
+  }
 });
