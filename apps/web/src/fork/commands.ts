@@ -15,6 +15,7 @@ import { useAtomCommand } from "../state/use-atom-command";
 import { usePrimaryEnvironmentId } from "../state/environments";
 import { NEW_BOT_TARGET } from "./BotsSection";
 import { workflowEnvironmentFor } from "./commands.logic";
+import { useDesignCritiqueCommandItem } from "./designCritiqueCommand";
 
 const installPreset = createEnvironmentRpcCommand(connectionAtomRuntime, {
   label: "environment-data:cmdeck:workflow-preset-install",
@@ -31,21 +32,22 @@ export function useForkCommandItems(): ReadonlyArray<CommandPaletteActionItem> {
   );
   const canInstall = useAtomValue(installPreset.permissionAtom(environmentId));
   const install = useAtomCommand(installPreset, { reportFailure: false });
-  const newBot: CommandPaletteActionItem = {
-    kind: "action",
-    value: "action:cmdeck:new-bot",
-    searchTerms: ["bot", "agent", "persistent", "crew", "schedule"],
-    title: gt("New bot"),
-    description: gt("A persistent agent with its own pinned thread and private memory"),
-    icon: createElement(BotIcon, { className: ITEM_ICON_CLASS }),
-    run: async () => {
-      await navigate({ to: "/settings/threads", hash: NEW_BOT_TARGET });
-    },
-  };
-  if (environmentId === null || !canInstall) return [newBot];
-  return [
-    newBot,
+  const designCritique = useDesignCritiqueCommandItem();
+  const items: Array<CommandPaletteActionItem> = [
     {
+      kind: "action",
+      value: "action:cmdeck:new-bot",
+      searchTerms: ["bot", "agent", "persistent", "crew", "schedule"],
+      title: gt("New bot"),
+      description: gt("A persistent agent with its own pinned thread and private memory"),
+      icon: createElement(BotIcon, { className: ITEM_ICON_CLASS }),
+      run: async () => {
+        await navigate({ to: "/settings/threads", hash: NEW_BOT_TARGET });
+      },
+    },
+  ];
+  if (environmentId !== null && canInstall) {
+    items.push({
       kind: "action",
       value: "action:cmdeck:task-runner",
       searchTerms: ["task runner", "spec builder", "spec", "plan", "tasks", "workflow", "preset"],
@@ -69,6 +71,8 @@ export function useForkCommandItems(): ReadonlyArray<CommandPaletteActionItem> {
           search: { env: environmentId, file: "task-runner.ts" },
         });
       },
-    },
-  ];
+    });
+  }
+  if (designCritique !== null) items.push(designCritique);
+  return items;
 }

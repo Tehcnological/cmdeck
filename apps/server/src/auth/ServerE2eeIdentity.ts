@@ -13,7 +13,7 @@ import {
 import { SecureRandom } from "effect/crypto";
 import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
 import * as ServerSettings from "../serverSettings.ts";
-import * as ServerSecretStore from "./ServerSecretStore.ts";
+import * as ServerSecretStore from "../fork/secrets/EncryptedSecretStore.ts";
 
 const IDENTITY_SECRET_NAME = "e2ee-identity-seed-v1";
 
