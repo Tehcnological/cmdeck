@@ -1,8 +1,11 @@
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/cli";
 
+import * as ServerConfig from "../config.ts";
+import * as AuditLog from "../fork/audit/AuditLog.ts";
 import * as Importer from "../fork/import/Importer.ts";
 import type * as T3Import from "../fork/T3Import.ts";
 import { T3ImportRefusedError } from "../fork/T3Import.ts";
@@ -106,6 +109,21 @@ export const importCommand = Command.make("import", {
       }
       yield* Console.log("\nImporting…");
       const result = yield* source.run({ ...locations, force: flags.force });
+      // The chain starts again in the imported database; the previous one moved with the backup.
+      const { dbPath } = yield* ServerConfig.deriveServerPaths(locations.target, undefined);
+      const fs = yield* FileSystem.FileSystem;
+      if (yield* fs.exists(dbPath).pipe(Effect.orElseSucceed(() => false))) {
+        yield* AuditLog.appendToDatabase(dbPath, {
+          kind: "import.run",
+          actor: "cli",
+          subject: flags.source,
+          detail: {
+            from: locations.source,
+            items: plan.items.filter((item) => item.action !== "skip").length,
+            backups: result.backups.length,
+          },
+        });
+      }
       const removed = Object.entries(result.removedRows)
         .filter(([, count]) => count > 0)
         .map(([table, count]) => `${count} ${table}`);

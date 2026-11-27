@@ -8,6 +8,7 @@ import {
   type RemoteMcpTokenRevokeResult,
 } from "@t3tools/contracts";
 import { lock } from "proper-lockfile";
+import * as Clock from "effect/Clock";
 import * as Config from "effect/Config";
 import * as Context from "effect/Context";
 import * as Digest from "effect/crypto/Digest";
@@ -21,6 +22,7 @@ import * as Path from "effect/Path";
 import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 
+import * as AuditLog from "../fork/audit/AuditLog.ts";
 import * as ServerSecretStore from "./ServerSecretStore.ts";
 import { base64UrlEncode, timingSafeEqualBase64Url } from "./utils.ts";
 
@@ -53,6 +55,8 @@ export const TOKEN_PREFIX = "t3mcp_";
 const TOKEN_BYTES = 32;
 const TOKEN_FORMAT = new RegExp(`^${TOKEN_PREFIX}[A-Za-z0-9_-]{43}$`);
 const RECHECK_INTERVAL = "1 second";
+// Every MCP request presents its token, so the audit log records use at most this often per token.
+const USE_AUDIT_INTERVAL_MS = 60 * 60 * 1000;
 
 const RemoteMcpToken = Schema.Struct({
   id: Schema.String,
@@ -176,6 +180,18 @@ export const makeVerifier = Effect.gen(function* () {
     Effect.provide(services),
     Effect.cachedWithTTL(RECHECK_INTERVAL),
   );
+  const lastAuditedUse = new Map<string, number>();
+  const auditUse = Effect.fn("RemoteMcpTokens.auditUse")(function* (token: RemoteMcpToken) {
+    const now = yield* Clock.currentTimeMillis;
+    const last = lastAuditedUse.get(token.id);
+    if (last !== undefined && now - last < USE_AUDIT_INTERVAL_MS) return;
+    lastAuditedUse.set(token.id, now);
+    yield* AuditLog.note({
+      kind: "mcp_token.used",
+      subject: token.id,
+      detail: { label: token.label },
+    });
+  });
   const verify = Effect.fn("RemoteMcpTokens.verify")(function* (token: string) {
     if (!TOKEN_FORMAT.test(token)) return undefined;
     const tokens = yield* snapshot;
@@ -186,6 +202,7 @@ export const makeVerifier = Effect.gen(function* () {
     for (const candidate of tokens) {
       if (timingSafeEqualBase64Url(candidate.sha256, presented)) match = candidate;
     }
+    if (match !== undefined) yield* auditUse(match);
     return match;
   });
   const awaitRevocation = (id: string) =>
@@ -243,6 +260,11 @@ const make = Effect.gen(function* () {
   const createToken = Effect.fn("RemoteMcpTokens.createToken")(
     function* (input: RemoteMcpTokenCreateInput) {
       const { record, token } = yield* create(input);
+      yield* AuditLog.note({
+        kind: "mcp_token.created",
+        subject: record.id,
+        detail: { label: record.label, access: record.access },
+      });
       return { token: toPublic(record), secret: token };
     },
     Effect.mapError(toServiceError),
@@ -251,7 +273,9 @@ const make = Effect.gen(function* () {
 
   const revokeToken = Effect.fn("RemoteMcpTokens.revokeToken")(
     function* (id: string) {
-      return { revoked: yield* revoke(id) };
+      const revoked = yield* revoke(id);
+      if (revoked) yield* AuditLog.note({ kind: "mcp_token.revoked", subject: id });
+      return { revoked };
     },
     Effect.mapError(toServiceError),
     Effect.provide(services),

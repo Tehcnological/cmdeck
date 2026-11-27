@@ -137,6 +137,16 @@ required=(
   'apps/server/src/serverLogger.ts:redactingSecrets\(redactingCredentials\(Logger\.consolePretty\(\)\)\)'
   'apps/server/src/feedback/scrubFeedback.ts:\.\.\.SECRET_PATTERNS,'
   'apps/server/src/scheduledTasks/webhookTemplate.ts:expression\.includes\("\."\) \? text : redactSecrets\(text\)'
+  # WI-1.03: the audit log's CLI, Diagnostics viewer and event hooks.
+  'apps/server/src/binCli.ts:import \{ auditCommand \} from "\./fork/audit/auditCommand\.ts";'
+  'apps/server/src/binCli.ts:auditCommand,'
+  'apps/server/src/auth/http.ts:import \* as AuditLog from "\.\./fork/audit/AuditLog\.ts";'
+  'apps/server/src/auth/http.ts:if \(approved\) yield\* AuditLog\.notePairingApproved\(args\.payload\.pairingLinkId\);'
+  'apps/server/src/secrets/SecretRequests.ts:import \* as AuditLog from "\.\./fork/audit/AuditLog\.ts";'
+  'apps/server/src/secrets/SecretRequests.ts:yield\* AuditLog\.noteSecretReveal\("ref", input\.projectId\);'
+  'apps/server/src/secrets/SecretRequests.ts:yield\* AuditLog\.noteSecretReveal\("file", input\.threadId\);'
+  'apps/web/src/components/settings/DiagnosticsSettings.tsx:import \{ AuditLogSection \} from "~/fork/AuditLogSection";'
+  'apps/web/src/components/settings/DiagnosticsSettings.tsx:<AuditLogSection environmentId=\{environmentId\} />'
 )
 for entry in "${required[@]}"; do
   file="${entry%%:*}"

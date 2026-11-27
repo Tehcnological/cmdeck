@@ -19,6 +19,7 @@ Open **Settings → Maintenance → Diagnostics** (select an environment) to ins
 - Live server logs and recent failures
 - CPU/memory resource history
 - Running child processes (with controls to signal or stop them)
+- The [audit log](./audit-log.md) of approvals, pairings, tokens and secret reveals
 
 On mobile, startup crashes from the last 7 days are recorded on the device under **Settings → Diagnostics** for bug reports. Nothing is sent anywhere.
 

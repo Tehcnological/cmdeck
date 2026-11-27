@@ -29,6 +29,7 @@ import * as Schema from "effect/Schema";
 import * as TestClock from "effect/testing/TestClock";
 
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
+import * as AuditLog from "../fork/audit/AuditLog.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 import * as SecretRequests from "./SecretRequests.ts";
 
@@ -815,4 +816,47 @@ it.effect("a pasted secret is refused without a secrets directory", () =>
       assert.equal(failed.reason, "store_failed");
     }),
   ),
+);
+
+it.effect("each handed-out secret is audited without its value", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const directory = yield* fs.makeTempDirectoryScoped({ prefix: "secret-audit-test-" });
+    const appended: Array<AuditLog.AuditEventInput> = [];
+    const audited = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      Effect.provideService(
+        effect,
+        AuditLog.AuditLog,
+        AuditLog.AuditLog.of({
+          append: (event) => Effect.sync(() => void appended.push(event)),
+          list: () => Effect.die("unused"),
+          verify: Effect.die("unused"),
+          prune: Effect.succeed(0),
+        }),
+      );
+    yield* withService(({ service }) =>
+      Effect.gen(function* () {
+        yield* service.answer({ threadId, turnItemId, answer: { type: "save", secret: "ghp_x" } });
+        const ref = Option.getOrThrow(yield* service.savedRef({ threadId, turnItemId }));
+        yield* audited(service.consume({ ref, projectId }));
+        yield* audited(service.consume({ ref, projectId })).pipe(Effect.flip);
+      }),
+    );
+    yield* withService(
+      ({ service }) =>
+        Effect.gen(function* () {
+          yield* service.answer({
+            threadId,
+            turnItemId,
+            answer: { type: "save", secret: "ghp_y" },
+          });
+          yield* audited(service.saveToFile({ threadId, turnItemId }));
+        }),
+      { delivery: "file", directory },
+    );
+    assert.deepEqual(appended, [
+      { kind: "secret.revealed", subject: projectId, detail: { via: "ref" } },
+      { kind: "secret.revealed", subject: threadId, detail: { via: "file" } },
+    ]);
+  }).pipe(Effect.provide(NodeServices.layer)),
 );

@@ -28,6 +28,7 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
+import * as AuditLog from "../fork/audit/AuditLog.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 
 const SECRET_REF_PREFIX = "secret-ref:";
@@ -305,6 +306,7 @@ const make = Effect.gen(function* () {
     if (!(yield* removeLogged(storeName(input.ref)))) {
       return yield* new SecretRequestError({ reason: "consume_failed" });
     }
+    yield* AuditLog.noteSecretReveal("ref", input.projectId);
     return value;
   });
 
@@ -361,6 +363,7 @@ const make = Effect.gen(function* () {
       // The stored value goes only after the file is complete, so a failed write can retry.
       const value = yield* readRef({ ref, projectId });
       yield* writeSecretFile(filesDir, file, value);
+      yield* AuditLog.noteSecretReveal("file", input.threadId);
       return yield* removeStored;
     });
     const { fields } = item;

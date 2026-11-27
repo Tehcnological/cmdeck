@@ -41,6 +41,7 @@ import * as ServerSettings from "../serverSettings.ts";
 import { deriveAuthClientMetadata } from "./utils.ts";
 import { checkRequestDpopProof } from "./dpop.ts";
 import { requestUrl } from "../requestUrl.ts";
+import * as AuditLog from "../fork/audit/AuditLog.ts";
 
 const CREDENTIAL_RESPONSE_HEADERS = {
   "cache-control": "no-store",
@@ -595,6 +596,7 @@ export const layer = HttpApiBuilder.group(
             yield* annotateEnvironmentRequest(args.endpoint.name);
             yield* requireEnvironmentScope(AuthAccessWriteScope);
             const approved = yield* serverAuth.approveConnectDevice(args.payload.pairingLinkId);
+            if (approved) yield* AuditLog.notePairingApproved(args.payload.pairingLinkId);
             return { approved };
           },
           Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (error) =>
