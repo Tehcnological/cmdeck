@@ -134,6 +134,10 @@ describe("redactSecrets", () => {
     expect(redactSecrets("GET /hook\nCookie: a=b; c=d\nHost: example.com")).toBe(
       "GET /hook\nCookie: [redacted]\nHost: example.com",
     );
+    expect(redactSecrets("Cookie: 123session=abcdef-secret-value; theme=dark")).toBe(
+      "Cookie: [redacted]",
+    );
+    expect(redactSecrets("{ cookie: 42, user: 'ana' }")).toBe("{ cookie: 42, user: 'ana' }");
     // The pretty logger prefixes a timestamp, level and fiber before the message.
     expect(redactSecrets("[05:47:19] INFO (#12): Cookie: session=abcdef-secret; theme=dark")).toBe(
       "[05:47:19] INFO (#12): Cookie: [redacted]",
@@ -149,6 +153,16 @@ describe("redactSecrets", () => {
     ]) {
       expect(redactSecrets(empty)).toBe(empty);
     }
+  });
+
+  it("keeps a URL password inside its own JSON field", () => {
+    expect(
+      redactSecrets(
+        '{"url":"https://alice:hunter2@db.example.com","target":"deploy@production","action":"run"}',
+      ),
+    ).toBe(
+      '{"url":"https://alice:[redacted]@db.example.com","target":"deploy@production","action":"run"}',
+    );
   });
 
   it("exempts only whole unquoted literals, not secrets that start with one", () => {

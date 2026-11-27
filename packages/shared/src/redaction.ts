@@ -28,15 +28,15 @@ export const SECRET_PATTERNS: ReadonlyArray<RegExp> = [
   // Starts only at the start of a base64url run, so `eyJ-eyJ-…` is scanned once.
   /(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*/g,
   // The scheme starts only where a run of scheme characters starts and is capped, so a long run
-  // like `a-a-a-…` is scanned once rather than from every word boundary.
-  /((?<![a-z0-9+.-])[a-z][a-z0-9+.-]{0,31}:\/\/[^\s/?#@:]*:)[^\s/?#]+(?=@[^\s/?#@])/gi,
+  // like `a-a-a-…` is scanned once; quotes end the URL, so a later JSON field's `@` stays outside.
+  /((?<![a-z0-9+.-])[a-z][a-z0-9+.-]{0,31}:\/\/[^\s/?#@:"'\x60]*:)[^\s/?#"'\x60]+(?=@[^\s/?#@"'\x60])/gi,
   // A quoted header value ends at its own closing quote (an empty one matches nothing). A bare
   // `Cookie:`/`Authorization:` (after a log prefix too) runs to the line's end, quotes and all;
-  // a quoted JSON key, or a literal, number or object value, is a serialized field instead.
+  // a quoted JSON key, or a whole literal, number or object value, is a serialized field instead.
   /(\b(?:proxy-)?authorization["']?[ \t]*[:=][ \t]*(["'])(?:(?:basic|bearer|token|digest)[ \t]+)?)(?:\\.|(?!\2)[^\\\r\n])+/gi,
-  /((?<=^|\s)(?:proxy-)?authorization[ \t]*:[ \t]*(?!(?:(?:basic|bearer|token|digest)[ \t]+)?\[redacted\])(?:(?:basic|bearer|token|digest)[ \t]+)?)(?![ \t"'{[\d]|(?:null|undefined|true|false)\b)[^\r\n]+/gim,
+  /((?<=^|\s)(?:proxy-)?authorization[ \t]*:[ \t]*(?!(?:(?:basic|bearer|token|digest)[ \t]+)?\[redacted\])(?:(?:basic|bearer|token|digest)[ \t]+)?)(?![ \t"'{[]|(?:null|undefined|true|false|-?\d+(?:\.\d+)?)(?![^\s,;)\]}]))[^\r\n]+/gim,
   /(\b(?:set-)?cookie["']?[ \t]*[:=][ \t]*(["']))(?:\\.|(?!\2)[^\\\r\n])+/gi,
-  /((?<=^|\s)(?:set-)?cookie[ \t]*:[ \t]*)(?![ \t"'{[\d]|(?:null|undefined|true|false)\b)[^\r\n]+/gim,
+  /((?<=^|\s)(?:set-)?cookie[ \t]*:[ \t]*)(?![ \t"'{[]|(?:null|undefined|true|false|-?\d+(?:\.\d+)?)(?![^\s,;)\]}]))[^\r\n]+/gim,
   /(\b[Bb]earer[ \t]+)[A-Za-z0-9._~+/-]{16,}=*/g,
   // `name=value` / `"name": "value"` where the name ends in a secret word (not `max_tokens`).
   // A quoted value runs to its own closing quote (Node's inspect may use a backtick), past escapes.
