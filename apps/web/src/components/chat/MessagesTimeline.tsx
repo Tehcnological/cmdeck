@@ -97,6 +97,7 @@ import {
 } from "./MessagesTimeline.logic";
 import { type ThreadFindMatch } from "./threadFind";
 import { useThreadFindNavigation } from "./useThreadFindNavigation";
+import { useMessagePinJump } from "../../fork/pins/messageJump";
 import { TooltipScrollDismissArea } from "../ui/tooltip";
 import { WorktreeSetupCard } from "./WorktreeSetupCard";
 import { useOpenPrLink } from "~/lib/openPullRequestLink";
@@ -1379,6 +1380,14 @@ const ConversationTimeline = memo(function ConversationTimeline({
     rowIndex: activeFindMatch ? rows.findIndex((row) => row.id === activeFindMatch.entryId) : -1,
     listRef,
     contentInsetEndAdjustment,
+  });
+  useMessagePinJump({
+    threadKey: routeThreadKey,
+    rows,
+    entries: timelineEntries,
+    history: historyControls,
+    listRef,
+    navigate: navigateTimeline,
   });
 
   // LegendList moves rows one commit late; per-row providers prevent thread context leaks.

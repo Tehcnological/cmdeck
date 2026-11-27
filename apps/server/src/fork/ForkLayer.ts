@@ -7,6 +7,7 @@ import * as AuditLog from "./audit/AuditLog.ts";
 import * as Decisions from "./decisions/Decisions.ts";
 import * as Notifications from "./notifications/Notifications.ts";
 import * as MemoryStore from "./memory/MemoryStore.ts";
+import * as MessagePins from "./messagePins/MessagePins.ts";
 import * as TurnContext from "./memory/TurnContext.ts";
 
 /**
@@ -19,6 +20,7 @@ export const layer = Layer.mergeAll(
   PublicAddressCheck.layer,
   // Notifications writes channel changes and delivery failures to the audit log.
   Notifications.layer.pipe(Layer.provideMerge(AuditLog.layer)),
+  MessagePins.layer,
 );
 
 /**

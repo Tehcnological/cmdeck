@@ -213,6 +213,19 @@ required=(
   # WI-2.21: design-critique eval cases load the repo skill they test.
   'evals/mcp-tool-use/run.ts:skill: Schema\.optional\(Schema\.String\),'
   'evals/mcp-tool-use/run.ts:: invokedSkillPrompt\('
+  # WI-2.15: message pins. The right panel's fork surface (shared with WI-2.05), pin buttons, jumps.
+  'apps/web/src/rightPanelStore.ts:"linked-thread", +"cmdeck", +\] as const;'
+  'apps/web/src/rightPanelStore.ts:\| \{ id: "cmdeck"; kind: "cmdeck" \}'
+  'apps/web/src/rightPanelStore.ts:case "cmdeck": +return \{ id: "cmdeck", kind \};'
+  'apps/web/src/closedViewStore.ts:case "pull-requests": +case "cmdeck":'
+  'apps/web/src/components/RightPanelTabs.tsx:case "cmdeck": +return forkPanelTitle\(resolve\);'
+  'apps/web/src/components/RightPanelTabs.tsx:case "cmdeck": +return <ForkPanelIcon />;'
+  'apps/web/src/components/chat/RightPanelSurfaceContent.tsx:case "cmdeck": +return <ForkPanel threadRef=\{threadRef\} />;'
+  'apps/web/src/components/chat/TimelineAssistantRows.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{message\.id\} +role="assistant"'
+  'apps/web/src/components/chat/TimelineUserMessageRow.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{row\.message\.id\} +role="user" +text=\{text\}'
+  'apps/web/src/components/chat/TimelineUserMessageRow.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{row\.message\.id\} +role="user" +text=\{plainText\}'
+  'apps/web/src/components/chat/MessagesTimeline.tsx:useMessagePinJump\(\{ +threadKey: routeThreadKey,'
+  'apps/server/src/persistence/ForkSchema.ts:yield\* ensureMessagePinsSchema\(\)'
 )
 # 6. Only a person approves a workflow file: no MCP tool may reach the trust gate (WI-1.06).
 hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts)"

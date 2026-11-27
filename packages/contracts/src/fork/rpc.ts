@@ -5,6 +5,7 @@ import * as RpcGroup from "effect/rpc/RpcGroup";
 import {
   AuthAccessReadScope,
   AuthFilesystemReadScope,
+  AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
   AuthTerminalOperateScope,
   AuthSettingsWriteScope,
@@ -27,6 +28,13 @@ import {
   NotificationChannelSetEnabledInput,
 } from "./notifications.ts";
 import { DecisionConsentSetInput, DecisionsError, DecisionsStatus } from "./decisions.ts";
+import {
+  MessagePin,
+  MessagePinInput,
+  MessagePinsError,
+  MessagePinsListInput,
+  MessageUnpinInput,
+} from "./messagePins.ts";
 
 // The `cmdeck.` prefix keeps fork methods clear of upstream's names. Append new methods here.
 export const CMDECK_WS_METHODS = {
@@ -42,6 +50,9 @@ export const CMDECK_WS_METHODS = {
   notificationsSubscribeAlerts: "cmdeck.notifications.subscribeAlerts",
   decisionsStatus: "cmdeck.decisions.status",
   decisionsSetConsent: "cmdeck.decisions.setConsent",
+  messagePinsList: "cmdeck.messagePins.list",
+  messagePinsPin: "cmdeck.messagePins.pin",
+  messagePinsUnpin: "cmdeck.messagePins.unpin",
 } as const;
 
 /** Fork stream methods the client runtime subscribes to like upstream's. */
@@ -127,6 +138,25 @@ const CmdeckDecisionsSetConsentRpc = Rpc.make(CMDECK_WS_METHODS.decisionsSetCons
   error: Schema.Union([DecisionsError, EnvironmentAuthorizationError]),
 });
 
+const MessagePinsFailure = Schema.Union([MessagePinsError, EnvironmentAuthorizationError]);
+
+const CmdeckMessagePinsListRpc = Rpc.make(CMDECK_WS_METHODS.messagePinsList, {
+  payload: MessagePinsListInput,
+  success: Schema.Array(MessagePin),
+  error: MessagePinsFailure,
+});
+
+const CmdeckMessagePinsPinRpc = Rpc.make(CMDECK_WS_METHODS.messagePinsPin, {
+  payload: MessagePinInput,
+  success: MessagePin,
+  error: MessagePinsFailure,
+});
+
+const CmdeckMessagePinsUnpinRpc = Rpc.make(CMDECK_WS_METHODS.messagePinsUnpin, {
+  payload: MessageUnpinInput,
+  error: MessagePinsFailure,
+});
+
 /** Merged into `WsRpcGroup`, so fork methods share its scope middleware. */
 export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckStatusRpc,
@@ -141,6 +171,9 @@ export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckNotificationsSubscribeAlertsRpc,
   CmdeckDecisionsStatusRpc,
   CmdeckDecisionsSetConsentRpc,
+  CmdeckMessagePinsListRpc,
+  CmdeckMessagePinsPinRpc,
+  CmdeckMessagePinsUnpinRpc,
 );
 
 /** Spread into `CLIENT_GUARDED_RPC_SCOPES`; every fork method needs one. */
@@ -161,4 +194,8 @@ export const FORK_RPC_SCOPES = {
   [CMDECK_WS_METHODS.decisionsStatus]: AuthOrchestrationReadScope,
   // Consent decides whether turn text may reach a model API, so only a settings writer grants it.
   [CMDECK_WS_METHODS.decisionsSetConsent]: AuthSettingsWriteScope,
+  [CMDECK_WS_METHODS.messagePinsList]: AuthOrchestrationReadScope,
+  // A pin marks a thread for everyone on the server, as other thread changes do.
+  [CMDECK_WS_METHODS.messagePinsPin]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.messagePinsUnpin]: AuthOrchestrationOperateScope,
 } as const satisfies Record<RpcGroup.Rpcs<typeof ForkWsRpcGroup>["_tag"], AuthEnvironmentScope>;

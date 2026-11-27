@@ -15,6 +15,7 @@ import { useAtomCommand } from "../state/use-atom-command";
 import { usePrimaryEnvironmentId } from "../state/environments";
 import { workflowEnvironmentFor } from "./commands.logic";
 import { useDesignCritiqueCommandItem } from "./designCritiqueCommand";
+import { useShowPinsCommandItem } from "./pins/pinsCommand";
 
 const installPreset = createEnvironmentRpcCommand(connectionAtomRuntime, {
   label: "environment-data:cmdeck:workflow-preset-install",
@@ -32,6 +33,7 @@ export function useForkCommandItems(): ReadonlyArray<CommandPaletteActionItem> {
   const canInstall = useAtomValue(installPreset.permissionAtom(environmentId));
   const install = useAtomCommand(installPreset, { reportFailure: false });
   const designCritique = useDesignCritiqueCommandItem();
+  const showPins = useShowPinsCommandItem();
   const items: Array<CommandPaletteActionItem> = [];
   if (environmentId !== null && canInstall) {
     items.push({
@@ -61,5 +63,6 @@ export function useForkCommandItems(): ReadonlyArray<CommandPaletteActionItem> {
     });
   }
   if (designCritique !== null) items.push(designCritique);
+  if (showPins !== null) items.push(showPins);
   return items;
 }

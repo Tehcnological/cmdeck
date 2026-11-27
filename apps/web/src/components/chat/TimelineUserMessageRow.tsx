@@ -58,6 +58,7 @@ import {
 } from "./SnapShotAttachmentDetails";
 import { GuestMessageName, guestBubbleClassName } from "./guestMessageStyle";
 import { MessageCopyButton } from "./MessageCopyButton";
+import { MessagePinButton } from "../../fork/pins/MessagePinButton";
 import { promptLinkFor } from "../promptLinks/copyPromptLink";
 import { PierreEntryIcon } from "./PierreEntryIcon";
 import { formatBytes } from "../../lib/formatBytes";
@@ -382,6 +383,12 @@ function AutomationMessageRow({ row }: { row: Extract<TimelineRow, { kind: "mess
                   variant="ghost"
                 />
               )}
+              <MessagePinButton
+                threadRef={ctx.threadRef}
+                messageId={row.message.id}
+                role="user"
+                text={text}
+              />
             </div>
           </div>
         </div>
@@ -895,6 +902,12 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
             variant="ghost"
           />
         )}
+        <MessagePinButton
+          threadRef={ctx.threadRef}
+          messageId={row.message.id}
+          role="user"
+          text={plainText}
+        />
       </div>
     </div>
   );
