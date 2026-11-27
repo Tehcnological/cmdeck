@@ -1,0 +1,127 @@
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
+import {
+  type OrchestrationProjectShell,
+  type OrchestrationV2AppThread,
+  EnvironmentId,
+  ProjectId,
+  ProviderInstanceId,
+  ThreadId,
+} from "@t3tools/contracts";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import { McpSchema } from "effect/ai";
+
+import * as McpHttpServer from "../../mcp/McpHttpServer.ts";
+import * as McpInvocationContext from "../../mcp/McpInvocationContext.ts";
+import * as McpToolAccessTestkit from "../../mcp/McpToolAccess.testkit.ts";
+import * as ProjectionStore from "../../orchestration-v2/ProjectionStore.ts";
+import * as ProjectStore from "../../orchestration-v2/ProjectStore.ts";
+import * as SqlitePersistence from "../../persistence/Sqlite.ts";
+import * as ServerSettings from "../../serverSettings.ts";
+import * as ForkMcpToolkits from "../mcpToolkits.ts";
+import * as MemoryStore from "./MemoryStore.ts";
+import * as TurnContext from "./TurnContext.ts";
+
+const REPOSITORIES: Record<string, string> = {
+  "project-app": "github.com/acme/app",
+  // A second clone of the same repository, opened as its own project.
+  "project-app-clone": "github.com/acme/app",
+  "project-other": "github.com/acme/other",
+};
+
+/** Threads in the test world: two worktrees of one project, a clone, and an unrelated project. */
+export const threads = {
+  main: { id: ThreadId.make("thread-main"), projectId: ProjectId.make("project-app") },
+  worktree: { id: ThreadId.make("thread-worktree"), projectId: ProjectId.make("project-app") },
+  clone: { id: ThreadId.make("thread-clone"), projectId: ProjectId.make("project-app-clone") },
+  other: { id: ThreadId.make("thread-other"), projectId: ProjectId.make("project-other") },
+} as const;
+
+const shell = (projectId: string): OrchestrationProjectShell => {
+  const remoteUrl = REPOSITORIES[projectId];
+  return {
+    id: ProjectId.make(projectId),
+    title: projectId,
+    workspaceRoot: `/home/user/${projectId}`,
+    repositoryIdentity:
+      remoteUrl === undefined
+        ? null
+        : {
+            canonicalKey: remoteUrl,
+            locator: {
+              source: "git-remote",
+              remoteName: "origin",
+              remoteUrl: `https://${remoteUrl}`,
+            },
+          },
+    defaultModelSelection: null,
+    scripts: [],
+    createdAt: "2026-11-26T00:00:00.000Z",
+    updatedAt: "2026-11-26T00:00:00.000Z",
+  };
+};
+
+/** MemoryStore and TurnContext over a fresh in-memory database with fork tables. */
+export const layerMemoryTest = (options: { readonly memoryEnabled: boolean }) =>
+  TurnContext.layer.pipe(
+    Layer.provideMerge(MemoryStore.layer),
+    Layer.provideMerge(SqlitePersistence.layerMemory),
+    Layer.provide(ServerSettings.layerTest({ cmdeck: { memoryEnabled: options.memoryEnabled } })),
+    Layer.provide(
+      Layer.mock(ProjectStore.ProjectStoreV2)({
+        getShell: (projectId) => Effect.succeedSome(shell(projectId)),
+      }),
+    ),
+    Layer.provide(
+      Layer.mock(ProjectionStore.ProjectionStoreV2)({
+        findThread: (threadId) =>
+          Effect.succeed(
+            (Object.values(threads).find((thread) => thread.id === threadId) as
+              | OrchestrationV2AppThread
+              | undefined) ?? null,
+          ),
+      }),
+    ),
+    Layer.provide(NodeCrypto.layer),
+  );
+
+/** The fork MCP tools on an in-process server, over `layerMemoryTest`. */
+export const layerMemoryToolsTest = (options: { readonly memoryEnabled: boolean }) =>
+  ForkMcpToolkits.layer(McpHttpServer.toolkitRegistration).pipe(
+    Layer.provideMerge(McpHttpServer.layerInProcessMcpServer),
+    Layer.provideMerge(McpToolAccessTestkit.liveThreadsLayer),
+    Layer.provideMerge(layerMemoryTest(options)),
+  );
+
+const client = McpSchema.McpServerClient.of({
+  clientId: 1,
+  clientCapabilities: {},
+  clientInfo: { name: "memory-test", version: "1.0.0" },
+  protocolVersion: "2025-06-18",
+  initializePayload: {
+    protocolVersion: "2025-06-18",
+    capabilities: {},
+    clientInfo: { name: "memory-test", version: "1.0.0" },
+  },
+  getClient: Effect.die("unused"),
+});
+
+/** Runs an in-process MCP call as an agent working in `threadId`. */
+export const asAgentIn =
+  (threadId: ThreadId = threads.main.id) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(
+      Effect.provideService(McpInvocationContext.McpInvocationContext, {
+        environmentId: EnvironmentId.make("environment-memory-test"),
+        requestNamespace: "provider-session-memory-test",
+        thread: {
+          threadId,
+          providerSessionId: "provider-session-memory-test",
+          providerInstanceId: ProviderInstanceId.make("codex"),
+        },
+        client: undefined,
+        capabilities: new Set<McpInvocationContext.McpCapability>(),
+        issuedAt: 1,
+      }),
+      Effect.provideService(McpSchema.McpServerClient, client),
+    );
