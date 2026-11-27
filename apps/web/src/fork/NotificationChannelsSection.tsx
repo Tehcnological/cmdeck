@@ -1,7 +1,6 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import { requestGuarded } from "@t3tools/client-runtime/rpc";
 import {
-  createEnvironmentQueryAtomFamily,
+  createEnvironmentRpcQueryAtomFamily,
   createEnvironmentRpcCommand,
 } from "@t3tools/client-runtime/state/runtime";
 import { CMDECK_WS_METHODS, type EnvironmentId } from "@t3tools/contracts";
@@ -15,10 +14,10 @@ import { Switch } from "../components/ui/switch";
 import { connectionAtomRuntime } from "../connection/runtime";
 import { useAtomCommand } from "../state/use-atom-command";
 
-const channelList = createEnvironmentQueryAtomFamily(connectionAtomRuntime, {
+const channelList = createEnvironmentRpcQueryAtomFamily(connectionAtomRuntime, {
   label: "environment-data:cmdeck:notification-channels",
+  tag: CMDECK_WS_METHODS.notificationChannelsList,
   staleTimeMs: 0,
-  execute: () => requestGuarded(CMDECK_WS_METHODS.notificationChannelsList, {}),
 });
 
 const setChannelEnabled = createEnvironmentRpcCommand(connectionAtomRuntime, {
