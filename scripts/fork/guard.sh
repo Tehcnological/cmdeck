@@ -142,6 +142,10 @@ required=(
   'apps/server/src/serverLogger.ts:redactingSecrets\(redactingCredentials\(Logger\.consolePretty\(\)\)\)'
   'apps/server/src/feedback/scrubFeedback.ts:\.\.\.SECRET_PATTERNS,'
   'apps/server/src/scheduledTasks/webhookTemplate.ts:expression\.includes\("\."\) \? text : redactSecrets\(text\)'
+  # Open beside: an unrelated project's thread never runs code blocks in the host's terminal,
+  # and a thread hidden by a tag filter leaves the panel.
+  'apps/web/src/components/ChatView.tsx:activeThread\?\.projectId !== panelHostShell\?\.projectId'
+  'apps/web/src/components/chat/SideThreadPane.tsx:useCloseWhenHidden\(threadRef, props\.onClose\)'
 )
 for entry in "${required[@]}"; do
   file="${entry%%:*}"

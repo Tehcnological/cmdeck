@@ -1,7 +1,25 @@
+import { useAtomValue } from "@effect/atom-react";
+import { threadKey } from "@t3tools/client-runtime/state/entities";
 import type { ScopedThreadRef } from "@t3tools/contracts";
+import { useEffect } from "react";
 
 import { canOpenThreadInPanel } from "../lib/sideChatPane";
 import { useRightPanelStore } from "../rightPanelStore";
+import { environmentThreadShells } from "../state/threads";
+
+/**
+ * Closes a tab whose thread a tag filter hides, as the main view leaves a hidden thread. An
+ * ordinary thread opened beside another can be hidden on its own, unlike a side chat or subagent.
+ */
+export function useCloseWhenHidden(threadRef: ScopedThreadRef, onClose: () => void) {
+  const hidden = useAtomValue(environmentThreadShells.hiddenThreadKeysAtom).has(
+    threadKey(threadRef),
+  );
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- the tag filter lives in a shared atom; closing the tab is a store action, not render state
+  useEffect(() => {
+    if (hidden) onClose();
+  }, [hidden, onClose]);
+}
 
 /** Whether `threadRef` can open as a tab beside `panelRef`, the thread on screen. */
 export function canOpenThreadBeside(
