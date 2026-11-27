@@ -208,6 +208,8 @@ required=(
   'apps/desktop/src/main.ts:Layer\.provideMerge\(DesktopSecretsKey\.layer\)'
   'apps/desktop/src/backend/DesktopBackendConfiguration.ts:const secretsKey = yield\* DesktopSecretsKey\.DesktopSecretsKey;'
   'apps/desktop/src/backend/DesktopBackendConfiguration.ts:Effect\.flatMap\(DesktopSecretsKey\.withSecretsKey\(secretsKey, environment\.baseDir\)\)'
+  # WI-2.10: scheduled tasks start new threads on the decision service's routed model.
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:modelSelection: yield\* Decisions\.routeScheduledTask\(active\),'
 )
 # 6. Only a person approves a workflow file: no MCP tool may reach the trust gate (WI-1.06).
 hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts)"
