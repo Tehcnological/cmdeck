@@ -3031,6 +3031,8 @@
   "6728ba57ae50bd70": "Exécutez Claude via un profil AWS nommé. Les clés AWS ne sont jamais enregistrées.",
   "144c58e1e15e0f87": "Utiliser Amazon Bedrock",
   "2ffc023296dd419d": "Saisissez votre profil et votre région AWS. Laissez un modèle vide pour utiliser celui de Claude Code par défaut.",
+  "cdbeeaaa0371bb84": "Ajouter le workflow Task Runner",
+  "d11c0fe527862ae6": "Impossible d’ajouter Task Runner",
   "9b2f6da5bd526fb2": "Votre environnement par défaut n’est pas connecté",
   "b52720786b8d772e": "{environment} n’est pas connecté",
   "b8c9370425928547": "Ce fil démarre sur {environment}.",

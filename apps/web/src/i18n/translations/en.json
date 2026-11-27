@@ -3031,6 +3031,8 @@
   "6728ba57ae50bd70": "Run Claude through a named AWS profile. AWS keys are never stored.",
   "144c58e1e15e0f87": "Use Amazon Bedrock",
   "2ffc023296dd419d": "Enter your AWS profile and region. Leave a model empty to use Claude Code's default.",
+  "cdbeeaaa0371bb84": "Add the Task Runner workflow",
+  "d11c0fe527862ae6": "Could not add the Task Runner",
   "9b2f6da5bd526fb2": "Your default environment is not connected",
   "b52720786b8d772e": "{environment} is not connected",
   "b8c9370425928547": "This thread starts on {environment}.",

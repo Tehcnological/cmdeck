@@ -1,6 +1,18 @@
 {
   "customNotices": [
     {
+      "bundles": ["desktop"],
+      "license": "Apache-2.0",
+      "name": "KiroCrew task runner prompts (Task Runner preset)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."]
+        }
+      ]
+    },
+    {
       "license": "Apache-2.0",
       "name": "Kiro Crew decision points (question shapes, routing tiers, memory recall, wake and tool-risk rubrics)",
       "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/decisions",
