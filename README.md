@@ -63,8 +63,8 @@ tagging `vN`; see [docs/operations/03_release.md](./docs/operations/03_release.m
 
 CMDeck is built on the T3 Code source code by T3 Tools, Inc., and includes work ported from
 [m3code](https://github.com/MiaAI-Lab/m3code) by MiaAI-Lab, both used under the
-[MIT License](./LICENSE), plus decision-point rules ported from
-[Kiro Crew](https://github.com/kirodotdev/KiroCrew) (Apache-2.0) and
-[LiteLLM](https://github.com/BerriAI/litellm) (MIT). The MIT License covers the source only; the T3 Code name, logos, and
-icons are T3 Tools' trademarks (see [TRADEMARK.md](./TRADEMARK.md)) and are not used for this
-fork's branding.
+[MIT License](./LICENSE). It also adapts parts of [Kiro Crew](https://github.com/kirodotdev/KiroCrew)
+by Amazon (Apache License 2.0) and [LiteLLM](https://github.com/BerriAI/litellm) (MIT); see
+[Open source licenses](./docs/user/open-source-licenses.md). The MIT License covers the source only; the
+T3 Code name, logos, and icons are T3 Tools' trademarks (see [TRADEMARK.md](./TRADEMARK.md)) and are not
+used for this fork's branding.

@@ -1,3 +1,5 @@
+import { TASK_RUNNER } from "./task-runner.ts";
+
 export interface WorkflowPreset {
   readonly id: string;
   /** The file name it gets in the workflows folder. */
@@ -7,5 +9,5 @@ export interface WorkflowPreset {
   readonly source: string;
 }
 
-/** Workflow files CMDeck ships. Presets arrive with their own work items (WI-2.01, 2.03, 2.20). */
-export const PRESETS: ReadonlyArray<WorkflowPreset> = [];
+/** Workflow files CMDeck ships. A new one gets a row here and a case in `presets.test.ts`. */
+export const PRESETS: ReadonlyArray<WorkflowPreset> = [TASK_RUNNER];

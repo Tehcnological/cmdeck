@@ -72,6 +72,7 @@ T3 Code is an open-source control plane for coding agents. It gives the coding a
 - [Project configuration (`t3.json`) and actions](./t3-json.md) — Checked-in repo config, setup/dev/settle scripts, and schema reference.
 - [Projects with several repositories](./multi-repo-projects.md) — Multi-repo folders, external folders, submodules, and custom worktree layouts.
 - [Workflows](./workflows.md) — Durable multi-stage TypeScript workflows (Labs) with schedules, webhooks, and approvals.
+- [Task Runner](./task-runner.md) — A ready-made workflow that plans, runs, checks and reviews a change task by task.
 - [Text generation models](./text-generation.md) — Fast/cheap API models for titles, commits, PR descriptions, and voice cleanup.
 - [Decision service](./decisions.md) — How scheduled tasks pick a model under usage limits, and opt-in local models for small decisions.
 - [Appearance and themes](./appearance.md) — Built-in themes, custom palettes/CSS, background images, LaTeX math, and environment themes.
@@ -101,6 +102,7 @@ T3 Code is an open-source control plane for coding agents. It gives the coding a
 - [Guest links](./guest-links.md) — Need T3 Connect, removed in CMDeck.
 - [Outside agents](./outside-agents.md) — Connecting Claude Code, Codex, ChatGPT, or bots to T3 Code over MCP, plus `t3 thread` host scripting.
 - [Secrets](./secrets.md) — 1Password CLI references and private in-thread agent secret cards.
+- [Secrets at rest](./secrets-at-rest.md) — How CMDeck encrypts the credentials it stores and where the key lives.
 - [1Password service account](./secrets-1password-service-account.md) — Headless 1Password setup with a service account token.
 - [1Password Connect](./secrets-1password-connect.md) — Headless 1Password setup with a Connect server.
 

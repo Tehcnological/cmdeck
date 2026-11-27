@@ -1,6 +1,18 @@
 {
   "customNotices": [
     {
+      "bundles": ["desktop"],
+      "license": "Apache-2.0",
+      "name": "KiroCrew task runner prompts (Task Runner preset)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."]
+        }
+      ]
+    },
+    {
       "license": "Apache-2.0",
       "name": "Kiro Crew decision points (question shapes, routing tiers, memory recall, wake and tool-risk rubrics)",
       "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/decisions",
@@ -275,6 +287,21 @@
           ],
           "preamble": [
             "Unmodified KaTeX_* mathematical fonts. Reserved Font Names include KaTeX_Main, KaTeX_Math, KaTeX_AMS, and KaTeX_Caligraphic."
+          ]
+        }
+      ]
+    },
+    {
+      "bundles": ["desktop"],
+      "license": "Apache-2.0",
+      "name": "Kiro Crew secret envelope (adapted)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/blob/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/secrets/vault.py",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "The AES-256-GCM envelope and its name-bound AAD in apps/server/src/fork/secrets/envelope.ts are adapted from Kiro Crew's vault: one binary envelope per secret file instead of a JSON map, a \"cmdeck\" AAD scope, and no item types."
           ]
         }
       ]
