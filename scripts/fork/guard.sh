@@ -202,10 +202,22 @@ required=(
   'apps/web/src/components/chat/SideThreadPane.tsx:useCloseWhenHidden\(threadRef, props\.onClose\)'
   # WI-2.10: scheduled tasks start new threads on the decision service's routed model.
   'apps/server/src/scheduledTasks/ScheduledTaskService.ts:modelSelection: yield\* Decisions\.routeScheduledTask\(active\),'
+  # WI-2.18: sandboxed threads launch through the container AgentScope, and refuse providers that cannot.
+  'apps/server/src/server.ts:import \* as ContainerSandbox from "\./fork/sandbox/ContainerSandbox\.ts";'
+  'apps/server/src/server.ts:Layer\.provideMerge\(ContainerSandbox\.layer\.pipe\(Layer\.provide\(layerServerSettings\)\)\), +Layer\.provideMerge\(AgentScopeLive\.layer\)'
+  'apps/server/src/orchestration-v2/ProviderSessionManager.ts:import \{ sandboxLaunchGate \} from "\.\./fork/sandbox/launchGate\.ts";'
+  'apps/server/src/orchestration-v2/ProviderSessionManager.ts:yield\* sandboxLaunchGate\(input, registry\);'
+  'apps/server/src/persistence/ForkSchema.ts:yield\* ensureSandboxSchema\(\)'
+  'apps/web/src/components/settings/SettingsPanels.tsx:import \{ ContainerSandboxSection \} from "~/fork/ContainerSandboxSection";'
+  'apps/web/src/components/settings/SettingsPanels.tsx:<ContainerSandboxSection />'
 )
 # 6. Only a person approves a workflow file: no MCP tool may reach the trust gate (WI-1.06).
 hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts)"
 [ -z "$hits" ] || bad "MCP code reaches the workflow trust gate: $hits"
+
+# 7. Agents may only tighten the sandbox: no MCP tool turns a container off (WI-2.18).
+hits="$(git grep -l -E '"off"|mode: null' -- apps/server/src/fork/sandbox/mcpTools.ts)"
+[ -z "$hits" ] || bad "An MCP tool can turn a container off: $hits"
 
 for entry in "${required[@]}"; do
   file="${entry%%:*}"

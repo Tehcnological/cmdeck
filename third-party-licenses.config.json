@@ -38,6 +38,17 @@
       ]
     },
     {
+      "license": "MIT",
+      "name": "Agent of Empires container mount table (container sandbox)",
+      "sourceUrl": "https://github.com/agent-of-empires/agent-of-empires/tree/e5cf0b9f388de560e5716184f5507d744a517f27/src/containers",
+      "generatedNotices": [
+        {
+          "licenseId": "MIT",
+          "copyrights": ["Copyright (c) 2026 Nathan Brake"]
+        }
+      ]
+    },
+    {
       "bundles": ["desktop", "mobile"],
       "license": "MIT",
       "name": "Apple Speech engine (adapted from @react-native-ai/apple)",

@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema";
 
 import { ModelSelection } from "../modelSelection.ts";
 import { DecisionModelSetting } from "./decisions.ts";
+import { SandboxRecipe } from "./sandbox.ts";
 
 /** Models a scheduled task's new thread runs on for each routing tier; an unset tier keeps the task's model. */
 export const RoutingTierModels = Schema.Struct({
@@ -24,10 +25,13 @@ export const CmdeckSettings = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed(null)),
   ),
   routingTierModels: RoutingTierModels.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
+  /** The container recipe; an empty image keeps every thread on the host. */
+  sandbox: SandboxRecipe.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
 });
 
 export const CmdeckSettingsPatch = Schema.Struct({
   memoryEnabled: Schema.optionalKey(Schema.Boolean),
   decisionModel: Schema.optionalKey(Schema.NullOr(DecisionModelSetting)),
   routingTierModels: Schema.optionalKey(RoutingTierModels),
+  sandbox: Schema.optionalKey(SandboxRecipe),
 });

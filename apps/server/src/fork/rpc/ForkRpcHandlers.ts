@@ -6,6 +6,7 @@ import {
   ForkWsRpcGroup,
   WorkflowTrustError,
   NotificationChannelError,
+  SandboxError,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -15,6 +16,7 @@ import { WorkflowDefinitions } from "../../workflows/WorkflowRuntime.ts";
 import * as AuditLog from "../audit/AuditLog.ts";
 import { Decisions } from "../decisions/Decisions.ts";
 import { installPreset } from "../presets/install.ts";
+import { ContainerSandbox } from "../sandbox/ContainerSandbox.ts";
 import { WorkflowTrust } from "../workflowTrust/WorkflowTrust.ts";
 import * as Notifications from "../notifications/Notifications.ts";
 
@@ -31,6 +33,10 @@ export const make = Effect.gen(function* () {
   const decisions = yield* Effect.serviceOption(Decisions);
   const noDecisions = Effect.fail(
     new DecisionsError({ detail: "The decision service is not available." }),
+  );
+  const sandbox = yield* Effect.serviceOption(ContainerSandbox);
+  const noSandbox = Effect.fail(
+    new SandboxError({ detail: "Containers are not available on this server." }),
   );
   return ForkWsRpcGroup.of({
     [CMDECK_WS_METHODS.status]: () => Effect.succeed({ version: CMDECK_RPC_VERSION }),
@@ -62,5 +68,9 @@ export const make = Effect.gen(function* () {
       Option.isSome(decisions) ? decisions.value.status : noDecisions,
     [CMDECK_WS_METHODS.decisionsSetConsent]: (input) =>
       Option.isSome(decisions) ? decisions.value.setConsent(input) : noDecisions,
+    [CMDECK_WS_METHODS.sandboxStatus]: (input) =>
+      Option.isSome(sandbox) ? sandbox.value.status(input) : noSandbox,
+    [CMDECK_WS_METHODS.sandboxConfigure]: (input) =>
+      Option.isSome(sandbox) ? sandbox.value.configure(input, "user") : noSandbox,
   });
 });

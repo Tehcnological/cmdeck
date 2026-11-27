@@ -8,6 +8,7 @@ import * as Decisions from "./decisions/Decisions.ts";
 import * as Notifications from "./notifications/Notifications.ts";
 import * as MemoryStore from "./memory/MemoryStore.ts";
 import * as TurnContext from "./memory/TurnContext.ts";
+import * as SandboxReaper from "./sandbox/archiveReaper.ts";
 
 /**
  * Every fork service the server provides, in one place so `server.ts` carries a single fork line.
@@ -19,6 +20,7 @@ export const layer = Layer.mergeAll(
   PublicAddressCheck.layer,
   // Notifications writes channel changes and delivery failures to the audit log.
   Notifications.layer.pipe(Layer.provideMerge(AuditLog.layer)),
+  SandboxReaper.layer,
 );
 
 /**

@@ -56,6 +56,9 @@ import { generators, LOCAL_GENERATOR } from "../decisions/decisions.testkit.ts";
 import { narrower } from "../decisions/points/memoryNarrowing.ts";
 import { annotateApproval } from "../decisions/points/riskAnnotation.ts";
 import { decideWake } from "../decisions/points/wakeSuppression.ts";
+import { AgentScope } from "@t3tools/shared/AgentScope";
+import { ContainerSandbox } from "../sandbox/ContainerSandbox.ts";
+import { layerSandbox, makeHost, makeWorkspace, THREAD } from "../sandbox/sandbox.testkit.ts";
 
 vi.mock("@anthropic-ai/claude-agent-sdk", { spy: true });
 
@@ -545,3 +548,28 @@ describe("decisions", () => {
     );
   });
 });
+
+it.effect("the container sandbox, unused, runs no container CLI and waits on nothing", () =>
+  Effect.gen(function* () {
+    const host = yield* makeHost;
+    const workspace = yield* makeWorkspace;
+    let subscribed = false;
+    yield* Effect.gen(function* () {
+      const sandbox = yield* ContainerSandbox;
+      yield* sandbox.whenInUse(Effect.sync(() => void (subscribed = true)));
+      const launch = yield* (yield* AgentScope).wrap({
+        command: "claude",
+        args: [],
+        name: "claude",
+        threadId: THREAD,
+        env: { T3CODE_THREAD_ID: THREAD },
+      });
+      yield* sandbox.removeThread(THREAD);
+      // Opening Settings reads the status without probing Docker.
+      expect((yield* sandbox.status({})).ready).toBe(false);
+      expect(launch.command).toBe("claude");
+      expect(host.calls).toEqual([]);
+      expect(subscribed).toBe(false);
+    }).pipe(Effect.provide(layerSandbox({ workspace, host, recipe: { image: "" } })));
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);

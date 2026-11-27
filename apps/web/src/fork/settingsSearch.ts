@@ -10,4 +10,10 @@ export const FORK_SETTINGS_SEARCH_ITEMS = [
     to: "/settings/threads",
     searchTerms: [msg("new threads machine server host start remote local")],
   },
+  {
+    id: "containers",
+    title: msg("Containers"),
+    to: "/settings/general",
+    searchTerms: [msg("sandbox docker gvisor isolation network mounts")],
+  },
 ] as const satisfies ReadonlyArray<SettingsSearchItem>;

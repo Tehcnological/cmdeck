@@ -14,6 +14,7 @@ import { connectionAtomRuntime } from "../connection/runtime";
 import { useAtomCommand } from "../state/use-atom-command";
 import { usePrimaryEnvironmentId } from "../state/environments";
 import { workflowEnvironmentFor } from "./commands.logic";
+import { useContainerCommandItems } from "./containerCommands";
 
 const NO_FORK_COMMANDS: ReadonlyArray<CommandPaletteActionItem> = [];
 
@@ -32,8 +33,12 @@ export function useForkCommandItems(): ReadonlyArray<CommandPaletteActionItem> {
   );
   const canInstall = useAtomValue(installPreset.permissionAtom(environmentId));
   const install = useAtomCommand(installPreset, { reportFailure: false });
-  if (environmentId === null || !canInstall) return NO_FORK_COMMANDS;
+  const containerItems = useContainerCommandItems();
+  if (environmentId === null || !canInstall) {
+    return containerItems.length === 0 ? NO_FORK_COMMANDS : containerItems;
+  }
   return [
+    ...containerItems,
     {
       kind: "action",
       value: "action:cmdeck:task-runner",
