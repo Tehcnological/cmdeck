@@ -116,6 +116,8 @@ required=(
   'packages/contracts/src/settings.ts:requireConnectDeviceApproval: Schema\.Boolean\.pipe\( +Schema\.withDecodingDefault\(Effect\.succeed\(true\)\)'
   'apps/mobile/app.config.ts:updates: \{ +enabled: false,'
   'apps/server/src/provider/acp/AntigravityAcpSupport.ts:clientInfo: \{ name: "t3-code",'
+  # The star prompt stars CMDeck's repository, not upstream's.
+  'apps/web/src/components/GitHubStarPrompt.tsx:const REPOSITORY = APP_RELEASE_REPOSITORY;'
 )
 for entry in "${required[@]}"; do
   file="${entry%%:*}"
