@@ -10,6 +10,7 @@ import * as Decisions from "./decisions/Decisions.ts";
 import * as Notifications from "./notifications/Notifications.ts";
 import * as MemoryStore from "./memory/MemoryStore.ts";
 import * as TurnContext from "./memory/TurnContext.ts";
+import * as UsageAlerts from "./usageAlerts/UsageAlerts.ts";
 
 /**
  * Every fork service the server provides, in one place so `server.ts` carries a single fork line.
@@ -19,12 +20,12 @@ import * as TurnContext from "./memory/TurnContext.ts";
 export const layer = Layer.mergeAll(
   RemoteMcpTokens.layer,
   PublicAddressCheck.layer,
-  // The approval policy audits and alerts on each decline; Notifications audits its own changes.
-  ApprovalPolicy.layer.pipe(
-    Layer.provide(ProjectionStore.layer),
-    Layer.provideMerge(Notifications.layer),
-    Layer.provideMerge(AuditLog.layer),
-  ),
+  // The approval policy audits and alerts on each decline, usage alerts alert on thresholds, and
+  // Notifications audits its own changes; all three share one Notifications.
+  Layer.merge(
+    ApprovalPolicy.layer.pipe(Layer.provide(ProjectionStore.layer)),
+    UsageAlerts.layer,
+  ).pipe(Layer.provideMerge(Notifications.layer), Layer.provideMerge(AuditLog.layer)),
 );
 
 /**

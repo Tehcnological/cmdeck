@@ -15,6 +15,7 @@ describe("cmdeck settings key", () => {
       memoryEnabled: false,
       decisionModel: null,
       routingTierModels: {},
+      usageAlertPercents: [80],
       approvalPolicy: {
         denyCommands: [],
         denyTools: [],
@@ -28,6 +29,20 @@ describe("cmdeck settings key", () => {
     expect(decodeServerSettings({ cmdeck: { memoryEnabled: true } }).cmdeck.memoryEnabled).toBe(
       true,
     );
+  });
+
+  it("keeps usage alert thresholds whole percentages from 1 to 100", () => {
+    expect(
+      decodeServerSettings({ cmdeck: { usageAlertPercents: [] } }).cmdeck.usageAlertPercents,
+    ).toEqual([]);
+    expect(decodeServerSettingsPatch({ cmdeck: { usageAlertPercents: [50, 100] } })).toEqual({
+      cmdeck: { usageAlertPercents: [50, 100] },
+    });
+    for (const invalid of [0, 101, 79.5]) {
+      expect(() =>
+        decodeServerSettingsPatch({ cmdeck: { usageAlertPercents: [invalid] } }),
+      ).toThrow();
+    }
   });
 
   it("leaves CMDeck settings decodable by a client built from upstream's schema", () => {
