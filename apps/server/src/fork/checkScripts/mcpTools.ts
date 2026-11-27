@@ -13,6 +13,7 @@ import { McpSchema, Tool, Toolkit } from "effect/ai";
 
 import * as McpInvocationContext from "../../mcp/McpInvocationContext.ts";
 import * as McpToolAccess from "../../mcp/McpToolAccess.ts";
+import * as OrchestratorMcpService from "../../mcp/OrchestratorMcpService.ts";
 import * as ThreadManagementService from "../../orchestration-v2/ThreadManagementService.ts";
 import { CheckScripts } from "./CheckScripts.ts";
 
@@ -33,6 +34,7 @@ const SetScheduledTaskCheckTool = Tool.make("set_scheduled_task_check", {
   dependencies: [
     McpInvocationContext.McpInvocationContext,
     ThreadManagementService.ThreadManagementService,
+    OrchestratorMcpService.OrchestratorMcpService,
   ],
 })
   .annotate(Tool.Title, "Set a scheduled task's check script")
@@ -51,7 +53,13 @@ export const layer = McpToolAccess.toLayer(
     const checks = yield* CheckScripts;
     return {
       set_scheduled_task_check: McpToolAccess.writes(({ scheduledTaskId, check }) =>
-        checks.set({ taskId: scheduledTaskId, check, by: "agent" }).pipe(
+        // A check gates runs at the task's modes, so changing it needs the limits editing the task does.
+        Effect.flatMap(OrchestratorMcpService.OrchestratorMcpService, (service) =>
+          Effect.flatMap(McpInvocationContext.McpInvocationContext, (scope) =>
+            service.authorizeScheduledTaskChange(scope, scheduledTaskId),
+          ),
+        ).pipe(
+          Effect.andThen(checks.set({ taskId: scheduledTaskId, check, by: "agent" })),
           Effect.map((state) => ({
             scheduledTaskId,
             ...(state === null ? {} : { interpreter: state.interpreter }),
@@ -63,10 +71,12 @@ export const layer = McpToolAccess.toLayer(
                   ? "Saved. These exact contents were already approved, so it runs as set."
                   : "Saved. It does not run until the user approves it in Settings > Scheduled tasks; until then each run fails with a note asking for approval.",
           })),
-          Effect.mapError(
-            (error) =>
-              new OrchestratorMcpFailure({ code: "invalid_request", message: error.reason }),
-          ),
+          Effect.catchTags({
+            CheckScriptError: (error) =>
+              Effect.fail(
+                new OrchestratorMcpFailure({ code: "invalid_request", message: error.reason }),
+              ),
+          }),
         ),
       ),
     };

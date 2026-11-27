@@ -6,7 +6,16 @@ import * as Ref from "effect/Ref";
 
 import * as ServerConfig from "../../config.ts";
 import * as ProjectStore from "../../orchestration-v2/ProjectStore.ts";
+import * as ProviderAdapterRegistry from "../../orchestration-v2/ProviderAdapterRegistry.ts";
+import * as ThreadLaunchService from "../../orchestration-v2/ThreadLaunchService.ts";
+import * as RemoteDelegation from "../../peer/RemoteDelegation.ts";
 import * as ProcessRunner from "../../processRunner.ts";
+import * as ProjectService from "../../project/ProjectService.ts";
+import * as ProviderRegistry from "../../provider/ProviderRegistry.ts";
+import * as ScheduledTaskService from "../../scheduledTasks/ScheduledTaskService.ts";
+import * as SecretRequests from "../../secrets/SecretRequests.ts";
+import * as ServerSettings from "../../serverSettings.ts";
+import * as GitVcsDriver from "../../vcs/GitVcsDriver.ts";
 import * as CheckScripts from "./CheckScripts.ts";
 
 export const PROJECT_DIR = "/home/user/app";
@@ -55,4 +64,26 @@ export const layerTest = (runner: ProcessRunner.ProcessRunner["Service"]) =>
       ),
     ),
     Layer.provideMerge(NodeServices.layer),
+  );
+
+/**
+ * What the orchestrator service behind `set_scheduled_task_check` needs, as stubs; thread records
+ * come from the caller's ThreadManagementService. `scheduledTasks` serves the task list.
+ */
+export const layerOrchestratorMcpStubs = (
+  scheduledTasks: Partial<ScheduledTaskService.ScheduledTaskService["Service"]> = {},
+) =>
+  Layer.mergeAll(
+    NodeCrypto.layer,
+    ServerSettings.layerTest(),
+    Layer.mock(ScheduledTaskService.ScheduledTaskService)(scheduledTasks),
+    Layer.mock(ThreadLaunchService.ThreadLaunchService)({}),
+    Layer.mock(GitVcsDriver.GitVcsDriver)({}),
+    Layer.mock(ProviderRegistry.ProviderRegistry)({ getProviders: Effect.succeed([]) }),
+    Layer.mock(ProviderAdapterRegistry.ProviderAdapterRegistryV2)({
+      list: () => Effect.succeed([]),
+    }),
+    Layer.mock(ProjectService.ProjectService)({}),
+    Layer.mock(SecretRequests.SecretRequests)({}),
+    Layer.mock(RemoteDelegation.RemoteDelegation)({}),
   );

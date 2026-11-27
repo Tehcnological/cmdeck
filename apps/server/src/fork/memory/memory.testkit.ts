@@ -18,6 +18,7 @@ import * as ProjectionStore from "../../orchestration-v2/ProjectionStore.ts";
 import * as ProjectStore from "../../orchestration-v2/ProjectStore.ts";
 import * as SqlitePersistence from "../../persistence/Sqlite.ts";
 import * as ServerSettings from "../../serverSettings.ts";
+import { layerOrchestratorMcpStubs } from "../checkScripts/checkScripts.testkit.ts";
 import * as ForkMcpToolkits from "../mcpToolkits.ts";
 import * as MemoryStore from "./MemoryStore.ts";
 import * as TurnContext from "./TurnContext.ts";
@@ -91,6 +92,7 @@ export const layerMemoryToolsTest = (options: { readonly memoryEnabled: boolean 
     Layer.provideMerge(McpHttpServer.layerInProcessMcpServer),
     Layer.provideMerge(McpToolAccessTestkit.liveThreadsLayer),
     Layer.provideMerge(layerMemoryTest(options)),
+    Layer.provide(layerOrchestratorMcpStubs()),
   );
 
 const client = McpSchema.McpServerClient.of({

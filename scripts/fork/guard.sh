@@ -214,6 +214,9 @@ required=(
   'apps/server/src/persistence/ForkSchema.ts:yield\* ensureCheckScriptsSchema\(\)'
   'apps/web/src/components/settings/ScheduledTasksSettings.tsx:import \{ ScheduledTaskCheckControl \} from "~/fork/ScheduledTaskCheck";'
   'apps/web/src/components/settings/ScheduledTasksSettings.tsx:<ScheduledTaskCheckControl environmentId=\{environmentId\} task=\{task\} />'
+  # WI-2.11: an agent changes a task's check only within the limits that editing the task needs.
+  'apps/server/src/mcp/OrchestratorMcpService.ts:readonly authorizeScheduledTaskChange: \( +scope: McpInvocationScope, +scheduledTaskId: ScheduledTask\["id"\], +\) => Effect\.Effect<ScheduledTask, OrchestratorMcpFailure>;'
+  'apps/server/src/mcp/OrchestratorMcpService.ts:authorizeScheduledTaskChange: Effect\.fn\("OrchestratorMcpService\.authorizeScheduledTaskChange"\)\( +function\* \(scope, scheduledTaskId\) \{ +const \{ parent, limits \} = yield\* loadCaller\(scope, \["runs"\]\); +const existing = yield\* loadScheduledTask\(scheduledTaskId, limits\); +yield\* assertLiveCallerForOtherProject\(scope, parent, existing\.projectId\);'
   # WI-2.17: secrets at rest. The desktop app hands the key over in the bootstrap envelope.
   'packages/contracts/src/desktopBootstrap.ts:cmdeckSecretsKey: Schema\.optionalKey\(Schema\.String\)'
   'apps/server/src/config.ts:readonly cmdeckSecretsKey\?: Redacted\.Redacted<string> \| undefined;'
