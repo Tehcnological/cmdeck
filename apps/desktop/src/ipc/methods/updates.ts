@@ -7,6 +7,7 @@ import {
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
+import * as DesktopAppSettings from "../../settings/DesktopAppSettings.ts";
 import * as DesktopUpdates from "../../updates/DesktopUpdates.ts";
 import * as IpcChannels from "../channels.ts";
 import * as DesktopIpc from "../DesktopIpc.ts";
@@ -31,6 +32,26 @@ export const setUpdateChannel = DesktopIpc.makeIpcMethod({
   handler: Effect.fn("desktop.ipc.updates.setChannel")(function* ({ channel, minimumVersion }) {
     const updates = yield* DesktopUpdates.DesktopUpdates;
     return yield* updates.setChannel(channel, { minimumVersion });
+  }),
+});
+
+export const getUpdateAutoCheck = DesktopIpc.makeIpcMethod({
+  channel: IpcChannels.UPDATE_GET_AUTO_CHECK_CHANNEL,
+  payload: Schema.Void,
+  result: Schema.Boolean,
+  handler: Effect.fn("desktop.ipc.updates.getAutoCheck")(function* () {
+    const appSettings = yield* DesktopAppSettings.DesktopAppSettings;
+    return (yield* appSettings.get).updateAutoCheck;
+  }),
+});
+
+export const setUpdateAutoCheck = DesktopIpc.makeIpcMethod({
+  channel: IpcChannels.UPDATE_SET_AUTO_CHECK_CHANNEL,
+  payload: Schema.Boolean,
+  result: Schema.Boolean,
+  handler: Effect.fn("desktop.ipc.updates.setAutoCheck")(function* (enabled) {
+    const appSettings = yield* DesktopAppSettings.DesktopAppSettings;
+    return (yield* appSettings.setUpdateAutoCheck(enabled)).settings.updateAutoCheck;
   }),
 });
 

@@ -288,6 +288,29 @@ describe("DesktopUpdates", () => {
     ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
   });
 
+  it.effect("skips automatic checks while they are off and resumes without a restart", () => {
+    const harness = makeHarness({ autoCheck: false });
+
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const updates = yield* DesktopUpdates.DesktopUpdates;
+        const settings = yield* DesktopAppSettings.DesktopAppSettings;
+        yield* updates.configure;
+
+        yield* TestClock.adjust("15 seconds");
+        yield* TestClock.adjust("4 hours");
+        assert.equal(harness.checkCount(), 0);
+
+        yield* updates.check("manual");
+        assert.equal(harness.checkCount(), 1);
+
+        yield* settings.setUpdateAutoCheck(true);
+        yield* TestClock.adjust("4 hours");
+        assert.equal(harness.checkCount(), 2);
+      }),
+    ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
+  });
+
   it.effect.each([
     { action: "download", offer: "update-available", found: null, accepted: true },
     { action: "install", offer: "update-downloaded", found: null, accepted: true },

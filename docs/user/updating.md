@@ -19,8 +19,10 @@ update button offers it, and **Restart to update** installs it.
   itself (for example when opened from the disk image), it says so; move it to Applications or
   install the new version from the release page.
 
-To stop update checks, start the app with `T3CODE_DISABLE_AUTO_UPDATE=1`, or turn updates off with
-a [managed policy](./managed-policy.md).
+To stop the automatic checks, turn off **Settings → About → Check for updates automatically**.
+**Check for updates** still works, and the change applies without a restart. To turn updates off
+entirely, start the app with `T3CODE_DISABLE_AUTO_UPDATE=1`, or use a
+[managed policy](./managed-policy.md).
 
 ## Update everything at once
 
