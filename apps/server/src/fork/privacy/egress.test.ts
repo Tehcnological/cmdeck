@@ -6,6 +6,7 @@ import {
   EnvironmentId,
   ProviderDriverKind,
   ProviderInstanceId,
+  RunId,
   type ClaudeSettings,
   type ServerProvider,
 } from "@t3tools/contracts";
@@ -20,8 +21,10 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Sink from "effect/Sink";
+import * as SqlClient from "effect/sql/SqlClient";
 import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
+import { McpServer } from "effect/ai";
 import { HttpClient, HttpClientResponse } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { vi } from "vite-plus/test";
@@ -42,6 +45,9 @@ import * as ProviderOrchestrationAdapterInfrastructure from "../../provider/Prov
 import * as ResetCreditCoordinator from "../../provider/resetCreditCoordinator.ts";
 import * as ServerSettings from "../../serverSettings.ts";
 import * as Notifications from "../notifications/Notifications.ts";
+import * as MemoryStore from "../memory/MemoryStore.ts";
+import { asAgentIn, layerMemoryToolsTest, threads } from "../memory/memory.testkit.ts";
+import * as TurnContext from "../memory/TurnContext.ts";
 
 vi.mock("@anthropic-ai/claude-agent-sdk", { spy: true });
 
@@ -371,3 +377,42 @@ it.effect("notifications start no milestone subscription or timer without an ena
     );
   }),
 );
+describe("memory", () => {
+  it.layer(layerMemoryToolsTest({ memoryEnabled: false }))((it) => {
+    it.effect("disabled means inert: no injection, no turn records, and its tools refuse", () =>
+      Effect.gen(function* () {
+        const store = yield* MemoryStore.MemoryStore;
+        const turnContext = yield* TurnContext.TurnContext;
+        const sql = yield* SqlClient.SqlClient;
+        yield* store.remember({
+          context: yield* store.threadContext(threads.main),
+          scope: "global",
+          kind: "rule",
+          content: "Use pnpm, not npm",
+          actor: "user",
+        });
+
+        const block = yield* turnContext.contribute({
+          thread: threads.main,
+          runId: RunId.make("run-memory-off"),
+          message: { text: "Use pnpm?", createdBy: "user" },
+          inject: true,
+        });
+        expect(block).toBe("");
+        expect(yield* sql`SELECT run_id FROM memory_injections`).toEqual([]);
+        for (const [name, args] of [
+          ["memory_search", { query: "pnpm" }],
+          ["memory_remember", { content: "Never saved" }],
+          ["memory_forget", { id: "any" }],
+        ] as const) {
+          const result = yield* McpServer.McpServer.pipe(
+            Effect.flatMap((server) => server.callTool({ name, arguments: args })),
+            asAgentIn(),
+          );
+          expect(result.isError).toBe(true);
+          expect(JSON.stringify(result.content)).toContain("Memory is off");
+        }
+      }),
+    );
+  });
+});

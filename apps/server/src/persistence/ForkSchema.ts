@@ -3,6 +3,7 @@ import * as SqlClient from "effect/sql/SqlClient";
 
 import { ensureAuditSchema } from "../fork/audit/schema.ts";
 import { ensureNotificationsSchema } from "../fork/notifications/schema.ts";
+import { ensureMemorySchema } from "../fork/memory/schema.ts";
 
 // Fork-only tables stay outside the numbered ledger: the migrator skips every id at or below the
 // highest recorded one, so a fork id would make later upstream migrations silently never run.
@@ -46,6 +47,7 @@ export const ensureForkSchema = Effect.fn("ensureForkSchema")(function* () {
   )`;
   yield* ensureAuditSchema();
   yield* ensureNotificationsSchema();
+  yield* ensureMemorySchema();
   // Failed runs in a row of a scheduled task, which pauses the task at a limit.
   const taskColumns = yield* sql<{ name: string }>`PRAGMA table_info(scheduled_tasks)`;
   if (!taskColumns.some((column) => column.name === "failure_streak")) {

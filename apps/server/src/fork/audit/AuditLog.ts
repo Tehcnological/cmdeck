@@ -24,6 +24,7 @@ import * as Semaphore from "effect/Semaphore";
 import * as SqlClient from "effect/sql/SqlClient";
 import * as Stream from "effect/Stream";
 
+import * as ServerConfig from "../../config.ts";
 import * as MilestoneHub from "../../milestones/MilestoneHub.ts";
 import { ensureAuditSchema } from "./schema.ts";
 
@@ -303,6 +304,21 @@ export const note = (event: AuditEventInput): Effect.Effect<void> =>
 
 export const notePairingApproved = (pairingLinkId: string) =>
   note({ kind: "device.pairing_approved", subject: pairingLinkId });
+
+/**
+ * For a CLI approval applied without a server: records it in that database. An approval routed
+ * through a running server is recorded there instead.
+ */
+export const notePairingApprovedLocally = (pairingLinkId: string) => (approved: boolean) =>
+  Effect.gen(function* () {
+    if (!approved) return;
+    const { dbPath } = yield* ServerConfig.ServerConfig;
+    yield* appendToDatabase(dbPath, {
+      kind: "device.pairing_approved",
+      actor: "cli",
+      subject: pairingLinkId,
+    });
+  });
 
 /** A stored secret was handed out: as a one-use ref's value, or written to a file for commands. */
 export const noteSecretReveal = (via: "ref" | "file", subject: string) =>
