@@ -4,6 +4,9 @@ import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
 import { HttpClient, HttpClientResponse } from "effect/http";
 
+import * as EventSink from "../../orchestration-v2/EventSink.ts";
+import * as EventStore from "../../orchestration-v2/EventStore.ts";
+import * as ProjectionStore from "../../orchestration-v2/ProjectionStore.ts";
 import * as PeerLinks from "../../peer/PeerLinks.ts";
 import * as Sqlite from "../../persistence/Sqlite.ts";
 import * as ServerSettings from "../../serverSettings.ts";
@@ -12,7 +15,8 @@ import * as Heartbeat from "./Heartbeat.ts";
 
 /**
  * The real heartbeat over an in-memory database. HTTP probes answer with `httpStatus` and are
- * counted in `requests`; alerts land in `alerts`; PeerLinks dies if anything asks it.
+ * counted in `requests`; alerts land in `alerts`; PeerLinks dies if anything asks it. Turns are
+ * written through the real `EventSinkV2`.
  */
 export const layerHeartbeatTest = (options: {
   readonly heartbeat: Partial<HeartbeatSettings>;
@@ -41,5 +45,10 @@ export const layerHeartbeatTest = (options: {
       ),
     ),
     Layer.provideMerge(ServerSettings.layerTest({ cmdeck: { heartbeat: options.heartbeat } })),
+    Layer.provideMerge(
+      EventSink.layer.pipe(
+        Layer.provideMerge(Layer.merge(EventStore.layer, ProjectionStore.layer)),
+      ),
+    ),
     Layer.provideMerge(Sqlite.layerMemory),
   );
