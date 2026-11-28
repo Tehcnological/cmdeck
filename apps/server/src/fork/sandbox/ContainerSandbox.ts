@@ -77,12 +77,17 @@ export class ContainerSandbox extends Context.Service<
 
 const NOT_CHECKED_REASON = "Not checked yet.";
 const NOT_CHECKED: ProbedRuntimes = {
-  docker: { reason: NOT_CHECKED_REASON, ociRuntimes: [] },
+  docker: { reason: NOT_CHECKED_REASON, ociRuntimes: [], endpoint: null },
   apple: { reason: NOT_CHECKED_REASON },
 };
 
 interface ProbedRuntimes {
-  readonly docker: { readonly reason: string | null; readonly ociRuntimes: ReadonlyArray<string> };
+  readonly docker: {
+    readonly reason: string | null;
+    readonly ociRuntimes: ReadonlyArray<string>;
+    /** The local socket or pipe the probe verified; every Docker command is pinned to it. */
+    readonly endpoint: string | null;
+  };
   readonly apple: { readonly reason: string | null };
 }
 
@@ -206,9 +211,16 @@ const make = Effect.gen(function* () {
     timeout: Duration.Input = "20 seconds",
   ) => runner.run({ command, args, timeout, env: hostEnvironment }).pipe(Effect.option);
 
+  // Windows environment names ignore case, so docker_host is DOCKER_HOST there.
+  const envValue = (env: NodeJS.ProcessEnv, name: string) => {
+    if (platform !== "win32") return env[name];
+    const key = Object.keys(env).find((candidate) => candidate.toUpperCase() === name);
+    return key === undefined ? undefined : env[key];
+  };
+
   const probeDocker = Effect.gen(function* () {
-    const unavailable = (reason: string) => ({ reason, ociRuntimes: [] });
-    const envHost = hostEnvironment.DOCKER_HOST;
+    const unavailable = (reason: string) => ({ reason, ociRuntimes: [], endpoint: null });
+    const envHost = envValue(hostEnvironment, "DOCKER_HOST");
     if (envHost !== undefined && envHost !== "" && !isLocalDockerEndpoint(envHost)) {
       return unavailable(
         "DOCKER_HOST points away from this machine. CMDeck only uses the local Docker engine.",
@@ -222,16 +234,24 @@ const make = Effect.gen(function* () {
     ]);
     if (Option.isNone(context)) return unavailable("Docker is not installed or not on PATH.");
     const host = context.value.stdout.trim();
-    if (context.value.code === 0 && host !== "" && !isLocalDockerEndpoint(host)) {
+    // An unreadable context could be a remote one: fail closed.
+    if (context.value.code !== 0 || host === "") {
+      return unavailable("Could not read the current Docker context to confirm it is local.");
+    }
+    if (!isLocalDockerEndpoint(host)) {
       return unavailable(
         "The current Docker context points away from this machine. CMDeck only uses the local Docker engine.",
       );
     }
-    const info = yield* run("docker", ["info", "--format", "{{json .Runtimes}}"]);
+    const info = yield* run("docker", ["-H", host, "info", "--format", "{{json .Runtimes}}"]);
     if (Option.isNone(info) || info.value.code !== 0) {
       return unavailable("Docker is installed, but its engine is not running.");
     }
-    return { reason: null, ociRuntimes: parseDockerRuntimes(info.value.stdout) };
+    return {
+      reason: null,
+      ociRuntimes: parseDockerRuntimes(info.value.stdout),
+      endpoint: host,
+    };
   });
 
   const probeApple = Effect.gen(function* () {
@@ -283,8 +303,19 @@ const make = Effect.gen(function* () {
       return Effect.void;
     });
 
+  // Docker commands name the engine the probe verified, so a context switch or a DOCKER_HOST in
+  // some environment cannot point them elsewhere afterwards.
+  const runOn = (runtime: SandboxRuntimeKind, args: ReadonlyArray<string>) =>
+    Effect.flatMap(Ref.get(probed), (host) => {
+      const endpoint = runtime === "docker" ? (host?.docker.endpoint ?? null) : null;
+      return run(
+        RUNTIME_TRAITS[runtime].binary,
+        endpoint === null ? args : ["-H", endpoint, ...args],
+      );
+    });
+
   const listOwn = (runtime: SandboxRuntimeKind) =>
-    run(RUNTIME_TRAITS[runtime].binary, listArgs(runtime, owner)).pipe(
+    runOn(runtime, listArgs(runtime, owner)).pipe(
       Effect.map((result) =>
         Option.isSome(result) && result.value.code === 0
           ? parseList(runtime, result.value.stdout, owner)
@@ -295,7 +326,7 @@ const make = Effect.gen(function* () {
   const remove = (runtime: SandboxRuntimeKind, names: ReadonlyArray<string>) =>
     names.length === 0
       ? Effect.void
-      : run(RUNTIME_TRAITS[runtime].binary, removeArgs(runtime, names)).pipe(
+      : runOn(runtime, removeArgs(runtime, names)).pipe(
           Effect.andThen(
             Effect.forEach(
               names,
@@ -509,10 +540,12 @@ const make = Effect.gen(function* () {
     const { recipe: current, refusal } = yield* readiness(false);
     if (refusal !== null) return yield* new SandboxError({ detail: refusal });
     const env = input.env ?? hostEnvironment;
-    const envHost = env.DOCKER_HOST;
+    const envHost = envValue(env, "DOCKER_HOST");
+    const differs = (name: string) => envValue(env, name) !== envValue(hostEnvironment, name);
     if (
       (envHost !== undefined && envHost !== "" && !isLocalDockerEndpoint(envHost)) ||
-      env.DOCKER_CONTEXT !== hostEnvironment.DOCKER_CONTEXT
+      differs("DOCKER_CONTEXT") ||
+      differs("DOCKER_CONFIG")
     ) {
       return yield* new SandboxError({
         detail:
@@ -535,14 +568,17 @@ const make = Effect.gen(function* () {
     );
     const inContainer = containerCommand(input.name, input.command, input.args);
     const binary = RUNTIME_TRAITS[current.runtime].binary;
-    const resolved = yield* resolveCommandPath(binary, { env }).pipe(
+    // The host's PATH, not the launch's: a provider environment must not choose the docker binary.
+    const resolved = yield* resolveCommandPath(binary, { env: hostEnvironment }).pipe(
       Effect.provideService(FileSystem.FileSystem, fileSystem),
       Effect.provideService(Path.Path, path),
       Effect.provideService(HostProcess.Platform, platform),
       Effect.orElseSucceed(() => null),
     );
+    const endpoint = (yield* probe(false)).docker.endpoint;
     const args = runArgs({
       runtime: current.runtime,
+      endpoint,
       name,
       image: current.image,
       labels: { [LABEL_THREAD]: threadId, [LABEL_OWNER]: owner, [LABEL_BOOT]: boot },
@@ -590,7 +626,7 @@ const make = Effect.gen(function* () {
       if (name === undefined) return yield* inner.kill(threadId);
       const runtime = yield* cleanupRuntime;
       if (runtime === null) return false;
-      const killed = yield* run(RUNTIME_TRAITS[runtime].binary, ["kill", name]);
+      const killed = yield* runOn(runtime, ["kill", name]);
       return Option.isSome(killed) && killed.value.code === 0;
     }),
     clear: (threadId) =>

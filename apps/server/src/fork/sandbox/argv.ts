@@ -34,6 +34,8 @@ export interface ContainerMount {
 
 export interface RunSpec {
   readonly runtime: SandboxRuntimeKind;
+  /** Docker's verified local endpoint, passed as `-H` so no context or DOCKER_HOST can redirect. */
+  readonly endpoint?: string | null;
   readonly name: string;
   readonly image: string;
   readonly labels: Readonly<Record<string, string>>;
@@ -72,7 +74,11 @@ export function mountArg(mount: ContainerMount, readOnly: boolean): string {
  */
 export function runArgs(spec: RunSpec): Array<string> {
   const traits = RUNTIME_TRAITS[spec.runtime];
-  const args = ["run", "--rm", "-i", ...(spec.tty ? ["-t"] : []), "--name", spec.name];
+  const pin =
+    spec.runtime === "docker" && spec.endpoint !== undefined && spec.endpoint !== null
+      ? ["-H", spec.endpoint]
+      : [];
+  const args = [...pin, "run", "--rm", "-i", ...(spec.tty ? ["-t"] : []), "--name", spec.name];
   const push = (flag: string, value: string) => args.push(flag, value);
   for (const [key, value] of Object.entries(spec.labels)) push("--label", `${key}=${value}`);
   push("-w", spec.workdir);

@@ -79,7 +79,14 @@ describe("ContainerSandbox", () => {
         const agent = yield* wrapAs("claude", env, THREAD);
         expect(agent.command).toBe("docker");
         expect(agent.unit).toMatch(/^cmdeck-claude-/);
-        expect(agent.args.slice(0, 3)).toEqual(["run", "--rm", "-i"]);
+        // Pinned to the engine the probe verified as local, whatever the launch environment says.
+        expect(agent.args.slice(0, 5)).toEqual([
+          "-H",
+          "unix:///var/run/docker.sock",
+          "run",
+          "--rm",
+          "-i",
+        ]);
         expect(valuesOf(agent.args, "--label")).toContain(`cmdeck.thread=${THREAD}`);
         expect(valuesOf(agent.args, "--network")).toEqual(["none"]);
         expect(valuesOf(agent.args, "-w")).toEqual([workspace]);
@@ -91,7 +98,7 @@ describe("ContainerSandbox", () => {
 
         // Terminals carry the thread only in their environment.
         const terminal = yield* wrapAs("terminal", { T3CODE_THREAD_ID: THREAD });
-        expect(terminal.args.slice(0, 4)).toEqual(["run", "--rm", "-i", "-t"]);
+        expect(terminal.args.slice(2, 6)).toEqual(["run", "--rm", "-i", "-t"]);
         expect(terminal.args.slice(-3, -1)).toEqual(["/bin/sh", "-c"]);
         expect(host.innerWraps).toEqual([]);
 
@@ -193,7 +200,13 @@ describe("ContainerSandbox", () => {
         const agent = yield* wrapAs("claude", {}, THREAD);
         const scope = yield* AgentScope;
         expect(yield* scope.kill(THREAD)).toBe(true);
-        expect(host.calls).toContainEqual(["docker", "kill", agent.unit]);
+        expect(host.calls).toContainEqual([
+          "docker",
+          "-H",
+          "unix:///var/run/docker.sock",
+          "kill",
+          agent.unit,
+        ]);
         yield* scope.stop(agent.unit ?? "");
         expect(yield* Deferred.await(host.removed)).toEqual([agent.unit]);
       }),
@@ -378,7 +391,7 @@ describe("disabled with a reason", () => {
     ...overrides,
   });
   const probed = {
-    docker: { reason: null, ociRuntimes: ["runc"] },
+    docker: { reason: null, ociRuntimes: ["runc"], endpoint: "unix:///x" },
     apple: { reason: null },
   };
 
@@ -387,7 +400,14 @@ describe("disabled with a reason", () => {
     [recipe({ ociRuntime: "runsc" }), probed, "Docker does not list the runsc runtime."],
     [
       recipe(),
-      { ...probed, docker: { reason: "Docker is not installed or not on PATH.", ociRuntimes: [] } },
+      {
+        ...probed,
+        docker: {
+          reason: "Docker is not installed or not on PATH.",
+          ociRuntimes: [],
+          endpoint: null,
+        },
+      },
       "Docker is not installed or not on PATH.",
     ],
     [
@@ -398,12 +418,46 @@ describe("disabled with a reason", () => {
     [recipe({ runtime: "apple", network: "agents" }), probed, null],
     [
       recipe({ ociRuntime: "runsc" }),
-      { ...probed, docker: { reason: null, ociRuntimes: ["runc", "runsc"] } },
+      {
+        ...probed,
+        docker: { reason: null, ociRuntimes: ["runc", "runsc"], endpoint: "unix:///x" },
+      },
       null,
     ],
   ] as const)("%#", (current, host, reason) => {
     expect(recipeRefusal(runtimeStatuses(host, current), current)).toBe(reason);
   });
+
+  it.effect.each([
+    { name: "an unreadable context", options: { context: { stdout: "", code: 1 } } },
+    { name: "an empty context endpoint", options: { context: { stdout: " ", code: 0 } } },
+    {
+      name: "a lower-case docker_host on Windows",
+      options: { platform: "win32" as const, env: { docker_host: "ssh://user@build-host" } },
+    },
+  ])("Docker stays off for $name", ({ options }) =>
+    withSandbox(options, () =>
+      Effect.gen(function* () {
+        const status = yield* (yield* ContainerSandbox).status({});
+        expect(status.runtimes[0]?.available).toBe(false);
+      }),
+    ),
+  );
+
+  it.effect("refuses a launch with its own Docker config", () =>
+    withSandbox({}, () =>
+      Effect.gen(function* () {
+        yield* (yield* ContainerSandbox).configure(
+          { thread: { threadId: THREAD, mode: "on" } },
+          "user",
+        );
+        const exit = yield* Effect.exit(
+          wrapAs("claude", { DOCKER_CONFIG: "/tmp/elsewhere" }, THREAD),
+        );
+        expect(exit._tag).toBe("Failure");
+      }),
+    ),
+  );
 
   it.effect("cleanup never reaches an engine away from this machine", () =>
     withSandbox(
@@ -415,7 +469,7 @@ describe("disabled with a reason", () => {
           expect(yield* scope.kill(THREAD)).toBe(false);
           yield* (yield* ContainerSandbox).removeThread(THREAD);
           const acting = host.calls.filter((call) =>
-            ["ps", "rm", "kill", "list", "delete"].includes(call[1] ?? ""),
+            call.some((arg) => ["ps", "rm", "kill", "list", "delete"].includes(arg)),
           );
           expect(acting).toEqual([]);
         }),

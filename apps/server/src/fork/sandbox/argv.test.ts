@@ -108,6 +108,15 @@ describe("runArgs", () => {
     expect(full.slice(0, 4)).toEqual(["run", "--rm", "-i", "-t"]);
   });
 
+  it("pins Docker to the verified engine; Apple has no such flag", () => {
+    expect(runArgs(spec({ endpoint: "npipe:////./pipe/docker_engine" })).slice(0, 3)).toEqual([
+      "-H",
+      "npipe:////./pipe/docker_engine",
+      "run",
+    ]);
+    expect(runArgs(spec({ runtime: "apple", endpoint: "unix:///x" }))[0]).toBe("run");
+  });
+
   it("keeps a named network", () => {
     expect(valuesOf(runArgs(spec({ network: "agents" })), "--network")).toEqual(["agents"]);
   });

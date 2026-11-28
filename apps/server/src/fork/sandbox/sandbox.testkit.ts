@@ -62,6 +62,9 @@ export const layerSandbox = (options: {
   readonly host: Host;
   readonly recipe?: Partial<SandboxRecipe>;
   readonly docker?: boolean;
+  /** What `docker context inspect` prints and exits with; a local socket by default. */
+  readonly context?: { readonly stdout: string; readonly code: number };
+  readonly platform?: NodeJS.Platform;
   readonly listed?: string;
   readonly env?: NodeJS.ProcessEnv;
   /** Threads already in containers before this start. */
@@ -79,17 +82,22 @@ export const layerSandbox = (options: {
     options.host.calls.push([input.command, ...input.args]);
     if (input.command !== "docker") return Effect.fail(notFound(input.command));
     if (options.docker === false) return Effect.fail(notFound(input.command));
-    switch (input.args[0]) {
+    // Commands pinned to the verified engine start with `-H <endpoint>`.
+    const args = input.args[0] === "-H" ? input.args.slice(2) : input.args;
+    switch (args[0]) {
       case "context":
-        return Effect.succeed(output("unix:///var/run/docker.sock\n"));
+        return Effect.succeed(
+          output(
+            options.context?.stdout ?? "unix:///var/run/docker.sock\n",
+            options.context?.code ?? 0,
+          ),
+        );
       case "info":
         return Effect.succeed(output('{"runc":{},"runsc":{}}'));
       case "ps":
         return Effect.succeed(output(options.listed ?? ""));
       case "rm":
-        return Deferred.succeed(options.host.removed, input.args.slice(2)).pipe(
-          Effect.as(output("")),
-        );
+        return Deferred.succeed(options.host.removed, args.slice(2)).pipe(Effect.as(output("")));
       default:
         return Effect.succeed(output(""));
     }
@@ -131,7 +139,7 @@ export const layerSandbox = (options: {
         options.realHost === true
           ? Layer.empty
           : Layer.mergeAll(
-              Layer.succeed(HostProcess.Platform, "linux"),
+              Layer.succeed(HostProcess.Platform, options.platform ?? "linux"),
               Layer.succeed(HostProcess.Environment, options.env ?? { PATH: "" }),
             ),
       ),
