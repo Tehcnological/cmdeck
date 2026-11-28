@@ -1210,8 +1210,7 @@ const layerMakeServer = Layer.unwrap(
               Effect.ignore,
               Effect.forever,
             );
-            // The waits stay interruptible so shutdown is never blocked; the route is only ours to
-            // remove once it is set.
+            // The waits stay interruptible so shutdown is never blocked.
             yield* Effect.forkScoped(
               Effect.uninterruptibleMask((restore) =>
                 restore(claim).pipe(
