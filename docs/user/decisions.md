@@ -1,7 +1,8 @@
 # Decision service
 
 CMDeck answers a few small questions on its own: which model a scheduled task's new thread starts
-on, and which saved memory facts are worth a place in a turn's prompt. Each question has a fixed
+on, and which saved memory facts are worth a place in a turn's prompt. The same model can also
+learn [lessons](./memory.md#lessons) from a project's chats. Each question has a fixed
 rule that needs no model. A model is asked only when you have set one up **and** allowed it for
 that question; anything it gets wrong, slow or unanswered falls back to the rule.
 
@@ -53,5 +54,6 @@ Nothing is sent until a question also has your consent. Consent is per question:
 - **Remote**: any configured text generator, allowed one project at a time.
 
 Each consent is recorded with its time, and granting or withdrawing one is written to the
-[audit log](./audit-log.md). There is no screen for consent yet, so until there is, every
-question uses its rule. CMDeck never calls a hosted decision service and never downloads a model.
+[audit log](./audit-log.md). There is no screen for these questions' consent yet, so until there
+is, each uses its rule. [Lessons](./memory.md#lessons) use the same model and consent, given one
+project at a time in **Settings → Memory → Lessons**. CMDeck never calls a hosted decision service and never downloads a model.

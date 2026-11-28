@@ -25,6 +25,17 @@ A **rule** is given to every turn it applies to. A **fact** is given only when i
 
 Every change is kept, so every action can be undone.
 
+## Lessons
+
+CMDeck can learn from your chats: when you correct an agent ("no, use pnpm here"), it proposes that correction as a fact for the project. Lessons are off for every project.
+
+1. Set a [decision model](./decisions.md#using-a-model). Lessons are read by that model, never by a hosted service.
+2. In **Settings → Memory → Lessons**, choose a project's setting. **Local model only** reads the project's chats only while the decision model is on this machine, your local network or your tailnet. **Any model** allows whichever decision model you set.
+
+A thread is read after it has been quiet for three hours, or sooner once 30 new messages have built up. Only what you typed and what the agent answered is read. Tool output, command and monitor output, messages from other threads, scheduled and webhook prompts are never read, so text an agent came across cannot become a lesson. Incognito and temporary threads are never read.
+
+Each lesson arrives as a proposed fact for the project. Accept it to start using it, or edit it into a rule first if it should apply to every turn. Turning a project off stops any further reading; lessons you accepted stay until you retire them.
+
 ## Memory modes
 
 The memory chip in the composer shows the thread's mode:

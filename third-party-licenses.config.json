@@ -3,6 +3,21 @@
     {
       "bundles": ["desktop", "web"],
       "license": "Apache-2.0",
+      "name": "Kiro Crew lesson consolidation prompt (lessons)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/blob/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/history_consolidation_pass.py",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "Ported to TypeScript for CMDeck's lessons (apps/server/src/fork/lessons/prompt.ts and Lessons.ts) from the lessons key of history_consolidation_pass.py, _MAX_LESSONS_PER_CONSOLIDATION in vector_memory_constants.py, and the message threshold and idle wait in history_consolidation.py. Changes: lessons only, with no semantic, episodic or preference keys; no tier or repository scope, since every lesson arrives as a pending project fact a person accepts; the conversation is fenced as data and the reply is a JSON object."
+          ]
+        }
+      ]
+    },
+    {
+      "bundles": ["desktop", "web"],
+      "license": "Apache-2.0",
       "name": "Kiro Crew knowledge chunker and ignore rules (knowledge library)",
       "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/knowledge",
       "generatedNotices": [

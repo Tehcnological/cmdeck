@@ -5,6 +5,7 @@ export { ensureCheckScriptsSchema } from "./checkScripts/schema.ts";
 export { ensureDecisionsSchema } from "./decisions/schema.ts";
 export { ensureKnowledgeSchema } from "./knowledge/schema.ts";
 export { ensureEventTriggersSchema } from "./eventTriggers/schema.ts";
+export { ensureLessonsSchema } from "./lessons/schema.ts";
 export { ensureMemorySchema } from "./memory/schema.ts";
 export { ensureMessagePinsSchema } from "./messagePins/schema.ts";
 export { ensureNotificationsSchema } from "./notifications/schema.ts";

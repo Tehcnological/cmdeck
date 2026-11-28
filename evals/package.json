@@ -13,6 +13,7 @@
     "test-signal": "node --env-file-if-exists=../.env test-signal/run.ts",
     "workflow-authoring": "node --env-file-if-exists=../.env workflow-authoring/run.ts",
     "code-review": "node --env-file-if-exists=../.env code-review/run.ts",
+    "lessons": "node --env-file-if-exists=../.env lessons/run.ts",
     "typecheck": "effect-tsgo tsrs --noEmit",
     "test": "vp test run --config ../vite.config.ts --dir ."
   },

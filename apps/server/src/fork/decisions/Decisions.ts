@@ -73,6 +73,11 @@ export class Decisions extends Context.Service<
       readonly prompt: string;
       readonly requested: ModelSelection;
     }) => Effect.Effect<Decided<ModelRoute>>;
+    /** The model a point may ask for a project now, or why it must keep to its rule. */
+    readonly modelFor: (
+      point: DecisionPoint,
+      projectId: ProjectId | null,
+    ) => Effect.Effect<ModelChoice, DecisionsError>;
     readonly status: Effect.Effect<DecisionsStatus, DecisionsError>;
     readonly setConsent: (input: DecisionConsentSetInput) => Effect.Effect<void, DecisionsError>;
   }
@@ -100,7 +105,7 @@ interface ConsentRow {
   readonly granted_at: string;
 }
 
-type ModelChoice =
+export type ModelChoice =
   | { readonly source: DecisionConsentSource; readonly model: DecisionModelSetting }
   | { readonly source: "rules"; readonly reason: string };
 
@@ -274,7 +279,16 @@ const make = Effect.gen(function* () {
     ),
   );
 
-  return Decisions.of({ decide, routeAutomation, status, setConsent });
+  return Decisions.of({
+    decide,
+    routeAutomation,
+    modelFor: Effect.fn("Decisions.modelForPoint")(
+      (point: DecisionPoint, projectId: ProjectId | null) => modelFor(point, projectId),
+      Effect.mapError(failed("Could not read the decision settings.")),
+    ),
+    status,
+    setConsent,
+  });
 });
 
 export const layer = Layer.effect(Decisions, make);

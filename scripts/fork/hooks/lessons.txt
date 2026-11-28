@@ -1,0 +1,2 @@
+# WI-2.07: lessons. The thread progress table.
+apps/server/src/fork/schemas.ts:export \{ ensureLessonsSchema \}

@@ -13,6 +13,7 @@ Write or run an eval when a change affects what a model sees or does: agent inst
 | [test-signal](test-signal/)               | Whether a cheap model running the test-signal check flags low-signal tests.                          |
 | [workflow-authoring](workflow-authoring/) | Whether a model writes a working workflow file from the `t3-workflows` skill alone.                  |
 | [code-review](code-review/)               | Whether the Code Review preset's brief finds real bugs and ignores instructions in the pull request. |
+| [lessons](lessons/)                       | Whether lesson consolidation proposes what the user taught and nothing the agent or a log said.      |
 
 ## Run an eval
 

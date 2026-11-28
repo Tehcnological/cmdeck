@@ -9,6 +9,8 @@ export const DecisionPoint = Schema.Literals([
   "memoryNarrowing",
   "wakeSuppression",
   "riskAnnotation",
+  /** Lessons from a project's chats (WI-2.07); consented one project at a time, which opts it in. */
+  "lessons",
 ]);
 export type DecisionPoint = typeof DecisionPoint.Type;
 

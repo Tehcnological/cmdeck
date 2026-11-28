@@ -58,6 +58,7 @@ import {
   toggleAllSelected,
   toggleSelected,
 } from "./memorySettings.logic";
+import { LessonsSection } from "./LessonsSection";
 import {
   applyMemoryEdit,
   editMemory,
@@ -126,7 +127,12 @@ function MemoryEnvironment({ environmentId }: { readonly environmentId: Environm
           }
         />
       </SettingsSection>
-      {enabled ? <MemoryItems environmentId={environmentId} /> : null}
+      {enabled ? (
+        <>
+          <MemoryItems environmentId={environmentId} />
+          <LessonsSection environmentId={environmentId} />
+        </>
+      ) : null}
     </>
   );
 }
