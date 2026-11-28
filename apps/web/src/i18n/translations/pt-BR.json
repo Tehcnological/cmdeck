@@ -3033,6 +3033,8 @@
   "2ffc023296dd419d": "Informe seu perfil e sua região da AWS. Deixe um modelo vazio para usar o padrão do Claude Code.",
   "cdbeeaaa0371bb84": "Adicionar o fluxo de trabalho Task Runner",
   "d11c0fe527862ae6": "Não foi possível adicionar o Task Runner",
+  "e9fdf016f1a52848": "Adicionar o fluxo de trabalho Research Lab",
+  "dba121f5fe884dd7": "Não foi possível adicionar o Research Lab",
   "9b2f6da5bd526fb2": "Seu ambiente padrão não está conectado",
   "b52720786b8d772e": "{environment} não está conectado",
   "b8c9370425928547": "Este thread começa em {environment}.",
