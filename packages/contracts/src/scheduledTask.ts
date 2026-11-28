@@ -10,6 +10,7 @@ import {
   ThreadId,
   TrimmedNonEmptyString,
 } from "./baseSchemas.ts";
+import { ScheduledTaskEventSchedule } from "./fork/eventTriggers.ts";
 import { ModelSelection } from "./modelSelection.ts";
 import {
   OrchestrationV2Actor,
@@ -324,6 +325,7 @@ export const ScheduledTaskSchedule = Schema.Union([
   ScheduledTaskOnceSchedule,
   ScheduledTaskWebhookSchedule,
   ScheduledTaskCronSchedule,
+  ScheduledTaskEventSchedule,
 ]);
 export type ScheduledTaskSchedule = typeof ScheduledTaskSchedule.Type;
 
@@ -340,6 +342,7 @@ export const ScheduledTaskUpsertSchedule = Schema.Union([
   ScheduledTaskOnceSchedule,
   ScheduledTaskUpsertWebhookSchedule,
   ScheduledTaskUpsertCronSchedule,
+  ScheduledTaskEventSchedule,
 ]);
 export type ScheduledTaskUpsertSchedule = typeof ScheduledTaskUpsertSchedule.Type;
 

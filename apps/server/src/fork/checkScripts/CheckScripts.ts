@@ -34,6 +34,8 @@ import * as ServerConfig from "../../config.ts";
 import * as ProjectStore from "../../orchestration-v2/ProjectStore.ts";
 import * as ProcessRunner from "../../processRunner.ts";
 import * as AuditLog from "../audit/AuditLog.ts";
+import { CurrentEvents } from "../eventTriggers/currentEvents.ts";
+import { eventsJson } from "../eventTriggers/matching.ts";
 import {
   clip,
   failureMessage,
@@ -235,6 +237,7 @@ const make = Effect.gen(function* () {
       );
       yield* fileSystem.makeDirectory(taskStateDir, { recursive: true }).pipe(Effect.ignore);
       const firedAt = DateTime.formatIso(yield* DateTime.now);
+      const events = yield* CurrentEvents;
       const result = yield* runCheckScript({
         interpreter: state.interpreter,
         script: state.script,
@@ -246,7 +249,8 @@ const make = Effect.gen(function* () {
           CMDECK_PROJECT_DIR: project.value.workspaceRoot,
           CMDECK_STATE_DIR: taskStateDir,
           CMDECK_FIRED_AT: firedAt,
-          CMDECK_TRIGGER: trigger,
+          CMDECK_TRIGGER: events === null ? trigger : "event",
+          ...(events === null ? {} : { CMDECK_EVENTS: eventsJson(events) }),
           CMDECK_PREVIOUS_RUN_AT: task.lastRunAt ?? "",
           CMDECK_PREVIOUS_RUN_STATUS: task.lastRunStatus === "never" ? "" : task.lastRunStatus,
         },

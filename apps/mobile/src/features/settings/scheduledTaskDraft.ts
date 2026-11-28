@@ -126,6 +126,8 @@ export function scheduleDraftForTask(task: Pick<ScheduledTask, "schedule">): Sch
         filters: webhookFilterDrafts(task.schedule.filters),
         savedFilters: webhookFilterDrafts(task.schedule.filters),
       };
+    case "event":
+      return DEFAULT_SCHEDULE;
   }
 }
 
