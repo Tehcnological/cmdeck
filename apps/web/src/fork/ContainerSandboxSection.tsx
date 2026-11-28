@@ -151,14 +151,6 @@ function ContainerSandbox({ environmentId }: { readonly environmentId: Environme
           </Select>
         }
       />
-      {current.runtime === "apple" ? (
-        <p className="px-4 pb-2 text-xs text-muted-foreground sm:px-5">
-          <T>
-            Apple container cannot mount read-only, so the container gets copies of .git/config and
-            hooks, and its changes to them are discarded.
-          </T>
-        </p>
-      ) : null}
       {current.runtime === "docker" && ociRuntimes.length > 0 ? (
         <SettingsRow
           title={gt("OCI runtime")}

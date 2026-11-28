@@ -3091,7 +3091,6 @@
   "27ae3688d1bf238b": "Run {project} in a container",
   "9ec433045537acfc": "Check again",
   "b997d827862b5334": "Run a thread's agent and terminals in a container that sees only its worktree and the paths you add. A container is not a virtual machine: it shares this computer's kernel. Changes apply the next time the agent or a terminal starts. Only Claude can run in a container for now.",
-  "f7d3fdc39794dacf": "Apple container cannot mount read-only, so the container gets copies of .git/config and hooks, and its changes to them are discarded.",
   "203eb217481ab8da": "Ready to start containers.",
   "741bf3adb2eb7c78": "Choose an image to turn containers on.",
   "d603ac8cb7716b56": "Where new threads start when their project is on that machine. While it is offline, they start on the current one.",

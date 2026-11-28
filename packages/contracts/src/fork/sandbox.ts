@@ -39,8 +39,6 @@ export const SandboxRuntimeStatus = Schema.Struct({
   reason: Schema.NullOr(Schema.String),
   /** OCI runtimes Docker reports, such as `runc` and `runsc`. */
   ociRuntimes: Schema.Array(Schema.String),
-  /** Apple `container` cannot mount read-only, so `.git` config and hooks are copies there. */
-  gitOverlayIsCopy: Schema.Boolean,
 });
 export type SandboxRuntimeStatus = typeof SandboxRuntimeStatus.Type;
 

@@ -3091,7 +3091,6 @@
   "27ae3688d1bf238b": "Ejecutar {project} en un contenedor",
   "9ec433045537acfc": "Volver a comprobar",
   "b997d827862b5334": "Ejecuta el agente y las terminales de un hilo en un contenedor que solo ve su worktree y las rutas que añadas. Un contenedor no es una máquina virtual: comparte el kernel de este equipo. Los cambios se aplican la próxima vez que se inicie el agente o una terminal. Por ahora solo Claude puede ejecutarse en un contenedor.",
-  "f7d3fdc39794dacf": "Apple container no puede montar en solo lectura, así que el contenedor recibe copias de .git/config y de los hooks, y sus cambios en ellas se descartan.",
   "203eb217481ab8da": "Listo para iniciar contenedores.",
   "741bf3adb2eb7c78": "Elige una imagen para activar los contenedores.",
   "d603ac8cb7716b56": "Dónde empiezan los hilos nuevos cuando su proyecto está en esa máquina. Mientras esté sin conexión, empiezan en la actual.",

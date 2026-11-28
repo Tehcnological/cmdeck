@@ -17,6 +17,7 @@ import {
   type Host,
   layerSandbox,
   makeHost,
+  gitIn,
   makeWorkspace,
   PROJECT,
   THREAD,
@@ -90,10 +91,16 @@ describe("ContainerSandbox", () => {
         expect(valuesOf(agent.args, "--label")).toContain(`cmdeck.thread=${THREAD}`);
         expect(valuesOf(agent.args, "--network")).toEqual(["none"]);
         expect(valuesOf(agent.args, "-w")).toEqual([workspace]);
-        expect(valuesOf(agent.args, "-e")).toEqual(["ANTHROPIC_API_KEY", "T3CODE_THREAD_ID"]);
+        expect(valuesOf(agent.args, "-e")).toEqual([
+          "ANTHROPIC_API_KEY",
+          "T3CODE_THREAD_ID",
+          "GIT_DIR=/cmdeck/git",
+          `GIT_WORK_TREE=${workspace}`,
+        ]);
         const mounts = valuesOf(agent.args, "--mount");
-        expect(mounts[0]).toBe(`type=bind,source=${workspace},target=${workspace}`);
-        expect(mounts.filter((mount) => mount.endsWith(",readonly"))).toHaveLength(5);
+        expect(mounts).toContain(`type=bind,source=${workspace},target=${workspace}`);
+        // The host's objects and the cover over its .git.
+        expect(mounts.filter((mount) => mount.endsWith(",readonly"))).toHaveLength(2);
         expect(agent.args.slice(-3)).toEqual(["acme/agent:1", "claude", "--print"]);
 
         // Terminals carry the thread only in their environment.
@@ -281,28 +288,33 @@ describe("git layout", () => {
     yield* fileSystem.writeFileString(path.join(worktree, ".git"), `gitdir: ${admin}\n`);
   });
 
-  it.effect("mounts a linked worktree's own repository", () =>
+  it.effect("gives a linked worktree its repository's objects read-only, never its git dirs", () =>
     Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const root = yield* fileSystem.makeTempDirectoryScoped({ prefix: "cmdeck-root-" });
-      const worktree = yield* fileSystem.makeTempDirectoryScoped({ prefix: "cmdeck-wt-" });
-      yield* linkedWorktree(root, worktree);
+      const root = yield* makeWorkspace;
+      const worktree = path.join(
+        yield* fileSystem.makeTempDirectoryScoped({ prefix: "cmdeck-wt-" }),
+        "wt",
+      );
+      yield* gitIn(root, ["worktree", "add", "-q", "-b", "thread", worktree]);
       const exit = yield* launchIn({ projectRoot: root, workspace: worktree });
       expect(exit._tag).toBe("Success");
       if (exit._tag !== "Success") return;
-      expect(valuesOf(exit.value.args, "--mount")).toContain(
-        `type=bind,source=${path.join(root, ".git")},target=${path.join(root, ".git")}`,
-      );
       const mounts = valuesOf(exit.value.args, "--mount");
-      const at = (host: string, readOnly: boolean) =>
-        `type=bind,source=${host},target=${host}${readOnly ? ",readonly" : ""}`;
-      expect(mounts).toContain(at(path.join(root, ".git", "worktrees"), true));
-      expect(mounts).toContain(at(path.join(root, ".git", "modules"), true));
-      expect(mounts).toContain(at(path.join(root, ".git", "worktrees", "wt"), false));
-      // Parents mount before children, so the read-only pointers sit on top of the admin dir.
-      expect(mounts.indexOf(at(path.join(root, ".git", "worktrees", "wt"), false))).toBeLessThan(
-        mounts.indexOf(at(path.join(root, ".git", "worktrees", "wt", "gitdir"), true)),
+      const commonDir = yield* gitIn(root, [
+        "rev-parse",
+        "--path-format=absolute",
+        "--git-common-dir",
+      ]);
+      expect(mounts).toContain(
+        `type=bind,source=${path.join(commonDir, "objects")},target=/cmdeck/host-objects,readonly`,
+      );
+      // The worktree's pointer file covers itself, read-only.
+      const dotGit = path.join(worktree, ".git");
+      expect(mounts).toContain(`type=bind,source=${dotGit},target=${dotGit},readonly`);
+      expect(mounts.some((mount) => mount.includes(`source=${path.join(root, ".git")},`))).toBe(
+        false,
       );
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );

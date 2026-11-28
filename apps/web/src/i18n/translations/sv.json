@@ -3091,7 +3091,6 @@
   "27ae3688d1bf238b": "Kör {project} i en container",
   "9ec433045537acfc": "Kontrollera igen",
   "b997d827862b5334": "Kör en tråds agent och terminaler i en container som bara ser trådens worktree och de sökvägar du lägger till. En container är ingen virtuell maskin: den delar den här datorns kärna. Ändringar gäller nästa gång agenten eller en terminal startar. Än så länge kan bara Claude köras i en container.",
-  "f7d3fdc39794dacf": "Apple container kan inte montera skrivskyddat, så containern får kopior av .git/config och hooks, och dess ändringar i dem kastas.",
   "203eb217481ab8da": "Redo att starta containrar.",
   "741bf3adb2eb7c78": "Välj en avbildning för att slå på containrar.",
   "d603ac8cb7716b56": "Var nya trådar startar när deras projekt finns på den maskinen. Medan den är offline startar de på den aktuella.",

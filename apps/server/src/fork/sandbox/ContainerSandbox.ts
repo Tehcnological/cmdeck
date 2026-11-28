@@ -41,8 +41,6 @@ import {
   containerCommand,
   containerPathFor,
   forwardedEnvKeys,
-  type GitLayout,
-  gitProtectedPaths,
   isLocalDockerEndpoint,
   LABEL_BOOT,
   LABEL_OWNER,
@@ -56,6 +54,7 @@ import {
   RUNTIME_TRAITS,
   runArgs,
 } from "./argv.ts";
+import * as PrivateGit from "./privateGit.ts";
 
 /** Only Claude starts one CLI process per thread; Codex shares one app-server across threads. */
 const CONTAINER_DRIVERS: ReadonlySet<string> = new Set(["claudeAgent"]);
@@ -114,14 +113,12 @@ export function runtimeStatuses(
       available: dockerReason === null,
       reason: dockerReason,
       ociRuntimes: [...probed.docker.ociRuntimes],
-      gitOverlayIsCopy: false,
     },
     {
       kind: "apple",
       available: appleReason === null,
       reason: appleReason,
       ociRuntimes: [],
-      gitOverlayIsCopy: true,
     },
   ];
 }
@@ -151,6 +148,8 @@ interface ModeRow {
 const decodeRecipe = Schema.decodeEffect(Schema.fromJsonString(SandboxRecipe));
 const encodeRecipe = Schema.encodeEffect(Schema.fromJsonString(SandboxRecipe));
 
+const safeId = (threadId: string) => threadId.replace(/[^A-Za-z0-9_-]/g, "_");
+
 const toError = (detail: string) => (cause: unknown) => new SandboxError({ detail, cause });
 
 const make = Effect.gen(function* () {
@@ -174,7 +173,7 @@ const make = Effect.gen(function* () {
   const owner = ownerLabel(stateDir);
   // Containers from an earlier server run carry another boot id, so the reaper never races new ones.
   const boot = NodeCrypto.randomUUID().slice(0, 8);
-  const copiesDir = path.join(stateDir, "sandbox", "git-copies");
+  const privateGit = yield* PrivateGit.make;
 
   // Kept in this module's table, not settings.json: only configure, which validates and audits,
   // may change what a sandboxed agent can reach.
@@ -328,18 +327,7 @@ const make = Effect.gen(function* () {
   const remove = (runtime: SandboxRuntimeKind, names: ReadonlyArray<string>) =>
     names.length === 0
       ? Effect.void
-      : runOn(runtime, removeArgs(runtime, names)).pipe(
-          Effect.andThen(
-            Effect.forEach(
-              names,
-              (name) =>
-                fileSystem
-                  .remove(path.join(copiesDir, name), { recursive: true })
-                  .pipe(Effect.ignore),
-              { discard: true },
-            ),
-          ),
-        );
+      : runOn(runtime, removeArgs(runtime, names)).pipe(Effect.asVoid);
 
   // The runtime cleanup may use: the configured one, only while its probe found it local and up.
   // A remote DOCKER_HOST or context must never receive a list, kill or remove either.
@@ -376,6 +364,10 @@ const make = Effect.gen(function* () {
         own.map((listed) => listed.name),
       );
       agentContainers.delete(threadId);
+      const paths = yield* gitPathsOf(threadId);
+      if (paths !== null && (yield* importInto(threadId, paths)) !== "failed") {
+        yield* fileSystem.remove(paths.privateDir, { recursive: true }).pipe(Effect.ignore);
+      }
     },
     (effect) => Effect.ignore(effect),
   );
@@ -389,151 +381,66 @@ const make = Effect.gen(function* () {
       .get(thread.projectId)
       .pipe(Effect.orElseSucceed(() => Option.none()));
     if (Option.isNone(project)) return null;
-    const projectRoot = project.value.workspaceRoot;
-    return { workspace: thread.worktreePath || projectRoot, projectRoot };
+    return thread.worktreePath || project.value.workspaceRoot;
   });
 
-  // A path is "real" when no link along it leads elsewhere; compared after resolving its parent.
-  const isReal = (target: string) =>
-    Effect.all([fileSystem.realPath(target), fileSystem.realPath(path.dirname(target))]).pipe(
-      Effect.map(([resolved, parent]) => resolved === path.join(parent, path.basename(target))),
-      Effect.orElseSucceed(() => false),
-    );
-  const readPointer = (file: string) =>
-    fileSystem.readFileString(file).pipe(
-      Effect.map((text) => text.trim()),
-      Effect.option,
-    );
-  const refuseLayout = (detail: string) =>
-    Effect.fail(
-      new SandboxError({ detail: `The thread's git layout cannot be trusted: ${detail}` }),
-    );
-
-  /**
-   * The workspace's git layout, anchored on the project's own `.git` directory on the host. Files
-   * inside the workspace are the container's to write, so a `.git` file or pointer is believed only
-   * when it leads back to that repository; anything else refuses the launch.
-   */
-  const gitLayout = Effect.fn("ContainerSandbox.gitLayout")(function* (
-    workspace: string,
-    projectRoot: string,
-  ) {
-    const dotGit = path.join(workspace, ".git");
-    const info = yield* fileSystem.stat(dotGit).pipe(Effect.option);
-    if (Option.isNone(info)) return null;
-    if (!(yield* isReal(dotGit))) return yield* refuseLayout(".git is a link.");
-    const projectGit = path.join(projectRoot, ".git");
-    const projectGitReal = yield* fileSystem.realPath(projectGit).pipe(Effect.option);
-    const sameAsProject =
-      (yield* fileSystem.realPath(workspace).pipe(Effect.option)).pipe(Option.getOrUndefined) ===
-      (yield* fileSystem.realPath(projectRoot).pipe(Effect.option)).pipe(Option.getOrUndefined);
-    if (info.value.type === "Directory") {
-      if (!sameAsProject) return yield* refuseLayout(".git is a directory in a linked worktree.");
-      return { commonDir: dotGit, adminDir: dotGit, dotGitFile: null } satisfies GitLayout;
-    }
-    if (sameAsProject || Option.isNone(projectGitReal)) {
-      return yield* refuseLayout(".git is not the project's repository directory.");
-    }
-    const commonDir = projectGitReal.value;
-    const pointer = /^gitdir:\s*(.+)$/m.exec(
-      (yield* readPointer(dotGit)).pipe(Option.getOrElse(() => "")),
-    );
-    const adminDir = yield* fileSystem
-      .realPath(path.resolve(workspace, pointer?.[1]?.trim() ?? ""))
-      .pipe(Effect.option);
-    if (pointer === null || Option.isNone(adminDir)) return yield* refuseLayout("no gitdir.");
-    if (path.dirname(adminDir.value) !== path.join(commonDir, "worktrees")) {
-      return yield* refuseLayout("gitdir is outside the project's worktrees.");
-    }
-    const backPointer = yield* readPointer(path.join(adminDir.value, "gitdir"));
-    const backReal = Option.isSome(backPointer)
-      ? yield* fileSystem
-          .realPath(path.resolve(adminDir.value, backPointer.value))
-          .pipe(Effect.option)
-      : Option.none<string>();
-    const dotGitReal = yield* fileSystem.realPath(dotGit);
-    if (Option.getOrUndefined(backReal) !== dotGitReal) {
-      return yield* refuseLayout("the worktree's gitdir does not point back to it.");
-    }
-    const commonPointer = yield* readPointer(path.join(adminDir.value, "commondir"));
-    const commonReal = Option.isSome(commonPointer)
-      ? yield* fileSystem
-          .realPath(path.resolve(adminDir.value, commonPointer.value))
-          .pipe(Effect.option)
-      : Option.none<string>();
-    if (Option.getOrUndefined(commonReal) !== commonDir) {
-      return yield* refuseLayout("commondir is not the project's repository.");
-    }
-    return { commonDir, adminDir: adminDir.value, dotGitFile: dotGit } satisfies GitLayout;
+  // Thread ids name directories and refs, so only plain characters reach either.
+  const gitPathsOf = Effect.fn("ContainerSandbox.gitPathsOf")(function* (threadId: string) {
+    const workspace = yield* workspaceOf(threadId);
+    if (workspace === null) return null;
+    const dir = path.join(stateDir, "sandbox");
+    const safe = safeId(threadId);
+    return {
+      workspace,
+      privateDir: path.join(dir, "git", safe),
+      quarantineDir: path.join(dir, "import", safe),
+      coverDir: path.join(dir, "cover"),
+      hooksDir: path.join(dir, "no-hooks"),
+    } satisfies PrivateGit.PrivateGitPaths;
   });
 
-  const inside = (child: string, parent: string) => {
-    const relative = path.relative(parent, child);
-    return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
-  };
+  /** Imports the agent's commits; a git dir that cannot be imported is set aside, never reused. */
+  const importInto = (threadId: string, paths: PrivateGit.PrivateGitPaths) =>
+    privateGit
+      .importCommits(paths, `refs/cmdeck/sandbox/${safeId(threadId)}`)
+      .pipe(
+        Effect.catchCause((cause) =>
+          Effect.logWarning("Could not import a container's commits", { threadId, cause }).pipe(
+            Effect.andThen(privateGit.setAside(paths, NodeCrypto.randomUUID().slice(0, 8))),
+            Effect.as("failed" as const),
+          ),
+        ),
+      );
 
   const expandHome = (value: string) =>
     value === "~" || value.startsWith("~/") || value.startsWith("~\\")
       ? path.join(homeDirectory, value.slice(1))
       : value;
 
-  const mountsFor = Effect.fn("ContainerSandbox.mountsFor")(function* (
+  const mountsFor = (
     workspace: string,
-    projectRoot: string,
     current: SandboxRecipe,
-    name: string,
-  ) {
+    git: ReadonlyArray<ContainerMount>,
+  ) => {
     const at = (hostPath: string, readOnly: boolean): ContainerMount => ({
       hostPath,
       containerPath: containerPathFor(hostPath, platform),
       readOnly,
     });
-    const mounts: Array<ContainerMount> = [at(workspace, false)];
-    const layout = yield* gitLayout(workspace, projectRoot);
-    if (layout !== null) {
-      // A linked worktree's objects and refs live in the main checkout's git dir.
-      if (!inside(layout.commonDir, workspace)) mounts.push(at(layout.commonDir, false));
-      const copy = !RUNTIME_TRAITS[current.runtime].readOnlyMounts;
-      let index = 0;
-      for (const target of gitProtectedPaths(layout, path.join)) {
-        const exists = yield* fileSystem
-          .exists(target.path)
-          .pipe(Effect.orElseSucceed(() => false));
-        if (exists && !(yield* isReal(target.path))) {
-          return yield* refuseLayout(`${path.basename(target.path)} is a link.`);
-        }
-        if (!exists) {
-          if (!target.create) continue;
-          yield* target.kind === "dir"
-            ? fileSystem.makeDirectory(target.path, { recursive: true })
-            : fileSystem.writeFileString(target.path, "", { flag: "wx" }).pipe(Effect.ignore);
-        }
-        if (target.writable === true || !copy) {
-          mounts.push(at(target.path, target.writable !== true));
-          continue;
-        }
-        // Apple cannot mount read-only: the container gets a copy, and its writes stay in the copy.
-        const copied = path.join(copiesDir, name, `${index++}-${path.basename(target.path)}`);
-        yield* fileSystem.makeDirectory(path.dirname(copied), { recursive: true });
-        // Hooks only matter to git on the host, and a copied link could read any host file.
-        yield* target.kind === "dir"
-          ? fileSystem.makeDirectory(copied)
-          : fileSystem.copyFile(target.path, copied);
-        mounts.push({
-          hostPath: copied,
-          containerPath: containerPathFor(target.path, platform),
-          readOnly: false,
-        });
-      }
-    }
-    for (const extra of current.mounts) mounts.push(at(expandHome(extra.hostPath), extra.readOnly));
-    // Parents first, so a read-only overlay always lands on top of the mount that contains it.
+    const mounts = [
+      at(workspace, false),
+      ...git,
+      ...current.mounts.map((extra) => at(expandHome(extra.hostPath), extra.readOnly)),
+    ];
+    // Parents first, so the read-only cover over .git lands on top of the worktree mount.
     const depth = (mount: ContainerMount) => mount.containerPath.split(/[\\/]/).length;
     return mounts.toSorted((a, b) => depth(a) - depth(b));
-  });
+  };
 
   // Agent containers per thread, for `kill`. Terminals are not the agent and are never killed here.
   const agentContainers = new Map<string, string>();
+  // The thread of each agent container, so stopping one imports its commits.
+  const agentUnits = new Map<string, string>();
 
   const launch = Effect.fn("ContainerSandbox.launch")(function* (
     threadId: string,
@@ -554,20 +461,21 @@ const make = Effect.gen(function* () {
           "This launch's environment points Docker at another engine. CMDeck only uses the local one.",
       });
     }
-    const located = yield* workspaceOf(threadId);
-    if (located === null) {
+    const paths = yield* gitPathsOf(threadId);
+    if (paths === null) {
       return yield* new SandboxError({ detail: "The thread has no workspace to mount." });
     }
-    const { workspace, projectRoot } = located;
-    const name = `cmdeck-${input.name}-${NodeCrypto.randomUUID().slice(0, 12)}`;
-    const mounts = yield* mountsFor(workspace, projectRoot, current, name).pipe(
-      Effect.catchTags({
-        PlatformError: (cause) =>
-          Effect.fail(
-            new SandboxError({ detail: "Could not prepare the container's mounts.", cause }),
-          ),
-      }),
+    const { workspace } = paths;
+    const agent = input.name !== "terminal";
+    // Commits left by an earlier agent come home before its git dir is rebuilt.
+    if (agent) yield* importInto(threadId, paths);
+    const git = yield* privateGit.prepare(
+      paths,
+      (hostPath) => containerPathFor(hostPath, platform),
+      agent,
     );
+    const name = `cmdeck-${input.name}-${NodeCrypto.randomUUID().slice(0, 12)}`;
+    const mounts = mountsFor(workspace, current, git.mounts);
     const inContainer = containerCommand(input.name, input.command, input.args);
     const binary = RUNTIME_TRAITS[current.runtime].binary;
     // The host's PATH, not the launch's: a provider environment must not choose the docker binary.
@@ -587,6 +495,7 @@ const make = Effect.gen(function* () {
       workdir: containerPathFor(workspace, platform),
       mounts,
       envKeys: forwardedEnvKeys(env, current.env),
+      envValues: git.env,
       network: current.network,
       ociRuntime: current.ociRuntime,
       cpus: current.cpus,
@@ -600,7 +509,10 @@ const make = Effect.gen(function* () {
       command: inContainer.command,
       args: inContainer.args,
     });
-    if (input.name !== "terminal") agentContainers.set(threadId, name);
+    if (agent) {
+      agentContainers.set(threadId, name);
+      agentUnits.set(name, threadId);
+    }
     yield* markInUse;
     return { command: resolved ?? binary, args, unit: name };
   });
@@ -617,12 +529,16 @@ const make = Effect.gen(function* () {
   const scope: AgentScopeShape = {
     wrap,
     oomKilled: inner.oomKilled,
-    stop: (unit) =>
-      unit.startsWith("cmdeck-")
-        ? cleanupRuntime.pipe(
-            Effect.flatMap((runtime) => (runtime === null ? Effect.void : remove(runtime, [unit]))),
-          )
-        : inner.stop(unit),
+    stop: Effect.fn("ContainerSandbox.stop")(function* (unit) {
+      if (!unit.startsWith("cmdeck-")) return yield* inner.stop(unit);
+      const runtime = yield* cleanupRuntime;
+      if (runtime !== null) yield* remove(runtime, [unit]);
+      const threadId = agentUnits.get(unit);
+      if (threadId === undefined) return;
+      agentUnits.delete(unit);
+      const paths = yield* gitPathsOf(threadId);
+      if (paths !== null) yield* importInto(threadId, paths);
+    }),
     kill: Effect.fn("ContainerSandbox.kill")(function* (threadId) {
       const name = agentContainers.get(threadId);
       if (name === undefined) return yield* inner.kill(threadId);
@@ -776,7 +692,6 @@ const make = Effect.gen(function* () {
   );
   if (used) {
     yield* markInUse;
-    yield* fileSystem.remove(copiesDir, { recursive: true }).pipe(Effect.ignore);
     yield* reap.pipe(Effect.forkIn(layerScope));
   }
 

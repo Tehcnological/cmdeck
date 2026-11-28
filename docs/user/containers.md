@@ -53,10 +53,16 @@ never off, and never for a whole project.
 | Environment variables | Names passed into the container. Provider credentials (`ANTHROPIC_*`, `CLAUDE_CODE_*`, `OPENAI_*`) pass by name; values never appear on a command line.                                                                                                                                                                                                                                                    |
 
 The worktree is mounted at the same path it has on the host (on Windows, `C:\work\app` becomes
-`/c/work/app`). The repository's `.git/config`, `config.worktree` and `hooks` are mounted
-read-only, so code in the container cannot plant a hook that your next `git` command on the host
-would run. Apple `container` cannot mount read-only: the container gets copies of those files, and
-its changes to them are thrown away.
+`/c/work/app`). The repository's own `.git` never enters the container: the agent commits into a
+separate git history CMDeck keeps for the thread, starting from the branch's latest commit.
+
+When the agent's container stops, CMDeck copies its new commits onto the thread's branch. If the
+branch moved on the host in the meantime, nothing on the branch changes and the agent's commits
+wait under `refs/cmdeck/sandbox/<thread>` for you to merge or cherry-pick.
+
+A thread can run in a container only from the root of a git repository or worktree with at least
+one commit and no submodules, on a case-sensitive volume (on Windows, a folder made case-sensitive with
+`fsutil file setCaseSensitiveInfo`).
 
 ## Limits
 

@@ -1,3 +1,6 @@
+// @effect-diagnostics nodeBuiltinImport:off -- test repositories are made with the git CLI.
+import * as NodeChildProcess from "node:child_process";
+
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
@@ -25,6 +28,7 @@ import * as SqlitePersistence from "../../persistence/Sqlite.ts";
 import * as ProcessRunner from "../../processRunner.ts";
 import * as AuditLog from "../audit/AuditLog.ts";
 import { layerCore } from "./ContainerSandbox.ts";
+import { CaseInsensitiveWorkspace } from "./privateGit.ts";
 
 const decodeRecipe = Schema.decodeEffect(SandboxRecipe);
 const encodeRecipeJson = Schema.encodeEffect(Schema.fromJsonString(SandboxRecipe));
@@ -77,8 +81,10 @@ export const layerSandbox = (options: {
   readonly realHost?: boolean;
   /** A fixed server home, so two starts share one owner label. */
   readonly baseDir?: string;
+  /** Use this host's real case check; by default a worktree counts as case-sensitive. */
+  readonly realCaseCheck?: boolean;
 }) => {
-  const run: ProcessRunner.ProcessRunner["Service"]["run"] = (input) => {
+  const fakeDocker = (input: ProcessRunner.ProcessRunInput) => {
     options.host.calls.push([input.command, ...input.args]);
     if (input.command !== "docker") return Effect.fail(notFound(input.command));
     if (options.docker === false) return Effect.fail(notFound(input.command));
@@ -102,6 +108,14 @@ export const layerSandbox = (options: {
         return Effect.succeed(output(""));
     }
   };
+  // git is real, so seeding and importing run against real repositories.
+  const layerRunner = Layer.effect(
+    ProcessRunner.ProcessRunner,
+    Effect.map(ProcessRunner.make(), (real) => ({
+      run: (input: ProcessRunner.ProcessRunInput) =>
+        input.command === "git" ? real.run(input) : fakeDocker(input),
+    })),
+  );
   const inner: AgentScopeShape = {
     ...AgentScope.defaultValue(),
     wrap: (input) =>
@@ -113,9 +127,10 @@ export const layerSandbox = (options: {
   return layerCore.pipe(
     Layer.provideMerge(
       Layer.mergeAll(
-        options.realHost === true
-          ? ProcessRunner.layer
-          : Layer.succeed(ProcessRunner.ProcessRunner, { run }),
+        options.realHost === true ? ProcessRunner.layer : layerRunner,
+        options.realCaseCheck === true
+          ? Layer.empty
+          : Layer.succeed(CaseInsensitiveWorkspace, () => Effect.succeed(false)),
         Layer.mock(ProjectionStore.ProjectionStoreV2)({
           findThread: (threadId) =>
             Effect.succeed(
@@ -175,12 +190,29 @@ export const makeHost = Effect.gen(function* () {
   } satisfies Host;
 });
 
-/** A temporary checkout with a `.git` dir, as a main worktree has. */
+export const gitIn = (cwd: string, args: ReadonlyArray<string>) =>
+  Effect.sync(() =>
+    NodeChildProcess.execFileSync(
+      "git",
+      ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "core.autocrlf=false", ...args],
+      { cwd, encoding: "utf8" },
+    ).trim(),
+  );
+
+/** The thread's private git dir, as the agent inside the container writes it. */
+export const privateDirOf = Effect.gen(function* () {
+  const { stateDir } = yield* ServerConfig.ServerConfig;
+  return (yield* Path.Path).join(stateDir, "sandbox", "git", THREAD);
+});
+
+/** A temporary repository with one commit, as a thread's main checkout has. */
 export const makeWorkspace = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const workspace = yield* fileSystem.makeTempDirectoryScoped({ prefix: "cmdeck-sandbox-ws-" });
-  yield* fileSystem.makeDirectory(path.join(workspace, ".git"));
-  yield* fileSystem.writeFileString(path.join(workspace, ".git", "config"), "[core]\n");
+  yield* gitIn(workspace, ["init", "-q", "-b", "main"]);
+  yield* fileSystem.writeFileString(path.join(workspace, "README.md"), "hello\n");
+  yield* gitIn(workspace, ["add", "README.md"]);
+  yield* gitIn(workspace, ["commit", "-q", "-m", "start"]);
   return workspace;
 });

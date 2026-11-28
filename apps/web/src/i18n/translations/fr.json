@@ -3091,7 +3091,6 @@
   "27ae3688d1bf238b": "Exécuter {project} dans un conteneur",
   "9ec433045537acfc": "Vérifier à nouveau",
   "b997d827862b5334": "Exécutez l’agent et les terminaux d’un fil dans un conteneur qui ne voit que son worktree et les chemins que vous ajoutez. Un conteneur n’est pas une machine virtuelle : il partage le noyau de cet ordinateur. Les changements s’appliquent au prochain démarrage de l’agent ou d’un terminal. Pour l’instant, seul Claude peut s’exécuter dans un conteneur.",
-  "f7d3fdc39794dacf": "Apple container ne peut pas monter en lecture seule : le conteneur reçoit donc des copies de .git/config et des hooks, et ses modifications sont abandonnées.",
   "203eb217481ab8da": "Prêt à démarrer des conteneurs.",
   "741bf3adb2eb7c78": "Choisissez une image pour activer les conteneurs.",
   "d603ac8cb7716b56": "Où démarrent les nouveaux fils quand leur projet se trouve sur cette machine. Tant qu’elle est hors ligne, ils démarrent sur la machine actuelle.",

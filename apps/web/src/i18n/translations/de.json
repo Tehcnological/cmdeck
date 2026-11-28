@@ -3092,7 +3092,6 @@
   "27ae3688d1bf238b": "{project} in einem Container ausführen",
   "9ec433045537acfc": "Erneut prüfen",
   "b997d827862b5334": "Führe den Agenten und die Terminals eines Threads in einem Container aus, der nur seinen Worktree und die von dir hinzugefügten Pfade sieht. Ein Container ist keine virtuelle Maschine: Er teilt sich den Kernel dieses Computers. Änderungen gelten ab dem nächsten Start des Agenten oder eines Terminals. Vorerst kann nur Claude in einem Container laufen.",
-  "f7d3fdc39794dacf": "Apple container kann nicht schreibgeschützt einhängen. Der Container erhält daher Kopien von .git/config und den Hooks, und seine Änderungen daran werden verworfen.",
   "203eb217481ab8da": "Bereit, Container zu starten.",
   "741bf3adb2eb7c78": "Wähle ein Image, um Container einzuschalten.",
   "d603ac8cb7716b56": "Wo neue Threads starten, wenn ihr Projekt auf diesem Rechner liegt. Solange er offline ist, starten sie auf dem aktuellen.",

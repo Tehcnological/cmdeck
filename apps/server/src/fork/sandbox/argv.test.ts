@@ -7,7 +7,6 @@ import {
   containerCommand,
   containerPathFor,
   forwardedEnvKeys,
-  gitProtectedPaths,
   isLocalDockerEndpoint,
   listArgs,
   mountArg,
@@ -26,13 +25,11 @@ const spec = (overrides: Partial<RunSpec> = {}): RunSpec => ({
   workdir: "/home/user/app",
   mounts: [
     { hostPath: "/home/user/app", containerPath: "/home/user/app", readOnly: false },
-    {
-      hostPath: "/home/user/app/.git/config",
-      containerPath: "/home/user/app/.git/config",
-      readOnly: true,
-    },
+    { hostPath: "/state/git", containerPath: "/cmdeck/git", readOnly: false },
+    { hostPath: "/state/cover", containerPath: "/home/user/app/.git", readOnly: true },
   ],
   envKeys: ["ANTHROPIC_API_KEY"],
+  envValues: { GIT_DIR: "/cmdeck/git" },
   network: "none",
   ociRuntime: null,
   cpus: null,
@@ -54,7 +51,8 @@ describe("runArgs", () => {
       ociRuntime: null,
       mounts: [
         "type=bind,source=/home/user/app,target=/home/user/app",
-        "type=bind,source=/home/user/app/.git/config,target=/home/user/app/.git/config,readonly",
+        "type=bind,source=/state/git,target=/cmdeck/git",
+        "type=bind,source=/state/cover,target=/home/user/app/.git,readonly",
       ],
       runtimeFlag: [],
     },
@@ -63,17 +61,19 @@ describe("runArgs", () => {
       ociRuntime: "runsc",
       mounts: [
         "type=bind,source=/home/user/app,target=/home/user/app",
-        "type=bind,source=/home/user/app/.git/config,target=/home/user/app/.git/config,readonly",
+        "type=bind,source=/state/git,target=/cmdeck/git",
+        "type=bind,source=/state/cover,target=/home/user/app/.git,readonly",
       ],
       runtimeFlag: ["runsc"],
     },
     {
-      // Apple has no read-only mounts and no OCI runtime choice.
+      // Apple has no OCI runtime choice.
       runtime: "apple" as const,
       ociRuntime: "runsc",
       mounts: [
         "type=bind,source=/home/user/app,target=/home/user/app",
-        "type=bind,source=/home/user/app/.git/config,target=/home/user/app/.git/config",
+        "type=bind,source=/state/git,target=/cmdeck/git",
+        "type=bind,source=/state/cover,target=/home/user/app/.git,readonly",
       ],
       runtimeFlag: [],
     },
@@ -94,7 +94,12 @@ describe("runArgs", () => {
 
   it("passes credentials by name only, so no value reaches argv", () => {
     const args = runArgs(spec({ envKeys: ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] }));
-    expect(valuesOf(args, "-e")).toEqual(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"]);
+    // Only CMDeck's own git paths go by value, after the names, so a forwarded name cannot win.
+    expect(valuesOf(args, "-e")).toEqual([
+      "ANTHROPIC_API_KEY",
+      "CLAUDE_CODE_OAUTH_TOKEN",
+      "GIT_DIR=/cmdeck/git",
+    ]);
     expect(args).not.toContain("--env-file");
   });
 
@@ -145,42 +150,6 @@ describe("containerPathFor", () => {
     ["win32", "c:/work/app/", "/c/work/app"],
   ] as const)("%s %s", (platform, host, container) => {
     expect(containerPathFor(host, platform)).toBe(container);
-  });
-});
-
-describe("gitProtectedPaths", () => {
-  const join = (...parts: ReadonlyArray<string>) => parts.join("/");
-  it("protects config, hooks, config.worktree, worktrees and modules of a main checkout", () => {
-    expect(
-      gitProtectedPaths({ commonDir: "/r/.git", adminDir: "/r/.git", dotGitFile: null }, join),
-    ).toEqual([
-      // A missing config is created, so the container cannot write one host git would run.
-      { path: "/r/.git/config", kind: "file", create: true },
-      { path: "/r/.git/hooks", kind: "dir", create: true },
-      { path: "/r/.git/config.worktree", kind: "file", create: true },
-      // Other worktrees' pointers and submodules' configs and hooks run on the host too.
-      { path: "/r/.git/worktrees", kind: "dir", create: true },
-      { path: "/r/.git/modules", kind: "dir", create: true },
-    ]);
-  });
-
-  it("reopens only the thread's own worktree admin dir, then protects its pointers", () => {
-    const paths = gitProtectedPaths(
-      { commonDir: "/r/.git", adminDir: "/r/.git/worktrees/wt", dotGitFile: "/wt/.git" },
-      join,
-    ).map((entry) => [entry.path, entry.writable === true ? "rw" : "ro"]);
-    expect(paths).toEqual([
-      ["/r/.git/config", "ro"],
-      ["/r/.git/hooks", "ro"],
-      ["/r/.git/config.worktree", "ro"],
-      ["/r/.git/worktrees", "ro"],
-      ["/r/.git/modules", "ro"],
-      ["/r/.git/worktrees/wt", "rw"],
-      ["/r/.git/worktrees/wt/config.worktree", "ro"],
-      ["/r/.git/worktrees/wt/commondir", "ro"],
-      ["/r/.git/worktrees/wt/gitdir", "ro"],
-      ["/wt/.git", "ro"],
-    ]);
   });
 });
 

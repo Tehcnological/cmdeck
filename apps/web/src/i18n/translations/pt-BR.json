@@ -3091,7 +3091,6 @@
   "27ae3688d1bf238b": "Executar {project} em um contêiner",
   "9ec433045537acfc": "Verificar novamente",
   "b997d827862b5334": "Execute o agente e os terminais de uma conversa em um contêiner que só enxerga o worktree dela e os caminhos que você adicionar. Um contêiner não é uma máquina virtual: ele compartilha o kernel deste computador. As mudanças valem a partir da próxima vez que o agente ou um terminal iniciar. Por enquanto, só o Claude pode rodar em um contêiner.",
-  "f7d3fdc39794dacf": "O Apple container não monta em somente leitura, então o contêiner recebe cópias de .git/config e dos hooks, e as alterações nelas são descartadas.",
   "203eb217481ab8da": "Pronto para iniciar contêineres.",
   "741bf3adb2eb7c78": "Escolha uma imagem para ativar os contêineres.",
   "d603ac8cb7716b56": "Onde novos threads começam quando o projeto está nessa máquina. Enquanto ela estiver offline, eles começam na atual.",

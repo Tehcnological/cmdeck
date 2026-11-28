@@ -1,22 +1,15 @@
 // Ported from agent-of-empires@e5cf0b9f388de560e5716184f5507d744a517f27 src/containers/runtime_base.rs
-// (create_args), src/containers/container_interface.rs (docker_env_args) and
-// src/session/config/container_config.rs (the .git overlay table) (MIT).
+// (create_args) and src/containers/container_interface.rs (docker_env_args) (MIT).
 import type { SandboxRecipe, SandboxRuntimeKind } from "@t3tools/contracts";
 
-/** What each CLI can do; Apple `container` has no read-only mounts and no network-off mode. */
+/** What each CLI can do; Apple `container` has no network-off mode. */
 export const RUNTIME_TRAITS = {
-  docker: { binary: "docker", readOnlyMounts: true, networkNone: true, remove: ["rm", "-f"] },
-  apple: {
-    binary: "container",
-    readOnlyMounts: false,
-    networkNone: false,
-    remove: ["delete", "--force"],
-  },
+  docker: { binary: "docker", networkNone: true, remove: ["rm", "-f"] },
+  apple: { binary: "container", networkNone: false, remove: ["delete", "--force"] },
 } as const satisfies Record<
   SandboxRuntimeKind,
   {
     binary: string;
-    readOnlyMounts: boolean;
     networkNone: boolean;
     remove: ReadonlyArray<string>;
   }
@@ -43,6 +36,8 @@ export interface RunSpec {
   readonly mounts: ReadonlyArray<ContainerMount>;
   /** Passed by name (`-e KEY`), so the CLI copies each value from its own environment. */
   readonly envKeys: ReadonlyArray<string>;
+  /** Set to these values, after `envKeys`, so the recipe cannot override them. */
+  readonly envValues: Readonly<Record<string, string>>;
   readonly network: string;
   readonly ociRuntime: string | null;
   readonly cpus: string | null;
@@ -121,7 +116,6 @@ export function mountArg(mount: ContainerMount, readOnly: boolean): string {
  * kernel (Docker Desktop and Apple `container` add a VM of their own).
  */
 export function runArgs(spec: RunSpec): Array<string> {
-  const traits = RUNTIME_TRAITS[spec.runtime];
   const pin =
     spec.runtime === "docker" && spec.endpoint !== undefined && spec.endpoint !== null
       ? ["-H", spec.endpoint]
@@ -131,9 +125,10 @@ export function runArgs(spec: RunSpec): Array<string> {
   for (const [key, value] of Object.entries(spec.labels)) push("--label", `${key}=${value}`);
   push("-w", spec.workdir);
   for (const mount of spec.mounts) {
-    push("--mount", mountArg(mount, mount.readOnly && traits.readOnlyMounts));
+    push("--mount", mountArg(mount, mount.readOnly));
   }
   for (const key of spec.envKeys) push("-e", key);
+  for (const [key, value] of Object.entries(spec.envValues)) push("-e", `${key}=${value}`);
   // Apple has no `none`; passing it anyway makes the run fail rather than start with a network.
   push("--network", spec.network);
   if (spec.ociRuntime !== null && spec.runtime === "docker") push("--runtime", spec.ociRuntime);
@@ -214,55 +209,6 @@ export function containerPathFor(hostPath: string, platform: NodeJS.Platform): s
   if (drive === null) return hostPath.replaceAll("\\", "/");
   const rest = (drive[2] ?? "").replaceAll("\\", "/").replace(/\/+$/, "");
   return `/${drive[1]?.toLowerCase()}${rest === "" ? "" : `/${rest}`}`;
-}
-
-export interface GitLayout {
-  /** The repository's common dir (`.git`, or the main checkout's for a linked worktree). */
-  readonly commonDir: string;
-  /** The worktree's own admin dir; equals `commonDir` for the main checkout. */
-  readonly adminDir: string;
-  /** The worktree's `.git` file, when it is a file pointing elsewhere. */
-  readonly dotGitFile: string | null;
-}
-
-export interface ProtectedGitPath {
-  readonly path: string;
-  readonly kind: "file" | "dir";
-  /** Created before mounting: a missing bind source would fail, and an empty one is harmless. */
-  readonly create: boolean;
-  /** Mounted read-write over a protected parent: the thread's own worktree admin dir. */
-  readonly writable?: true;
-}
-
-/**
- * Paths host-side git would execute from or follow: config (`core.sshCommand`, `core.fsmonitor`,
- * credential helpers), hooks, and the files that point a worktree at its git dir. Writable from
- * the container, they would let code inside run on the host the next time the user runs git.
- */
-export function gitProtectedPaths(
-  layout: GitLayout,
-  join: (...parts: ReadonlyArray<string>) => string,
-): Array<ProtectedGitPath> {
-  const paths: Array<ProtectedGitPath> = [
-    { path: join(layout.commonDir, "config"), kind: "file", create: true },
-    { path: join(layout.commonDir, "hooks"), kind: "dir", create: true },
-    { path: join(layout.commonDir, "config.worktree"), kind: "file", create: true },
-    // Another worktree's commondir, or a submodule's config and hooks, also run on the host.
-    { path: join(layout.commonDir, "worktrees"), kind: "dir", create: true },
-    { path: join(layout.commonDir, "modules"), kind: "dir", create: true },
-  ];
-  if (layout.adminDir !== layout.commonDir) {
-    paths.push(
-      { path: layout.adminDir, kind: "dir", create: false, writable: true },
-      { path: join(layout.adminDir, "config.worktree"), kind: "file", create: true },
-      { path: join(layout.adminDir, "commondir"), kind: "file", create: false },
-      { path: join(layout.adminDir, "gitdir"), kind: "file", create: false },
-    );
-  }
-  if (layout.dotGitFile !== null) {
-    paths.push({ path: layout.dotGitFile, kind: "file", create: false });
-  }
-  return paths;
 }
 
 const FORWARDED_PREFIXES = ["ANTHROPIC_", "CLAUDE_CODE_", "OPENAI_"];

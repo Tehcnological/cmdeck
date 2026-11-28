@@ -33,7 +33,6 @@ const status = (overrides: Partial<SandboxStatus> = {}): SandboxStatus => ({
       available: true,
       reason: null,
       ociRuntimes: ["io.containerd.runc.v2", "runc", "runsc"],
-      gitOverlayIsCopy: false,
     },
   ],
   projects: [],
