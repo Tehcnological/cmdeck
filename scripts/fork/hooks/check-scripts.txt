@@ -9,7 +9,7 @@ apps/server/src/scheduledTasks/ScheduledTaskService.ts:\? yield\* dispatchExit\(
 apps/server/src/scheduledTasks/ScheduledTaskService.ts:: yield\* dispatchExit\( +// The stored selection
 apps/server/src/scheduledTasks/ScheduledTaskService.ts:\(checked\?\._tag !== "Failed" \|\| checked\.counts\) &&
 apps/server/src/scheduledTasks/ScheduledTaskService.ts:runTask\(task, "scheduled"\)\.pipe\(checkScripts\.runsAside\(task\.id, serviceScope\)\)
-apps/server/src/persistence/ForkSchema.ts:yield\* ensureCheckScriptsSchema\(\)
+apps/server/src/fork/schemas.ts:export \{ ensureCheckScriptsSchema \}
 apps/web/src/components/settings/ScheduledTasksSettings.tsx:import \{ ScheduledTaskCheckControl \} from "~/fork/ScheduledTaskCheck";
 apps/web/src/components/settings/ScheduledTasksSettings.tsx:<ScheduledTaskCheckControl environmentId=\{environmentId\} task=\{task\} />
 # WI-2.11: an agent changes a task's check only within the limits that editing the task needs.

@@ -1,5 +1,5 @@
 # WI-2.02: the work ledger's table and the archive offer.
-apps/server/src/persistence/ForkSchema.ts:yield\* ensureWorkLedgerSchema\(\)
+apps/server/src/fork/schemas.ts:export \{ ensureWorkLedgerSchema \}
 apps/web/src/hooks/useThreadActions.ts:await offerToStopConductorWorkers\(threadRef\);
 # Lean tool profiles (Pi, auto on an inference server) keep the work ledger tools.
 packages/provider-core/src/server/mcpToolProfile.ts:import \{ WORK_LEDGER_MCP_TOOL_NAMES \} from "@t3tools/contracts";

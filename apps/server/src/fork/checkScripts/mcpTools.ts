@@ -8,9 +8,11 @@ import {
   ScheduledTaskId,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import { McpSchema, Tool, Toolkit } from "effect/ai";
 
+import type { toolkitRegistration } from "../../mcp/McpHttpServer.ts";
 import * as McpInvocationContext from "../../mcp/McpInvocationContext.ts";
 import * as McpToolAccess from "../../mcp/McpToolAccess.ts";
 import * as OrchestratorMcpService from "../../mcp/OrchestratorMcpService.ts";
@@ -44,11 +46,11 @@ const SetScheduledTaskCheckTool = Tool.make("set_scheduled_task_check", {
   .annotate(Tool.OpenWorld, false)
   .annotate(McpSchema.EnabledWhen, McpInvocationContext.hiddenFromOutsideClients);
 
-export const CheckScriptToolkit = Toolkit.make(SetScheduledTaskCheckTool);
+export const toolkit = Toolkit.make(SetScheduledTaskCheckTool);
 
 // Agents propose; only a person approves (Settings > Scheduled tasks), so nothing here approves.
 export const layer = McpToolAccess.toLayer(
-  CheckScriptToolkit,
+  toolkit,
   Effect.gen(function* () {
     const checks = yield* CheckScripts;
     return {
@@ -82,3 +84,7 @@ export const layer = McpToolAccess.toLayer(
     };
   }),
 );
+
+export const register = (registration: typeof toolkitRegistration) =>
+  // The same instance upstream's orchestrator tools get: layers memoize by reference.
+  registration(toolkit, layer).pipe(Layer.provide(OrchestratorMcpService.layer));

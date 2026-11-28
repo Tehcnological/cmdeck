@@ -95,11 +95,11 @@ done
 [ "${#required[@]}" -gt 0 ] || bad "no fork hooks found in scripts/fork/hooks/"
 
 # 6. Only a person approves a workflow file: no MCP tool may reach the trust gate (WI-1.06).
-hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts)"
+hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts apps/server/src/fork/mcpToolModules.ts)"
 [ -z "$hits" ] || bad "MCP code reaches the workflow trust gate: $hits"
 
 # 7. Only a person approves a check script: no MCP code may reach its approval (WI-2.11).
-hits="$(git grep -l -E '\.approve\(|checkScriptsApprove' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts apps/server/src/fork/checkScripts/mcpTools.ts)"
+hits="$(git grep -l -E '\.approve\(|checkScriptsApprove' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts apps/server/src/fork/mcpToolModules.ts apps/server/src/fork/checkScripts/mcpTools.ts)"
 [ -z "$hits" ] || bad "MCP code reaches check script approval: $hits"
 
 # 8. WI-2.17: a file that builds the secret store must build the encrypting one, or it reads and

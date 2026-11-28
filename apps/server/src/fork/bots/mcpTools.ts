@@ -15,6 +15,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Tool, Toolkit } from "effect/ai";
 
+import type { toolkitRegistration } from "../../mcp/McpHttpServer.ts";
 import * as McpInvocationContext from "../../mcp/McpInvocationContext.ts";
 import * as McpToolAccess from "../../mcp/McpToolAccess.ts";
 import { assertTargetWithinLimits } from "../../mcp/threadAccess.ts";
@@ -140,7 +141,7 @@ const BotScheduleTool = Tool.make("bot_schedule", {
   .annotate(Tool.Idempotent, false)
   .annotate(Tool.OpenWorld, true);
 
-export const BotsToolkit = Toolkit.make(BotListTool, BotCreateTool, BotUpdateTool, BotScheduleTool);
+export const toolkit = Toolkit.make(BotListTool, BotCreateTool, BotUpdateTool, BotScheduleTool);
 
 const toEntry = (bot: BotProfile) => ({
   id: bot.id,
@@ -161,7 +162,7 @@ const asAgent: BotActor = { createdBy: "agent", creationSource: "mcp" };
 
 // Built with the server's context: a runtime without Bots (a tool-list test) refuses calls.
 export const layer = McpToolAccess.toLayer(
-  BotsToolkit,
+  toolkit,
   Effect.gen(function* () {
     const bots = yield* Effect.serviceOption(Bots);
     const projections = yield* Effect.serviceOption(ProjectionStore.ProjectionStoreV2);
@@ -305,6 +306,8 @@ export const layer = McpToolAccess.toLayer(
           ),
         refused,
       ),
-    } satisfies McpToolAccess.Handlers<typeof BotsToolkit.tools>;
+    } satisfies McpToolAccess.Handlers<typeof toolkit.tools>;
   }),
 );
+
+export const register = (registration: typeof toolkitRegistration) => registration(toolkit, layer);

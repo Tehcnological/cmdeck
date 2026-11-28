@@ -10,6 +10,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Tool, Toolkit } from "effect/ai";
 
+import type { toolkitRegistration } from "../../mcp/McpHttpServer.ts";
 import * as McpInvocationContext from "../../mcp/McpInvocationContext.ts";
 import * as McpToolAccess from "../../mcp/McpToolAccess.ts";
 import * as ThreadManagementService from "../../orchestration-v2/ThreadManagementService.ts";
@@ -67,7 +68,7 @@ const MessagePinTool = Tool.make("message_pin", {
   .annotate(Tool.Idempotent, true)
   .annotate(Tool.OpenWorld, false);
 
-export const MessagePinsToolkit = Toolkit.make(MessagePinListTool, MessagePinTool);
+export const toolkit = Toolkit.make(MessagePinListTool, MessagePinTool);
 
 const targetThread = (threadId: string | undefined) =>
   threadId === undefined
@@ -79,7 +80,7 @@ const targetThread = (threadId: string | undefined) =>
 
 // Built with the server's context: a runtime without MessagePins (a tool-list test) refuses calls.
 export const layer = McpToolAccess.toLayer(
-  MessagePinsToolkit,
+  toolkit,
   Effect.gen(function* () {
     const pins = yield* Effect.serviceOption(MessagePins);
     const withPins = <A, R>(
@@ -140,6 +141,8 @@ export const layer = McpToolAccess.toLayer(
             }),
           ),
       ),
-    } satisfies McpToolAccess.Handlers<typeof MessagePinsToolkit.tools>;
+    } satisfies McpToolAccess.Handlers<typeof toolkit.tools>;
   }),
 );
+
+export const register = (registration: typeof toolkitRegistration) => registration(toolkit, layer);

@@ -5,7 +5,7 @@ import { McpServer } from "effect/ai";
 import { WORK_LEDGER_MCP_TOOL_NAMES } from "@t3tools/contracts";
 import { isMcpToolInProfile } from "@t3tools/provider-core/server/mcpToolProfile";
 
-import { WorkLedgerToolkit } from "./mcpTools.ts";
+import { toolkit as WorkLedgerToolkit } from "./mcpTools.ts";
 import { WorkLedger } from "./WorkLedger.ts";
 import { asAgentIn, layerWorkLedgerToolsTest, threads } from "./workLedger.testkit.ts";
 

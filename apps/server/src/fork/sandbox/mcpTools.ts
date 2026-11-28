@@ -4,6 +4,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { McpSchema, Tool, Toolkit } from "effect/ai";
 
+import type { toolkitRegistration } from "../../mcp/McpHttpServer.ts";
 import * as McpInvocationContext from "../../mcp/McpInvocationContext.ts";
 import * as McpToolAccess from "../../mcp/McpToolAccess.ts";
 import * as ThreadManagementService from "../../orchestration-v2/ThreadManagementService.ts";
@@ -53,7 +54,7 @@ const SandboxEnableTool = Tool.make("sandbox_enable", {
   .annotate(Tool.OpenWorld, false)
   .annotate(McpSchema.EnabledWhen, McpInvocationContext.hiddenFromOutsideClients);
 
-export const SandboxToolkit = Toolkit.make(SandboxStatusTool, SandboxEnableTool);
+export const toolkit = Toolkit.make(SandboxStatusTool, SandboxEnableTool);
 
 const unavailable = new OrchestratorMcpFailure({
   code: "capability_denied",
@@ -63,7 +64,7 @@ const unavailable = new OrchestratorMcpFailure({
 // Agents may only tighten their own thread's boundary: no tool turns a container off, and none
 // reaches other threads, whose modes may differ from the caller's (a project is the user's call).
 export const layer = McpToolAccess.toLayer(
-  SandboxToolkit,
+  toolkit,
   Effect.gen(function* () {
     const sandbox = yield* Effect.serviceOption(ContainerSandbox);
     const callerThread = Effect.gen(function* () {
@@ -110,6 +111,8 @@ export const layer = McpToolAccess.toLayer(
           };
         }).pipe(asFailure),
       ),
-    } satisfies McpToolAccess.Handlers<typeof SandboxToolkit.tools>;
+    } satisfies McpToolAccess.Handlers<typeof toolkit.tools>;
   }),
 );
+
+export const register = (registration: typeof toolkitRegistration) => registration(toolkit, layer);

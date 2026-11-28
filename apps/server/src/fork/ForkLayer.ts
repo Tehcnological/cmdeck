@@ -8,7 +8,6 @@ import * as SecretResolverLayer from "../secrets/SecretResolver.ts";
 import * as ApprovalGate from "./approvalPolicy/ApprovalGate.ts";
 import * as ApprovalPolicy from "./approvalPolicy/ApprovalPolicy.ts";
 import * as AuditLog from "./audit/AuditLog.ts";
-import * as Bots from "./bots/Bots.ts";
 import * as Decisions from "./decisions/Decisions.ts";
 import * as Notifications from "./notifications/Notifications.ts";
 import * as MemoryEmbeddings from "./memory/MemoryEmbeddings.ts";
@@ -19,11 +18,12 @@ import * as WorkLedger from "./workLedger/WorkLedger.ts";
 import * as CheckScripts from "./checkScripts/CheckScripts.ts";
 import * as CheckScriptAlerts from "./checkScripts/alerts.ts";
 import * as UsageAlerts from "./usageAlerts/UsageAlerts.ts";
-import * as SandboxReaper from "./sandbox/archiveReaper.ts";
+import * as Layers from "./layers.ts";
 
 /**
  * Every fork service the server provides, in one place so `server.ts` carries a single fork line.
  * It sits above the orchestration layers, so a module may depend on anything the runtime builds.
+ * A module whose layer needs nothing from its neighbours lists it in `layers.ts` instead.
  * ForkAlerts stays beside ServerSettings, which writes to it.
  */
 export const layer = Layer.mergeAll(
@@ -38,8 +38,7 @@ export const layer = Layer.mergeAll(
     CheckScriptAlerts.layer,
   ).pipe(Layer.provideMerge(Notifications.layer), Layer.provideMerge(AuditLog.layer)),
   MessagePins.layer.pipe(Layer.provide(ProjectionStore.layer)),
-  Bots.layer,
-  SandboxReaper.layer,
+  ...Object.values(Layers),
 );
 
 /**

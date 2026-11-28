@@ -1,27 +1,12 @@
 import * as Layer from "effect/Layer";
 
 import type { toolkitRegistration } from "../mcp/McpHttpServer.ts";
-import * as OrchestratorMcpService from "../mcp/OrchestratorMcpService.ts";
-import * as BotTools from "./bots/mcpTools.ts";
-import * as MessagePinTools from "./messagePins/mcpTools.ts";
-import * as MemoryTools from "./memory/mcpTools.ts";
-import * as WorkLedgerTools from "./workLedger/mcpTools.ts";
-import * as CheckScriptTools from "./checkScripts/mcpTools.ts";
-import * as SandboxTools from "./sandbox/mcpTools.ts";
+import * as Modules from "./mcpToolModules.ts";
 
 /**
- * Fork MCP toolkits, merged into the server's advertised tools. The registration helper is passed
- * in rather than imported, because McpHttpServer imports this file.
+ * Fork MCP toolkits, merged into the server's advertised tools. Each module's `mcpTools.ts` (listed in
+ * `mcpToolModules.ts`) exports its `toolkit` and a `register`. The registration helper is passed in
+ * rather than imported, because McpHttpServer imports this file.
  */
 export const layer = (register: typeof toolkitRegistration) =>
-  Layer.mergeAll(
-    register(MemoryTools.MemoryToolkit, MemoryTools.layer),
-    register(WorkLedgerTools.WorkLedgerToolkit, WorkLedgerTools.layer),
-    // The same instance upstream's orchestrator tools get: layers memoize by reference.
-    register(CheckScriptTools.CheckScriptToolkit, CheckScriptTools.layer).pipe(
-      Layer.provide(OrchestratorMcpService.layer),
-    ),
-    register(BotTools.BotsToolkit, BotTools.layer),
-    register(SandboxTools.SandboxToolkit, SandboxTools.layer),
-    register(MessagePinTools.MessagePinsToolkit, MessagePinTools.layer),
-  );
+  Layer.mergeAll(Layer.empty, ...Object.values(Modules).map((module) => module.register(register)));

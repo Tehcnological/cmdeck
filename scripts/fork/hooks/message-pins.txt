@@ -3,4 +3,4 @@ apps/web/src/components/chat/TimelineAssistantRows.tsx:<MessagePinButton +thread
 apps/web/src/components/chat/TimelineUserMessageRow.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{row\.message\.id\} +text=\{text\}
 apps/web/src/components/chat/TimelineUserMessageRow.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{row\.message\.id\} +text=\{plainText\}
 apps/web/src/components/chat/MessagesTimeline.tsx:useMessagePinJump\(\{ +threadKey: routeThreadKey,
-apps/server/src/persistence/ForkSchema.ts:yield\* ensureMessagePinsSchema\(\)
+apps/server/src/fork/schemas.ts:export \{ ensureMessagePinsSchema \}
