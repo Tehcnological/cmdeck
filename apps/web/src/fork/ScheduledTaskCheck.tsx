@@ -1,8 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import { requestGuarded } from "@t3tools/client-runtime/rpc";
 import {
-  createEnvironmentQueryAtomFamily,
   createEnvironmentRpcCommand,
+  createEnvironmentRpcQueryAtomFamily,
 } from "@t3tools/client-runtime/state/runtime";
 import {
   CHECK_SKIP_EXIT_CODE,
@@ -50,10 +49,10 @@ import {
   draftMatches,
 } from "./scheduledTaskCheck.logic";
 
-const checkList = createEnvironmentQueryAtomFamily(connectionAtomRuntime, {
+const checkList = createEnvironmentRpcQueryAtomFamily(connectionAtomRuntime, {
   label: "environment-data:cmdeck:check-scripts",
+  tag: CMDECK_WS_METHODS.checkScriptsList,
   staleTimeMs: 0,
-  execute: () => requestGuarded(CMDECK_WS_METHODS.checkScriptsList, {}),
 });
 
 const setCheck = createEnvironmentRpcCommand(connectionAtomRuntime, {

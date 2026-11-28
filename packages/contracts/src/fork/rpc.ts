@@ -185,6 +185,8 @@ export const FORK_RPC_READ_SCOPES = {
   [CMDECK_WS_METHODS.status]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.notificationChannelsList]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.decisionsStatus]: AuthOrchestrationReadScope,
+  // Scripts are task data, read like prompts.
+  [CMDECK_WS_METHODS.checkScriptsList]: AuthOrchestrationReadScope,
 } as const;
 
 type ForkRpcTag = RpcGroup.Rpcs<typeof ForkWsRpcGroup>["_tag"];
@@ -202,8 +204,7 @@ export const FORK_RPC_SCOPES = {
   [CMDECK_WS_METHODS.notificationChannelsSetEnabled]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.notificationChannelsRemove]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.notificationsSubscribeAlerts]: AuthOrchestrationReadScope,
-  // Scripts are task data, read like prompts. Saving or approving one lets the server run it.
-  [CMDECK_WS_METHODS.checkScriptsList]: AuthOrchestrationReadScope,
+  // Saving or approving a check script lets the server run it.
   [CMDECK_WS_METHODS.checkScriptsSet]: AuthTerminalOperateScope,
   [CMDECK_WS_METHODS.checkScriptsApprove]: AuthTerminalOperateScope,
   // Consent decides whether turn text may reach a model API, so only a settings writer grants it.
