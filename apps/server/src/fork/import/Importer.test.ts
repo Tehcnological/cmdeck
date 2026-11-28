@@ -37,11 +37,11 @@ it.layer(
   it.effect("names the available sources when asked for an unknown one", () =>
     Effect.gen(function* () {
       const importer = yield* Importer.Importer;
-      assert.deepEqual(importer.names, ["t3"]);
+      assert.deepEqual(importer.names, ["t3", "snapshot"]);
       const failure = yield* Effect.flip(importer.source("kiro"));
       assert.equal(failure._tag, "UnknownImportSourceError");
       assert.include(failure.message, '"kiro"');
-      assert.include(failure.message, "Available: t3.");
+      assert.include(failure.message, "Available: t3, snapshot.");
       // Inherited object keys are not sources.
       assert.equal((yield* Effect.flip(importer.source("constructor")))._tag, failure._tag);
     }),
@@ -95,7 +95,7 @@ it.layer(
       const failure = yield* Effect.flip(
         runCli(["import", "kiro", "--plan", "--base-dir", NodePath.join(root, "cmdeck")]),
       );
-      assert.include(String(failure), "Available: t3.");
+      assert.include(String(failure), "Available: t3, snapshot.");
     }).pipe(Effect.scoped),
   );
 });

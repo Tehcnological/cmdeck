@@ -12,7 +12,9 @@ import { T3ImportRefusedError } from "../fork/T3Import.ts";
 import { baseDirFlag } from "./config.ts";
 
 const sourceArgument = Argument.String("source").pipe(
-  Argument.withDescription("What to import from. Sources: t3 (the official T3 Code)."),
+  Argument.withDescription(
+    "What to import from. Sources: t3 (the official T3 Code), snapshot (a folder `cmdeck export snapshot` wrote; name it with --source).",
+  ),
   Argument.withDefault("t3"),
 );
 
