@@ -4,6 +4,7 @@ import type { toolkitRegistration } from "../mcp/McpHttpServer.ts";
 import * as OrchestratorMcpService from "../mcp/OrchestratorMcpService.ts";
 import * as BotTools from "./bots/mcpTools.ts";
 import * as MemoryTools from "./memory/mcpTools.ts";
+import * as WorkLedgerTools from "./workLedger/mcpTools.ts";
 import * as CheckScriptTools from "./checkScripts/mcpTools.ts";
 
 /**
@@ -13,6 +14,7 @@ import * as CheckScriptTools from "./checkScripts/mcpTools.ts";
 export const layer = (register: typeof toolkitRegistration) =>
   Layer.mergeAll(
     register(MemoryTools.MemoryToolkit, MemoryTools.layer),
+    register(WorkLedgerTools.WorkLedgerToolkit, WorkLedgerTools.layer),
     // The same instance upstream's orchestrator tools get: layers memoize by reference.
     register(CheckScriptTools.CheckScriptToolkit, CheckScriptTools.layer).pipe(
       Layer.provide(OrchestratorMcpService.layer),

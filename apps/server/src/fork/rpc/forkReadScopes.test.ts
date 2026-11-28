@@ -18,6 +18,10 @@ describe("fork read scopes", () => {
       AuthOrchestrationReadScope,
     );
     expect(RpcAuthorization.RPC_REQUIRED_SCOPES).toHaveProperty(
+      [CMDECK_WS_METHODS.workLedgerList],
+      AuthOrchestrationReadScope,
+    );
+    expect(RpcAuthorization.RPC_REQUIRED_SCOPES).toHaveProperty(
       [CMDECK_WS_METHODS.checkScriptsList],
       AuthOrchestrationReadScope,
     );
@@ -49,5 +53,6 @@ describe("fork read scopes", () => {
     for (const method of Object.keys(FORK_RPC_READ_SCOPES)) {
       expect(clientRpcRequiredScopes(method, {})).toEqual([]);
     }
+    expect(clientRpcRequiredScopes(CMDECK_WS_METHODS.workLedgerList, {})).toEqual([]);
   });
 });

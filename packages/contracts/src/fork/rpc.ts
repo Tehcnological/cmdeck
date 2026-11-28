@@ -5,10 +5,10 @@ import * as RpcGroup from "effect/rpc/RpcGroup";
 import {
   AuthAccessReadScope,
   AuthFilesystemReadScope,
+  AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
   AuthTerminalOperateScope,
   AuthSettingsWriteScope,
-  AuthOrchestrationOperateScope,
   type AuthEnvironmentScope,
   EnvironmentAuthorizationError,
 } from "../auth.ts";
@@ -27,6 +27,13 @@ import {
   NotificationChannelIdInput,
   NotificationChannelSetEnabledInput,
 } from "./notifications.ts";
+import {
+  WorkLedgerError,
+  WorkLedgerListResult,
+  WorkLedgerSetConductorInput,
+  WorkLedgerStopWorkersResult,
+  WorkLedgerThreadInput,
+} from "./workLedger.ts";
 import {
   CheckScriptError,
   ScheduledTaskCheckApproveInput,
@@ -74,6 +81,9 @@ export const CMDECK_WS_METHODS = {
   notificationChannelsSetEnabled: "cmdeck.notifications.channels.setEnabled",
   notificationChannelsRemove: "cmdeck.notifications.channels.remove",
   notificationsSubscribeAlerts: "cmdeck.notifications.subscribeAlerts",
+  workLedgerList: "cmdeck.workLedger.list",
+  workLedgerSetConductor: "cmdeck.workLedger.setConductor",
+  workLedgerStopWorkers: "cmdeck.workLedger.stopWorkers",
   checkScriptsList: "cmdeck.checkScripts.list",
   checkScriptsSet: "cmdeck.checkScripts.set",
   checkScriptsApprove: "cmdeck.checkScripts.approve",
@@ -170,6 +180,25 @@ const CmdeckNotificationsSubscribeAlertsRpc = Rpc.make(
     stream: true,
   },
 );
+
+const WorkLedgerRpcError = Schema.Union([WorkLedgerError, EnvironmentAuthorizationError]);
+
+const CmdeckWorkLedgerListRpc = Rpc.make(CMDECK_WS_METHODS.workLedgerList, {
+  payload: WorkLedgerThreadInput,
+  success: WorkLedgerListResult,
+  error: WorkLedgerRpcError,
+});
+
+const CmdeckWorkLedgerSetConductorRpc = Rpc.make(CMDECK_WS_METHODS.workLedgerSetConductor, {
+  payload: WorkLedgerSetConductorInput,
+  error: WorkLedgerRpcError,
+});
+
+const CmdeckWorkLedgerStopWorkersRpc = Rpc.make(CMDECK_WS_METHODS.workLedgerStopWorkers, {
+  payload: WorkLedgerThreadInput,
+  success: WorkLedgerStopWorkersResult,
+  error: WorkLedgerRpcError,
+});
 
 const CheckScriptsError = Schema.Union([CheckScriptError, EnvironmentAuthorizationError]);
 
@@ -326,6 +355,9 @@ export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckNotificationChannelsSetEnabledRpc,
   CmdeckNotificationChannelsRemoveRpc,
   CmdeckNotificationsSubscribeAlertsRpc,
+  CmdeckWorkLedgerListRpc,
+  CmdeckWorkLedgerSetConductorRpc,
+  CmdeckWorkLedgerStopWorkersRpc,
   CmdeckCheckScriptsListRpc,
   CmdeckCheckScriptsSetRpc,
   CmdeckCheckScriptsApproveRpc,
@@ -369,6 +401,7 @@ export const FORK_RPC_READ_SCOPES = {
   [CMDECK_WS_METHODS.memoryThreadMode]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.memoryInjections]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.memoryEmbeddingsStatus]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.workLedgerList]: AuthOrchestrationReadScope,
 } as const;
 
 type ForkRpcTag = RpcGroup.Rpcs<typeof ForkWsRpcGroup>["_tag"];
@@ -386,6 +419,9 @@ export const FORK_RPC_SCOPES = {
   [CMDECK_WS_METHODS.notificationChannelsSetEnabled]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.notificationChannelsRemove]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.notificationsSubscribeAlerts]: AuthOrchestrationReadScope,
+  // Starting or ending a conductor changes what its agent is told on each turn.
+  [CMDECK_WS_METHODS.workLedgerSetConductor]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.workLedgerStopWorkers]: AuthOrchestrationOperateScope,
   // Saving or approving a check script lets the server run it.
   [CMDECK_WS_METHODS.checkScriptsSet]: AuthTerminalOperateScope,
   [CMDECK_WS_METHODS.checkScriptsApprove]: AuthTerminalOperateScope,

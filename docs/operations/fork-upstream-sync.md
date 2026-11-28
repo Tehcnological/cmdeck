@@ -91,6 +91,9 @@ the guard. Adding a feature should not need another edit to a busy upstream file
   `apps/server/src/fork/secrets/EncryptedSecretStore.ts`, which re-exports the upstream module with an
   encrypting `layer`. A builder that keeps the upstream import would read encrypted files as raw
   bytes, so the guard fails on it; after a merge, point its import at the fork module.
+- **Right panel tabs:** a panel id in `apps/web/src/fork/panelSurface.ts` and its title, icon and
+  content in `apps/web/src/fork/panels.tsx`. Every fork panel is one `cmdeck` surface kind, so a new
+  panel needs no edit to `rightPanelStore.ts` or the tab components.
 
 Fork RPCs and settings are additive and never change `ORCHESTRATION_PROTOCOL_VERSION`. An optional
 module does nothing while it is off (no fibre, timer, subscription or request) and adds a case to

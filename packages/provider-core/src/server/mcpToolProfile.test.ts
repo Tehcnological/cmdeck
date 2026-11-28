@@ -81,6 +81,12 @@ describe("MCP tool profiles", () => {
     assert.isTrue(isMcpToolInProfile("t3_future_tool", "full"));
   });
 
+  it("lean keeps the work ledger tools a conductor's brief names", () => {
+    for (const name of ["work_brief", "work_report", "work_ledger_read", "work_ledger_record"]) {
+      assert.isTrue(isMcpToolInProfile(name, "lean"), name);
+    }
+  });
+
   it("lists each lean tool once", () => {
     assert.strictEqual(new Set(LEAN_MCP_TOOL_NAMES).size, LEAN_MCP_TOOL_NAMES.length);
   });

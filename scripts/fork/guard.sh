@@ -210,6 +210,12 @@ required=(
   # and a thread hidden by a tag filter leaves the panel.
   'apps/web/src/components/ChatView.tsx:activeThread\?\.projectId !== panelHostShell\?\.projectId'
   'apps/web/src/components/chat/SideThreadPane.tsx:useCloseWhenHidden\(threadRef, props\.onClose\)'
+  # WI-2.02: the work ledger's table and the archive offer.
+  'apps/server/src/persistence/ForkSchema.ts:yield\* ensureWorkLedgerSchema\(\)'
+  'apps/web/src/hooks/useThreadActions.ts:await offerToStopConductorWorkers\(threadRef\);'
+  # Lean tool profiles (Pi, auto on an inference server) keep the work ledger tools.
+  'packages/provider-core/src/server/mcpToolProfile.ts:import \{ WORK_LEDGER_MCP_TOOL_NAMES \} from "@t3tools/contracts";'
+  'packages/provider-core/src/server/mcpToolProfile.ts:\.\.\.WORK_LEDGER_MCP_TOOL_NAMES,'
   # WI-2.11: a scheduled task's check script decides whether its run wakes the agent.
   'apps/server/src/scheduledTasks/webhookTemplate.ts:export const MENTION = '
   'apps/server/src/scheduledTasks/ScheduledTaskService.ts:import \* as CheckScripts from "\.\./fork/checkScripts/CheckScripts\.ts";'

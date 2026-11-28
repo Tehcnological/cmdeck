@@ -13,6 +13,7 @@ import * as Notifications from "./notifications/Notifications.ts";
 import * as MemoryEmbeddings from "./memory/MemoryEmbeddings.ts";
 import * as MemoryStore from "./memory/MemoryStore.ts";
 import * as TurnContext from "./memory/TurnContext.ts";
+import * as WorkLedger from "./workLedger/WorkLedger.ts";
 import * as CheckScripts from "./checkScripts/CheckScripts.ts";
 import * as CheckScriptAlerts from "./checkScripts/alerts.ts";
 import * as UsageAlerts from "./usageAlerts/UsageAlerts.ts";
@@ -43,6 +44,7 @@ export const layer = Layer.mergeAll(
 export const layerBeneathOrchestration = Layer.merge(
   Layer.mergeAll(TurnContext.layer, ApprovalGate.layer).pipe(
     Layer.provideMerge(MemoryStore.layer),
+    Layer.provideMerge(WorkLedger.layer),
     // Inert until `cmdeck.memoryEmbedder` names a local inference server.
     Layer.provideMerge(MemoryEmbeddings.layer.pipe(Layer.provide(SecretResolverLayer.layer))),
     // TurnContext narrows memory and the scheduler routes models through it.

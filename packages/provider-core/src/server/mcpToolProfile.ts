@@ -1,3 +1,5 @@
+import { WORK_LEDGER_MCP_TOOL_NAMES } from "@t3tools/contracts";
+
 /** Which of T3's MCP tools a session advertises. Tool text is the same in every profile. */
 const MCP_TOOL_PROFILES = ["full", "lean"] as const;
 export type McpToolProfile = (typeof MCP_TOOL_PROFILES)[number];
@@ -41,6 +43,7 @@ export const LEAN_MCP_TOOL_NAMES: ReadonlyArray<string> = [
   "t3_worktree_handoff",
   "t3_worktree_status",
   "t3_worktree_list",
+  ...WORK_LEDGER_MCP_TOOL_NAMES,
 ];
 
 const LEAN = new Set(LEAN_MCP_TOOL_NAMES);

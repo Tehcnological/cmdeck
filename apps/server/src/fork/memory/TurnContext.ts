@@ -10,6 +10,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
+import { conductorContributor } from "../workLedger/conductorBrief.ts";
 import { botInstructionsContributor } from "../bots/instructions.ts";
 import * as MemoryStore from "./MemoryStore.ts";
 import { factNarrowing } from "./retrieval.ts";
@@ -138,9 +139,11 @@ export class TurnContext extends Context.Service<
 >()("t3/fork/memory/TurnContext") {}
 
 const make = Effect.gen(function* () {
-  // Notes and state cards append their contributors here. A bot's instructions come first, so
-  // memory cannot crowd them out of the budget; their length cap leaves memory half the block.
+  // The conductor's role and a bot's instructions come first, so memory cannot crowd them out of the
+  // budget; the bot instructions' length cap leaves memory half the block. Notes and state cards
+  // append their contributors here, after memory.
   const contributors: ReadonlyArray<Contributor> = [
+    yield* conductorContributor,
     yield* botInstructionsContributor,
     yield* memoryContributor,
   ];
