@@ -54,6 +54,8 @@ import {
   layerTest as layerCheckScriptsTest,
   makeFakeRunner,
 } from "../checkScripts/checkScripts.testkit.ts";
+import { Knowledge } from "../knowledge/Knowledge.ts";
+import { layerKnowledgeTest } from "../knowledge/knowledge.testkit.ts";
 import * as MemoryStore from "../memory/MemoryStore.ts";
 import { asAgentIn, layerMemoryToolsTest, threads } from "../memory/memory.testkit.ts";
 import * as TurnContext from "../memory/TurnContext.ts";
@@ -710,4 +712,35 @@ it.effect("the container sandbox, unused, runs no container CLI and waits on not
       expect(subscribed).toBe(false);
     }).pipe(Effect.provide(layerSandbox({ workspace, host, recipe: { image: "" } })));
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);
+
+it.effect("the knowledge library, with no embedder chosen, indexes and searches offline", () =>
+  Effect.gen(function* () {
+    const requests: Array<string> = [];
+    const recording = HttpClient.make((request) => {
+      requests.push(request.url);
+      return Effect.succeed(HttpClientResponse.fromWeb(request, Response.json({ data: [] })));
+    });
+    const fileSystem = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const root = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-knowledge-egress-" });
+    yield* fileSystem.makeDirectory(path.join(root, "docs"));
+    yield* fileSystem.writeFileString(path.join(root, "docs", "runbook.md"), "Restart the worker.");
+    yield* Effect.gen(function* () {
+      const knowledge = yield* Knowledge;
+      const projectId = threads.main.projectId;
+      // No source: a search does nothing at all.
+      expect(yield* knowledge.search({ projectId, query: "worker", limit: 5 })).toEqual([]);
+      const source = yield* knowledge.addSource({
+        projectId,
+        kind: "folder",
+        path: path.join(root, "docs"),
+      });
+      yield* knowledge.cancel(source.id);
+      yield* knowledge.indexNow(source.id);
+      const hits = yield* knowledge.search({ projectId, query: "worker", limit: 5 });
+      expect(hits).toHaveLength(1);
+      expect(requests).toEqual([]);
+    }).pipe(Effect.provide(layerKnowledgeTest({ root, embedder: recording })));
+  }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
 );

@@ -55,6 +55,18 @@ export class MemoryEmbeddings extends Context.Service<
     }) => Effect.Effect<Option.Option<ReadonlyArray<VectorMatch>>>;
     /** Embeds every active item without a vector from the current embedder; returns how many. */
     readonly backfill: Effect.Effect<number>;
+    /**
+     * Embeds other text (knowledge chunks) with the same embedder and the same failure handling.
+     * None without a usable embedder or while it cools down after a failure. Never fails.
+     */
+    /** The usable embedder's signature, read from settings without a request. */
+    readonly signature: Effect.Effect<Option.Option<string>>;
+    readonly embed: (texts: ReadonlyArray<string>) => Effect.Effect<
+      Option.Option<{
+        readonly signature: string;
+        readonly vectors: ReadonlyArray<Float32Array>;
+      }>
+    >;
     readonly status: Effect.Effect<MemoryEmbeddingsStatus>;
   }
 >()("t3/fork/memory/MemoryEmbeddings") {}
@@ -117,8 +129,8 @@ const EmbeddingsResponse = Schema.fromJsonString(
 );
 const decodeEmbeddings = Schema.decodeUnknownOption(EmbeddingsResponse);
 
-const toBlob = (vector: Float32Array) => new Uint8Array(vector.buffer.slice(0));
-const fromBlob = (blob: Uint8Array) =>
+export const toBlob = (vector: Float32Array) => new Uint8Array(vector.buffer.slice(0));
+export const fromBlob = (blob: Uint8Array) =>
   new Float32Array(blob.buffer.slice(blob.byteOffset, blob.byteOffset + blob.byteLength));
 
 interface Health {
@@ -404,7 +416,29 @@ const make = Effect.gen(function* () {
     }
   }).pipe(Effect.withSpan("MemoryEmbeddings.status"));
 
-  return MemoryEmbeddings.of({ match, backfill, status });
+  const embedOther: MemoryEmbeddings["Service"]["embed"] = Effect.fn("MemoryEmbeddings.embed")(
+    function* (texts) {
+      const embedder = yield* resolved;
+      if (embedder._tag !== "Ready" || texts.length === 0) return Option.none();
+      if (yield* coolingDown(embedder.signature)) return Option.none();
+      return yield* embed(embedder, texts).pipe(
+        Effect.tap(() => recordSuccess(embedder.signature)),
+        Effect.map((vectors) => Option.some({ signature: embedder.signature, vectors })),
+        Effect.catchTags({
+          EmbedFailure: (failure) =>
+            recordFailure(embedder.signature, failure).pipe(Effect.as(Option.none())),
+        }),
+      );
+    },
+  );
+
+  const signature: MemoryEmbeddings["Service"]["signature"] = resolved.pipe(
+    Effect.map((embedder) =>
+      embedder._tag === "Ready" ? Option.some(embedder.signature) : Option.none(),
+    ),
+  );
+
+  return MemoryEmbeddings.of({ match, backfill, status, signature, embed: embedOther });
 });
 
 export const layer = Layer.effect(MemoryEmbeddings, make);
