@@ -124,6 +124,8 @@ export const ThreadPullRequestWatch = Schema.Struct({
   checksPending: Schema.optional(Schema.Boolean),
   /** How long the watch holds its thread. Absent means until every check finished. */
   until: Schema.optional(Schema.Literal("merged")),
+  /** CMDeck: PR review bot rounds seen, kept across pushes and re-watches. */
+  reviewRounds: Schema.optional(NonNegativeInt),
 });
 export type ThreadPullRequestWatch = typeof ThreadPullRequestWatch.Type;
 

@@ -20,6 +20,7 @@ import * as ProjectionStore from "../../orchestration-v2/ProjectionStore.ts";
 import * as ProjectStore from "../../orchestration-v2/ProjectStore.ts";
 import * as SqlitePersistence from "../../persistence/Sqlite.ts";
 import * as ServerSettings from "../../serverSettings.ts";
+import * as AgentDiscipline from "../agentDiscipline/AgentDiscipline.ts";
 import { layerOrchestratorMcpStubs } from "../checkScripts/checkScripts.testkit.ts";
 import * as ForkMcpToolkits from "../mcpToolkits.ts";
 import * as MemoryEmbeddings from "./MemoryEmbeddings.ts";
@@ -95,6 +96,7 @@ export const layerMemoryTest = (options: {
 }) =>
   TurnContext.layer.pipe(
     Layer.provideMerge(MemoryStore.layer),
+    Layer.provideMerge(AgentDiscipline.layer),
     Layer.provideMerge(
       MemoryEmbeddings.layer.pipe(
         Layer.provide(Layer.succeed(HttpClient.HttpClient, options.embedder ?? unreachable)),

@@ -3,6 +3,7 @@ import { ProjectId, RunId } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
+import * as AgentDiscipline from "../agentDiscipline/AgentDiscipline.ts";
 import * as MemoryStore from "../memory/MemoryStore.ts";
 import * as TurnContext from "../memory/TurnContext.ts";
 import { CONDUCTOR_BRIEF } from "./conductorBrief.ts";
@@ -12,6 +13,12 @@ import { layerWorkLedgerTest, threads } from "./workLedger.testkit.ts";
 // Memory is off and inert here; only the conductor contributor can add a section.
 const layer = TurnContext.layer.pipe(
   Layer.provideMerge(Layer.mock(MemoryStore.MemoryStore)({ enabled: Effect.succeed(false) })),
+  Layer.provideMerge(
+    Layer.mock(AgentDiscipline.AgentDiscipline)({
+      claudeHooks: () => ({}),
+      guidance: () => Effect.succeed([]),
+    }),
+  ),
   Layer.provideMerge(layerWorkLedgerTest),
 );
 

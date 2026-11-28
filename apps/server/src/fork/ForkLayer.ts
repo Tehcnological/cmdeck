@@ -3,6 +3,7 @@ import * as Layer from "effect/Layer";
 import * as RemoteMcpTokens from "../auth/RemoteMcpTokens.ts";
 import * as PublicAddressCheck from "../environment/PublicAddressCheck.ts";
 import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
+import * as AgentDiscipline from "./agentDiscipline/AgentDiscipline.ts";
 import * as SecretResolverLayer from "../secrets/SecretResolver.ts";
 import * as ApprovalGate from "./approvalPolicy/ApprovalGate.ts";
 import * as ApprovalPolicy from "./approvalPolicy/ApprovalPolicy.ts";
@@ -45,9 +46,25 @@ export const layer = Layer.mergeAll(
  * Fork services orchestration reads, provided beneath it. They may depend only on what lies below
  * orchestration: settings, persistence and the project store.
  */
+/**
+ * Below provider hydration, which builds the Claude adapters and keeps that context: their subagent
+ * hooks read agent discipline from here. Layers memoize by reference, so this is the instance
+ * `layerBeneathOrchestration` provides too.
+ */
+export const belowProviders = <A1, E1, R1, A2, E2, R2>(
+  settings: Layer.Layer<A1, E1, R1>,
+  persistence: Layer.Layer<A2, E2, R2>,
+) =>
+  AgentDiscipline.layer.pipe(
+    Layer.provide(ProjectionStore.layer),
+    Layer.provide(Layer.merge(settings, persistence)),
+  );
+
 export const layerBeneathOrchestration = Layer.merge(
   Layer.mergeAll(TurnContext.layer, ApprovalGate.layer).pipe(
     Layer.provideMerge(MemoryStore.layer),
+    // TurnContext adds the working rules; the adapters, delegate_task and the PR watch enforce them.
+    Layer.provideMerge(AgentDiscipline.layer),
     Layer.provideMerge(WorkLedger.layer),
     // Inert until `cmdeck.memoryEmbedder` names a local inference server.
     Layer.provideMerge(MemoryEmbeddings.layer.pipe(Layer.provide(SecretResolverLayer.layer))),

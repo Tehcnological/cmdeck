@@ -53,6 +53,7 @@ T3 Code is an open-source control plane for coding agents. It gives the coding a
 - [Source control](./source-control.md) — GitHub, GitLab, Forgejo/Gitea, Bitbucket, Azure DevOps, GitCafe, Cursor Origin, Linear issues, PR review guides, stacks, and PR watching.
 - [Activity log](./activity-log.md) — Inspecting tool calls, hiding work logs / Zen mode, and screen reader announcements.
 - [Subagents and delegation](./subagents.md) — Parallel T3-delegated and provider-native subagents.
+- [Agent discipline](./agent-discipline.md) — Default done-check loop, subagent budget and review round cap.
 - [Conductor and work ledger](./conductor.md) — A thread that splits a goal into work items and checks what its workers report.
 - [Context in portable handoffs](./portable-handoffs.md) — How conversation context transfers across provider switches and forks.
 - [Files in question answers](./question-attachments.md) — Attaching files and images when answering agent questions.

@@ -42,6 +42,8 @@ import {
   type ProviderCheckLog,
   PullRequestProviderError,
 } from "@t3tools/source-control-core/server/PullRequestProvider";
+import * as AgentDiscipline from "../fork/agentDiscipline/AgentDiscipline.ts";
+import { applyReviewRoundCap, withReviewRoundNote } from "../fork/agentDiscipline/logic.ts";
 import * as PullRequestService from "../pullRequest/PullRequestService.ts";
 import { forkParked } from "../serverActivation.ts";
 import * as Orchestrator from "./Orchestrator.ts";
@@ -250,6 +252,9 @@ export const make = Effect.gen(function* () {
   const projections = yield* ProjectionStore.ProjectionStoreV2;
   const pullRequests = yield* PullRequestService.PullRequestService;
   const random = yield* SecureRandom.SecureRandom;
+  const agentDiscipline = Option.getOrUndefined(
+    yield* Effect.serviceOption(AgentDiscipline.AgentDiscipline),
+  );
   const bootedAt = yield* Clock.currentTimeMillis;
   const lives = new Map<string, WatchLife>();
 
@@ -762,10 +767,23 @@ export const make = Effect.gen(function* () {
       status: fingerprint?.status ?? null,
       remarks: fingerprint?.remarks ?? null,
     });
-    const reports = new Map(
+    const reviewRoundCap =
+      agentDiscipline === undefined ? null : yield* agentDiscipline.reviewRoundCap;
+    const reviewRounds = new Map(
       group.targets.map(
-        (target) => [target, evaluatePullRequestWatch(target.watch, detail, remarks, now)] as const,
+        (target) =>
+          [
+            target,
+            applyReviewRoundCap(
+              evaluatePullRequestWatch(target.watch, detail, remarks, now),
+              target.watch,
+              reviewRoundCap,
+            ),
+          ] as const,
       ),
+    );
+    const reports = new Map(
+      [...reviewRounds].map(([target, outcome]) => [target, outcome.report] as const),
     );
     // One log read serves every watch of the pull request, and only a failure wake asks for it.
     const logs = [...reports.values()].some((report) =>
@@ -778,15 +796,17 @@ export const make = Effect.gen(function* () {
     yield* eachTarget(group, (target) => {
       const report = reports.get(target)!;
       if (report.changes.length > 0) {
+        const message = pullRequestWatchMessage({
+          number: target.link.number,
+          url: target.link.url,
+          baseBranch: detail.baseBranch,
+          headSha: report.next.headSha,
+          report,
+          logs,
+        });
         const wake = {
-          ...pullRequestWatchMessage({
-            number: target.link.number,
-            url: target.link.url,
-            baseBranch: detail.baseBranch,
-            headSha: report.next.headSha,
-            report,
-            logs,
-          }),
+          ...message,
+          text: withReviewRoundNote(message.text, reviewRounds.get(target)!),
           includesRemarks: report.changes.some((change) => change.kind === "remarks"),
         };
         // An ending watch keeps what this pass saw, so watching again starts from it.
