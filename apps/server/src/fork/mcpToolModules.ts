@@ -7,4 +7,5 @@ export * as messagePins from "./messagePins/mcpTools.ts";
 export * as monitoring from "./monitoring/mcpTools.ts";
 export * as sandbox from "./sandbox/mcpTools.ts";
 export * as sessionState from "./sessionState/mcpTools.ts";
+export * as snapshot from "./import/mcpTools.ts";
 export * as workLedger from "./workLedger/mcpTools.ts";

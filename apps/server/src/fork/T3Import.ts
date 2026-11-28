@@ -73,7 +73,7 @@ export interface ImportResult {
 }
 
 // Rows tied to the source install's identity: they would let its clients and peers in as CMDeck.
-const IDENTITY_TABLES = [
+export const IDENTITY_TABLES = [
   "auth_sessions",
   "auth_pairing_links",
   "auth_connect_devices",

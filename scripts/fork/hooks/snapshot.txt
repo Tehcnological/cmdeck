@@ -1,0 +1,3 @@
+# WI-3.04: `cmdeck export snapshot`; `cmdeck import snapshot` is a source of the existing import command.
+apps/server/src/binCli.ts:import \{ exportCommand \} from "\./fork/import/exportCommand\.ts";
+apps/server/src/binCli.ts:exportCommand,
