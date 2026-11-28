@@ -211,8 +211,9 @@ export function gitProtectedPaths(
   return paths;
 }
 
-const FORWARDED_PREFIXES = ["ANTHROPIC_", "CLAUDE_CODE_", "OPENAI_", "T3CODE_"];
-const FORWARDED_NAMES = ["TERM", "COLORTERM", "LANG", "LC_ALL"];
+const FORWARDED_PREFIXES = ["ANTHROPIC_", "CLAUDE_CODE_", "OPENAI_"];
+// T3CODE_THREAD_ID only: other T3CODE_* variables hold CMDeck's own tokens.
+const FORWARDED_NAMES = ["T3CODE_THREAD_ID", "TERM", "COLORTERM", "LANG", "LC_ALL"];
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /**

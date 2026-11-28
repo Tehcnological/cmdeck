@@ -181,6 +181,9 @@ describe("forwardedEnvKeys", () => {
       ANTHROPIC_API_KEY: "a",
       CLAUDE_CODE_OAUTH_TOKEN: "b",
       T3CODE_THREAD_ID: "t",
+      // CMDeck's own tokens never reach a container.
+      T3CODE_DEV_AUTH_TOKEN: "dev",
+      T3CODE_TOKEN: "tok",
       AWS_SECRET_ACCESS_KEY: "x",
       GH_TOKEN: "y",
       PATH: "/bin",
