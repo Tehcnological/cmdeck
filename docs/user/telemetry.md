@@ -51,6 +51,9 @@ Besides the traffic you or your tools create, these are the outbound calls CMDec
 - **Spellcheck dictionaries (Linux desktop app)**: spellcheck is off by default on Linux, where
   turning it on downloads spelling dictionaries from Google's servers. Turn it on with
   **Settings → General → Spellcheck**. Windows and macOS use the system spellchecker instead.
+- **Health monitoring probes**: off by default. With **Settings > General > Health monitoring**
+  on, the probes you list there are checked once a minute, and linked environments only when you
+  turn on **Check linked environments**. Nothing else is contacted.
 - **Server update checks**: `t3 update` and the mobile app's server update check look up the newest
   release on CMDeck's GitHub releases (`github.com/Tehcnological/cmdeck`, then `api.github.com` if
   needed). CMDeck installs updates only from a build mirror you configure.

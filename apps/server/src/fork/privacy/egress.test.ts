@@ -71,6 +71,8 @@ import { claudeAtPercent, layerUsageAlertsTest } from "../usageAlerts/usageAlert
 import { AgentScope } from "@t3tools/shared/AgentScope";
 import { ContainerSandbox } from "../sandbox/ContainerSandbox.ts";
 import { layerSandbox, makeHost, makeWorkspace, THREAD } from "../sandbox/sandbox.testkit.ts";
+import * as Heartbeat from "../monitoring/Heartbeat.ts";
+import { layerHeartbeatTest } from "../monitoring/monitoring.testkit.ts";
 
 vi.mock("@anthropic-ai/claude-agent-sdk", { spy: true });
 
@@ -743,4 +745,28 @@ it.effect("the knowledge library, with no embedder chosen, indexes and searches 
       expect(requests).toEqual([]);
     }).pipe(Effect.provide(layerKnowledgeTest({ root, embedder: recording })));
   }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+);
+
+it.effect(
+  "the heartbeat contacts no one: off, or on with no probes and linked environments unchecked",
+  () =>
+    Effect.gen(function* () {
+      for (const enabled of [false, true]) {
+        const httpStatus = yield* Ref.make(200);
+        const requests = yield* Ref.make<ReadonlyArray<string>>([]);
+        const alerts = yield* Ref.make<ReadonlyArray<Notifications.AlertInput>>([]);
+        // PeerLinks dies if asked, so passing proves no linked environment was contacted.
+        yield* Effect.gen(function* () {
+          const heartbeat = yield* Heartbeat.Heartbeat;
+          expect((yield* heartbeat.check).enabled).toBe(enabled);
+          yield* TestClock.adjust("5 minutes");
+          expect(yield* Ref.get(requests)).toEqual([]);
+          expect(yield* Ref.get(alerts)).toEqual([]);
+        }).pipe(
+          Effect.provide(
+            layerHeartbeatTest({ heartbeat: { enabled }, httpStatus, requests, alerts }),
+          ),
+        );
+      }
+    }),
 );

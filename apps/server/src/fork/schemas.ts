@@ -7,6 +7,7 @@ export { ensureKnowledgeSchema } from "./knowledge/schema.ts";
 export { ensureEventTriggersSchema } from "./eventTriggers/schema.ts";
 export { ensureMemorySchema } from "./memory/schema.ts";
 export { ensureMessagePinsSchema } from "./messagePins/schema.ts";
+export { ensureMonitoringSchema } from "./monitoring/schema.ts";
 export { ensureNotificationsSchema } from "./notifications/schema.ts";
 export { ensureSandboxSchema } from "./sandbox/schema.ts";
 export { ensureSessionStateSchema } from "./sessionState/schema.ts";

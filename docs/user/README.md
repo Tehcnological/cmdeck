@@ -81,6 +81,7 @@ T3 Code is an open-source control plane for coding agents. It gives the coding a
 - [Research Lab](./research-lab.md) — A ready-made workflow that researches a question in parallel cycles and writes a report.
 - [Text generation models](./text-generation.md) — Fast/cheap API models for titles, commits, PR descriptions, and voice cleanup.
 - [Bots](./bots.md) — Persistent agents with a pinned thread, standing instructions, private memory, and schedules.
+- [Monitor loops and health monitoring](./monitoring.md) — Agent loops that watch something on their own thread, quiet automated turns, and alerts when turns, environments or your probes stop responding.
 - [Decision service](./decisions.md) — How scheduled tasks pick a model under usage limits, and opt-in local models for small decisions.
 - [Memory search by meaning](./memory-search.md) — Optional embeddings from a local inference server, keyword fallback, and how older facts rank.
 - [Knowledge library and notes](./knowledge-library.md) — Folders, files and a notes folder that agents search with `knowledge_search`, and what is never indexed.

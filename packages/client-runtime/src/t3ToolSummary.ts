@@ -865,6 +865,12 @@ export function summarizeT3ToolCalls(
           );
       break;
     }
+    case "nothing-to-report": {
+      label = done
+        ? resolve(msg("Checked, nothing to report"))
+        : resolve(msg("Tried to close the run quietly"));
+      break;
+    }
     case "send-to-user": {
       const count = selected.length;
       label = done

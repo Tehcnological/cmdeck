@@ -1,0 +1,5 @@
+# WI-2.12: nothing_to_report shows as a compact "Checked, nothing to report" row.
+packages/shared/src/t3McpToolPresentation.ts:\| "nothing-to-report";
+packages/shared/src/t3McpToolPresentation.ts:nothing_to_report: tool\(\["Check", "Checking", "Checked", "nothing to report"\], "nothing-to-report"\),
+packages/client-runtime/src/work-log/t3ToolSentences.ts:"Check.nChecking.nChecked.nnothing to report",
+packages/client-runtime/src/t3ToolSummary.ts:case "nothing-to-report": \{
