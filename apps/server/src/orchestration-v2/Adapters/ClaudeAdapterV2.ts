@@ -195,6 +195,7 @@ import {
 } from "../../claudeModelOptions.ts";
 import * as ServerConfig from "../../config.ts";
 import { NativeTelemetryClient } from "../../resourceTelemetry/NativeTelemetryClient.ts";
+import * as ForkSandbox from "../../fork/sandbox/ContainerSandbox.ts";
 import * as PortScanner from "../../preview/PortScanner.ts";
 import * as ProcessRunner from "../../processRunner.ts";
 import * as ServerSettings from "../../serverSettings.ts";
@@ -1662,6 +1663,7 @@ export const layerQueryRunner: Layer.Layer<
     const path = yield* Path.Path;
     const { native: nativeEventLogger } = yield* ProviderEventLoggers.ProviderEventLoggers;
     const agentScope = yield* AgentScope;
+    const inContainer = yield* ForkSandbox.sandboxedThreadCheck;
     const providerProcesses = yield* ProviderProcesses.ProviderProcesses;
     const platform = yield* HostProcess.Platform;
     const runFork = Effect.runForkWith(yield* Effect.context<never>());
@@ -1756,7 +1758,7 @@ export const layerQueryRunner: Layer.Layer<
         Stream.toAsyncIterable,
       );
       // Send MCP credentials over stdin to keep them out of SDK argv and inherited command environments.
-      const { mcpServers, ...sdkOptions } = input.options;
+      const { mcpServers: requestedMcpServers, ...sdkOptions } = input.options;
       // Jobs the agent starts inherit the thread, so port discovery can attribute their servers.
       let resumeSessionAt = sdkOptions.resumeSessionAt;
       let endsOnFailedRequest = false;
@@ -1797,11 +1799,14 @@ export const layerQueryRunner: Layer.Layer<
       };
       // The SDK can prepend a scope wrapper to native binaries; script entries run through node.
       const binaryPath = queryOptions.pathToClaudeCodeExecutable;
+      const sandboxed = yield* inContainer(input.threadId);
       const launch =
-        binaryPath === undefined || CLAUDE_SCRIPT_EXTENSIONS.some((ext) => binaryPath.endsWith(ext))
+        (binaryPath === undefined ||
+          CLAUDE_SCRIPT_EXTENSIONS.some((ext) => binaryPath.endsWith(ext))) &&
+        !sandboxed
           ? undefined
           : yield* agentScope.wrap({
-              command: binaryPath,
+              command: binaryPath ?? "claude",
               args: [],
               name: "claude",
               threadId: input.threadId,
@@ -1816,6 +1821,7 @@ export const layerQueryRunner: Layer.Layer<
               executableArgs: [...launch.args, ...(queryOptions.executableArgs ?? [])],
             };
       const unit = launch?.unit;
+      const mcpServers = ForkSandbox.isContained(sandboxed, unit) ? undefined : requestedMcpServers;
       const stopScope = unit === undefined ? undefined : () => void runFork(agentScope.stop(unit));
       // Only a CLI that fails before its first message explains itself on
       // stderr. The known root refusal becomes a curated failure; any other

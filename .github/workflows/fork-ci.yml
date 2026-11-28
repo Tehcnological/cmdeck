@@ -337,3 +337,36 @@ jobs:
         env:
           TEST_ARGS: ${{ steps.scope.outputs.args }}
         run: vp test run --maxWorkers 2 --shard ${{ matrix.shard }}/6 --passWithNoTests $TEST_ARGS
+
+  # The container sandbox's live test (WI-2.18) needs a real Docker engine, which stock Ubuntu
+  # runners have. It talks to the local socket only; nothing here sets DOCKER_HOST.
+  sandbox-live:
+    name: Container sandbox (Docker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          sparse-checkout: |
+            /*
+            !/.repos/
+            !/apps/mobile/modules/t3-terminal/Vendor/**/*.a
+          sparse-checkout-cone-mode: false
+
+      - name: Setup Vite+
+        uses: ./.github/actions/setup-ci-deps
+        with:
+          install: "false"
+
+      - name: Install dependencies
+        run: vp install --frozen-lockfile
+
+      - name: Pull the test image
+        run: docker pull alpine:3.20
+
+      - name: Test
+        working-directory: apps/server
+        env:
+          CMDECK_SANDBOX_LIVE: "1"
+        run: vp test run src/fork/sandbox/ContainerSandbox.live.test.ts

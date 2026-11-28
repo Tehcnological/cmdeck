@@ -124,6 +124,7 @@ import { hasCloudPublicConfig } from "./cloud/publicConfig.ts";
 import * as ServerSettings from "./serverSettings.ts";
 import * as ForkAlerts from "./fork/ForkAlerts.ts";
 import * as ForkLayer from "./fork/ForkLayer.ts";
+import * as ContainerSandbox from "./fork/sandbox/ContainerSandbox.ts";
 import * as ManagedLimits from "./policy/managedLimits.ts";
 import * as ManagedPolicy from "./policy/ManagedPolicy.ts";
 import * as ProjectEnrichmentService from "./project/ProjectEnrichmentService.ts";
@@ -1466,6 +1467,7 @@ const layerMakeServer = Layer.unwrap(
       Layer.provide(layerApplicationObservability),
       Layer.provideMerge(FetchHttpClient.layer),
       Layer.provide(VcsProcess.layer),
+      Layer.provideMerge(ContainerSandbox.layer.pipe(Layer.provide(layerServerSettings))),
       Layer.provideMerge(AgentScopeLive.layer),
       Layer.provideMerge(layerPlatformServices),
       Layer.provideMerge(FeatureFlags.layer),

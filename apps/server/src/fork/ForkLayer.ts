@@ -18,6 +18,7 @@ import * as WorkLedger from "./workLedger/WorkLedger.ts";
 import * as CheckScripts from "./checkScripts/CheckScripts.ts";
 import * as CheckScriptAlerts from "./checkScripts/alerts.ts";
 import * as UsageAlerts from "./usageAlerts/UsageAlerts.ts";
+import * as SandboxReaper from "./sandbox/archiveReaper.ts";
 
 /**
  * Every fork service the server provides, in one place so `server.ts` carries a single fork line.
@@ -37,6 +38,7 @@ export const layer = Layer.mergeAll(
   ).pipe(Layer.provideMerge(Notifications.layer), Layer.provideMerge(AuditLog.layer)),
   MessagePins.layer.pipe(Layer.provide(ProjectionStore.layer)),
   Bots.layer,
+  SandboxReaper.layer,
 );
 
 /**

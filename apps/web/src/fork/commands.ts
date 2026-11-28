@@ -15,6 +15,7 @@ import { useAtomCommand } from "../state/use-atom-command";
 import { usePrimaryEnvironmentId } from "../state/environments";
 import { NEW_BOT_TARGET } from "./BotsSection";
 import { workflowEnvironmentFor } from "./commands.logic";
+import { useContainerCommandItems } from "./containerCommands";
 import { useDesignCritiqueCommandItem } from "./designCritiqueCommand";
 import { useShowPinsCommandItem } from "./pins/pinsCommand";
 import { useWorkLedgerCommandItems } from "./workLedgerCommands";
@@ -71,6 +72,7 @@ export function useForkCommandItems(): ReadonlyArray<CommandPaletteActionItem> {
   const designCritique = useDesignCritiqueCommandItem();
   const showPins = useShowPinsCommandItem();
   const workLedger = useWorkLedgerCommandItems();
+  const containerItems = useContainerCommandItems();
   const items: Array<CommandPaletteActionItem> = [
     {
       kind: "action",
@@ -105,5 +107,6 @@ export function useForkCommandItems(): ReadonlyArray<CommandPaletteActionItem> {
   if (designCritique !== null) items.push(designCritique);
   if (showPins !== null) items.push(showPins);
   items.push(...workLedger);
+  items.push(...containerItems);
   return items;
 }

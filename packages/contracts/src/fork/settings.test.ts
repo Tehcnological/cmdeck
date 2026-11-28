@@ -2,11 +2,13 @@ import { describe, expect, it } from "vite-plus/test";
 import * as Schema from "effect/Schema";
 import * as Struct from "effect/Struct";
 
-import { ServerSettings, ServerSettingsPatch } from "../settings.ts";
+import { ClientServerSettingsPatch, ServerSettings, ServerSettingsPatch } from "../settings.ts";
 
 const decodeServerSettings = Schema.decodeSync(ServerSettings);
 const encodeServerSettings = Schema.encodeSync(ServerSettings);
 const decodeServerSettingsPatch = Schema.decodeSync(ServerSettingsPatch);
+const decodeClientPatch = Schema.decodeUnknownSync(ClientServerSettingsPatch);
+const decodeUnknownSettings = Schema.decodeUnknownSync(ServerSettings);
 const decodeUpstreamSettings = Schema.decodeSync(ServerSettings.mapFields(Struct.omit(["cmdeck"])));
 
 describe("cmdeck settings key", () => {
@@ -50,5 +52,15 @@ describe("cmdeck settings key", () => {
     const stored = encodeServerSettings(decodeServerSettings({}));
     expect(stored).toHaveProperty("cmdeck");
     expect(decodeUpstreamSettings(stored)).not.toHaveProperty("cmdeck");
+  });
+});
+
+describe("container recipe", () => {
+  // The recipe decides what a sandboxed agent can reach; only the sandbox service, which
+  // validates and audits, may change it. A client's settings patch must not carry it.
+  it("is not part of any settings patch", () => {
+    const patch = { cmdeck: { sandbox: { image: "acme/agent:1", network: "host" } } };
+    expect(decodeClientPatch(patch)).toEqual({ cmdeck: {} });
+    expect(decodeUnknownSettings(patch).cmdeck).not.toHaveProperty("sandbox");
   });
 });

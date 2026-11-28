@@ -7,6 +7,7 @@ import * as MessagePinTools from "./messagePins/mcpTools.ts";
 import * as MemoryTools from "./memory/mcpTools.ts";
 import * as WorkLedgerTools from "./workLedger/mcpTools.ts";
 import * as CheckScriptTools from "./checkScripts/mcpTools.ts";
+import * as SandboxTools from "./sandbox/mcpTools.ts";
 
 /**
  * Fork MCP toolkits, merged into the server's advertised tools. The registration helper is passed
@@ -21,5 +22,6 @@ export const layer = (register: typeof toolkitRegistration) =>
       Layer.provide(OrchestratorMcpService.layer),
     ),
     register(BotTools.BotsToolkit, BotTools.layer),
+    register(SandboxTools.SandboxToolkit, SandboxTools.layer),
     register(MessagePinTools.MessagePinsToolkit, MessagePinTools.layer),
   );

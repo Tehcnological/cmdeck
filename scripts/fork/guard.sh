@@ -276,6 +276,23 @@ required=(
   # WI-2.21: design-critique eval cases load the repo skill they test.
   'evals/mcp-tool-use/run.ts:skill: Schema\.optional\(Schema\.String\),'
   'evals/mcp-tool-use/run.ts:: invokedSkillPrompt\('
+  # WI-2.18: sandboxed threads launch through the container AgentScope, and refuse providers that cannot.
+  'apps/server/src/server.ts:import \* as ContainerSandbox from "\./fork/sandbox/ContainerSandbox\.ts";'
+  'apps/server/src/server.ts:Layer\.provideMerge\(ContainerSandbox\.layer\.pipe\(Layer\.provide\(layerServerSettings\)\)\), +Layer\.provideMerge\(AgentScopeLive\.layer\)'
+  'apps/server/src/orchestration-v2/ProviderSessionManager.ts:import \{ sandboxLaunchGate \} from "\.\./fork/sandbox/launchGate\.ts";'
+  'apps/server/src/orchestration-v2/ProviderSessionManager.ts:yield\* sandboxLaunchGate\(input, registry\);'
+  'apps/server/src/persistence/ForkSchema.ts:yield\* ensureSandboxSchema\(\)'
+  'apps/web/src/components/settings/SettingsPanels.tsx:import \{ ContainerSandboxSection \} from "~/fork/ContainerSandboxSection";'
+  'apps/web/src/components/settings/SettingsPanels.tsx:<ContainerSandboxSection />'
+  # A sandboxed thread's Claude launches through the container scope even from a script entry.
+  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:import \* as ForkSandbox from "\.\./\.\./fork/sandbox/ContainerSandbox\.ts";'
+  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const inContainer = yield\* ForkSandbox\.sandboxedThreadCheck;'
+  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const sandboxed = yield\* inContainer\(input\.threadId\);'
+  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:command: binaryPath \?\? "claude",'
+  # ...and gets no MCP servers, so it holds no CMDeck credential, decided once with the scope's say.
+  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const mcpServers = ForkSandbox\.isContained\(sandboxed, unit\) \? undefined : requestedMcpServers;'
+  # Host git never runs the fsmonitor of a repository a container wrote into the worktree.
+  'apps/server/src/vcs/VcsProcess.ts:\["core\.fsmonitor", "false"\], // Fork \(WI-2\.18\)'
   # WI-2.15: message pins. Pin buttons in message actions and the timeline's jump to a pin.
   'apps/web/src/components/chat/TimelineAssistantRows.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{message\.id\} +text=\{message\.text\}'
   'apps/web/src/components/chat/TimelineUserMessageRow.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{row\.message\.id\} +text=\{text\}'
@@ -297,6 +314,10 @@ for file in $(git grep -l -E 'ServerSecretStore\.layer([^A-Za-z]|$)' -- apps/ser
   grep -q -E '^import \* as ServerSecretStore from "(\./|(\.\./)+)fork/secrets/EncryptedSecretStore\.ts";' "$file" ||
     bad "$file builds ServerSecretStore.layer without fork/secrets/EncryptedSecretStore.ts"
 done
+
+# 8. Agents may only tighten the sandbox: no MCP tool turns a container off (WI-2.18).
+hits="$(git grep -l -E '"off"|mode: null' -- apps/server/src/fork/sandbox/mcpTools.ts)"
+[ -z "$hits" ] || bad "An MCP tool can turn a container off: $hits"
 
 for entry in "${required[@]}"; do
   file="${entry%%:*}"

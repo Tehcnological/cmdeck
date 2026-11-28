@@ -9,6 +9,7 @@ import {
   WorkflowTrustError,
   NotificationChannelError,
   WorkLedgerError,
+  SandboxError,
 } from "@t3tools/contracts";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
@@ -21,6 +22,7 @@ import { Bots, type BotActor } from "../bots/Bots.ts";
 import { Decisions } from "../decisions/Decisions.ts";
 import { MemoryEmbeddings } from "../memory/MemoryEmbeddings.ts";
 import { installPreset } from "../presets/install.ts";
+import { ContainerSandbox } from "../sandbox/ContainerSandbox.ts";
 import { WorkflowTrust } from "../workflowTrust/WorkflowTrust.ts";
 import * as Notifications from "../notifications/Notifications.ts";
 import * as ThreadManagement from "../../orchestration-v2/ThreadManagementService.ts";
@@ -58,6 +60,10 @@ export const make = Effect.gen(function* () {
   const asPerson: BotActor = { createdBy: "user", creationSource: "web" };
   const memory = yield* MemoryRpc.make;
   const embeddings = yield* Effect.serviceOption(MemoryEmbeddings);
+  const sandbox = yield* Effect.serviceOption(ContainerSandbox);
+  const noSandbox = Effect.fail(
+    new SandboxError({ detail: "Containers are not available on this server." }),
+  );
   const pins = yield* Effect.serviceOption(MessagePins);
   const noPins = Effect.fail(new MessagePinsError({ reason: "unavailable" }));
   return ForkWsRpcGroup.of({
@@ -145,6 +151,10 @@ export const make = Effect.gen(function* () {
             total: 0,
             checkedAt: null,
           }),
+    [CMDECK_WS_METHODS.sandboxStatus]: (input) =>
+      Option.isSome(sandbox) ? sandbox.value.status(input) : noSandbox,
+    [CMDECK_WS_METHODS.sandboxConfigure]: (input) =>
+      Option.isSome(sandbox) ? sandbox.value.configure(input, "user") : noSandbox,
     [CMDECK_WS_METHODS.messagePinsList]: (input) =>
       Option.isSome(pins) ? pins.value.list(input.threadId) : noPins,
     [CMDECK_WS_METHODS.messagePinsPin]: (input) =>

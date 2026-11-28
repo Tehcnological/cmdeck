@@ -35,6 +35,8 @@ describe("fork read scopes", () => {
       CMDECK_WS_METHODS.memoryPreviewEdit,
       CMDECK_WS_METHODS.memoryThreadMode,
       CMDECK_WS_METHODS.memoryInjections,
+      // Settings and the palette read the container status from query atoms.
+      CMDECK_WS_METHODS.sandboxStatus,
     ]) {
       expect(RpcAuthorization.RPC_REQUIRED_SCOPES).toHaveProperty(
         [method],
