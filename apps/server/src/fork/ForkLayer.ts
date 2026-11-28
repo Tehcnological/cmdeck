@@ -46,6 +46,20 @@ export const layer = Layer.mergeAll(
  * Fork services orchestration reads, provided beneath it. They may depend only on what lies below
  * orchestration: settings, persistence and the project store.
  */
+/**
+ * Below provider hydration, which builds the Claude adapters and keeps that context: their subagent
+ * hooks read agent discipline from here. Layers memoize by reference, so this is the instance
+ * `layerBeneathOrchestration` provides too.
+ */
+export const belowProviders = <A1, E1, R1, A2, E2, R2>(
+  settings: Layer.Layer<A1, E1, R1>,
+  persistence: Layer.Layer<A2, E2, R2>,
+) =>
+  AgentDiscipline.layer.pipe(
+    Layer.provide(ProjectionStore.layer),
+    Layer.provide(Layer.merge(settings, persistence)),
+  );
+
 export const layerBeneathOrchestration = Layer.merge(
   Layer.mergeAll(TurnContext.layer, ApprovalGate.layer).pipe(
     Layer.provideMerge(MemoryStore.layer),

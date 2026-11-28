@@ -249,6 +249,7 @@ required=(
   'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:\.\.\.input\.budgetHooks,'
   'apps/server/src/mcp/OrchestratorMcpService.ts:yield\* agentDiscipline\.delegationRefusal\('
   'apps/server/src/orchestration-v2/PullRequestWatchReactor.ts:applyReviewRoundCap\('
+  'apps/server/src/server.ts:Layer\.provideMerge\(ForkLayer\.belowProviders\(layerServerSettings, layerPersistence\)\),'
   'apps/server/src/orchestration-v2/PullRequestWatchReactor.ts:text: withReviewRoundNote\(message\.text,'
   'apps/server/src/orchestration-v2/Orchestrator.ts:reviewRounds: existing\.endedWatch\.reviewRounds,'
   'packages/contracts/src/threadPullRequest.ts:reviewRounds: Schema\.optional\(NonNegativeInt\),'
