@@ -67,9 +67,21 @@ A check script lets a task run only when there is work, without spending a model
 - **Exit 10**: the run is skipped. No thread, no turn, no model call.
 - **Anything else**, or the timeout (default 120 seconds): the run fails and you get a notification. It counts toward the three-failures pause.
 
-Turn on **Notify only** for a task that never needs the agent: exit 0 sends the script's output as a notification instead. Scripts can keep files in `CMDECK_STATE_DIR`, which survives between runs, and read `CMDECK_PREVIOUS_RUN_AT`, `CMDECK_TRIGGER` and `CMDECK_PROJECT_DIR`.
+Turn on **Notify only** for a task that never needs the agent: exit 0 sends the script's output as a notification instead. Scripts can keep files in `CMDECK_STATE_DIR`, which survives between runs, and read `CMDECK_PREVIOUS_RUN_AT`, `CMDECK_TRIGGER` and `CMDECK_PROJECT_DIR`. On a task that runs on events, `CMDECK_TRIGGER` is `event` and `CMDECK_EVENTS` holds the events as a JSON array.
 
 Scripts run with the server's full access. A script you save runs as saved. A script an agent adds or changes (agents use the `set_scheduled_task_check` tool) does not run until you open it, read it and click **Approve**; until then the button shows a warning, each run fails with a note asking for approval, and those runs do not count toward the pause. Changing an approved script, or its interpreter, needs approval again.
+
+### Event automations
+
+Choose **On event** as a task's schedule (web and desktop) to run it when something happens in CMDeck instead of at a time:
+
+- **Run when**: a turn ends, an agent needs input, a watched pull request wakes, a workflow asks a question, a workflow run pauses, or a workflow run ends. Pick one or more.
+- **Only with outcome**: limit it to turns or runs that ended a certain way, such as **Failed**. Events without an outcome, such as an agent needing input, are not filtered.
+- **From**: this task's project or any project. Workflows belong to no project, so their events always pass.
+
+Each event runs the task once, with the event's details (thread, run, outcome) added after the prompt as data. Events that arrive within about ten seconds share one run, and events that come in while the task is still running wait for it to finish. A check script on the task runs first, as for any other run.
+
+What happens in a thread an event task ran in, or is bound to, never triggers an event task, so a task cannot set itself off, directly or through another event task. Events from subagents do not count. **Run now** runs the task without an event. The official T3 Code mobile app and older CMDeck apps do not list event tasks.
 
 ### Webhook automations
 

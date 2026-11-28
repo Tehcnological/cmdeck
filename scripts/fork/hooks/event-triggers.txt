@@ -1,0 +1,29 @@
+# WI-2.13: the `event` schedule type, which runs a scheduled task when a milestone happens.
+packages/contracts/src/scheduledTask.ts:import \{ ScheduledTaskEventSchedule \} from "\./fork/eventTriggers\.ts";
+packages/contracts/src/scheduledTask.ts:ScheduledTaskCronSchedule, +ScheduledTaskEventSchedule, +\]\);
+packages/contracts/src/scheduledTask.ts:ScheduledTaskUpsertCronSchedule, +ScheduledTaskEventSchedule, +\]\);
+packages/contracts/src/orchestratorMcp.ts:\{type:'event',events,outcomes\?,projectIds\?\}
+apps/server/src/scheduledTasks/Schedule.ts:if \(schedule\.type === "event"\) return null;
+apps/server/src/scheduledTasks/Schedule.ts:if \(a\.type === "event"\) return b\.type === "event";
+# An event-triggered run sends the task's prompt with the events after it.
+apps/server/src/scheduledTasks/ScheduledTaskService.ts:import \* as EventTriggers from "\.\./fork/eventTriggers/currentEvents\.ts";
+apps/server/src/scheduledTasks/ScheduledTaskService.ts:const active = yield\* EventTriggers\.withEvents\(yield\* findTask\(task\.id\)\);
+# The editor's "On event" choice and its fields.
+apps/web/src/components/settings/scheduledTasksSettings.logic.ts:import \* as EventTriggers from "~/fork/eventTriggers\.logic";
+apps/web/src/components/settings/scheduledTasksSettings.logic.ts:if \(schedule\.type === "event"\) return EventTriggers\.eventScheduleLabel\(schedule, resolve\);
+apps/web/src/components/settings/scheduledTasksSettings.logic.ts:export type ScheduleMode = "fixed" \| "once" \| "interval" \| "webhook" \| "cron" \| "event";
+apps/web/src/components/settings/scheduledTasksSettings.logic.ts:readonly eventTrigger: EventTriggers\.EventTriggerDraft;
+apps/web/src/components/settings/scheduledTasksSettings.logic.ts:if \(draft\.scheduleMode === "event"\) +return EventTriggers\.eventTriggerDraftErrors\(draft\.eventTrigger, resolve\);
+apps/web/src/components/settings/scheduledTasksSettings.logic.ts:if \(draft\.scheduleMode === "event"\) +return EventTriggers\.eventScheduleFromDraft\(draft\.eventTrigger, draft\.projectId\);
+apps/web/src/components/settings/scheduledTasksSettings.logic.ts:eventTrigger: EventTriggers\.eventTriggerDraft\(schedule, task\.projectId\),
+apps/web/src/components/settings/ScheduledTasksSettings.tsx:import \{ EventTriggerFields, EventTriggerToggle \} from "~/fork/EventTriggerFields";
+apps/web/src/components/settings/ScheduledTasksSettings.tsx:import \{ EVENT_TRIGGER_DRAFT_DEFAULT \} from "~/fork/eventTriggers\.logic";
+apps/web/src/components/settings/ScheduledTasksSettings.tsx:eventTrigger: EVENT_TRIGGER_DRAFT_DEFAULT,
+apps/web/src/components/settings/ScheduledTasksSettings.tsx:mode === "cron" \|\| +mode === "event"
+apps/web/src/components/settings/ScheduledTasksSettings.tsx:<EventTriggerToggle />
+apps/web/src/components/settings/ScheduledTasksSettings.tsx:\) : draft\.scheduleMode === "event" \? \( +<EventTriggerFields draft=\{draft\} setDraft=\{setDraft\} />
+apps/web/src/components/settings/ScheduledTasksSettings.tsx:const schedule = scheduleFromDraft\(\{ \.\.\.draft, projectId: selectedProjectId \}\);
+# Native mobile is shelved: it hides event tasks, as older apps do.
+apps/mobile/src/features/settings/SettingsScheduledTasksRouteScreen.tsx:if \(task\.schedule\.type === "event"\) return task\.schedule\.events\.join\(", "\);
+apps/mobile/src/features/settings/SettingsScheduledTasksRouteScreen.tsx:task\.schedule\.type !== "event" &&
+apps/mobile/src/features/settings/scheduledTaskDraft.ts:case "event": +return DEFAULT_SCHEDULE;

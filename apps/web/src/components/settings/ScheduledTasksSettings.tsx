@@ -157,6 +157,8 @@ import {
 } from "./settingsLayout";
 import { SharedTooltipTrigger } from "../ui/shared-tooltip";
 import { ScheduledTaskCheckControl } from "~/fork/ScheduledTaskCheck";
+import { EventTriggerFields, EventTriggerToggle } from "~/fork/EventTriggerFields";
+import { EVENT_TRIGGER_DRAFT_DEFAULT } from "~/fork/eventTriggers.logic";
 
 const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
 const WEEKDAY_SHORT = [
@@ -218,6 +220,7 @@ const EMPTY_DRAFT: DraftState = {
   coalesceWindowSeconds: "",
   filters: [],
   savedFilters: [],
+  eventTrigger: EVENT_TRIGGER_DRAFT_DEFAULT,
 };
 
 function WebhookFiltersField({
@@ -1667,7 +1670,7 @@ function ScheduledTaskEditorForm({
       reportFailure(gt("Invalid filter"), parsedFilters.error);
       return;
     }
-    const schedule = scheduleFromDraft(draft);
+    const schedule = scheduleFromDraft({ ...draft, projectId: selectedProjectId });
     if (schedule === null) {
       for (const error of scheduleDraftErrors(draft)) reportFailure(error.title, error.description);
       return;
@@ -2049,7 +2052,8 @@ function ScheduledTaskEditorForm({
                     mode === "once" ||
                     mode === "interval" ||
                     mode === "webhook" ||
-                    mode === "cron"
+                    mode === "cron" ||
+                    mode === "event"
                   )
                     setDraft((current) => {
                       const suggested =
@@ -2094,6 +2098,7 @@ function ScheduledTaskEditorForm({
                 >
                   <T>On webhook</T>
                 </Toggle>
+                <EventTriggerToggle />
               </ToggleGroup>
             </div>
 
@@ -2293,6 +2298,8 @@ function ScheduledTaskEditorForm({
                   </div>
                 ) : null}
               </div>
+            ) : draft.scheduleMode === "event" ? (
+              <EventTriggerFields draft={draft} setDraft={setDraft} />
             ) : draft.scheduleMode === "once" ? (
               <div className="flex items-center gap-2">
                 <Label htmlFor="scheduled-task-run-at">
