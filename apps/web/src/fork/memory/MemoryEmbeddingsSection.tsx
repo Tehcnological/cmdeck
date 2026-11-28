@@ -1,6 +1,5 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import { requestGuarded } from "@t3tools/client-runtime/rpc";
-import { createEnvironmentQueryAtomFamily } from "@t3tools/client-runtime/state/runtime";
+import { createEnvironmentRpcQueryAtomFamily } from "@t3tools/client-runtime/state/runtime";
 import { CMDECK_WS_METHODS, type EnvironmentId } from "@t3tools/contracts";
 import { AsyncResult } from "effect/reactivity";
 import { useGT } from "gt-react";
@@ -26,10 +25,10 @@ import {
   settingForValue,
 } from "./memoryEmbeddings.logic";
 
-const embeddingsStatus = createEnvironmentQueryAtomFamily(connectionAtomRuntime, {
+const embeddingsStatus = createEnvironmentRpcQueryAtomFamily(connectionAtomRuntime, {
   label: "environment-data:cmdeck:memory-embeddings-status",
+  tag: CMDECK_WS_METHODS.memoryEmbeddingsStatus,
   staleTimeMs: 0,
-  execute: () => requestGuarded(CMDECK_WS_METHODS.memoryEmbeddingsStatus, {}),
 });
 
 /** Settings > General: the optional embedder for memory search (WI-2.08). Shown while memory is on. */
