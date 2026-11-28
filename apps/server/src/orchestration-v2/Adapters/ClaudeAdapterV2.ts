@@ -1758,7 +1758,8 @@ export const layerQueryRunner: Layer.Layer<
         Stream.toAsyncIterable,
       );
       // Send MCP credentials over stdin to keep them out of SDK argv and inherited command environments.
-      const { mcpServers, ...sdkOptions } = input.options;
+      const { mcpServers: requestedMcpServers, ...sdkOptions } = input.options;
+      const mcpServers = (yield* inContainer(input.threadId)) ? undefined : requestedMcpServers;
       // Jobs the agent starts inherit the thread, so port discovery can attribute their servers.
       let resumeSessionAt = sdkOptions.resumeSessionAt;
       let endsOnFailedRequest = false;

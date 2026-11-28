@@ -94,6 +94,10 @@ export function recipeProblem(recipe: SandboxRecipe): string | null {
       return `The ${label} must be one word that does not start with "-".`;
     }
   }
+  // The host's network, or another container's, reaches CMDeck and every service on loopback.
+  if (recipe.network === "host" || recipe.network.startsWith("container:")) {
+    return "The network cannot be the host's or another container's.";
+  }
   for (const mount of recipe.mounts) {
     if (UNSAFE_PATH.test(mount.hostPath) || !ABSOLUTE_PATH.test(mount.hostPath)) {
       return "Each mount must be an absolute path or start with ~, on one line.";

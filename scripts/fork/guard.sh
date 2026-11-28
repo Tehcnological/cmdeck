@@ -261,6 +261,8 @@ required=(
   'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const inContainer = yield\* ForkSandbox\.sandboxedThreadCheck;'
   'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:!\(yield\* inContainer\(input\.threadId\)\)'
   'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:command: binaryPath \?\? "claude",'
+  # ...and gets no MCP servers, so it holds no CMDeck credential.
+  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const mcpServers = \(yield\* inContainer\(input\.threadId\)\) \? undefined : requestedMcpServers;'
 )
 # 6. Only a person approves a workflow file: no MCP tool may reach the trust gate (WI-1.06).
 hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts)"

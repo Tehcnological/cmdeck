@@ -301,6 +301,41 @@ it.effect.each([true, false])(
     }),
 );
 
+// Fork (WI-2.18): an agent in a container must hold no CMDeck MCP credential, or one that can
+// reach the server could start and steer threads that run on the host.
+it.effect.each([true, false])(
+  "registers MCP servers only for a thread outside a container: sandboxed %s",
+  (sandboxed) =>
+    Effect.gen(function* () {
+      const registered: Array<unknown> = [];
+      const querySpy = vi.spyOn(ClaudeSdk, "query").mockImplementation(
+        () =>
+          ({
+            initializationResult: async () => ({}),
+            setMcpServers: async (servers: unknown) => {
+              registered.push(servers);
+              return { added: ["t3-code"], removed: [], errors: {} };
+            },
+            close: vi.fn(),
+          }) as unknown as ClaudeSdk.Query,
+      );
+      yield* Effect.addFinalizer(() => Effect.sync(() => querySpy.mockRestore()));
+      const runner = yield* ClaudeAgentSdkQueryRunner;
+      const session = yield* runner.open(resumedMcpQueryInput);
+      yield* Effect.addFinalizer(() => session.close.pipe(Effect.orDie));
+      assert.equal(registered.length, sandboxed ? 0 : 1);
+      assert.isUndefined(querySpy.mock.calls[0]?.[0].options?.mcpServers);
+    }).pipe(
+      Effect.provide(
+        realQueryRunner.pipe(
+          Layer.provide(
+            Layer.mock(ContainerSandbox)({ isSandboxed: () => Effect.succeed(sandboxed) }),
+          ),
+        ),
+      ),
+    ),
+);
+
 it.effect("reopens a stalled MCP registration before delivering the resumed prompt", () =>
   Effect.gen(function* () {
     const registrationStarted = Promise.withResolvers<void>();

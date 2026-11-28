@@ -137,7 +137,7 @@ describe("ContainerSandbox", () => {
         );
         // Any change to another open network is audited too, not only leaving none.
         yield* sandbox.configure(
-          { recipe: { ...(yield* sandbox.status({})).recipe, network: "host" } },
+          { recipe: { ...(yield* sandbox.status({})).recipe, network: "agents" } },
           "user",
         );
 
@@ -146,7 +146,7 @@ describe("ContainerSandbox", () => {
           ["sandbox.opted_out", THREAD],
           ["sandbox.opted_out", PROJECT],
           ["sandbox.network_opened", "bridge"],
-          ["sandbox.network_opened", "host"],
+          ["sandbox.network_opened", "agents"],
         ]);
       }),
     ),

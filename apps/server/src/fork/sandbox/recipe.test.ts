@@ -25,6 +25,9 @@ describe("recipe validation", () => {
     ["an image that is a flag", { image: "--privileged" }, "image"],
     ["an image with a space", { image: "acme agent" }, "image"],
     ["a network that is a flag", { network: "-v" }, "network"],
+    // The host's own network reaches CMDeck and every service on its loopback.
+    ["the host network", { network: "host" }, "network"],
+    ["another container's network", { network: "container:db" }, "network"],
     ["an OCI runtime that is a flag", { ociRuntime: "--privileged" }, "OCI runtime"],
     ["cpus with a line break", { cpus: "2\nx" }, "CPUs"],
     ["memory that is a flag", { memory: "--cap-add=ALL" }, "memory"],
