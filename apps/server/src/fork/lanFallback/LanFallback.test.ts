@@ -104,7 +104,7 @@ const holdConnection = (url: string) =>
       socket.once("close", () => done(Effect.void));
     });
     socket.once("secureConnect", () => resume(Effect.succeed(closed)));
-    socket.once("error", (error) => resume(Effect.fail(error)));
+    socket.once("error", (error: Error) => resume(Effect.fail(error)));
   });
 
 const awaitEndpoints = (
