@@ -1,5 +1,7 @@
 // Runs real containers. Gated on CMDECK_SANDBOX_LIVE=1, which only the "Container sandbox
 // (Docker)" job in .github/workflows/fork-ci.yml sets, after pulling the image below.
+// On Windows, point TEMP/TMP at a case-sensitive folder: the test workspaces are made there.
+// CMDECK_SANDBOX_LIVE_RUNTIME picks the OCI runtime (e.g. runsc); unset uses Docker's default.
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { AgentScope } from "@t3tools/shared/AgentScope";
@@ -12,9 +14,19 @@ import * as ServerConfig from "../../config.ts";
 import * as ProcessRunner from "../../processRunner.ts";
 import { ContainerSandbox, ownerLabel } from "./ContainerSandbox.ts";
 import { containerPathFor } from "./argv.ts";
-import { layerSandbox, makeHost, makeWorkspace, THREAD } from "./sandbox.testkit.ts";
+import {
+  gitIn,
+  type Host,
+  layerSandbox,
+  makeHost,
+  makeWorkspace,
+  THREAD,
+} from "./sandbox.testkit.ts";
 
-const IMAGE = "alpine:3.20";
+// Ships git and a shell with no entrypoint (alpine/git's entrypoint is git, so `sh -c` cannot run).
+const IMAGE =
+  "buildpack-deps:26.04-scm@sha256:d4ac7970aaf4e0865b0493cfdc569e30888e51a59b4e402cf30f927af26f332b";
+const RECIPE = { image: IMAGE, ociRuntime: process.env.CMDECK_SANDBOX_LIVE_RUNTIME || null };
 const live = process.env.CMDECK_SANDBOX_LIVE === "1";
 
 const probeScript = (canary: string, workspace: string) =>
@@ -24,6 +36,47 @@ const probeScript = (canary: string, workspace: string) =>
     `echo x >> ${workspace}/.git/config 2>/dev/null && echo gitconfig=written || echo gitconfig=blocked`,
     "wget -q -T 3 -O /dev/null http://1.1.1.1 2>/dev/null && echo network=open || echo network=blocked",
   ].join("; ");
+
+const SIDE_REF = `refs/cmdeck/sandbox/${THREAD}`;
+
+/** What a real agent does: plain git in the worktree, through the private git dir CMDeck gives it. */
+const commitScript = [
+  "export GIT_AUTHOR_NAME=agent GIT_AUTHOR_EMAIL=agent@example.com",
+  "export GIT_COMMITTER_NAME=agent GIT_COMMITTER_EMAIL=agent@example.com",
+  "echo agent > README.md",
+  "git add README.md",
+  "git commit -q -m agent",
+  "git rev-parse HEAD",
+].join(" && ");
+
+const layerLive = (workspace: string, host: Host) =>
+  layerSandbox({ workspace, host, realHost: true, realCaseCheck: true, recipe: RECIPE });
+
+/** Runs `script` as the thread's agent in a container, then stops it, which imports its commits. */
+const runAgent = (script: string, whileRunning: Effect.Effect<unknown> = Effect.void) =>
+  Effect.gen(function* () {
+    yield* (yield* ContainerSandbox).configure(
+      { thread: { threadId: THREAD, mode: "on" } },
+      "user",
+    );
+    const scope = yield* AgentScope;
+    const launch = yield* scope.wrap({
+      command: "sh",
+      args: ["-c", script],
+      name: "agent",
+      threadId: THREAD,
+      env: process.env,
+    });
+    yield* whileRunning;
+    const output = yield* (yield* ProcessRunner.ProcessRunner).run({
+      command: launch.command,
+      args: launch.args,
+      timeout: "60 seconds",
+    });
+    expect(output.code, output.stderr).toBe(0);
+    yield* scope.stop(launch.unit ?? "");
+    return output.stdout.trim().split("\n").at(-1) ?? "";
+  });
 
 describe.runIf(live)("container sandbox on a real Docker engine", () => {
   it.live(
@@ -67,11 +120,7 @@ describe.runIf(live)("container sandbox on a real Docker engine", () => {
             args: launch.args,
             timeout: "60 seconds",
           });
-        }).pipe(
-          Effect.provide(
-            layerSandbox({ workspace, host, realHost: true, recipe: { image: IMAGE } }),
-          ),
-        );
+        }).pipe(Effect.provide(layerSandbox({ workspace, host, realHost: true, recipe: RECIPE })));
 
         expect(output.stdout.trim().split("\n")).toEqual([
           "canary=blocked",
@@ -129,12 +178,80 @@ describe.runIf(live)("container sandbox on a real Docker engine", () => {
               host,
               realHost: true,
               baseDir,
-              recipe: { image: IMAGE },
+              recipe: RECIPE,
               sandboxedBefore: [THREAD],
             }),
           ),
         );
         expect(remaining).toBe("");
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    120_000,
+  );
+
+  it.live(
+    "fast-forwards the thread's branch to the agent's commit",
+    () =>
+      Effect.gen(function* () {
+        const host = yield* makeHost;
+        const workspace = yield* makeWorkspace;
+        const commit = yield* runAgent(commitScript).pipe(
+          Effect.provide(layerLive(workspace, host)),
+        );
+        expect(yield* gitIn(workspace, ["rev-parse", "main"])).toBe(commit);
+        expect(yield* gitIn(workspace, ["rev-parse", SIDE_REF])).toBe(commit);
+        expect(yield* gitIn(workspace, ["show", "main:README.md"])).toBe("agent");
+        expect(yield* gitIn(workspace, ["status", "--porcelain"])).toBe("");
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    120_000,
+  );
+
+  it.live(
+    "keeps the agent's commit on the side ref when the host branch moved",
+    () =>
+      Effect.gen(function* () {
+        const host = yield* makeHost;
+        const workspace = yield* makeWorkspace;
+        const start = yield* gitIn(workspace, ["rev-parse", "main"]);
+        const commit = yield* runAgent(
+          commitScript,
+          gitIn(workspace, ["commit", "-q", "--allow-empty", "-m", "host"]),
+        ).pipe(Effect.provide(layerLive(workspace, host)));
+        expect(yield* gitIn(workspace, ["log", "-1", "--format=%s", "main"])).toBe("host");
+        expect(yield* gitIn(workspace, ["rev-parse", "main^"])).toBe(start);
+        expect(yield* gitIn(workspace, ["rev-parse", SIDE_REF])).toBe(commit);
+        expect(yield* gitIn(workspace, ["rev-parse", `${commit}^`])).toBe(start);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    120_000,
+  );
+
+  it.live(
+    "never runs an fsmonitor or hook the container configured",
+    () =>
+      Effect.gen(function* () {
+        const fileSystem = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const host = yield* makeHost;
+        const workspace = yield* makeWorkspace;
+        // Armed after the commit, so only a host git that picked them up would leave `bled`.
+        const trap = [
+          'mkdir -p .hooks "$GIT_DIR/hooks"',
+          "printf '#!/bin/sh\\ntouch bled\\n' > .hooks/fsmonitor",
+          "chmod +x .hooks/fsmonitor",
+          "cp .hooks/fsmonitor .hooks/post-index-change",
+          'cp .hooks/fsmonitor "$GIT_DIR/hooks/post-index-change"',
+          'git config core.fsmonitor "$PWD/.hooks/fsmonitor"',
+          'git config core.hooksPath "$PWD/.hooks"',
+        ].join(" && ");
+        const commit = yield* runAgent(`${commitScript} && ${trap}`).pipe(
+          Effect.provide(layerLive(workspace, host)),
+        );
+        expect(yield* gitIn(workspace, ["rev-parse", "main"])).toBe(commit);
+        const bled = path.join(workspace, "bled");
+        yield* gitIn(workspace, ["status"]);
+        expect(yield* fileSystem.exists(bled)).toBe(false);
+        // The trap is live: host git told to use it does run it.
+        yield* gitIn(workspace, ["-c", "core.fsmonitor=.hooks/fsmonitor", "status"]);
+        expect(yield* fileSystem.exists(bled)).toBe(true);
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
     120_000,
   );
