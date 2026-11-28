@@ -5,6 +5,7 @@ import {
   DecisionsError,
   CMDECK_WS_METHODS,
   ForkWsRpcGroup,
+  MessagePinsError,
   WorkflowTrustError,
   NotificationChannelError,
   WorkLedgerError,
@@ -29,6 +30,7 @@ import * as WorkLedger from "../workLedger/WorkLedger.ts";
 import { stopWorkers } from "../workLedger/stopWorkers.ts";
 import { CheckScripts } from "../checkScripts/CheckScripts.ts";
 import * as MemoryRpc from "../memory/MemoryRpc.ts";
+import { MessagePins } from "../messagePins/MessagePins.ts";
 
 /** Spread into the server's WS handlers; each fork module adds its methods here. */
 export const make = Effect.gen(function* () {
@@ -62,6 +64,8 @@ export const make = Effect.gen(function* () {
   const noSandbox = Effect.fail(
     new SandboxError({ detail: "Containers are not available on this server." }),
   );
+  const pins = yield* Effect.serviceOption(MessagePins);
+  const noPins = Effect.fail(new MessagePinsError({ reason: "unavailable" }));
   return ForkWsRpcGroup.of({
     [CMDECK_WS_METHODS.status]: () => Effect.succeed({ version: CMDECK_RPC_VERSION }),
     [CMDECK_WS_METHODS.auditList]: (input) =>
@@ -151,5 +155,11 @@ export const make = Effect.gen(function* () {
       Option.isSome(sandbox) ? sandbox.value.status(input) : noSandbox,
     [CMDECK_WS_METHODS.sandboxConfigure]: (input) =>
       Option.isSome(sandbox) ? sandbox.value.configure(input, "user") : noSandbox,
+    [CMDECK_WS_METHODS.messagePinsList]: (input) =>
+      Option.isSome(pins) ? pins.value.list(input.threadId) : noPins,
+    [CMDECK_WS_METHODS.messagePinsPin]: (input) =>
+      Option.isSome(pins) ? pins.value.pin(input) : noPins,
+    [CMDECK_WS_METHODS.messagePinsUnpin]: (input) =>
+      Option.isSome(pins) ? pins.value.unpin(input) : noPins,
   });
 });

@@ -289,10 +289,16 @@ required=(
   'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const inContainer = yield\* ForkSandbox\.sandboxedThreadCheck;'
   'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const sandboxed = yield\* inContainer\(input\.threadId\);'
   'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:command: binaryPath \?\? "claude",'
-  # Host git never runs the fsmonitor of a repository a container wrote into the worktree.
-  'apps/server/src/vcs/VcsProcess.ts:\["core\.fsmonitor", "false"\], // Fork \(WI-2\.18\)'
   # ...and gets no MCP servers, so it holds no CMDeck credential, decided once with the scope's say.
   'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const mcpServers = ForkSandbox\.isContained\(sandboxed, unit\) \? undefined : requestedMcpServers;'
+  # Host git never runs the fsmonitor of a repository a container wrote into the worktree.
+  'apps/server/src/vcs/VcsProcess.ts:\["core\.fsmonitor", "false"\], // Fork \(WI-2\.18\)'
+  # WI-2.15: message pins. Pin buttons in message actions and the timeline's jump to a pin.
+  'apps/web/src/components/chat/TimelineAssistantRows.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{message\.id\} +text=\{message\.text\}'
+  'apps/web/src/components/chat/TimelineUserMessageRow.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{row\.message\.id\} +text=\{text\}'
+  'apps/web/src/components/chat/TimelineUserMessageRow.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{row\.message\.id\} +text=\{plainText\}'
+  'apps/web/src/components/chat/MessagesTimeline.tsx:useMessagePinJump\(\{ +threadKey: routeThreadKey,'
+  'apps/server/src/persistence/ForkSchema.ts:yield\* ensureMessagePinsSchema\(\)'
 )
 # 6. Only a person approves a workflow file: no MCP tool may reach the trust gate (WI-1.06).
 hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts)"

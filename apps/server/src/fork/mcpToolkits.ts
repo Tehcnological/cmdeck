@@ -3,6 +3,7 @@ import * as Layer from "effect/Layer";
 import type { toolkitRegistration } from "../mcp/McpHttpServer.ts";
 import * as OrchestratorMcpService from "../mcp/OrchestratorMcpService.ts";
 import * as BotTools from "./bots/mcpTools.ts";
+import * as MessagePinTools from "./messagePins/mcpTools.ts";
 import * as MemoryTools from "./memory/mcpTools.ts";
 import * as WorkLedgerTools from "./workLedger/mcpTools.ts";
 import * as CheckScriptTools from "./checkScripts/mcpTools.ts";
@@ -22,4 +23,5 @@ export const layer = (register: typeof toolkitRegistration) =>
     ),
     register(BotTools.BotsToolkit, BotTools.layer),
     register(SandboxTools.SandboxToolkit, SandboxTools.layer),
+    register(MessagePinTools.MessagePinsToolkit, MessagePinTools.layer),
   );

@@ -4,14 +4,36 @@ name: Fork CI
 
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# Pull requests cancel superseded runs. Pushes to main and manual runs get their own group, so
+# none is cancelled.
 concurrency:
-  group: fork-ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: fork-ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Test jobs on a pull request run only the tests whose imports reach a changed file
+# (.github/scripts/affected-tests.sh). A change to any of these paths runs the full suite instead:
+# they change test results outside the import graph (tooling and configs, data files that tests
+# read from disk, mock agents that tests spawn). Main, which runs the full suite on every push, is
+# the backstop for anything else outside the graph.
+env:
+  FULL_SUITE_PATHS: |
+    ^pnpm-lock\.yaml$
+    ^pnpm-workspace\.yaml$
+    ^\.pnpmfile\.cjs$
+    (^|/)package\.json$
+    ^\.github/
+    (^|/)vite[^/]*\.config\.[^/]+$
+    (^|/)tsconfig[^/]*\.json$
+    (^|/)fixtures/
+    \.ndjson$
+    ^apps/server/scripts/
 
 jobs:
   guard:
@@ -127,18 +149,23 @@ jobs:
         run: vp check
 
   test-packages:
-    name: Package, desktop and mobile tests
+    name: Package and desktop tests
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
+          fetch-depth: 2
           sparse-checkout: |
             /*
             !/.repos/
             !/apps/mobile/modules/t3-terminal/Vendor/**/*.a
           sparse-checkout-cone-mode: false
+
+      - name: Pick tests
+        id: scope
+        run: bash .github/scripts/affected-tests.sh
 
       - name: Setup Vite+
         uses: ./.github/actions/setup-ci-deps
@@ -155,11 +182,52 @@ jobs:
       - name: Install browser secret helper build libraries
         run: sudo apt-get update -o Acquire::Languages=none && sudo apt-get install -y libsecret-1-dev pkg-config
 
-      # Mirrors upstream's shared Test job: every package except the server and web suites.
+      # Mirrors upstream's shared Test job: every package except the server, web and mobile suites.
       - name: Test
+        env:
+          TEST_ARGS: ${{ steps.scope.outputs.args }}
         run: |
           set -o pipefail
-          vp run --parallel --concurrency-limit 2 --filter '!t3' --filter '!@t3tools/monorepo' --filter '!@t3tools/web' test 2>&1 | python3 -u -c '
+          vp run --parallel --concurrency-limit 3 --filter '!t3' --filter '!@t3tools/monorepo' --filter '!@t3tools/web' --filter '!@t3tools/mobile' test $TEST_ARGS 2>&1 | python3 -u -c '
+          import sys
+          for line in sys.stdin:
+              sys.stdout.write(line.encode("ascii", "backslashreplace").decode("ascii"))
+          '
+
+  # Split out of the package job: at ~5.5 minutes it set that job's length.
+  test-mobile:
+    name: Mobile tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 2
+          sparse-checkout: |
+            /*
+            !/.repos/
+            !/apps/mobile/modules/t3-terminal/Vendor/**/*.a
+          sparse-checkout-cone-mode: false
+
+      - name: Pick tests
+        id: scope
+        run: bash .github/scripts/affected-tests.sh
+
+      - name: Setup Vite+
+        uses: ./.github/actions/setup-ci-deps
+        with:
+          install: "false"
+
+      - name: Install dependencies
+        run: vp install --frozen-lockfile
+
+      - name: Test
+        env:
+          TEST_ARGS: ${{ steps.scope.outputs.args }}
+        run: |
+          set -o pipefail
+          vp run --filter @t3tools/mobile test $TEST_ARGS 2>&1 | python3 -u -c '
           import sys
           for line in sys.stdin:
               sys.stdout.write(line.encode("ascii", "backslashreplace").decode("ascii"))
@@ -179,11 +247,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
+          fetch-depth: 2
           sparse-checkout: |
             /*
             !/.repos/
             !/apps/mobile/modules/t3-terminal/Vendor/**/*.a
           sparse-checkout-cone-mode: false
+
+      - name: Pick tests
+        id: scope
+        run: bash .github/scripts/affected-tests.sh
 
       - name: Setup Vite+
         uses: ./.github/actions/setup-ci-deps
@@ -205,10 +278,12 @@ jobs:
       # file each time); only that error earns one rerun, real failures fail the first time.
       - name: Test
         working-directory: apps/web
+        env:
+          TEST_ARGS: ${{ steps.scope.outputs.args }}
         run: |
           set -o pipefail
           for attempt in 1 2; do
-            vp test run --passWithNoTests --project unit --project browser --shard ${{ matrix.shard }}/6 2>&1 | tee test.log && exit 0
+            vp test run --passWithNoTests --project unit --project browser --shard ${{ matrix.shard }}/6 $TEST_ARGS 2>&1 | tee test.log && exit 0
             grep -q VITEST_BROWSER_CONNECTION_CLOSED test.log || exit 1
             echo "::warning::Chromium dropped the test connection (attempt $attempt)"
           done
@@ -227,11 +302,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
+          fetch-depth: 2
           sparse-checkout: |
             /*
             !/.repos/
             !/apps/mobile/modules/t3-terminal/Vendor/**/*.a
           sparse-checkout-cone-mode: false
+
+      - name: Pick tests
+        id: scope
+        run: bash .github/scripts/affected-tests.sh
 
       - name: Setup Vite+
         uses: ./.github/actions/setup-ci-deps
@@ -250,10 +330,13 @@ jobs:
           fi
 
       # Upstream's test:cached passes every test file in one env var, which exceeds Linux's
-      # argument limit (E2BIG) on stock runners.
+      # argument limit (E2BIG) on stock runners. --passWithNoTests lets a shard of an affected-only
+      # run be empty.
       - name: Test
         working-directory: apps/server
-        run: vp test run --maxWorkers 2 --shard ${{ matrix.shard }}/6
+        env:
+          TEST_ARGS: ${{ steps.scope.outputs.args }}
+        run: vp test run --maxWorkers 2 --shard ${{ matrix.shard }}/6 --passWithNoTests $TEST_ARGS
 
   # The container sandbox's live test (WI-2.18) needs a real Docker engine, which stock Ubuntu
   # runners have. It talks to the local socket only; nothing here sets DOCKER_HOST.

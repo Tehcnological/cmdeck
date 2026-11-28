@@ -8,9 +8,10 @@ import { Toggle, ToggleGroup } from "../components/ui/toggle-group";
 import type { MessageResolver } from "../i18n/messages";
 import { useRightPanelStore } from "../rightPanelStore";
 import { MemoryUsedPanel } from "./memory/MemoryUsedPanel";
+import { PinnedMessagesPanel } from "./pins/PinnedMessagesPanel";
 import { WorkLedgerPanel } from "./WorkLedgerPanel";
 
-type ForkPanelTabId = "memory" | "work-ledger";
+type ForkPanelTabId = "memory" | "work-ledger" | "pins";
 
 interface ForkPanelTab {
   readonly id: ForkPanelTabId;
@@ -25,6 +26,7 @@ interface ForkPanelTab {
 const FORK_PANEL_TABS: ReadonlyArray<ForkPanelTab> = [
   { id: "memory", title: msg("Memory used here"), Content: MemoryUsedPanel },
   { id: "work-ledger", title: msg("Work ledger"), Content: WorkLedgerPanel },
+  { id: "pins", title: msg("Pinned messages"), Content: PinnedMessagesPanel },
 ];
 
 const useActiveTab = create<{ readonly id: ForkPanelTabId | null }>(() => ({ id: null }));

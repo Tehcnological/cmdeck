@@ -8,5 +8,6 @@ export * from "./workLedger.ts";
 export * from "./checkScripts.ts";
 export * from "./decisions.ts";
 export * from "./approvalPolicy.ts";
+export * from "./messagePins.ts";
 export * from "./bots.ts";
 export * from "./sandbox.ts";
