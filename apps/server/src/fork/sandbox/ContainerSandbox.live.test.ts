@@ -36,6 +36,8 @@ describe.runIf(live)("container sandbox on a real Docker engine", () => {
         const outside = yield* fileSystem.makeTempDirectoryScoped({ prefix: "cmdeck-canary-" });
         const canary = path.join(outside, "canary.txt");
         yield* fileSystem.writeFileString(canary, "secret");
+        const gitConfig = path.join(workspace, ".git", "config");
+        const gitConfigBefore = yield* fileSystem.readFileString(gitConfig);
 
         const output = yield* Effect.gen(function* () {
           yield* (yield* ContainerSandbox).configure(
@@ -67,9 +69,7 @@ describe.runIf(live)("container sandbox on a real Docker engine", () => {
           "gitconfig=blocked",
           "network=blocked",
         ]);
-        expect(yield* fileSystem.readFileString(path.join(workspace, ".git", "config"))).toBe(
-          "[core]\n",
-        );
+        expect(yield* fileSystem.readFileString(gitConfig)).toBe(gitConfigBefore);
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
     120_000,
   );
