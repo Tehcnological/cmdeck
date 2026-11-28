@@ -4,7 +4,7 @@ import { PinIcon } from "lucide-react";
 import type { CommandPaletteActionItem } from "../../components/CommandPalette.logic";
 import { ITEM_ICON_CLASS } from "../../components/CommandPalette.logic";
 import { useThreadRouteRef } from "../../hooks/useThreadRouteTarget";
-import { useRightPanelStore } from "../../rightPanelStore";
+import { openForkPanel } from "../panels";
 
 /** "Show pinned messages": opens the Pinned tab of the thread on screen. */
 export function useShowPinsCommandItem(): CommandPaletteActionItem | null {
@@ -18,7 +18,7 @@ export function useShowPinsCommandItem(): CommandPaletteActionItem | null {
     title: gt("Show pinned messages"),
     icon: <PinIcon className={ITEM_ICON_CLASS} />,
     run: async () => {
-      useRightPanelStore.getState().open(threadRef, "cmdeck");
+      openForkPanel(threadRef, "pins");
     },
   };
 }
