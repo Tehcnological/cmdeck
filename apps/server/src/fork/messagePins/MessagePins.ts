@@ -1,7 +1,7 @@
 // Pin rules (per-thread cap, redact-then-cut preview, idempotent pin, redact again on read) ported
 // from Kiro Crew@b75544f0dbef43b7340800819b36ae6cf9fbc2bd src/kiro_crew/dashboard/chat_pins.py
 // (Apache-2.0). Changed: SQLite rows keyed by thread and message instead of a JSON file, unpin by
-// message only, no per-app ownership.
+// message only, no per-app ownership, and the preview comes from the stored message, not the client.
 import {
   MESSAGE_PIN_PREVIEW_LENGTH,
   MESSAGE_PINS_PER_THREAD,
@@ -19,11 +19,16 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/sql/SqlClient";
 
+import * as ProjectionStore from "../../orchestration-v2/ProjectionStore.ts";
+
 const decodePins = Schema.decodeUnknownSync(Schema.Array(MessagePin));
 
-/** Redacts before cutting, so a secret across the cut cannot survive as an unrecognized fragment. */
-const pinPreview = (text: string): string =>
-  redactSecrets(text.trim()).slice(0, MESSAGE_PIN_PREVIEW_LENGTH);
+/**
+ * Redacts the whole text before trimming or cutting, so no secret is cut below its pattern and no
+ * collapsed match ahead of one can pull an unredacted fragment into the preview.
+ */
+export const pinPreview = (text: string): string =>
+  redactSecrets(text).trim().slice(0, MESSAGE_PIN_PREVIEW_LENGTH);
 
 export class MessagePins extends Context.Service<
   MessagePins,
@@ -32,7 +37,7 @@ export class MessagePins extends Context.Service<
     readonly list: (
       threadId: ThreadId,
     ) => Effect.Effect<ReadonlyArray<MessagePin>, MessagePinsError>;
-    /** Pinning a pinned message returns its pin unchanged. */
+    /** Pins a finished user or agent message of the thread. Pinning it again returns its pin. */
     readonly pin: (input: MessagePinInput) => Effect.Effect<MessagePin, MessagePinsError>;
     /** Unpinning a message that is not pinned succeeds. */
     readonly unpin: (input: MessageUnpinInput) => Effect.Effect<void, MessagePinsError>;
@@ -41,6 +46,7 @@ export class MessagePins extends Context.Service<
 
 const make = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
+  const projection = yield* ProjectionStore.ProjectionStoreV2;
   const unavailable = Effect.mapError(
     (cause: unknown) => new MessagePinsError({ reason: "unavailable", cause }),
   );
@@ -62,10 +68,20 @@ const make = Effect.gen(function* () {
   });
 
   const pin = Effect.fn("MessagePins.pin")(function* (input: MessagePinInput) {
+    const message = (yield* projection
+      .getMessagesById(input.threadId, [input.messageId])
+      .pipe(unavailable)).get(input.messageId);
+    if (
+      message === undefined ||
+      message.streaming ||
+      (message.role !== "user" && message.role !== "assistant")
+    ) {
+      return yield* new MessagePinsError({ reason: "not-found" });
+    }
     const pinnedAt = yield* Clock.currentTimeMillis;
     // One statement, so two clients pinning at once cannot pass the cap together.
     yield* sql`INSERT INTO message_pins (thread_id, message_id, role, preview, pinned_at)
-      SELECT ${input.threadId}, ${input.messageId}, ${input.role}, ${pinPreview(input.preview)},
+      SELECT ${input.threadId}, ${input.messageId}, ${message.role}, ${pinPreview(message.text)},
         ${pinnedAt}
       WHERE (SELECT COUNT(*) FROM message_pins WHERE thread_id = ${input.threadId})
         < ${MESSAGE_PINS_PER_THREAD}
@@ -83,4 +99,5 @@ const make = Effect.gen(function* () {
   return MessagePins.of({ list, pin, unpin });
 });
 
+/** Reads messages through the projection store, which `ForkLayer` provides. */
 export const layer = Layer.effect(MessagePins, make);

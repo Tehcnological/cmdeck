@@ -234,9 +234,9 @@ required=(
   'apps/web/src/components/RightPanelTabs.tsx:case "cmdeck": +return forkPanelTitle\(resolve\);'
   'apps/web/src/components/RightPanelTabs.tsx:case "cmdeck": +return <ForkPanelIcon />;'
   'apps/web/src/components/chat/RightPanelSurfaceContent.tsx:case "cmdeck": +return <ForkPanel threadRef=\{threadRef\} />;'
-  'apps/web/src/components/chat/TimelineAssistantRows.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{message\.id\} +role="assistant"'
-  'apps/web/src/components/chat/TimelineUserMessageRow.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{row\.message\.id\} +role="user" +text=\{text\}'
-  'apps/web/src/components/chat/TimelineUserMessageRow.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{row\.message\.id\} +role="user" +text=\{plainText\}'
+  'apps/web/src/components/chat/TimelineAssistantRows.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{message\.id\} +text=\{message\.text\}'
+  'apps/web/src/components/chat/TimelineUserMessageRow.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{row\.message\.id\} +text=\{text\}'
+  'apps/web/src/components/chat/TimelineUserMessageRow.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{row\.message\.id\} +text=\{plainText\}'
   'apps/web/src/components/chat/MessagesTimeline.tsx:useMessagePinJump\(\{ +threadKey: routeThreadKey,'
   'apps/server/src/persistence/ForkSchema.ts:yield\* ensureMessagePinsSchema\(\)'
 )

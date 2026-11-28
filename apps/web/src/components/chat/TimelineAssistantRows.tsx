@@ -237,12 +237,7 @@ function AssistantMessageMeta({
         <AssistantReplyButton message={message} itemId={projectedItem.sourceItemId} />
       ) : null}
       {!message.streaming && (
-        <MessagePinButton
-          threadRef={ctx.threadRef}
-          messageId={message.id}
-          role="assistant"
-          text={message.text}
-        />
+        <MessagePinButton threadRef={ctx.threadRef} messageId={message.id} text={message.text} />
       )}
       {!message.streaming && (
         <SharedTooltipTrigger

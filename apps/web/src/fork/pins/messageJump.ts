@@ -43,31 +43,33 @@ export function useMessagePinJump(input: {
   readonly navigate: () => void;
 }) {
   const request = useSyncExternalStore(subscribe, () => pending);
-  const loadRequested = useRef<{
+  const paging = useRef<{
     readonly request: JumpRequest;
-    readonly entries: Parameters<typeof nextJumpStep>[0]["entries"];
+    readonly requestedCursors: Set<string>;
+    loadSeen: boolean;
   } | null>(null);
   const { threadKey, rows, entries, history, listRef, navigate } = input;
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- drives the virtual list's scroll and history paging for a jump the Pinned tab asked for
   useEffect(() => {
     if (request === null || request.threadKey !== threadKey) return;
+    if (paging.current?.request !== request) {
+      paging.current = { request, requestedCursors: new Set(), loadSeen: false };
+    }
+    const state = paging.current;
+    if (history?.loading) state.loadSeen = true;
     const step = nextJumpStep({
       messageId: request.messageId,
       rows,
       entries,
       history,
-      load:
-        loadRequested.current?.request !== request
-          ? "none"
-          : loadRequested.current.entries === entries
-            ? "pending"
-            : "done",
+      paging: state,
     });
     switch (step.kind) {
       case "wait":
         return;
       case "load-earlier":
-        loadRequested.current = { request, entries };
+        state.requestedCursors.add(step.cursor);
+        state.loadSeen = false;
         history?.onLoadEarlier(request.messageId);
         return;
       case "scroll":
@@ -85,6 +87,22 @@ export function useMessagePinJump(input: {
           type: "warning",
           title: m(msg("That message is no longer in this thread")),
           description: m(msg("Unpin it from the pinned messages list.")),
+        });
+        return;
+      case "load-error":
+        publish(null);
+        toastManager.add({
+          type: "error",
+          title: m(msg("Could not load earlier messages to reach the pin")),
+          description: step.error,
+        });
+        return;
+      case "too-far":
+        publish(null);
+        toastManager.add({
+          type: "info",
+          title: m(msg("That pinned message is far back in the thread")),
+          description: m(msg("Scroll up to load more of the thread, then try the pin again.")),
         });
         return;
     }

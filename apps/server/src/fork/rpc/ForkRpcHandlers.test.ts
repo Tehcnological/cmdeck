@@ -10,6 +10,7 @@ import {
   CMDECK_WS_METHODS,
   ForkWsRpcGroup,
   MessageId,
+  type OrchestrationV2ConversationMessage,
   RpcScopeAuthorization,
   ThreadId,
 } from "@t3tools/contracts";
@@ -20,6 +21,7 @@ import * as RpcTest from "effect/rpc/RpcTest";
 
 import * as RpcAuthorization from "../../auth/RpcAuthorization.ts";
 import * as MilestoneHub from "../../milestones/MilestoneHub.ts";
+import * as ProjectionStore from "../../orchestration-v2/ProjectionStore.ts";
 import * as Sqlite from "../../persistence/Sqlite.ts";
 import * as AuditLog from "../audit/AuditLog.ts";
 import * as MessagePins from "../messagePins/MessagePins.ts";
@@ -124,7 +126,28 @@ it.effect("lets readers list notification channels and only settings writers cha
 it.effect("lets readers see a thread's pins and only operators pin or unpin", () =>
   Effect.gen(function* () {
     const group = ForkWsRpcGroup.middleware(RpcScopeAuthorization);
-    const services = yield* Layer.build(MessagePins.layer.pipe(Layer.provide(Sqlite.layerMemory)));
+    const threadId = ThreadId.make("thread-pinned");
+    const messageId = MessageId.make("message-pinned");
+    const projection = Layer.mock(ProjectionStore.ProjectionStoreV2)({
+      getMessagesById: () =>
+        Effect.succeed(
+          new Map([
+            [
+              messageId,
+              {
+                id: messageId,
+                threadId,
+                role: "assistant",
+                text: "The plan",
+                streaming: false,
+              } as OrchestrationV2ConversationMessage,
+            ],
+          ]),
+        ),
+    });
+    const services = yield* Layer.build(
+      MessagePins.layer.pipe(Layer.provide(Layer.merge(Sqlite.layerMemory, projection))),
+    );
     const handlers = group
       .toLayer(ForkRpcHandlers.make)
       .pipe(Layer.provide(Layer.succeedContext(services)));
@@ -132,16 +155,8 @@ it.effect("lets readers see a thread's pins and only operators pin or unpin", ()
       RpcTest.makeClient(group).pipe(
         Effect.provide(Layer.merge(handlers, RpcAuthorization.layer(scopes))),
       );
-    const threadId = ThreadId.make("thread-pinned");
-    const messageId = MessageId.make("message-pinned");
-
     const operator = yield* client([AuthOrchestrationReadScope, AuthOrchestrationOperateScope]);
-    yield* operator[CMDECK_WS_METHODS.messagePinsPin]({
-      threadId,
-      messageId,
-      role: "assistant",
-      preview: "The plan",
-    });
+    yield* operator[CMDECK_WS_METHODS.messagePinsPin]({ threadId, messageId });
 
     // Another client on the same server reads the pin back.
     const reader = yield* client([AuthOrchestrationReadScope]);

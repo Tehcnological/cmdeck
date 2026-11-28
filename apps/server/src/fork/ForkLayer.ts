@@ -29,7 +29,7 @@ export const layer = Layer.mergeAll(
     ApprovalPolicy.layer.pipe(Layer.provide(ProjectionStore.layer)),
     UsageAlerts.layer,
   ).pipe(Layer.provideMerge(Notifications.layer), Layer.provideMerge(AuditLog.layer)),
-  MessagePins.layer,
+  MessagePins.layer.pipe(Layer.provide(ProjectionStore.layer)),
 );
 
 /**

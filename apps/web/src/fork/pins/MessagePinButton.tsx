@@ -14,21 +14,16 @@ import { pinMessage, threadMessagePins, unpinMessage } from "./pinsRpc";
 export function MessagePinButton(props: {
   readonly threadRef: ScopedThreadRef | null;
   readonly messageId: MessageId;
-  readonly role: "user" | "assistant";
+  /** Only decides whether the button shows; the server reads the message itself. */
   readonly text: string;
 }) {
   const { threadRef } = props;
   return threadRef === null || props.text.trim() === "" ? null : (
-    <PinToggle {...props} threadRef={threadRef} />
+    <PinToggle threadRef={threadRef} messageId={props.messageId} />
   );
 }
 
-function PinToggle(props: {
-  readonly threadRef: ScopedThreadRef;
-  readonly messageId: MessageId;
-  readonly role: "user" | "assistant";
-  readonly text: string;
-}) {
+function PinToggle(props: { readonly threadRef: ScopedThreadRef; readonly messageId: MessageId }) {
   const gt = useGT();
   const { environmentId, threadId } = props.threadRef;
   const query = useEnvironmentQuery(threadMessagePins({ environmentId, input: { threadId } }));
@@ -41,16 +36,7 @@ function PinToggle(props: {
   const toggle = () => {
     const done = pinned
       ? unpin({ environmentId, input: { threadId, messageId: props.messageId } })
-      : pin({
-          environmentId,
-          input: {
-            threadId,
-            messageId: props.messageId,
-            role: props.role,
-            // The server keeps a short redacted opening; this only bounds the request.
-            preview: props.text.slice(0, 2_000),
-          },
-        });
+      : pin({ environmentId, input: { threadId, messageId: props.messageId } });
     void done.then(query.refresh);
   };
   return (

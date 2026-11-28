@@ -383,12 +383,7 @@ function AutomationMessageRow({ row }: { row: Extract<TimelineRow, { kind: "mess
                   variant="ghost"
                 />
               )}
-              <MessagePinButton
-                threadRef={ctx.threadRef}
-                messageId={row.message.id}
-                role="user"
-                text={text}
-              />
+              <MessagePinButton threadRef={ctx.threadRef} messageId={row.message.id} text={text} />
             </div>
           </div>
         </div>
@@ -902,12 +897,7 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
             variant="ghost"
           />
         )}
-        <MessagePinButton
-          threadRef={ctx.threadRef}
-          messageId={row.message.id}
-          role="user"
-          text={plainText}
-        />
+        <MessagePinButton threadRef={ctx.threadRef} messageId={row.message.id} text={plainText} />
       </div>
     </div>
   );
