@@ -3,6 +3,21 @@
     {
       "bundles": ["desktop", "web"],
       "license": "Apache-2.0",
+      "name": "Kiro Crew knowledge chunker and ignore rules (knowledge library)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/knowledge",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "Ported to TypeScript for CMDeck's knowledge library (apps/server/src/fork/knowledge/chunker.ts and ignore.ts) from chunker.py, kiroignore.py, folder_watcher.py HARD_SKIP_DIRS and apps/builtins/file_explorer/server.py SENSITIVE_DIRS. Changes: no overlap between chunks and a document past the chunk cap keeps its first chunks; the ignore matcher reads the source's .gitignore instead of .kiroignore, and credential, key and password-manager patterns were added as defaults no ignore file can negate."
+          ]
+        }
+      ]
+    },
+    {
+      "bundles": ["desktop", "web"],
+      "license": "Apache-2.0",
       "name": "KiroCrew work ledger (adapted)",
       "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd",
       "generatedNotices": [
