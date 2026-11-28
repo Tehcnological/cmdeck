@@ -3,6 +3,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { AgentScope } from "@t3tools/shared/AgentScope";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -10,6 +11,7 @@ import * as Path from "effect/Path";
 import * as ServerConfig from "../../config.ts";
 import * as ProcessRunner from "../../processRunner.ts";
 import { ContainerSandbox, ownerLabel } from "./ContainerSandbox.ts";
+import { containerPathFor } from "./argv.ts";
 import { layerSandbox, makeHost, makeWorkspace, THREAD } from "./sandbox.testkit.ts";
 
 const IMAGE = "alpine:3.20";
@@ -44,9 +46,17 @@ describe.runIf(live)("container sandbox on a real Docker engine", () => {
             { thread: { threadId: THREAD, mode: "on" } },
             "user",
           );
+          // The worktree is mounted at its container path (/c/... on Windows).
+          const platform = yield* HostProcess.Platform;
           const launch = yield* (yield* AgentScope).wrap({
             command: "sh",
-            args: ["-c", probeScript(canary, workspace)],
+            args: [
+              "-c",
+              probeScript(
+                containerPathFor(canary, platform),
+                containerPathFor(workspace, platform),
+              ),
+            ],
             name: "agent",
             threadId: THREAD,
             env: process.env,
