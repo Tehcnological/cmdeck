@@ -27,6 +27,13 @@ import {
   NotificationChannelIdInput,
   NotificationChannelSetEnabledInput,
 } from "./notifications.ts";
+import {
+  CheckScriptError,
+  ScheduledTaskCheckApproveInput,
+  ScheduledTaskCheckListResult,
+  ScheduledTaskCheckSetInput,
+  ScheduledTaskCheckSetResult,
+} from "./checkScripts.ts";
 import { DecisionConsentSetInput, DecisionsError, DecisionsStatus } from "./decisions.ts";
 import {
   BotCreateInput,
@@ -67,6 +74,9 @@ export const CMDECK_WS_METHODS = {
   notificationChannelsSetEnabled: "cmdeck.notifications.channels.setEnabled",
   notificationChannelsRemove: "cmdeck.notifications.channels.remove",
   notificationsSubscribeAlerts: "cmdeck.notifications.subscribeAlerts",
+  checkScriptsList: "cmdeck.checkScripts.list",
+  checkScriptsSet: "cmdeck.checkScripts.set",
+  checkScriptsApprove: "cmdeck.checkScripts.approve",
   decisionsStatus: "cmdeck.decisions.status",
   decisionsSetConsent: "cmdeck.decisions.setConsent",
   botsList: "cmdeck.bots.list",
@@ -160,6 +170,26 @@ const CmdeckNotificationsSubscribeAlertsRpc = Rpc.make(
     stream: true,
   },
 );
+
+const CheckScriptsError = Schema.Union([CheckScriptError, EnvironmentAuthorizationError]);
+
+const CmdeckCheckScriptsListRpc = Rpc.make(CMDECK_WS_METHODS.checkScriptsList, {
+  payload: Schema.Struct({}),
+  success: ScheduledTaskCheckListResult,
+  error: CheckScriptsError,
+});
+
+const CmdeckCheckScriptsSetRpc = Rpc.make(CMDECK_WS_METHODS.checkScriptsSet, {
+  payload: ScheduledTaskCheckSetInput,
+  success: ScheduledTaskCheckSetResult,
+  error: CheckScriptsError,
+});
+
+const CmdeckCheckScriptsApproveRpc = Rpc.make(CMDECK_WS_METHODS.checkScriptsApprove, {
+  payload: ScheduledTaskCheckApproveInput,
+  success: Schema.Struct({}),
+  error: CheckScriptsError,
+});
 
 const CmdeckDecisionsStatusRpc = Rpc.make(CMDECK_WS_METHODS.decisionsStatus, {
   payload: Schema.Struct({}),
@@ -296,6 +326,9 @@ export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckNotificationChannelsSetEnabledRpc,
   CmdeckNotificationChannelsRemoveRpc,
   CmdeckNotificationsSubscribeAlertsRpc,
+  CmdeckCheckScriptsListRpc,
+  CmdeckCheckScriptsSetRpc,
+  CmdeckCheckScriptsApproveRpc,
   CmdeckDecisionsStatusRpc,
   CmdeckDecisionsSetConsentRpc,
   CmdeckBotsListRpc,
@@ -327,6 +360,8 @@ export const FORK_RPC_READ_SCOPES = {
   [CMDECK_WS_METHODS.status]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.notificationChannelsList]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.decisionsStatus]: AuthOrchestrationReadScope,
+  // Scripts are task data, read like prompts.
+  [CMDECK_WS_METHODS.checkScriptsList]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.botsList]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.memoryList]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.memoryRevisions]: AuthOrchestrationReadScope,
@@ -351,6 +386,9 @@ export const FORK_RPC_SCOPES = {
   [CMDECK_WS_METHODS.notificationChannelsSetEnabled]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.notificationChannelsRemove]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.notificationsSubscribeAlerts]: AuthOrchestrationReadScope,
+  // Saving or approving a check script lets the server run it.
+  [CMDECK_WS_METHODS.checkScriptsSet]: AuthTerminalOperateScope,
+  [CMDECK_WS_METHODS.checkScriptsApprove]: AuthTerminalOperateScope,
   // Consent decides whether turn text may reach a model API, so only a settings writer grants it.
   [CMDECK_WS_METHODS.decisionsSetConsent]: AuthSettingsWriteScope,
   // A bot is a thread plus scheduled tasks, so changing one needs what those commands need.

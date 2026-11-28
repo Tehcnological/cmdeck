@@ -18,6 +18,10 @@ describe("fork read scopes", () => {
       AuthOrchestrationReadScope,
     );
     expect(RpcAuthorization.RPC_REQUIRED_SCOPES).toHaveProperty(
+      [CMDECK_WS_METHODS.checkScriptsList],
+      AuthOrchestrationReadScope,
+    );
+    expect(RpcAuthorization.RPC_REQUIRED_SCOPES).toHaveProperty(
       [CMDECK_WS_METHODS.botsList],
       AuthOrchestrationReadScope,
     );

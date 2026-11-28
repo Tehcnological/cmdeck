@@ -20,6 +20,7 @@ import { MemoryEmbeddings } from "../memory/MemoryEmbeddings.ts";
 import { installPreset } from "../presets/install.ts";
 import { WorkflowTrust } from "../workflowTrust/WorkflowTrust.ts";
 import * as Notifications from "../notifications/Notifications.ts";
+import { CheckScripts } from "../checkScripts/CheckScripts.ts";
 import * as MemoryRpc from "../memory/MemoryRpc.ts";
 
 /** Spread into the server's WS handlers; each fork module adds its methods here. */
@@ -32,6 +33,7 @@ export const make = Effect.gen(function* () {
   const noTrust = Effect.fail(new WorkflowTrustError({ reason: "Workflows are not available." }));
   const notifications = yield* Effect.serviceOption(Notifications.Notifications);
   const noNotifications = Effect.fail(new NotificationChannelError({}));
+  const checks = yield* CheckScripts;
   const decisions = yield* Effect.serviceOption(Decisions);
   const noDecisions = Effect.fail(
     new DecisionsError({ detail: "The decision service is not available." }),
@@ -67,6 +69,11 @@ export const make = Effect.gen(function* () {
       Option.isSome(notifications)
         ? Stream.unwrap(notifications.value.subscribeAlerts)
         : Stream.empty,
+    [CMDECK_WS_METHODS.checkScriptsList]: () =>
+      Effect.map(checks.list, (list) => ({ checks: list })),
+    [CMDECK_WS_METHODS.checkScriptsSet]: (input) =>
+      Effect.map(checks.set({ ...input, by: "user" }), (check) => ({ check })),
+    [CMDECK_WS_METHODS.checkScriptsApprove]: (input) => Effect.as(checks.approve(input), {}),
     [CMDECK_WS_METHODS.decisionsStatus]: () =>
       Option.isSome(decisions) ? decisions.value.status : noDecisions,
     [CMDECK_WS_METHODS.decisionsSetConsent]: (input) =>

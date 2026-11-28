@@ -13,6 +13,8 @@ import * as Notifications from "./notifications/Notifications.ts";
 import * as MemoryEmbeddings from "./memory/MemoryEmbeddings.ts";
 import * as MemoryStore from "./memory/MemoryStore.ts";
 import * as TurnContext from "./memory/TurnContext.ts";
+import * as CheckScripts from "./checkScripts/CheckScripts.ts";
+import * as CheckScriptAlerts from "./checkScripts/alerts.ts";
 import * as UsageAlerts from "./usageAlerts/UsageAlerts.ts";
 
 /**
@@ -23,11 +25,13 @@ import * as UsageAlerts from "./usageAlerts/UsageAlerts.ts";
 export const layer = Layer.mergeAll(
   RemoteMcpTokens.layer,
   PublicAddressCheck.layer,
-  // The approval policy audits and alerts on each decline, usage alerts alert on thresholds, and
-  // Notifications audits its own changes; all three share one Notifications.
-  Layer.merge(
+  // The approval policy audits and alerts on each decline, usage alerts alert on thresholds,
+  // check scripts report through alerts, and Notifications audits its own changes; all share
+  // one Notifications.
+  Layer.mergeAll(
     ApprovalPolicy.layer.pipe(Layer.provide(ProjectionStore.layer)),
     UsageAlerts.layer,
+    CheckScriptAlerts.layer,
   ).pipe(Layer.provideMerge(Notifications.layer), Layer.provideMerge(AuditLog.layer)),
   Bots.layer,
 );
@@ -36,11 +40,15 @@ export const layer = Layer.mergeAll(
  * Fork services orchestration reads, provided beneath it. They may depend only on what lies below
  * orchestration: settings, persistence and the project store.
  */
-export const layerBeneathOrchestration = Layer.mergeAll(TurnContext.layer, ApprovalGate.layer).pipe(
-  Layer.provideMerge(MemoryStore.layer),
-  // Inert until `cmdeck.memoryEmbedder` names a local inference server.
-  Layer.provideMerge(MemoryEmbeddings.layer.pipe(Layer.provide(SecretResolverLayer.layer))),
-  // TurnContext narrows memory and the scheduler routes models through it.
-  Layer.provideMerge(Decisions.layer),
-  Layer.provide(ProjectionStore.layer),
+export const layerBeneathOrchestration = Layer.merge(
+  Layer.mergeAll(TurnContext.layer, ApprovalGate.layer).pipe(
+    Layer.provideMerge(MemoryStore.layer),
+    // Inert until `cmdeck.memoryEmbedder` names a local inference server.
+    Layer.provideMerge(MemoryEmbeddings.layer.pipe(Layer.provide(SecretResolverLayer.layer))),
+    // TurnContext narrows memory and the scheduler routes models through it.
+    Layer.provideMerge(Decisions.layer),
+    Layer.provide(ProjectionStore.layer),
+  ),
+  // The scheduler gates runs on it (WI-2.11).
+  CheckScripts.layer,
 );

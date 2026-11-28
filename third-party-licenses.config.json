@@ -388,6 +388,21 @@
           ]
         }
       ]
+    },
+    {
+      "bundles": ["desktop", "web"],
+      "license": "MIT",
+      "name": "Sillage check-script gate",
+      "sourceUrl": "https://github.com/MarlBurroW/sillage/tree/14483e3dfda61e536e5e3673aed28fac9b5b4b15/apps/server/src/scheduler",
+      "generatedNotices": [
+        {
+          "licenseId": "MIT",
+          "copyrights": ["Copyright (c) 2026 MarlBurroW"],
+          "preamble": [
+            "CMDeck's scheduled-task check scripts follow Sillage's check gate: its exit-code contract, limits, verdicts, output placement and agent tool text, adapted to an explicit interpreter reading the script on stdin."
+          ]
+        }
+      ]
     }
   ],
   "packageOverrides": [
