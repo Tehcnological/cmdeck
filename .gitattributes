@@ -11,3 +11,16 @@ apps/server/schema/** linguist-generated
 # Fork: GT catalogs merge entry by entry, so branches that each add strings merge cleanly.
 # The driver is scripts/fork/merge-json-catalog.ts; `vp i` (prepare) writes its local git config.
 apps/*/src/i18n/translations/*.json merge=cmdeck-json-catalog
+# Fork: files of one standalone line per module, so a merge keeps both sides' new lines. Only for
+# pure lists; structured code merges normally.
+packages/contracts/src/fork/index.ts merge=union
+packages/contracts/src/fork/rpcModules.ts merge=union
+apps/server/src/fork/rpc/modules.ts merge=union
+apps/server/src/fork/layers.ts merge=union
+apps/server/src/fork/schemas.ts merge=union
+apps/server/src/fork/mcpToolModules.ts merge=union
+apps/web/src/fork/commandModules.ts merge=union
+apps/web/src/fork/settingsSearchModules.ts merge=union
+apps/web/src/fork/panelModules.ts merge=union
+apps/web/src/fork/settingsSectionModules.ts merge=union
+scripts/fork/hooks/*.txt merge=union
