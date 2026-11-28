@@ -19,6 +19,8 @@ import * as NodeOS from "node:os";
 import * as NodeTls from "node:tls";
 
 import type * as DirectEndpoints from "../../environment/DirectEndpoints.ts";
+import * as ManagedLimits from "../../policy/managedLimits.ts";
+import * as ManagedPolicy from "../../policy/ManagedPolicy.ts";
 import * as ServerSettings from "../../serverSettings.ts";
 import { isVirtualInterface, WINDOWS_HOST_ADAPTER_MAC } from "../../startupAccess.ts";
 import { ServerSecretStore } from "../secrets/EncryptedSecretStore.ts";
@@ -239,6 +241,8 @@ const make = Effect.fn("LanFallback.make")(function* (options: LanFallbackOption
   );
 
   const active = yield* FiberHandle.make();
+  // The policy is read once at startup; without `remote` the setting never opens a listener.
+  const remoteAllowed = ManagedLimits.allowsRemoteClients(yield* ManagedPolicy.ManagedPolicy);
   const enabledNow = settings.getSettings.pipe(
     Effect.map((value) => value.cmdeck.lanFallback),
     Effect.orElseSucceed(() => false),
@@ -250,7 +254,9 @@ const make = Effect.fn("LanFallback.make")(function* (options: LanFallbackOption
   ).pipe(
     Stream.changes,
     Stream.runForEach((enabled) =>
-      enabled ? FiberHandle.run(active, serve, { onlyIfMissing: true }) : FiberHandle.clear(active),
+      enabled && remoteAllowed
+        ? FiberHandle.run(active, serve, { onlyIfMissing: true })
+        : FiberHandle.clear(active),
     ),
     Effect.forkScoped,
   );

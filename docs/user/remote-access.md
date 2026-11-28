@@ -95,7 +95,7 @@ Join both devices to a tailnet with [MagicDNS and HTTPS certificates](https://ta
 
 A desktop app paired over Tailscale (plain or Tailscale HTTPS) can keep working when Tailscale is off but both machines are on the same local network.
 
-1. On the host, turn on **Settings → General → LAN fallback → Allow LAN fallback**. It is off by default; while it is off the host opens nothing on the local network.
+1. On the host, turn on **Settings → General → LAN fallback → Allow LAN fallback**. It is off by default; while it is off the host opens nothing on the local network. A [managed policy](./managed-policy.md) that leaves `remote` out of `clients` keeps it off whatever the setting says.
 2. Connect the desktop app over Tailscale once. It learns a **LAN fallback** route in **Settings → Environments**, after the routes you paired.
 3. When Tailscale stops answering, the desktop app switches to **LAN fallback**, and switches back once Tailscale answers again. The environment row shows the route in use ("via LAN fallback").
 

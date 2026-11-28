@@ -1887,13 +1887,15 @@ export const layerQueryRunner: Layer.Layer<
         });
         return child;
       };
+      // Fork: a container also ignores MCP servers from a repo .mcp.json or a mounted ~/.claude.
+      const strictMcp = ForkSandbox.isContained(sandboxed, unit) ? { strictMcpConfig: true } : {};
       const queryRuntime = yield* Effect.uninterruptibleMask((restore) =>
         Effect.try({
           try: () =>
             withoutClaudeCanUseToolShadowedWarning(() =>
               query({
                 prompt,
-                options: { ...options, spawnClaudeCodeProcess },
+                options: { ...options, spawnClaudeCodeProcess, ...strictMcp },
               }),
             ),
           catch: (cause) => queryRunnerError(cause, "query"),
@@ -6221,6 +6223,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
   adapterOptions: ClaudeAdapterV2Options,
 ) {
   const mcpSessions = yield* McpProviderSessions.McpProviderSessions;
+  const inContainer = yield* ForkSandbox.sandboxedThreadCheck;
   // `onElicitation` shows T3 Code's own requests and passes on the person's answer to each.
   yield* mcpSessions.showsApprovalRequests(adapterOptions.instanceId);
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
@@ -13973,7 +13976,11 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
           nativeThreadId: string,
           queryPolicy: Effect.Success<ReturnType<typeof queryPolicyForTurn>>,
         ) {
-          const mcpSession = yield* mcpSessions.read(turnInput.threadId);
+          // Fork: a container gets no MCP servers, so its prompt must not describe them.
+          const sandboxedQuery = yield* inContainer(turnInput.threadId);
+          const mcpSession = sandboxedQuery
+            ? undefined
+            : yield* mcpSessions.read(turnInput.threadId);
           // Claude Code defers its goal Stop hook only for its own background tasks, so a goal
           // re-prompts in a loop while T3 work that will wake this thread is still running.
           const onStop: HookCallback = () =>
