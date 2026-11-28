@@ -3,7 +3,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
   type OrchestrationV2AppThread,
   ProjectId,
-  type SandboxRecipe,
+  SandboxRecipe,
   ThreadId,
 } from "@t3tools/contracts";
 import { AgentScope, type AgentScopeShape } from "@t3tools/shared/AgentScope";
@@ -15,6 +15,7 @@ import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
+import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/sql/SqlClient";
 
 import * as ServerConfig from "../../config.ts";
@@ -22,9 +23,11 @@ import * as ProjectionStore from "../../orchestration-v2/ProjectionStore.ts";
 import * as ProjectStore from "../../orchestration-v2/ProjectStore.ts";
 import * as SqlitePersistence from "../../persistence/Sqlite.ts";
 import * as ProcessRunner from "../../processRunner.ts";
-import * as ServerSettings from "../../serverSettings.ts";
 import * as AuditLog from "../audit/AuditLog.ts";
 import { layerCore } from "./ContainerSandbox.ts";
+
+const decodeRecipe = Schema.decodeEffect(SandboxRecipe);
+const encodeRecipeJson = Schema.encodeEffect(Schema.fromJsonString(SandboxRecipe));
 
 export const THREAD = ThreadId.make("thread-1");
 export const PROJECT = ProjectId.make("project-1");
@@ -123,9 +126,6 @@ export const layerSandbox = (options: {
             } as ProjectStore.ProjectRow),
         }),
         options.audit ?? AuditLog.layerService,
-        ServerSettings.layerTest({
-          cmdeck: { sandbox: { image: "acme/agent:1", ...options.recipe } },
-        }),
         Layer.succeed(AgentScope, inner),
         // The real host keeps the platform and environment references' own defaults.
         options.realHost === true
@@ -140,6 +140,11 @@ export const layerSandbox = (options: {
       Layer.effectDiscard(
         Effect.gen(function* () {
           const sql = yield* SqlClient.SqlClient;
+          const recipe = yield* decodeRecipe({
+            image: "acme/agent:1",
+            ...options.recipe,
+          }).pipe(Effect.flatMap(encodeRecipeJson));
+          yield* sql`INSERT INTO sandbox_recipe VALUES (1, ${recipe}, '2026-11-27T00:00:00Z')`;
           for (const threadId of options.sandboxedBefore ?? []) {
             yield* sql`INSERT INTO sandbox_modes VALUES ('thread', ${threadId}, 'on', '2026-11-27T00:00:00Z')`;
           }

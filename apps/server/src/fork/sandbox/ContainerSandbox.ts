@@ -7,7 +7,7 @@ import {
   type SandboxConfigureInput,
   SandboxError,
   type SandboxMode,
-  type SandboxRecipe,
+  SandboxRecipe,
   type SandboxRuntimeKind,
   type SandboxRuntimeStatus,
   type SandboxStatus,
@@ -26,6 +26,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
+import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/sql/SqlClient";
 
 import * as ServerConfig from "../../config.ts";
@@ -33,7 +34,6 @@ import * as ProjectionStore from "../../orchestration-v2/ProjectionStore.ts";
 import * as ProjectStore from "../../orchestration-v2/ProjectStore.ts";
 import { AGENT_THREAD_ENV } from "../../preview/PortScanner.ts";
 import * as ProcessRunner from "../../processRunner.ts";
-import * as ServerSettings from "../../serverSettings.ts";
 import * as AuditLog from "../audit/AuditLog.ts";
 import {
   appleContainerHostReason,
@@ -141,12 +141,14 @@ interface ModeRow {
   readonly mode: SandboxMode;
 }
 
+const decodeRecipe = Schema.decodeEffect(Schema.fromJsonString(SandboxRecipe));
+const encodeRecipe = Schema.encodeEffect(Schema.fromJsonString(SandboxRecipe));
+
 const toError = (detail: string) => (cause: unknown) => new SandboxError({ detail, cause });
 
 const make = Effect.gen(function* () {
   const inner = yield* AgentScope;
   const sql = yield* SqlClient.SqlClient;
-  const settings = yield* ServerSettings.ServerSettingsService;
   const projections = yield* ProjectionStore.ProjectionStoreV2;
   const projects = yield* ProjectStore.ProjectStoreV2;
   const audit = yield* AuditLog.AuditLog;
@@ -167,9 +169,11 @@ const make = Effect.gen(function* () {
   const boot = NodeCrypto.randomUUID().slice(0, 8);
   const copiesDir = path.join(stateDir, "sandbox", "git-copies");
 
-  const recipe = settings.getSettings.pipe(
-    Effect.map((current) => current.cmdeck.sandbox),
-    Effect.mapError(toError("Could not read the sandbox settings.")),
+  // Kept in this module's table, not settings.json: only configure, which validates and audits,
+  // may change what a sandboxed agent can reach.
+  const recipe = sql<{ readonly recipe_json: string }>`SELECT recipe_json FROM sandbox_recipe`.pipe(
+    Effect.flatMap((rows) => decodeRecipe(rows[0]?.recipe_json ?? "{}")),
+    Effect.mapError(toError("Could not read the sandbox recipe.")),
   );
 
   const modes = sql<ModeRow>`SELECT kind, target_id, mode FROM sandbox_modes`.pipe(
@@ -630,27 +634,6 @@ const make = Effect.gen(function* () {
     input: SandboxConfigureInput,
     actor: string,
   ) {
-    if (input.recipe !== undefined) {
-      const next = input.recipe;
-      if (next.ociRuntime !== null && next.runtime !== "docker") {
-        return yield* new SandboxError({ detail: "An OCI runtime applies to Docker only." });
-      }
-      if (next.network.trim() === "") {
-        return yield* new SandboxError({ detail: "Choose a network, or none." });
-      }
-      const previous = yield* recipe;
-      yield* settings
-        .updateSettings({ cmdeck: { sandbox: next } })
-        .pipe(Effect.mapError(toError("Could not save the sandbox recipe.")));
-      if (previous.network === "none" && next.network !== "none") {
-        yield* audit.append({
-          kind: "sandbox.network_opened",
-          actor,
-          subject: next.network,
-          detail: { runtime: next.runtime },
-        });
-      }
-    }
     // Each read-compare-write runs in one transaction, so a concurrent change cannot slip an
     // opt-out past the audit. The entry is written after the commit: AuditLog takes its own lock
     // and then a transaction, so appending inside this one could deadlock against another append.
@@ -661,6 +644,37 @@ const make = Effect.gen(function* () {
             Effect.fail(new SandboxError({ detail: "Could not save the sandbox choice.", cause })),
         }),
       );
+    if (input.recipe !== undefined) {
+      const next = input.recipe;
+      if (next.ociRuntime !== null && next.runtime !== "docker") {
+        return yield* new SandboxError({ detail: "An OCI runtime applies to Docker only." });
+      }
+      if (next.network.trim() === "") {
+        return yield* new SandboxError({ detail: "Choose a network, or none." });
+      }
+      const opened = yield* atomically(
+        Effect.gen(function* () {
+          const previous = yield* recipe;
+          const now = DateTime.formatIso(yield* DateTime.now);
+          const json = yield* encodeRecipe(next).pipe(
+            Effect.mapError(toError("Could not save the sandbox recipe.")),
+          );
+          yield* sql`INSERT INTO sandbox_recipe (id, recipe_json, updated_at) VALUES (1, ${json}, ${now})
+            ON CONFLICT (id) DO UPDATE SET recipe_json = excluded.recipe_json, updated_at = excluded.updated_at`.pipe(
+            Effect.mapError(toError("Could not save the sandbox recipe.")),
+          );
+          return next.network !== "none" && next.network !== previous.network;
+        }),
+      );
+      if (opened) {
+        yield* audit.append({
+          kind: "sandbox.network_opened",
+          actor,
+          subject: next.network,
+          detail: { runtime: next.runtime },
+        });
+      }
+    }
     const optedOut = (subject: string, scope: "project" | "thread") =>
       audit.append({ kind: "sandbox.opted_out", actor, subject, detail: { scope } });
     if (input.project !== undefined) {
@@ -752,7 +766,7 @@ export const layerCore = Layer.effectContext(
 
 /**
  * Wraps whichever AgentScope lies beneath (systemd on Linux) and provides the sandbox service.
- * `server.ts` provides it right above that AgentScope, with the settings layer it reads.
+ * `server.ts` provides it right above that AgentScope, with the settings layer for its database.
  */
 export const layer = layerCore.pipe(
   Layer.provide(

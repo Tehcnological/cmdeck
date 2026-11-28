@@ -5,7 +5,6 @@ import { ModelSelection } from "../modelSelection.ts";
 import { ApprovalPolicyRules } from "./approvalPolicy.ts";
 import { DecisionModelSetting } from "./decisions.ts";
 import { MemoryEmbedderSetting } from "./memory.ts";
-import { SandboxRecipe } from "./sandbox.ts";
 
 /** Models a scheduled task's new thread runs on for each routing tier; an unset tier keeps the task's model. */
 export const RoutingTierModels = Schema.Struct({
@@ -43,8 +42,6 @@ export const CmdeckSettings = Schema.Struct({
   ),
   /** Deny rules for provider approvals; a managed policy can set and lock them. */
   approvalPolicy: ApprovalPolicyRules.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
-  /** The container recipe; an empty image keeps every thread on the host. */
-  sandbox: SandboxRecipe.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
 });
 
 export const CmdeckSettingsPatch = Schema.Struct({
@@ -54,5 +51,4 @@ export const CmdeckSettingsPatch = Schema.Struct({
   memoryEmbedder: Schema.optionalKey(Schema.NullOr(MemoryEmbedderSetting)),
   usageAlertPercents: Schema.optionalKey(Schema.Array(UsageAlertPercent)),
   approvalPolicy: Schema.optionalKey(ApprovalPolicyRules),
-  sandbox: Schema.optionalKey(SandboxRecipe),
 });

@@ -42,15 +42,15 @@ never off, and never for a whole project.
 
 ## The recipe
 
-| Field                 | Meaning                                                                                                                                                                                                                      |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime               | Docker, or Apple `container`. An option that cannot run here is disabled with the reason.                                                                                                                                    |
-| OCI runtime           | Shown when Docker lists one besides its default, such as `runsc` (gVisor).                                                                                                                                                   |
-| Image                 | The image every sandboxed thread starts from.                                                                                                                                                                                |
-| Network               | `none` (default) turns networking off. That also stops the agent reaching its model API, so name a Docker network (for example `bridge`) for agents that call a cloud API. Opening the network is recorded in the audit log. |
-| CPUs, Memory          | Passed to `--cpus` and `-m`.                                                                                                                                                                                                 |
-| Extra mounts          | One host path per line, mounted at the same path; end a line with `:ro` for read-only.                                                                                                                                       |
-| Environment variables | Names passed into the container. Provider credentials (`ANTHROPIC_*`, `CLAUDE_CODE_*`, `OPENAI_*`) pass by name; values never appear on a command line.                                                                      |
+| Field                 | Meaning                                                                                                                                                                                                                                              |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime               | Docker, or Apple `container`. An option that cannot run here is disabled with the reason.                                                                                                                                                            |
+| OCI runtime           | Shown when Docker lists one besides its default, such as `runsc` (gVisor).                                                                                                                                                                           |
+| Image                 | The image every sandboxed thread starts from.                                                                                                                                                                                                        |
+| Network               | `none` (default) turns networking off. That also stops the agent reaching its model API, so name a Docker network (for example `bridge`) for agents that call a cloud API. Every change to a network other than `none` is recorded in the audit log. |
+| CPUs, Memory          | Passed to `--cpus` and `-m`.                                                                                                                                                                                                                         |
+| Extra mounts          | One host path per line, mounted at the same path; end a line with `:ro` for read-only.                                                                                                                                                               |
+| Environment variables | Names passed into the container. Provider credentials (`ANTHROPIC_*`, `CLAUDE_CODE_*`, `OPENAI_*`) pass by name; values never appear on a command line.                                                                                              |
 
 The worktree is mounted at the same path it has on the host (on Windows, `C:\work\app` becomes
 `/c/work/app`). The repository's `.git/config`, `config.worktree` and `hooks` are mounted

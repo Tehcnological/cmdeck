@@ -128,12 +128,18 @@ describe("ContainerSandbox", () => {
           { recipe: { ...(yield* sandbox.status({})).recipe, network: "bridge" } },
           "user",
         );
+        // Any change to another open network is audited too, not only leaving none.
+        yield* sandbox.configure(
+          { recipe: { ...(yield* sandbox.status({})).recipe, network: "host" } },
+          "user",
+        );
 
         const entries = (yield* (yield* AuditLog.AuditLog).list({})).entries;
         expect(entries.map((entry) => [entry.kind, entry.subject]).toReversed()).toEqual([
           ["sandbox.opted_out", THREAD],
           ["sandbox.opted_out", PROJECT],
           ["sandbox.network_opened", "bridge"],
+          ["sandbox.network_opened", "host"],
         ]);
       }),
     ),
