@@ -221,6 +221,18 @@ describe("ContainerSandbox", () => {
   );
 });
 
+describe("stored recipe", () => {
+  it.effect("is checked again at launch, so a row written around configure cannot reach argv", () =>
+    withSandbox({ recipe: { network: "host" } }, () =>
+      Effect.gen(function* () {
+        const sandbox = yield* ContainerSandbox;
+        yield* sandbox.configure({ thread: { threadId: THREAD, mode: "on" } }, "user");
+        expect(yield* sandbox.launchRefusal(THREAD, "claudeAgent")).toContain("network");
+      }),
+    ).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+});
+
 describe("audit ordering", () => {
   // AuditLog takes its own lock and then a transaction. An entry appended while configure still
   // holds its transaction waits on the writer that transaction holds, so a concurrent append or

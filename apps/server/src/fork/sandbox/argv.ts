@@ -53,9 +53,10 @@ export interface RunSpec {
 const csvField = (field: string) =>
   /[",\r\n]/.test(field) ? `"${field.replaceAll('"', '""')}"` : field;
 
-// Image references, network and runtime names, CPU and memory amounts: one token that cannot
-// start a flag. Characters cover registry:port/path:tag@sha256:digest and values like 1.5 or 4g.
-const TOKEN = /^[A-Za-z0-9][A-Za-z0-9._:/@+=-]*$/;
+// One word that cannot start a flag or carry an option: network and runtime names, 1.5, 4g.
+const NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
+// An image reference also needs registry:port/path:tag@sha256:digest.
+const IMAGE = /^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$/;
 const UNSAFE_PATH = /[\u0000-\u001f]/;
 const ABSOLUTE_PATH = /^(\/|~(\/|\\|$)|[A-Za-z]:[\\/]|\\\\)/;
 
@@ -77,21 +78,21 @@ export function normalizeRecipe(recipe: SandboxRecipe): SandboxRecipe {
 
 /** What is wrong with a normalized recipe, naming the field, or null when argv can carry it. */
 export function recipeProblem(recipe: SandboxRecipe): string | null {
-  const fields: ReadonlyArray<readonly [string, string | null]> = [
-    ["image", recipe.image === "" ? null : recipe.image],
-    ["network", recipe.network],
-    ["OCI runtime", recipe.ociRuntime],
-    ["CPUs", recipe.cpus],
-    ["memory", recipe.memory],
+  const fields: ReadonlyArray<readonly [string, string | null, RegExp]> = [
+    ["image", recipe.image === "" ? null : recipe.image, IMAGE],
+    ["network", recipe.network, NAME],
+    ["OCI runtime", recipe.ociRuntime, NAME],
+    ["CPUs", recipe.cpus, NAME],
+    ["memory", recipe.memory, NAME],
   ];
-  for (const [label, value] of fields) {
-    if (value !== null && !TOKEN.test(value)) {
+  for (const [label, value, pattern] of fields) {
+    if (value !== null && !pattern.test(value)) {
       return `The ${label} must be one word that does not start with "-".`;
     }
   }
-  // The host's network, or another container's, reaches CMDeck and every service on loopback.
-  if (recipe.network === "host" || recipe.network.startsWith("container:")) {
-    return "The network cannot be the host's or another container's.";
+  // The host's network reaches CMDeck and every service on loopback; Docker ignores its case.
+  if (recipe.network.toLowerCase() === "host") {
+    return "The network cannot be the host's.";
   }
   for (const mount of recipe.mounts) {
     if (UNSAFE_PATH.test(mount.hostPath) || !ABSOLUTE_PATH.test(mount.hostPath)) {

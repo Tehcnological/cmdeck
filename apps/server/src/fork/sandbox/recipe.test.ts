@@ -28,6 +28,13 @@ describe("recipe validation", () => {
     // The host's own network reaches CMDeck and every service on its loopback.
     ["the host network", { network: "host" }, "network"],
     ["another container's network", { network: "container:db" }, "network"],
+    // Docker matches the host network's name without regard to case.
+    ["the host network in capitals", { network: "HOST" }, "network"],
+    ["a network namespace path", { network: "ns:/proc/1/ns/net" }, "network"],
+    ["a network option", { network: "bridge=x" }, "network"],
+    ["an OCI runtime with an option", { ociRuntime: "runc=x" }, "OCI runtime"],
+    ["an image with an option", { image: "acme/agent=x" }, "image"],
+    ["cpus with a colon", { cpus: "1:2" }, "CPUs"],
     ["an OCI runtime that is a flag", { ociRuntime: "--privileged" }, "OCI runtime"],
     ["cpus with a line break", { cpus: "2\nx" }, "CPUs"],
     ["memory that is a flag", { memory: "--cap-add=ALL" }, "memory"],

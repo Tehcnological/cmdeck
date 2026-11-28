@@ -129,6 +129,9 @@ export function recipeRefusal(
   recipe: SandboxRecipe,
 ): string | null {
   if (recipe.image.trim() === "") return "Choose a container image in Settings first.";
+  // The stored row is checked again: only configure validates what it writes.
+  const problem = recipeProblem(normalizeRecipe(recipe));
+  if (problem !== null) return problem;
   const runtime = statuses.find((status) => status.kind === recipe.runtime);
   return runtime === undefined || runtime.available
     ? null
