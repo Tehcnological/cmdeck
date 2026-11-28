@@ -11,6 +11,12 @@ export const FORK_SETTINGS_SEARCH_ITEMS = [
     searchTerms: [msg("new threads machine server host start remote local")],
   },
   {
+    id: "memory",
+    title: msg("Memory", { $context: "what CMDeck remembers for agents" }),
+    to: "/settings/memory",
+    searchTerms: [msg("remember incognito temporary proposals rules facts revisions")],
+  },
+  {
     id: "usage-alerts",
     title: msg("Alert thresholds"),
     to: "/settings/providers",
@@ -39,5 +45,11 @@ export const FORK_SETTINGS_SEARCH_ITEMS = [
     title: msg("Progress reports and stall limit"),
     to: "/settings/providers",
     searchTerms: [msg("checkpoint progress interval minutes stall stop improve done-check")],
+  },
+  {
+    id: "bots",
+    title: msg("Bots"),
+    to: "/settings/threads",
+    searchTerms: [msg("bot persistent agent schedule wake private memory crew")],
   },
 ] as const satisfies ReadonlyArray<SettingsSearchItem>;

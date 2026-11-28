@@ -3,6 +3,8 @@ import { m as resolveMessage } from "~/i18n/messages";
 import { useAtomValue } from "@effect/atom-react";
 import { NotificationSettings } from "./NotificationSettings";
 import { NotificationChannelsSection } from "~/fork/NotificationChannelsSection";
+import { BotsSection } from "~/fork/BotsSection";
+import { MemoryEmbeddingsSection } from "~/fork/memory/MemoryEmbeddingsSection";
 import { PRIVACY_POLICY_URL } from "../../legalLinks";
 import { CheckIcon } from "lucide-react";
 import { msg, T, useGT, useMessages } from "gt-react";
@@ -901,6 +903,7 @@ export function GeneralSettingsPanel() {
         />
       </SettingsSection>
       <NotificationChannelsSection />
+      <MemoryEmbeddingsSection />
 
       <SettingsSection id="sidebar" title={gt("Sidebar")}>
         <SettingsRow
@@ -2459,6 +2462,7 @@ export function ThreadsSettingsPanel() {
           />
         </AdvancedSettings>
       </SettingsSection>
+      <BotsSection />
     </SettingsPageContainer>
   );
 }

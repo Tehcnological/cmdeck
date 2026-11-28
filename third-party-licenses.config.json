@@ -1,6 +1,33 @@
 {
   "customNotices": [
     {
+      "bundles": ["desktop", "web"],
+      "license": "Apache-2.0",
+      "name": "KiroCrew work ledger (adapted)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."]
+        }
+      ]
+    },
+    {
+      "bundles": ["desktop"],
+      "license": "Apache-2.0",
+      "name": "KiroCrew Research Lab briefs and stop rules (Research Lab preset)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/apps/builtins/auto_research",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "Ported to a CMDeck workflow preset (apps/server/src/fork/presets/research-lab.ts). Changes: briefs condensed and reworded for typed agent results, each cycle runs its questions as parallel agents, the workflow counts new findings itself for the stagnation stop, and the report is written by the run's last agent thread."
+          ]
+        }
+      ]
+    },
+    {
       "bundles": ["desktop"],
       "license": "Apache-2.0",
       "name": "KiroCrew task runner prompts (Task Runner preset)",
@@ -9,6 +36,20 @@
         {
           "licenseId": "Apache-2.0",
           "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."]
+        }
+      ]
+    },
+    {
+      "license": "Apache-2.0",
+      "name": "Kiro Crew crew member rules (bot names, private memory ownership cases)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/members_parts",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "Ported to TypeScript for CMDeck's bot profiles (packages/contracts/src/fork/bots.ts, apps/server/src/fork/bots). Changes: the member name rules became a Schema check with a 100-character cap and no URL path rule, and member memory ownership became a bot:<id> scope in CMDeck's single memory table, with ownership test cases adapted to it."
+          ]
         }
       ]
     },
@@ -50,6 +91,31 @@
           "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
           "preamble": [
             "Ported to TypeScript for CMDeck's usage alerts (apps/server/src/fork/usageAlerts). Changes: one reading per provider limit window instead of one plan-credit reading, a window period ends when its stored reset time passes, accounts come from provider and hub usage limits, and state is kept in SQLite instead of a JSON file."
+          ]
+        }
+      ]
+    },
+    {
+      "license": "MIT",
+      "name": "OpenClaw memory search ranking (hybrid weights, BM25 score mapping, half-life decay)",
+      "sourceUrl": "https://github.com/openclaw/openclaw/tree/f57a32938b7b4b99e25f9d2343c6890978ba9f7d/extensions/memory-core/src/memory",
+      "generatedNotices": [
+        {
+          "licenseId": "MIT",
+          "copyrights": ["Copyright (c) 2026 OpenClaw Foundation"]
+        }
+      ]
+    },
+    {
+      "license": "Apache-2.0",
+      "name": "Kiro Crew chat message pins (per-thread cap, redacted preview, idempotent pin)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/blob/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/dashboard/chat_pins.py",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "Ported to TypeScript for CMDeck's message pins (apps/server/src/fork/messagePins). Changes: pins are SQLite rows keyed by thread and message instead of a JSON file, unpin is by message only, and there is no per-app ownership."
           ]
         }
       ]
@@ -108,6 +174,21 @@
         {
           "licenseId": "MIT",
           "copyrights": ["Copyright (c) 2015-present Drifty Co."]
+        }
+      ]
+    },
+    {
+      "bundles": ["desktop", "web"],
+      "license": "Apache-2.0",
+      "name": "Kiro Crew memory modes and memory editing",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "CMDeck's memory modes, fork inheritance and preview-then-apply memory edits are ported from KiroCrew (src/kiro_crew/execution_context.py, src/kiro_crew/dashboard/chat_fork_memory_mode.py, src/kiro_crew/memory_edit.py, website/src/components/MemoryModeChip.tsx).\n\nChanges: translated from Python to TypeScript and fitted to CMDeck's memory store; a fork copies its parent's mode the first time it is read; edit selections compare each item as shown instead of a revision digest; bulk operations are accept, retire, restore and literal text replacement; the chip uses CMDeck's menu components and copy."
+          ]
         }
       ]
     },
@@ -330,6 +411,21 @@
           "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
           "preamble": [
             "The AES-256-GCM envelope and its name-bound AAD in apps/server/src/fork/secrets/envelope.ts are adapted from Kiro Crew's vault: one binary envelope per secret file instead of a JSON map, a \"cmdeck\" AAD scope, and no item types."
+          ]
+        }
+      ]
+    },
+    {
+      "bundles": ["desktop", "web"],
+      "license": "MIT",
+      "name": "Sillage check-script gate",
+      "sourceUrl": "https://github.com/MarlBurroW/sillage/tree/14483e3dfda61e536e5e3673aed28fac9b5b4b15/apps/server/src/scheduler",
+      "generatedNotices": [
+        {
+          "licenseId": "MIT",
+          "copyrights": ["Copyright (c) 2026 MarlBurroW"],
+          "preamble": [
+            "CMDeck's scheduled-task check scripts follow Sillage's check gate: its exit-code contract, limits, verdicts, output placement and agent tool text, adapted to an explicit interpreter reading the script on stdin."
           ]
         }
       ]

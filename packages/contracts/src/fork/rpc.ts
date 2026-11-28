@@ -5,6 +5,7 @@ import * as RpcGroup from "effect/rpc/RpcGroup";
 import {
   AuthAccessReadScope,
   AuthFilesystemReadScope,
+  AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
   AuthTerminalOperateScope,
   AuthSettingsWriteScope,
@@ -26,7 +27,54 @@ import {
   NotificationChannelIdInput,
   NotificationChannelSetEnabledInput,
 } from "./notifications.ts";
+import {
+  WorkLedgerError,
+  WorkLedgerListResult,
+  WorkLedgerSetConductorInput,
+  WorkLedgerStopWorkersResult,
+  WorkLedgerThreadInput,
+} from "./workLedger.ts";
+import {
+  CheckScriptError,
+  ScheduledTaskCheckApproveInput,
+  ScheduledTaskCheckListResult,
+  ScheduledTaskCheckSetInput,
+  ScheduledTaskCheckSetResult,
+} from "./checkScripts.ts";
 import { DecisionConsentSetInput, DecisionsError, DecisionsStatus } from "./decisions.ts";
+import {
+  BotCreateInput,
+  BotIdInput,
+  BotProfile,
+  BotScheduleInput,
+  BotsError,
+  BotUpdateInput,
+  BotWakeResult,
+} from "./bots.ts";
+import {
+  MemoryEditInput,
+  MemoryEmbeddingsStatus,
+  MemoryInjection,
+  MemoryItem,
+  MemoryBulkEditInput,
+  MemoryBulkEditResult,
+  MemoryItemIdInput,
+  MemoryListInput,
+  MemoryRememberInput,
+  MemoryRevertInput,
+  MemoryRevision,
+  MemoryRpcError,
+  SetThreadMemoryModeInput,
+  ThreadMemoryMode,
+  ThreadMemoryModeInput,
+} from "./memory.ts";
+import {
+  MessagePin,
+  MessagePinInput,
+  MessagePinsError,
+  MessagePinsListInput,
+  MessageUnpinInput,
+} from "./messagePins.ts";
 
 // The `cmdeck.` prefix keeps fork methods clear of upstream's names. Append new methods here.
 export const CMDECK_WS_METHODS = {
@@ -40,8 +88,35 @@ export const CMDECK_WS_METHODS = {
   notificationChannelsSetEnabled: "cmdeck.notifications.channels.setEnabled",
   notificationChannelsRemove: "cmdeck.notifications.channels.remove",
   notificationsSubscribeAlerts: "cmdeck.notifications.subscribeAlerts",
+  workLedgerList: "cmdeck.workLedger.list",
+  workLedgerSetConductor: "cmdeck.workLedger.setConductor",
+  workLedgerStopWorkers: "cmdeck.workLedger.stopWorkers",
+  checkScriptsList: "cmdeck.checkScripts.list",
+  checkScriptsSet: "cmdeck.checkScripts.set",
+  checkScriptsApprove: "cmdeck.checkScripts.approve",
   decisionsStatus: "cmdeck.decisions.status",
   decisionsSetConsent: "cmdeck.decisions.setConsent",
+  botsList: "cmdeck.bots.list",
+  botsCreate: "cmdeck.bots.create",
+  botsUpdate: "cmdeck.bots.update",
+  botsDelete: "cmdeck.bots.delete",
+  botsRestore: "cmdeck.bots.restore",
+  botsSchedule: "cmdeck.bots.schedule",
+  botsWake: "cmdeck.bots.wake",
+  memoryList: "cmdeck.memory.list",
+  memoryRevisions: "cmdeck.memory.revisions",
+  memoryEdit: "cmdeck.memory.edit",
+  memoryRevert: "cmdeck.memory.revert",
+  memoryPreviewEdit: "cmdeck.memory.previewEdit",
+  memoryApplyEdit: "cmdeck.memory.applyEdit",
+  memoryRemember: "cmdeck.memory.remember",
+  memoryThreadMode: "cmdeck.memory.threadMode",
+  memorySetThreadMode: "cmdeck.memory.setThreadMode",
+  memoryInjections: "cmdeck.memory.injections",
+  memoryEmbeddingsStatus: "cmdeck.memory.embeddingsStatus",
+  messagePinsList: "cmdeck.messagePins.list",
+  messagePinsPin: "cmdeck.messagePins.pin",
+  messagePinsUnpin: "cmdeck.messagePins.unpin",
 } as const;
 
 /** Fork stream methods the client runtime subscribes to like upstream's. */
@@ -116,6 +191,45 @@ const CmdeckNotificationsSubscribeAlertsRpc = Rpc.make(
   },
 );
 
+const WorkLedgerRpcError = Schema.Union([WorkLedgerError, EnvironmentAuthorizationError]);
+
+const CmdeckWorkLedgerListRpc = Rpc.make(CMDECK_WS_METHODS.workLedgerList, {
+  payload: WorkLedgerThreadInput,
+  success: WorkLedgerListResult,
+  error: WorkLedgerRpcError,
+});
+
+const CmdeckWorkLedgerSetConductorRpc = Rpc.make(CMDECK_WS_METHODS.workLedgerSetConductor, {
+  payload: WorkLedgerSetConductorInput,
+  error: WorkLedgerRpcError,
+});
+
+const CmdeckWorkLedgerStopWorkersRpc = Rpc.make(CMDECK_WS_METHODS.workLedgerStopWorkers, {
+  payload: WorkLedgerThreadInput,
+  success: WorkLedgerStopWorkersResult,
+  error: WorkLedgerRpcError,
+});
+
+const CheckScriptsError = Schema.Union([CheckScriptError, EnvironmentAuthorizationError]);
+
+const CmdeckCheckScriptsListRpc = Rpc.make(CMDECK_WS_METHODS.checkScriptsList, {
+  payload: Schema.Struct({}),
+  success: ScheduledTaskCheckListResult,
+  error: CheckScriptsError,
+});
+
+const CmdeckCheckScriptsSetRpc = Rpc.make(CMDECK_WS_METHODS.checkScriptsSet, {
+  payload: ScheduledTaskCheckSetInput,
+  success: ScheduledTaskCheckSetResult,
+  error: CheckScriptsError,
+});
+
+const CmdeckCheckScriptsApproveRpc = Rpc.make(CMDECK_WS_METHODS.checkScriptsApprove, {
+  payload: ScheduledTaskCheckApproveInput,
+  success: Schema.Struct({}),
+  error: CheckScriptsError,
+});
+
 const CmdeckDecisionsStatusRpc = Rpc.make(CMDECK_WS_METHODS.decisionsStatus, {
   payload: Schema.Struct({}),
   success: DecisionsStatus,
@@ -125,6 +239,137 @@ const CmdeckDecisionsStatusRpc = Rpc.make(CMDECK_WS_METHODS.decisionsStatus, {
 const CmdeckDecisionsSetConsentRpc = Rpc.make(CMDECK_WS_METHODS.decisionsSetConsent, {
   payload: DecisionConsentSetInput,
   error: Schema.Union([DecisionsError, EnvironmentAuthorizationError]),
+});
+
+const BotsRpcError = Schema.Union([BotsError, EnvironmentAuthorizationError]);
+
+const CmdeckBotsListRpc = Rpc.make(CMDECK_WS_METHODS.botsList, {
+  payload: Schema.Struct({}),
+  success: Schema.Array(BotProfile),
+  error: BotsRpcError,
+});
+
+const CmdeckBotsCreateRpc = Rpc.make(CMDECK_WS_METHODS.botsCreate, {
+  payload: BotCreateInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsUpdateRpc = Rpc.make(CMDECK_WS_METHODS.botsUpdate, {
+  payload: BotUpdateInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsDeleteRpc = Rpc.make(CMDECK_WS_METHODS.botsDelete, {
+  payload: BotIdInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsRestoreRpc = Rpc.make(CMDECK_WS_METHODS.botsRestore, {
+  payload: BotIdInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsScheduleRpc = Rpc.make(CMDECK_WS_METHODS.botsSchedule, {
+  payload: BotScheduleInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsWakeRpc = Rpc.make(CMDECK_WS_METHODS.botsWake, {
+  payload: BotIdInput,
+  success: BotWakeResult,
+  error: BotsRpcError,
+});
+
+const MemoryError = Schema.Union([MemoryRpcError, EnvironmentAuthorizationError]);
+
+const CmdeckMemoryListRpc = Rpc.make(CMDECK_WS_METHODS.memoryList, {
+  payload: MemoryListInput,
+  success: Schema.Array(MemoryItem),
+  error: MemoryError,
+});
+
+const CmdeckMemoryRevisionsRpc = Rpc.make(CMDECK_WS_METHODS.memoryRevisions, {
+  payload: MemoryItemIdInput,
+  success: Schema.Array(MemoryRevision),
+  error: MemoryError,
+});
+
+const CmdeckMemoryEditRpc = Rpc.make(CMDECK_WS_METHODS.memoryEdit, {
+  payload: MemoryEditInput,
+  success: MemoryItem,
+  error: MemoryError,
+});
+
+const CmdeckMemoryRevertRpc = Rpc.make(CMDECK_WS_METHODS.memoryRevert, {
+  payload: MemoryRevertInput,
+  success: MemoryItem,
+  error: MemoryError,
+});
+
+const CmdeckMemoryPreviewEditRpc = Rpc.make(CMDECK_WS_METHODS.memoryPreviewEdit, {
+  payload: MemoryBulkEditInput,
+  success: MemoryBulkEditResult,
+  error: MemoryError,
+});
+
+const CmdeckMemoryApplyEditRpc = Rpc.make(CMDECK_WS_METHODS.memoryApplyEdit, {
+  payload: MemoryBulkEditInput,
+  success: MemoryBulkEditResult,
+  error: MemoryError,
+});
+
+const CmdeckMemoryRememberRpc = Rpc.make(CMDECK_WS_METHODS.memoryRemember, {
+  payload: MemoryRememberInput,
+  success: MemoryItem,
+  error: MemoryError,
+});
+
+const CmdeckMemoryThreadModeRpc = Rpc.make(CMDECK_WS_METHODS.memoryThreadMode, {
+  payload: ThreadMemoryModeInput,
+  success: Schema.Struct({ mode: ThreadMemoryMode }),
+  error: MemoryError,
+});
+
+const CmdeckMemorySetThreadModeRpc = Rpc.make(CMDECK_WS_METHODS.memorySetThreadMode, {
+  payload: SetThreadMemoryModeInput,
+  success: Schema.Struct({ mode: ThreadMemoryMode }),
+  error: MemoryError,
+});
+
+const CmdeckMemoryInjectionsRpc = Rpc.make(CMDECK_WS_METHODS.memoryInjections, {
+  payload: ThreadMemoryModeInput,
+  success: Schema.Array(MemoryInjection),
+  error: MemoryError,
+});
+
+const CmdeckMemoryEmbeddingsStatusRpc = Rpc.make(CMDECK_WS_METHODS.memoryEmbeddingsStatus, {
+  payload: Schema.Struct({}),
+  success: MemoryEmbeddingsStatus,
+  error: EnvironmentAuthorizationError,
+});
+
+const MessagePinsFailure = Schema.Union([MessagePinsError, EnvironmentAuthorizationError]);
+
+const CmdeckMessagePinsListRpc = Rpc.make(CMDECK_WS_METHODS.messagePinsList, {
+  payload: MessagePinsListInput,
+  success: Schema.Array(MessagePin),
+  error: MessagePinsFailure,
+});
+
+const CmdeckMessagePinsPinRpc = Rpc.make(CMDECK_WS_METHODS.messagePinsPin, {
+  payload: MessagePinInput,
+  success: MessagePin,
+  error: MessagePinsFailure,
+});
+
+const CmdeckMessagePinsUnpinRpc = Rpc.make(CMDECK_WS_METHODS.messagePinsUnpin, {
+  payload: MessageUnpinInput,
+  error: MessagePinsFailure,
 });
 
 /** Merged into `WsRpcGroup`, so fork methods share its scope middleware. */
@@ -139,8 +384,35 @@ export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckNotificationChannelsSetEnabledRpc,
   CmdeckNotificationChannelsRemoveRpc,
   CmdeckNotificationsSubscribeAlertsRpc,
+  CmdeckWorkLedgerListRpc,
+  CmdeckWorkLedgerSetConductorRpc,
+  CmdeckWorkLedgerStopWorkersRpc,
+  CmdeckCheckScriptsListRpc,
+  CmdeckCheckScriptsSetRpc,
+  CmdeckCheckScriptsApproveRpc,
   CmdeckDecisionsStatusRpc,
   CmdeckDecisionsSetConsentRpc,
+  CmdeckBotsListRpc,
+  CmdeckBotsCreateRpc,
+  CmdeckBotsUpdateRpc,
+  CmdeckBotsDeleteRpc,
+  CmdeckBotsRestoreRpc,
+  CmdeckBotsScheduleRpc,
+  CmdeckBotsWakeRpc,
+  CmdeckMemoryListRpc,
+  CmdeckMemoryRevisionsRpc,
+  CmdeckMemoryEditRpc,
+  CmdeckMemoryRevertRpc,
+  CmdeckMemoryPreviewEditRpc,
+  CmdeckMemoryApplyEditRpc,
+  CmdeckMemoryRememberRpc,
+  CmdeckMemoryThreadModeRpc,
+  CmdeckMemorySetThreadModeRpc,
+  CmdeckMemoryInjectionsRpc,
+  CmdeckMemoryEmbeddingsStatusRpc,
+  CmdeckMessagePinsListRpc,
+  CmdeckMessagePinsPinRpc,
+  CmdeckMessagePinsUnpinRpc,
 );
 
 /**
@@ -152,6 +424,17 @@ export const FORK_RPC_READ_SCOPES = {
   [CMDECK_WS_METHODS.status]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.notificationChannelsList]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.decisionsStatus]: AuthOrchestrationReadScope,
+  // Scripts are task data, read like prompts.
+  [CMDECK_WS_METHODS.checkScriptsList]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.botsList]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryList]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryRevisions]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryPreviewEdit]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryThreadMode]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryInjections]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryEmbeddingsStatus]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.messagePinsList]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.workLedgerList]: AuthOrchestrationReadScope,
 } as const;
 
 type ForkRpcTag = RpcGroup.Rpcs<typeof ForkWsRpcGroup>["_tag"];
@@ -169,8 +452,31 @@ export const FORK_RPC_SCOPES = {
   [CMDECK_WS_METHODS.notificationChannelsSetEnabled]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.notificationChannelsRemove]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.notificationsSubscribeAlerts]: AuthOrchestrationReadScope,
+  // Starting or ending a conductor changes what its agent is told on each turn.
+  [CMDECK_WS_METHODS.workLedgerSetConductor]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.workLedgerStopWorkers]: AuthOrchestrationOperateScope,
+  // Saving or approving a check script lets the server run it.
+  [CMDECK_WS_METHODS.checkScriptsSet]: AuthTerminalOperateScope,
+  [CMDECK_WS_METHODS.checkScriptsApprove]: AuthTerminalOperateScope,
   // Consent decides whether turn text may reach a model API, so only a settings writer grants it.
   [CMDECK_WS_METHODS.decisionsSetConsent]: AuthSettingsWriteScope,
+  // A bot is a thread plus scheduled tasks, so changing one needs what those commands need.
+  [CMDECK_WS_METHODS.botsCreate]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsUpdate]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsDelete]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsRestore]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsSchedule]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsWake]: AuthOrchestrationOperateScope,
+  // Memory is what agents are told every turn, so changing it is a settings write.
+  [CMDECK_WS_METHODS.memoryEdit]: AuthSettingsWriteScope,
+  [CMDECK_WS_METHODS.memoryRevert]: AuthSettingsWriteScope,
+  [CMDECK_WS_METHODS.memoryApplyEdit]: AuthSettingsWriteScope,
+  // Acting in one thread, as sending it a message does.
+  [CMDECK_WS_METHODS.memoryRemember]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.memorySetThreadMode]: AuthOrchestrationOperateScope,
+  // A pin marks a thread for everyone on the server, as other thread changes do.
+  [CMDECK_WS_METHODS.messagePinsPin]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.messagePinsUnpin]: AuthOrchestrationOperateScope,
 } as const satisfies Record<
   Exclude<ForkRpcTag, keyof typeof FORK_RPC_READ_SCOPES>,
   AuthEnvironmentScope

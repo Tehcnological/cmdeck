@@ -47,6 +47,11 @@ import * as ProviderOrchestrationAdapterInfrastructure from "../../provider/Prov
 import * as ResetCreditCoordinator from "../../provider/resetCreditCoordinator.ts";
 import * as ServerSettings from "../../serverSettings.ts";
 import * as Notifications from "../notifications/Notifications.ts";
+import * as CheckScripts from "../checkScripts/CheckScripts.ts";
+import {
+  layerTest as layerCheckScriptsTest,
+  makeFakeRunner,
+} from "../checkScripts/checkScripts.testkit.ts";
 import * as MemoryStore from "../memory/MemoryStore.ts";
 import { asAgentIn, layerMemoryToolsTest, threads } from "../memory/memory.testkit.ts";
 import * as TurnContext from "../memory/TurnContext.ts";
@@ -436,6 +441,7 @@ describe("memory", () => {
           ["memory_search", { query: "pnpm" }],
           ["memory_remember", { content: "Never saved" }],
           ["memory_forget", { id: "any" }],
+          ["memory_mode", { mode: "temporary" }],
         ] as const) {
           const result = yield* McpServer.McpServer.pipe(
             Effect.flatMap((server) => server.callTool({ name, arguments: args })),
@@ -444,6 +450,71 @@ describe("memory", () => {
           expect(result.isError).toBe(true);
           expect(JSON.stringify(result.content)).toContain("Memory is off");
         }
+      }),
+    );
+  });
+});
+
+it.effect("a scheduled task without a check script starts no process", () =>
+  Effect.gen(function* () {
+    const fake = yield* makeFakeRunner;
+    yield* Effect.gen(function* () {
+      const checks = yield* CheckScripts.CheckScripts;
+      const gated = yield* checks.gate({
+        task: {
+          id: "scheduled-task:none" as never,
+          createdAt: "2026-11-02T08:00:00.000Z",
+          projectId: "project:test" as never,
+          title: "No check",
+          lastRunAt: null,
+          lastRunStatus: "never",
+        },
+        prompt: "Run as usual.",
+        trigger: "scheduled",
+      });
+      expect(gated).toBeNull();
+      expect(yield* Ref.get(fake.calls)).toEqual([]);
+    }).pipe(
+      Effect.provide(
+        layerCheckScriptsTest(fake.runner).pipe(Layer.provideMerge(SqlitePersistence.layerMemory)),
+      ),
+    );
+  }),
+);
+
+describe("memory embeddings", () => {
+  const requests: Array<string> = [];
+  const recording = HttpClient.make((request) => {
+    requests.push(request.url);
+    return Effect.succeed(HttpClientResponse.fromWeb(request, Response.json({ data: [] })));
+  });
+  it.layer(layerMemoryToolsTest({ memoryEnabled: true, embedder: recording }))((it) => {
+    it.effect("with no embedder chosen, search and turn context stay on keywords offline", () =>
+      Effect.gen(function* () {
+        const store = yield* MemoryStore.MemoryStore;
+        const turnContext = yield* TurnContext.TurnContext;
+        yield* store.remember({
+          context: yield* store.threadContext(threads.main),
+          scope: "global",
+          kind: "fact",
+          content: "Use pnpm, not npm",
+          actor: "user",
+        });
+        const block = yield* turnContext.contribute({
+          thread: threads.main,
+          runId: RunId.make("run-memory-keywords"),
+          message: { text: "Use pnpm?", createdBy: "user" },
+          inject: true,
+        });
+        expect(block).toContain("Use pnpm, not npm");
+        const result = yield* McpServer.McpServer.pipe(
+          Effect.flatMap((server) =>
+            server.callTool({ name: "memory_search", arguments: { query: "pnpm" } }),
+          ),
+          asAgentIn(),
+        );
+        expect(result.isError).toBe(false);
+        expect(requests).toEqual([]);
       }),
     );
   });

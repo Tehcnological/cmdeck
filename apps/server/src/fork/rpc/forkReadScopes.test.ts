@@ -17,6 +17,39 @@ describe("fork read scopes", () => {
       [CMDECK_WS_METHODS.notificationChannelsList],
       AuthOrchestrationReadScope,
     );
+    expect(RpcAuthorization.RPC_REQUIRED_SCOPES).toHaveProperty(
+      [CMDECK_WS_METHODS.workLedgerList],
+      AuthOrchestrationReadScope,
+    );
+    expect(RpcAuthorization.RPC_REQUIRED_SCOPES).toHaveProperty(
+      [CMDECK_WS_METHODS.checkScriptsList],
+      AuthOrchestrationReadScope,
+    );
+    expect(RpcAuthorization.RPC_REQUIRED_SCOPES).toHaveProperty(
+      [CMDECK_WS_METHODS.botsList],
+      AuthOrchestrationReadScope,
+    );
+    for (const method of [
+      CMDECK_WS_METHODS.memoryList,
+      CMDECK_WS_METHODS.memoryRevisions,
+      CMDECK_WS_METHODS.memoryPreviewEdit,
+      CMDECK_WS_METHODS.memoryThreadMode,
+      CMDECK_WS_METHODS.memoryInjections,
+    ]) {
+      expect(RpcAuthorization.RPC_REQUIRED_SCOPES).toHaveProperty(
+        [method],
+        AuthOrchestrationReadScope,
+      );
+      expect(clientRpcRequiredScopes(method, {})).toEqual([]);
+    }
+    expect(RpcAuthorization.RPC_REQUIRED_SCOPES).toHaveProperty(
+      [CMDECK_WS_METHODS.memoryEmbeddingsStatus],
+      AuthOrchestrationReadScope,
+    );
+    expect(RpcAuthorization.RPC_REQUIRED_SCOPES).toHaveProperty(
+      [CMDECK_WS_METHODS.messagePinsList],
+      AuthOrchestrationReadScope,
+    );
   });
 
   // A client-guarded method needs a command boundary; query atoms read with `request`.
@@ -24,5 +57,6 @@ describe("fork read scopes", () => {
     for (const method of Object.keys(FORK_RPC_READ_SCOPES)) {
       expect(clientRpcRequiredScopes(method, {})).toEqual([]);
     }
+    expect(clientRpcRequiredScopes(CMDECK_WS_METHODS.workLedgerList, {})).toEqual([]);
   });
 });

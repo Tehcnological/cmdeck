@@ -5,6 +5,7 @@ import { ModelSelection } from "../modelSelection.ts";
 import { AgentDisciplineSettings, AgentDisciplineSettingsPatch } from "./agentDiscipline.ts";
 import { ApprovalPolicyRules } from "./approvalPolicy.ts";
 import { DecisionModelSetting } from "./decisions.ts";
+import { MemoryEmbedderSetting } from "./memory.ts";
 
 /** Models a scheduled task's new thread runs on for each routing tier; an unset tier keeps the task's model. */
 export const RoutingTierModels = Schema.Struct({
@@ -29,6 +30,10 @@ export const CmdeckSettings = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed(null)),
   ),
   routingTierModels: RoutingTierModels.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
+  /** Embeds memory for search by meaning; null keeps memory search on keywords and off the network. */
+  memoryEmbedder: Schema.NullOr(MemoryEmbedderSetting).pipe(
+    Schema.withDecodingDefault(Effect.succeed(null)),
+  ),
   /**
    * Usage alerts fire when a limit window passes one of these; empty turns them off. Without an
    * enabled notification channel nothing is sent, so the default stays inert.
@@ -46,6 +51,7 @@ export const CmdeckSettingsPatch = Schema.Struct({
   memoryEnabled: Schema.optionalKey(Schema.Boolean),
   decisionModel: Schema.optionalKey(Schema.NullOr(DecisionModelSetting)),
   routingTierModels: Schema.optionalKey(RoutingTierModels),
+  memoryEmbedder: Schema.optionalKey(Schema.NullOr(MemoryEmbedderSetting)),
   usageAlertPercents: Schema.optionalKey(Schema.Array(UsageAlertPercent)),
   approvalPolicy: Schema.optionalKey(ApprovalPolicyRules),
   agentDiscipline: Schema.optionalKey(AgentDisciplineSettingsPatch),

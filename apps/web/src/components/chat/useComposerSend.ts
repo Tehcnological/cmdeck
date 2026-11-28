@@ -161,6 +161,7 @@ import type { useQueuedRunEdit } from "./useQueuedRunEdit";
 import type { useTimelineFollow } from "./useTimelineFollow";
 import type { useUsageLimitsPanel } from "./useUsageLimitsPanel";
 import type { useWorktreeSetup } from "./useWorktreeSetup";
+import { useRememberCommand } from "../../fork/memory/useRememberCommand";
 
 const ENVIRONMENT_UNAVAILABLE_SEND_TOAST_TRAIL_SIZE = 3;
 
@@ -394,6 +395,7 @@ export function useComposerSend(input: ComposerSendInput) {
     reportFailure: false,
   });
   const setComposerDraftPrompt = useComposerDraftStore((store) => store.setPrompt);
+  const rememberFromComposer = useRememberCommand(environmentId);
   const clearComposerDraftContent = useComposerDraftStore((store) => store.clearComposerContent);
   const sendToMultipleModels = useMultipleModelSend({
     environmentId,
@@ -455,6 +457,23 @@ export function useComposerSend(input: ComposerSendInput) {
       }
       return;
     }
+
+    if (
+      !directAnnotation &&
+      !draftHasNonPromptContent(composerDraftTarget) &&
+      rememberFromComposer(
+        promptAtSend,
+        isServerThread ? (activeThread?.id ?? null) : null,
+        (text) => {
+          setComposerDraftPrompt(composerDraftTarget, text);
+          if (currentRouteThreadKeyRef.current === routeThreadKey) {
+            promptRef.current = text;
+            composerRef.current?.resetCursorState();
+          }
+        },
+      )
+    )
+      return;
 
     // Read before any wait; the composer on screen may belong to another thread after it.
     let sendCtx = detachedOverride

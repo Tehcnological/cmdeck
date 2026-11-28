@@ -82,7 +82,11 @@ import { ThemeToolkit } from "../../apps/server/src/mcp/toolkits/theme/tools.ts"
 import { ThreadToolkit } from "../../apps/server/src/mcp/toolkits/thread/tools.ts";
 import { ReviewToolkit } from "../../apps/server/src/mcp/toolkits/review/tools.ts";
 import { WorktreeToolkit } from "../../apps/server/src/mcp/toolkits/worktree/tools.ts";
+import { BotsToolkit } from "../../apps/server/src/fork/bots/mcpTools.ts";
+import { MessagePinsToolkit } from "../../apps/server/src/fork/messagePins/mcpTools.ts";
 import { MemoryToolkit } from "../../apps/server/src/fork/memory/mcpTools.ts";
+import { WorkLedgerToolkit } from "../../apps/server/src/fork/workLedger/mcpTools.ts";
+import { CheckScriptToolkit } from "../../apps/server/src/fork/checkScripts/mcpTools.ts";
 import {
   CLAUDE_PROVIDER,
   makeClaudeQueryOptions,
@@ -521,6 +525,10 @@ const t3SourceTools: ReadonlyArray<Tool.Any> = [
   HtmlToolkit,
   MessageToolkit,
   MemoryToolkit,
+  WorkLedgerToolkit,
+  CheckScriptToolkit,
+  BotsToolkit,
+  MessagePinsToolkit,
 ].flatMap((toolkit): ReadonlyArray<Tool.Any> => Object.values(toolkit.tools));
 // McpHttpServer decodes arguments with each tool's JSON codec, which drops undeclared keys.
 const t3InputDecoders = new Map(

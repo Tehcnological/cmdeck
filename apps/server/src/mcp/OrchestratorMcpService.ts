@@ -214,6 +214,11 @@ export interface OrchestratorMcpServiceShape {
     scope: McpInvocationScope,
     input: OrchestratorMcpDeleteScheduledTaskInput,
   ) => Effect.Effect<OrchestratorMcpDeleteScheduledTaskResult, OrchestratorMcpFailure>;
+  /** Fork (WI-2.11): the task, if the caller may change it as `updateScheduledTask` requires. */
+  readonly authorizeScheduledTaskChange: (
+    scope: McpInvocationScope,
+    scheduledTaskId: ScheduledTask["id"],
+  ) => Effect.Effect<ScheduledTask, OrchestratorMcpFailure>;
   /** Only status reaches the agent, never this value. */
   readonly requestSecret: (
     scope: McpInvocationScope,
@@ -2632,6 +2637,14 @@ const make = Effect.gen(function* () {
             ),
           );
         return scheduledTaskSummary(task, false);
+      },
+    ),
+    authorizeScheduledTaskChange: Effect.fn("OrchestratorMcpService.authorizeScheduledTaskChange")(
+      function* (scope, scheduledTaskId) {
+        const { parent, limits } = yield* loadCaller(scope, ["runs"]);
+        const existing = yield* loadScheduledTask(scheduledTaskId, limits);
+        yield* assertLiveCallerForOtherProject(scope, parent, existing.projectId);
+        return existing;
       },
     ),
     deleteScheduledTask: Effect.fn("OrchestratorMcpService.deleteScheduledTask")(

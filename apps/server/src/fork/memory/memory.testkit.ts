@@ -10,6 +10,8 @@ import {
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { McpSchema } from "effect/ai";
+import { HttpClient } from "effect/http";
+import * as SecretResolver from "@t3tools/secret-provider-core/server/SecretResolver";
 
 import * as McpHttpServer from "../../mcp/McpHttpServer.ts";
 import * as McpInvocationContext from "../../mcp/McpInvocationContext.ts";
@@ -19,7 +21,9 @@ import * as ProjectStore from "../../orchestration-v2/ProjectStore.ts";
 import * as SqlitePersistence from "../../persistence/Sqlite.ts";
 import * as ServerSettings from "../../serverSettings.ts";
 import * as AgentDiscipline from "../agentDiscipline/AgentDiscipline.ts";
+import { layerOrchestratorMcpStubs } from "../checkScripts/checkScripts.testkit.ts";
 import * as ForkMcpToolkits from "../mcpToolkits.ts";
+import * as MemoryEmbeddings from "./MemoryEmbeddings.ts";
 import * as MemoryStore from "./MemoryStore.ts";
 import * as TurnContext from "./TurnContext.ts";
 
@@ -30,12 +34,28 @@ const REPOSITORIES: Record<string, string> = {
   "project-other": "github.com/acme/other",
 };
 
-/** Threads in the test world: two worktrees of one project, a clone, and an unrelated project. */
+const thread = (id: string, projectId: string, parentId: string | null = null) => ({
+  id: ThreadId.make(id),
+  projectId: ProjectId.make(projectId),
+  lineage: {
+    parentThreadId: parentId === null ? null : ThreadId.make(parentId),
+    relationshipToParent: parentId === null ? null : ("fork" as const),
+    rootThreadId: ThreadId.make(parentId ?? id),
+  },
+});
+
+/**
+ * Threads in the test world: two worktrees of one project, a clone, an unrelated project, and
+ * a chain of forks (a fork of a fork) for memory-mode inheritance.
+ */
 export const threads = {
-  main: { id: ThreadId.make("thread-main"), projectId: ProjectId.make("project-app") },
-  worktree: { id: ThreadId.make("thread-worktree"), projectId: ProjectId.make("project-app") },
-  clone: { id: ThreadId.make("thread-clone"), projectId: ProjectId.make("project-app-clone") },
-  other: { id: ThreadId.make("thread-other"), projectId: ProjectId.make("project-other") },
+  main: thread("thread-main", "project-app"),
+  worktree: thread("thread-worktree", "project-app"),
+  clone: thread("thread-clone", "project-app-clone"),
+  other: thread("thread-other", "project-other"),
+  parent: thread("thread-parent", "project-app"),
+  fork: thread("thread-fork", "project-app", "thread-parent"),
+  forkOfFork: thread("thread-fork-of-fork", "project-app", "thread-fork"),
 } as const;
 
 const shell = (projectId: string): OrchestrationProjectShell => {
@@ -62,13 +82,34 @@ const shell = (projectId: string): OrchestrationProjectShell => {
   };
 };
 
-/** MemoryStore and TurnContext over a fresh in-memory database with fork tables. */
-export const layerMemoryTest = (options: { readonly memoryEnabled: boolean }) =>
+// Without an embedder chosen in settings, MemoryEmbeddings never reaches this.
+const unreachable = HttpClient.make(() => Effect.die("memory tests make no request"));
+
+/**
+ * MemoryStore, MemoryEmbeddings and TurnContext over a fresh in-memory database with fork tables.
+ * `embedder` answers embeddings requests; `settings` merge under the memory switch.
+ */
+export const layerMemoryTest = (options: {
+  readonly memoryEnabled: boolean;
+  readonly settings?: Parameters<typeof ServerSettings.layerTest>[0];
+  readonly embedder?: HttpClient.HttpClient;
+}) =>
   TurnContext.layer.pipe(
     Layer.provideMerge(MemoryStore.layer),
     Layer.provideMerge(AgentDiscipline.layer),
+    Layer.provideMerge(
+      MemoryEmbeddings.layer.pipe(
+        Layer.provide(Layer.succeed(HttpClient.HttpClient, options.embedder ?? unreachable)),
+        Layer.provide(Layer.mock(SecretResolver.SecretResolver)({})),
+      ),
+    ),
     Layer.provideMerge(SqlitePersistence.layerMemory),
-    Layer.provide(ServerSettings.layerTest({ cmdeck: { memoryEnabled: options.memoryEnabled } })),
+    Layer.provideMerge(
+      ServerSettings.layerTest({
+        ...options.settings,
+        cmdeck: { ...options.settings?.cmdeck, memoryEnabled: options.memoryEnabled },
+      }),
+    ),
     Layer.provide(
       Layer.mock(ProjectStore.ProjectStoreV2)({
         getShell: (projectId) => Effect.succeedSome(shell(projectId)),
@@ -88,11 +129,12 @@ export const layerMemoryTest = (options: { readonly memoryEnabled: boolean }) =>
   );
 
 /** The fork MCP tools on an in-process server, over `layerMemoryTest`. */
-export const layerMemoryToolsTest = (options: { readonly memoryEnabled: boolean }) =>
+export const layerMemoryToolsTest = (options: Parameters<typeof layerMemoryTest>[0]) =>
   ForkMcpToolkits.layer(McpHttpServer.toolkitRegistration).pipe(
     Layer.provideMerge(McpHttpServer.layerInProcessMcpServer),
     Layer.provideMerge(McpToolAccessTestkit.liveThreadsLayer),
     Layer.provideMerge(layerMemoryTest(options)),
+    Layer.provide(layerOrchestratorMcpStubs()),
   );
 
 const client = McpSchema.McpServerClient.of({
