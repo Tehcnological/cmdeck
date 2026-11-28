@@ -238,12 +238,16 @@ export const makeDriverWith = Effect.fn("Messaging.makeDriver")(function* (
     if (command === "bind") {
       const choices = yield* recentThreads;
       if (choices.length === 0) return yield* reply("There are no threads to bind yet.");
-      return yield* reply(
-        "Which thread should this chat drive?",
-        choices.map((thread) => [
-          { label: clip(thread.title, TITLE_CHARS), data: `${BIND}${thread.thread_id}` },
-        ]),
-      );
+      yield* sql`DELETE FROM messaging_bind_choices
+          WHERE channel_id = ${channel.id} AND chat_id = ${event.chatId}`;
+      const buttons: Array<ReadonlyArray<OutboundButton>> = [];
+      for (const thread of choices) {
+        const token = (yield* random.uuidV4()).replaceAll("-", "");
+        yield* sql`INSERT INTO messaging_bind_choices (token, channel_id, chat_id, thread_id)
+            VALUES (${token}, ${channel.id}, ${event.chatId}, ${thread.thread_id})`;
+        buttons.push([{ label: clip(thread.title, TITLE_CHARS), data: `${BIND}${token}` }]);
+      }
+      return yield* reply("Which thread should this chat drive?", buttons);
     }
     if (command === "unbind") {
       yield* sql`UPDATE messaging_chats SET thread_id = NULL, updated_at = ${now}
@@ -341,8 +345,16 @@ export const makeDriverWith = Effect.fn("Messaging.makeDriver")(function* (
       );
     }
     if (button === "bind") {
-      const thread = yield* threadTitle(event.data.slice(BIND.length));
+      const choice = yield* sql<{ readonly thread_id: string }>`SELECT thread_id
+          FROM messaging_bind_choices WHERE token = ${event.data.slice(BIND.length)}
+            AND channel_id = ${channel.id} AND chat_id = ${event.chatId}`;
+      if (choice[0] === undefined) {
+        return yield* adapter.acknowledge(event.actionId, "This button is no longer valid.");
+      }
+      const thread = yield* threadTitle(choice[0].thread_id);
       if (thread === null) return yield* adapter.acknowledge(event.actionId, "Thread not found.");
+      yield* sql`DELETE FROM messaging_bind_choices
+          WHERE channel_id = ${channel.id} AND chat_id = ${event.chatId}`;
       const now = yield* Clock.currentTimeMillis;
       yield* sql`UPDATE messaging_chats SET thread_id = ${thread.thread_id}, updated_at = ${now}
           WHERE channel_id = ${channel.id} AND chat_id = ${event.chatId}`;
@@ -558,6 +570,7 @@ export const makeDriverWith = Effect.fn("Messaging.makeDriver")(function* (
       yield* sql`DELETE FROM messaging_chats WHERE channel_id = ${channel.id}`;
       yield* sql`DELETE FROM messaging_approvals WHERE channel_id = ${channel.id}`;
       yield* sql`DELETE FROM messaging_cursors WHERE channel_id = ${channel.id}`;
+      yield* sql`DELETE FROM messaging_bind_choices WHERE channel_id = ${channel.id}`;
     },
     Effect.catchCause((cause) =>
       Effect.logWarning("Could not clear a messaging channel", { cause }),

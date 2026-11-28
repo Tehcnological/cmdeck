@@ -30,6 +30,14 @@ export const ensureMessagingSchema = Effect.fn("ensureMessagingSchema")(function
   )`;
   yield* sql`CREATE INDEX IF NOT EXISTS idx_messaging_approvals_open
     ON messaging_approvals(request_id) WHERE resolved_at IS NULL`;
+  // The /bind picker's choices. A button carries only `token`: Telegram caps callback data at
+  // 64 bytes, which a thread id can exceed, and a press can only pick what this chat was offered.
+  yield* sql`CREATE TABLE IF NOT EXISTS messaging_bind_choices (
+    token TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL,
+    chat_id TEXT NOT NULL,
+    thread_id TEXT NOT NULL
+  )`;
   // Where each channel's long poll resumes after a restart.
   yield* sql`CREATE TABLE IF NOT EXISTS messaging_cursors (
     channel_id TEXT PRIMARY KEY,

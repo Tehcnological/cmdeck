@@ -28,7 +28,9 @@ import * as Messaging from "./MessagingService.ts";
 const TOKEN = ["123456", "A".repeat(35)].join(":");
 const OWNER = "42";
 const STRANGER = "7";
-const THREAD = "thread-1";
+// Shaped like a ThreadLaunchService id (encoded project id + UUID): longer than Telegram's
+// 64-byte callback data.
+const THREAD = `thread:${"cHJvamVjdC0".repeat(5)}:0f8fad5b-d9cb-469f-a165-70867728950e`;
 
 const text = (senderId: string, body: string, isPrivate = true): InboundEvent => ({
   type: "text",
@@ -172,8 +174,10 @@ const connectAndBind = (fake: Fake) =>
     const channelId = yield* connect();
     yield* Queue.offer(fake.inbox, [text(OWNER, "/bind")]);
     const picker = yield* Queue.take(fake.sent);
-    expect(picker.buttons?.flat().map((button) => button.data)).toEqual([`bind:${THREAD}`]);
-    yield* Queue.offer(fake.inbox, [press(`bind:${THREAD}`)]);
+    const data = picker.buttons?.flat().map((button) => button.data) ?? [];
+    expect(data).toHaveLength(1);
+    expect(Buffer.byteLength(data[0]!)).toBeLessThanOrEqual(64);
+    yield* Queue.offer(fake.inbox, [press(data[0]!)]);
     expect(yield* Queue.take(fake.acks)).toBe("Bound.");
     return channelId;
   });
