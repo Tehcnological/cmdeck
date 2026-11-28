@@ -1647,6 +1647,39 @@ it.effect("shells flag a latest run triggered by a provider background wake", ()
   }).pipe(Effect.provide(layerTest)),
 );
 
+it.effect("shells report a run closed with nothing_to_report as quiet", () =>
+  Effect.gen(function* () {
+    const store = yield* ProjectionStore.ProjectionStoreV2;
+    const sql = yield* SqlClient.SqlClient;
+    const threadId = yield* addRolledBackRecoveryCandidate("quiet-run");
+    const initial = yield* store.getThreadProjection(threadId);
+    const runId = RunId.make("run:quiet-run:completed");
+    yield* store.apply({
+      id: EventId.make("event:quiet-run:completed"),
+      type: "run.created",
+      threadId,
+      occurredAt: initial.updatedAt,
+      payload: {
+        ...initial.runs[0]!,
+        id: runId,
+        ordinal: 2,
+        status: "completed",
+        completedAt: initial.updatedAt,
+      },
+    });
+    const quiet = Effect.gen(function* () {
+      const snapshot = yield* store.getShellSnapshot();
+      return [
+        (yield* store.getThreadShell(threadId))?.latestRunStopRequested,
+        snapshot.threads.find((thread) => thread.id === threadId)?.latestRunStopRequested,
+      ];
+    });
+    assert.deepEqual(yield* quiet, [false, false]);
+    yield* sql`INSERT INTO quiet_turns (thread_id, run_id, created_at) VALUES (${threadId}, ${runId}, 0)`;
+    assert.deepEqual(yield* quiet, [true, true]);
+  }).pipe(Effect.provide(layerTest)),
+);
+
 it.effect("SQL queue readiness skips held runs without bypassing active work", () =>
   Effect.gen(function* () {
     const store = yield* ProjectionStore.ProjectionStoreV2;

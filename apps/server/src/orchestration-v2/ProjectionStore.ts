@@ -8508,7 +8508,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
                 SELECT 1 FROM orchestration_v2_projection_turn_items stop_request
                 WHERE stop_request.thread_id = t.thread_id AND stop_request.run_id = presented.run_id
                   AND stop_request.type = 'run_interrupt_request'
-              ) AS latest_run_stop_requested,
+              ) OR EXISTS (SELECT 1 FROM quiet_turns quiet WHERE quiet.thread_id = t.thread_id AND quiet.run_id = presented.run_id) /* cmdeck: a nothing_to_report run completes as quietly as a stopped one */ AS latest_run_stop_requested,
               ${isBackgroundWakeShellRun("presented")} AS latest_run_background_wake,
               active.run_id AS active_run_id,
               active.status AS active_run_status,
