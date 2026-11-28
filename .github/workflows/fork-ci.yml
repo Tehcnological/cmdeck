@@ -183,12 +183,13 @@ jobs:
         run: sudo apt-get update -o Acquire::Languages=none && sudo apt-get install -y libsecret-1-dev pkg-config
 
       # Mirrors upstream's shared Test job: every package except the server, web and mobile suites.
+      # --passWithNoTests: in an affected-only run, most packages select no tests.
       - name: Test
         env:
           TEST_ARGS: ${{ steps.scope.outputs.args }}
         run: |
           set -o pipefail
-          vp run --parallel --concurrency-limit 3 --filter '!t3' --filter '!@t3tools/monorepo' --filter '!@t3tools/web' --filter '!@t3tools/mobile' test $TEST_ARGS 2>&1 | python3 -u -c '
+          vp run --parallel --concurrency-limit 3 --filter '!t3' --filter '!@t3tools/monorepo' --filter '!@t3tools/web' --filter '!@t3tools/mobile' test --passWithNoTests $TEST_ARGS 2>&1 | python3 -u -c '
           import sys
           for line in sys.stdin:
               sys.stdout.write(line.encode("ascii", "backslashreplace").decode("ascii"))
@@ -227,7 +228,7 @@ jobs:
           TEST_ARGS: ${{ steps.scope.outputs.args }}
         run: |
           set -o pipefail
-          vp run --filter @t3tools/mobile test $TEST_ARGS 2>&1 | python3 -u -c '
+          vp run --filter @t3tools/mobile test --passWithNoTests $TEST_ARGS 2>&1 | python3 -u -c '
           import sys
           for line in sys.stdin:
               sys.stdout.write(line.encode("ascii", "backslashreplace").decode("ascii"))
