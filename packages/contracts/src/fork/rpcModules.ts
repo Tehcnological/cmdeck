@@ -6,6 +6,7 @@ export * as decisions from "./decisions.rpc.ts";
 export * as knowledge from "./knowledge.rpc.ts";
 export * as lessons from "./lessons.rpc.ts";
 export * as memory from "./memory.rpc.ts";
+export * as messaging from "./messaging.rpc.ts";
 export * as messagePins from "./messagePins.rpc.ts";
 export * as monitoring from "./monitoring.rpc.ts";
 export * as notifications from "./notifications.rpc.ts";

@@ -13,6 +13,7 @@ import * as Notifications from "./notifications/Notifications.ts";
 import * as MemoryEmbeddings from "./memory/MemoryEmbeddings.ts";
 import * as MemoryStore from "./memory/MemoryStore.ts";
 import * as MessagePins from "./messagePins/MessagePins.ts";
+import * as Messaging from "./messaging/MessagingService.ts";
 import * as TurnContext from "./memory/TurnContext.ts";
 import * as WorkLedger from "./workLedger/WorkLedger.ts";
 import * as CheckScripts from "./checkScripts/CheckScripts.ts";
@@ -40,6 +41,8 @@ export const layer = Layer.mergeAll(
     UsageAlerts.layer,
     CheckScriptAlerts.layer,
     Heartbeat.layer,
+    // Connects chat apps as channels; their listeners run inside Notifications' channel modules.
+    Messaging.layer,
   ).pipe(
     Layer.provideMerge(Notifications.layer),
     Layer.provideMerge(MonitorLoops.suppressionLayer),

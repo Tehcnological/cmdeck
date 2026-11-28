@@ -21,6 +21,7 @@ import * as ProviderLatestVersions from "@t3tools/provider-core/server/ProviderL
 import * as SecretResolver from "@t3tools/secret-provider-core/server/SecretResolver";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as DateTime from "effect/DateTime";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -52,6 +53,9 @@ import * as ProviderOrchestrationAdapterInfrastructure from "../../provider/Prov
 import * as ResetCreditCoordinator from "../../provider/resetCreditCoordinator.ts";
 import * as ServerSettings from "../../serverSettings.ts";
 import * as Notifications from "../notifications/Notifications.ts";
+import * as TelegramChannel from "../messaging/telegram.ts";
+import * as ThreadManagementService from "../../orchestration-v2/ThreadManagementService.ts";
+import { ServerSecretStore as ForkSecretStore } from "../secrets/EncryptedSecretStore.ts";
 import * as CheckScripts from "../checkScripts/CheckScripts.ts";
 import * as EventTriggers from "../eventTriggers/EventTriggers.ts";
 import * as ScheduledTaskService from "../../scheduledTasks/ScheduledTaskService.ts";
@@ -404,6 +408,60 @@ it.effect("notifications start no milestone subscription or timer without an ena
       Effect.provide(
         Notifications.layerWithDrivers([channel]).pipe(
           Layer.provideMerge(hub),
+          Layer.provideMerge(SqlitePersistence.layerMemory),
+          Layer.provideMerge(NodeCrypto.layer),
+        ),
+      ),
+    );
+  }),
+);
+it.effect("Telegram calls api.telegram.org only while its channel is on, and stops at once", () =>
+  Effect.gen(function* () {
+    const hosts: Array<string> = [];
+    let aborted = 0;
+    const polling = yield* Deferred.make<void>();
+    // A long poll that never answers, as getUpdates does while no message arrives.
+    const recording = HttpClient.make((request) =>
+      Effect.sync(() => hosts.push(new URL(request.url).host)).pipe(
+        Effect.andThen(Deferred.succeed(polling, undefined)),
+        Effect.andThen(Effect.never),
+        Effect.onInterrupt(() => Effect.sync(() => void (aborted += 1))),
+      ),
+    );
+    yield* Effect.gen(function* () {
+      const notifications = yield* Notifications.Notifications;
+      const channelId = yield* notifications.addChannel({
+        kind: "telegram",
+        name: "Off",
+        enabled: false,
+        config: { allowedUserIds: ["42"] },
+        secretRef: "telegram-token",
+      });
+      yield* TestClock.adjust("1 day");
+      expect(hosts).toEqual([]);
+
+      yield* notifications.setChannelEnabled({ channelId, enabled: true });
+      yield* Deferred.await(polling);
+      expect(hosts).toEqual(["api.telegram.org"]);
+      yield* notifications.setChannelEnabled({ channelId, enabled: false });
+      expect(aborted).toBe(1);
+      yield* TestClock.adjust("1 day");
+      expect(hosts).toEqual(["api.telegram.org"]);
+    }).pipe(
+      Effect.provide(
+        Layer.unwrap(
+          TelegramChannel.driver.pipe(
+            Effect.map((driver) => Notifications.layerWithDrivers([driver])),
+          ),
+        ).pipe(
+          Layer.provideMerge(Layer.succeed(HttpClient.HttpClient, recording)),
+          Layer.provideMerge(Layer.mock(ThreadManagementService.ThreadManagementService)({})),
+          Layer.provideMerge(
+            Layer.mock(ForkSecretStore)({
+              get: () => Effect.succeedSome(new TextEncoder().encode("1:token")),
+            }),
+          ),
+          Layer.provideMerge(MilestoneHub.layer),
           Layer.provideMerge(SqlitePersistence.layerMemory),
           Layer.provideMerge(NodeCrypto.layer),
         ),

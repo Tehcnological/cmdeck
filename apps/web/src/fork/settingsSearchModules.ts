@@ -6,5 +6,6 @@ export * as defaultThreadEnvironment from "./defaultThreadEnvironment.search";
 export * as knowledge from "./knowledge/search";
 export * as lanFallback from "./lanFallback.search";
 export * as memory from "./memory/search";
+export * as messaging from "./messaging/search";
 export * as monitoring from "./monitoring/heartbeat.search";
 export * as usageAlerts from "./usageAlerts.search";

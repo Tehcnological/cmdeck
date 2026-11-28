@@ -1,0 +1,2 @@
+# WI-3.01: chat-app channel modules are listed one per line in notifications/drivers.ts.
+.gitattributes:apps/server/src/fork/notifications/drivers\.ts merge=union

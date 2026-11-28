@@ -3,6 +3,21 @@
     {
       "bundles": ["desktop", "web"],
       "license": "Apache-2.0",
+      "name": "Kiro Crew messaging approval and polling rules (Telegram)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "Adapted for CMDeck's messaging channels (apps/server/src/fork/messaging/driver.ts) from messaging/approval.py and telegram/client_polling.py: approvals deny on silence after five minutes and bind each answer to one request; the long poll backs off from one second, doubling to 30 seconds. Changes: rewritten in TypeScript; answers come from inline buttons whose data is a random token mapped server-side, not typed replies; there is no trust-this-session choice; an empty allowlist refuses to start instead of warning."
+          ]
+        }
+      ]
+    },
+    {
+      "bundles": ["desktop", "web"],
+      "license": "Apache-2.0",
       "name": "Kiro Crew snapshot full-text index handling (app-state snapshots)",
       "sourceUrl": "https://github.com/kirodotdev/KiroCrew/blob/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/snapshot_redact.py",
       "generatedNotices": [

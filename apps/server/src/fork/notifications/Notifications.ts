@@ -29,6 +29,7 @@ import * as Stream from "effect/Stream";
 
 import * as MilestoneHub from "../../milestones/MilestoneHub.ts";
 import * as AuditLog from "../audit/AuditLog.ts";
+import * as Drivers from "./drivers.ts";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DEFAULT_RATE_LIMIT_PER_HOUR = 30;
@@ -98,7 +99,22 @@ export interface NotificationChannelDriver {
     channel: NotificationChannelTarget,
     message: NotificationMessage,
   ) => Effect.Effect<void, NotificationDeliveryError>;
+  /**
+   * After every channel change and at startup, with this kind's enabled channels; a module that
+   * listens (messaging) starts and stops its listeners here, so disabling stops it at once.
+   */
+  readonly reconcile?: (enabled: ReadonlyArray<NotificationChannelTarget>) => Effect.Effect<void>;
+  /** Once a channel of this kind is deleted, to drop its stored secret and state. */
+  readonly removed?: (channel: NotificationChannelTarget) => Effect.Effect<void>;
 }
+
+const NEEDS_INPUT_PREFIX = "thread.needs_input:";
+
+/** The runtime request a `thread.needs_input` message is about; its milestone id carries it. */
+export const needsInputRequestId = (message: NotificationMessage) =>
+  message.kind === "thread.needs_input" && message.dedupeId.startsWith(NEEDS_INPUT_PREFIX)
+    ? RuntimeRequestId.make(message.dedupeId.slice(NEEDS_INPUT_PREFIX.length))
+    : null;
 
 /**
  * Whether a milestone must not notify anyone. Quiet turns (WI-2.12) and incognito or temporary
@@ -172,6 +188,14 @@ interface DueRow {
   readonly attempts: number;
 }
 
+interface TargetRow {
+  readonly channel_id: string;
+  readonly kind: string;
+  readonly name: string;
+  readonly config_json: string;
+  readonly secret_ref: string | null;
+}
+
 interface LiveChannelRow {
   readonly kind: string;
   readonly name: string;
@@ -212,6 +236,14 @@ const wants = (rules: NotificationChannelRules, message: NotificationMessage, mi
       ? message.kind === ALERT_KIND
       : rules.projectIds.includes(message.projectId))) &&
   !inQuietHours(rules, minute);
+
+const toTarget = (row: TargetRow): NotificationChannelTarget => ({
+  id: row.channel_id,
+  kind: row.kind,
+  name: row.name,
+  config: Option.getOrNull(decodeConfig(row.config_json)),
+  secretRef: row.secret_ref,
+});
 
 const retryDelayMs = (attempts: number) =>
   Math.min(FIRST_RETRY_MS * 2 ** Math.max(0, attempts - 1), HOUR_MS);
@@ -339,7 +371,7 @@ const make = Effect.fn("Notifications.make")(function* (
       for (const row of rows) {
         if (row.relationship === "subagent") continue;
         yield* enqueueMilestone({
-          id: MilestoneId.make(`thread.needs_input:${row.request_id}`),
+          id: MilestoneId.make(`${NEEDS_INPUT_PREFIX}${row.request_id}`),
           occurredAt: row.created_at,
           projectId: ProjectId.make(row.project_id),
           threadId: ThreadId.make(row.thread_id),
@@ -492,6 +524,12 @@ const make = Effect.fn("Notifications.make")(function* (
     }>`SELECT COUNT(*) AS n FROM notification_channels WHERE enabled = 1`;
     if ((row?.n ?? 0) > 0) yield* FiberHandle.run(active, worker, { onlyIfMissing: true });
     else yield* FiberHandle.clear(active);
+    for (const driver of drivers) {
+      if (driver.reconcile === undefined) continue;
+      const enabled = yield* sql<TargetRow>`SELECT channel_id, kind, name, config_json, secret_ref
+          FROM notification_channels WHERE enabled = 1 AND kind = ${driver.kind}`;
+      yield* driver.reconcile(enabled.map(toTarget));
+    }
   }).pipe(transitions.withPermits(1));
 
   const alert: Notifications["Service"]["alert"] = Effect.fn("Notifications.alert")(
@@ -578,16 +616,19 @@ const make = Effect.fn("Notifications.make")(function* (
   const removeChannel: Notifications["Service"]["removeChannel"] = Effect.fn(
     "Notifications.removeChannel",
   )(function* (channelId) {
-    const removed = yield* sql<{ readonly kind: string }>`DELETE FROM notification_channels
-        WHERE channel_id = ${channelId} RETURNING kind`;
-    if (removed.length === 0) return;
+    const [removed] = yield* sql<TargetRow>`DELETE FROM notification_channels
+        WHERE channel_id = ${channelId} RETURNING channel_id, kind, name, config_json, secret_ref`;
+    if (removed === undefined) return;
     yield* sql`DELETE FROM notification_outbox WHERE channel_id = ${channelId}`;
     yield* AuditLog.note({
       kind: "notification.channel_removed",
       subject: channelId,
-      detail: { channelKind: removed[0]!.kind },
+      detail: { channelKind: removed.kind },
     });
+    // Stops a listener first, so the module never polls with a secret it just dropped.
     yield* sync;
+    const removedHook = byKind.get(removed.kind)?.removed;
+    if (removedHook !== undefined) yield* removedHook(toTarget(removed));
   }, Effect.mapError(toError));
 
   yield* sync.pipe(
@@ -608,5 +649,8 @@ const make = Effect.fn("Notifications.make")(function* (
 export const layerWithDrivers = (drivers: ReadonlyArray<NotificationChannelDriver>) =>
   Layer.effect(Notifications, make(drivers));
 
-/** No channel module ships yet, so the server adds no channel until one does. */
-export const layer = layerWithDrivers([]);
+/** With the channel modules listed in `drivers.ts`; read lazily, since they import this module. */
+export const layer = Layer.effect(
+  Notifications,
+  Effect.suspend(() => Effect.all(Object.values(Drivers))).pipe(Effect.flatMap(make)),
+);
