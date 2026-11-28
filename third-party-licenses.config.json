@@ -55,6 +55,20 @@
       ]
     },
     {
+      "license": "Apache-2.0",
+      "name": "Kiro Crew plan credit alerts (threshold crossing rules)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/blob/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/dashboard/handlers/plan_credit_alerts.py",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "Ported to TypeScript for CMDeck's usage alerts (apps/server/src/fork/usageAlerts). Changes: one reading per provider limit window instead of one plan-credit reading, a window period ends when its stored reset time passes, accounts come from provider and hub usage limits, and state is kept in SQLite instead of a JSON file."
+          ]
+        }
+      ]
+    },
+    {
       "license": "MIT",
       "name": "LiteLLM complexity router heuristic",
       "sourceUrl": "https://github.com/BerriAI/litellm/tree/7351177434c7b9d19e0a53cd3e9bc63706af2ab2/litellm/router_strategy/complexity_router",

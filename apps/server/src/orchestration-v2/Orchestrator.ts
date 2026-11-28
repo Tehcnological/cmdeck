@@ -228,6 +228,7 @@ import {
 import { planThreadDeletion } from "./ThreadDeletion.ts";
 import type * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
 import * as ServerSettings from "../serverSettings.ts";
+import * as ApprovalGate from "../fork/approvalPolicy/ApprovalGate.ts";
 
 const isMessageQuestionAnswer = Schema.is(
   Schema.Union([TrimmedNonEmptyString, Schema.NonEmptyArray(TrimmedNonEmptyString)]),
@@ -1687,6 +1688,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
   const providerSessions = yield* ProviderSessionManagerV2;
   const providerSwitchService = yield* ProviderSwitchServiceV2;
   const serverSettings = yield* ServerSettings.ServerSettingsService;
+  const forkApprovalGate = yield* ApprovalGate.forRuntimeResponse;
   const runtimePolicy = yield* RuntimePolicyV2;
   const threadForkService = yield* ThreadForkServiceV2;
   const threadDispatch = yield* ThreadCommandExecutor.ThreadCommandExecutor;
@@ -11652,6 +11654,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           cause: runtimeRequest.responseCapability.reason,
         });
       }
+      command = yield* forkApprovalGate(command, context);
       if (
         command.feedback !== undefined &&
         (runtimeRequest.responseCapability.type !== "live" ||
