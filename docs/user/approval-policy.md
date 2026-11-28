@@ -39,6 +39,7 @@ To set rules for every user on a machine and stop users from changing them, set 
 ## Limits
 
 - The rules match the text of a request. A command that builds a path at run time, for example from pieces or an encoded string, does not name it and is not caught. Prefer protecting whole folders such as `~/.aws`, and add a relative entry (`.aws`) to catch paths written relative to the working folder.
+- Tool names are each provider's own: `WebFetch` and `Bash` are Claude's. OpenCode, Pi and Muse approvals report neither a tool name nor the files they would change, so for them only `protectedPaths` and `denyCommands` apply, matched against the request text.
 - A declined request can show for a moment as waiting before it is answered, and a notification channel may announce it in that moment. Approving it in that moment declines it.
 - While any rule is set, **Always allow** answers approve only the request in front of you. Otherwise the provider would approve later requests itself, where the policy cannot see them.
 - If CMDeck cannot check a request in the background, it stays with you, and CMDeck checks it again when you answer. An approval CMDeck cannot check is declined.
