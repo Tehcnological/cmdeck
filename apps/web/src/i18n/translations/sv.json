@@ -13809,5 +13809,7 @@
   "27d76249d09eb69f": "Granskningsguiden är klar",
   "faa3bb26abb39c93": "Granskningsguiden misslyckades",
   "b7df38b7d8792d78": "Öppna guiden",
-  "9e91e9a77b664e4e": "Kunde inte starta en granskningsguide"
+  "9e91e9a77b664e4e": "Kunde inte starta en granskningsguide",
+  "a56c0d90f899c01a": "Lägg till arbetsflödet Code Review",
+  "65de79404a954a40": "Det gick inte att lägga till arbetsflödet Code Review"
 }

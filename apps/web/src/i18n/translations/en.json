@@ -13811,5 +13811,7 @@
   "27d76249d09eb69f": "Review guide ready",
   "faa3bb26abb39c93": "Review guide failed",
   "b7df38b7d8792d78": "Open guide",
-  "9e91e9a77b664e4e": "Could not start a review guide"
+  "9e91e9a77b664e4e": "Could not start a review guide",
+  "a56c0d90f899c01a": "Add the Code Review workflow",
+  "65de79404a954a40": "Could not add the Code Review workflow"
 }

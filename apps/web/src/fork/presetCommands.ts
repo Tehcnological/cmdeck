@@ -8,6 +8,7 @@ import { FlaskConicalIcon, ListChecksIcon } from "lucide-react";
 import { createElement } from "react";
 
 import { type CommandPaletteActionItem, ITEM_ICON_CLASS } from "../components/CommandPalette.logic";
+import { PullRequestGlyph } from "../components/pullRequest/pullRequestIcons";
 import { stackedThreadToast, toastManager } from "../components/ui/toast";
 import { useWorkflowEnvironmentIds } from "../components/workflows/useWorkflowEnvironmentIds";
 import { connectionAtomRuntime } from "../connection/runtime";
@@ -81,6 +82,13 @@ export function useCommandItems(): ReadonlyArray<CommandPaletteActionItem> {
       failure: gt("Could not add the Research Lab"),
       icon: FlaskConicalIcon,
       searchTerms: ["research lab", "research", "investigate", "report", "questions"],
+    }),
+    presetRow(environmentId, {
+      id: "code-review",
+      title: gt("Add the Code Review workflow"),
+      failure: gt("Could not add the Code Review workflow"),
+      icon: PullRequestGlyph.pullRequest,
+      searchTerms: ["code review", "review", "pull request", "sage", "risk"],
     }),
   ];
 }
