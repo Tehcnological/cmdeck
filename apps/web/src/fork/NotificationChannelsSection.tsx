@@ -93,3 +93,9 @@ function NotificationChannels({ environmentId }: { readonly environmentId: Envir
     </SettingsSection>
   );
 }
+
+export const settingsSection = {
+  page: "general",
+  order: 10,
+  Component: NotificationChannelsSection,
+} as const;

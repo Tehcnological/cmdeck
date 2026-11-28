@@ -1,0 +1,6 @@
+# WI-2.15: message pins. Pin buttons in message actions and the timeline's jump to a pin.
+apps/web/src/components/chat/TimelineAssistantRows.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{message\.id\} +text=\{message\.text\}
+apps/web/src/components/chat/TimelineUserMessageRow.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{row\.message\.id\} +text=\{text\}
+apps/web/src/components/chat/TimelineUserMessageRow.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{row\.message\.id\} +text=\{plainText\}
+apps/web/src/components/chat/MessagesTimeline.tsx:useMessagePinJump\(\{ +threadKey: routeThreadKey,
+apps/server/src/fork/schemas.ts:export \{ ensureMessagePinsSchema \}

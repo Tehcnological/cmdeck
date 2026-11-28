@@ -307,3 +307,9 @@ function Field(props: {
     </label>
   );
 }
+
+export const settingsSection = {
+  page: "general",
+  order: 30,
+  Component: ContainerSandboxSection,
+} as const;

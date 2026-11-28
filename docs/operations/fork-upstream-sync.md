@@ -60,40 +60,53 @@ usual conflicts:
 - a forbidden pattern (analytics ingest, PostHog, crash reporting, OTLP exporters, Google
   `v1internal`, the T3 relay host) reappears in `apps/`, `packages/` or `scripts/`;
 - the desktop build's release feed points anywhere but `Tehcnological/cmdeck`;
-- a fork hook or CMDeck identity value (below) lost its place in an upstream file.
+- a fork hook or CMDeck identity value (`scripts/fork/hooks/*.txt`) lost its place in an upstream file.
 
 Add a pattern to its list whenever you remove something upstream may reintroduce.
 
 ## Where fork code goes
 
 Fork features attach to upstream through a few seams, each one line in an upstream file and listed in
-the guard. Adding a feature should not need another edit to a busy upstream file:
+the guard. A module owns its files, and the files every module touches are lists of one standalone
+line per module that `.gitattributes` merges with `merge=union`, so parallel feature branches do not
+conflict there. Keep those lists sorted and add nothing to them but the module's line:
 
-- **Services:** `apps/server/src/fork/<module>/`, provided from `apps/server/src/fork/ForkLayer.ts`.
-- **Tables:** the module's own idempotent `ensure*Schema()`, called from
-  `apps/server/src/persistence/ForkSchema.ts`.
-- **RPCs:** methods named `cmdeck.*` in `packages/contracts/src/fork/rpc.ts` (`ForkWsRpcGroup`, merged
-  into `WsRpcGroup`), each with a scope in `FORK_RPC_SCOPES`, which the server authorizes like any other
-  method. Handlers go in `apps/server/src/fork/rpc/ForkRpcHandlers.ts`.
+- **Services:** `apps/server/src/fork/<module>/`. A layer that needs nothing from its neighbours goes
+  in `apps/server/src/fork/layers.ts`; wiring that shares or orders layers stays in
+  `apps/server/src/fork/ForkLayer.ts`.
+- **Tables:** the module's own idempotent `ensure*Schema()` in `<module>/schema.ts`, listed in
+  `apps/server/src/fork/schemas.ts` and run by `apps/server/src/persistence/ForkSchema.ts`.
+- **RPCs:** methods named `cmdeck.*` in `packages/contracts/src/fork/<module>.rpc.ts`, which exports
+  `methods`, `rpcs`, `readScopes` and `scopes` (every method that is not a read needs a scope, which
+  the server authorizes like any other method). It is listed in `rpcModules.ts`, and `rpc.ts` merges
+  the modules into `CMDECK_WS_METHODS` and `ForkWsRpcGroup` (merged into `WsRpcGroup`). Handlers go in
+  `apps/server/src/fork/<module>/rpc.ts`, listed in `apps/server/src/fork/rpc/modules.ts`; a missing
+  handler fails the typecheck. Tests for them go beside the module.
 - **Settings:** fields of `CmdeckSettings` (`packages/contracts/src/fork/settings.ts`), stored under one
   `cmdeck` key that upstream clients, including the official mobile app, ignore. A missing field means
   the module is off.
-- **MCP tools:** `apps/server/src/fork/mcpToolkits.ts`.
+- **MCP tools:** the module's `mcpTools.ts` exports `toolkit` and `register`, listed in
+  `apps/server/src/fork/mcpToolModules.ts` (the eval harness reads the same list).
 - **Services orchestration reads:** `ForkLayer.layerBeneathOrchestration`, provided beneath
   orchestration in `server.ts`, so it may depend only on settings, persistence and the project store.
 - **Turn context:** contributors in `apps/server/src/fork/memory/TurnContext.ts` add one fenced block to
   the provider prompt at turn start (`ProviderTurnStartService.ts`). The stored message never holds it,
   so events and the official mobile app are unchanged.
-- **Command palette:** `apps/web/src/fork/commands.ts`.
-- **Right panel:** one `cmdeck` surface kind whose tabs come from `apps/web/src/fork/panels.tsx`. A module
-  adds a tab there, not another surface kind.
+- **Web:** command palette rows (`useCommandItems`, `commandModules.ts`), settings search rows
+  (`items`, `settingsSearchModules.ts`), right panel tabs (`panelTab`, `panelModules.ts`) and Settings
+  sections (`settingsSection`, `settingsSectionModules.ts`), all in `apps/web/src/fork/`. Each export
+  carries an order, so a new module chooses where it shows without moving the others. Every fork panel
+  is a tab of the one `cmdeck` right panel surface, so a new panel needs no edit to
+  `rightPanelStore.ts` or the tab components.
+- **Guard hooks:** a module's lines go in its own `scripts/fork/hooks/<module>.txt`.
 - **Secret store:** a file that builds `ServerSecretStore.layer` imports `ServerSecretStore` from
   `apps/server/src/fork/secrets/EncryptedSecretStore.ts`, which re-exports the upstream module with an
   encrypting `layer`. A builder that keeps the upstream import would read encrypted files as raw
   bytes, so the guard fails on it; after a merge, point its import at the fork module.
-- **Right panel tabs:** a panel id in `apps/web/src/fork/panelSurface.ts` and its title, icon and
-  content in `apps/web/src/fork/panels.tsx`. Every fork panel is one `cmdeck` surface kind, so a new
-  panel needs no edit to `rightPanelStore.ts` or the tab components.
+
+The GT translation catalogs merge entry by entry through `scripts/fork/merge-json-catalog.ts`, which
+`vp i` registers in the checkout's git config. A key both branches changed differently still
+conflicts. Without the driver registered, git falls back to its text merge.
 
 Fork RPCs and settings are additive and never change `ORCHESTRATION_PROTOCOL_VERSION`. An optional
 module does nothing while it is off (no fibre, timer, subscription or request) and adds a case to

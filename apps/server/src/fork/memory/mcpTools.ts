@@ -4,6 +4,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { McpSchema, Tool, Toolkit } from "effect/ai";
 
+import type { toolkitRegistration } from "../../mcp/McpHttpServer.ts";
 import * as McpInvocationContext from "../../mcp/McpInvocationContext.ts";
 import * as McpToolAccess from "../../mcp/McpToolAccess.ts";
 import * as ThreadManagementService from "../../orchestration-v2/ThreadManagementService.ts";
@@ -112,7 +113,7 @@ const MemoryModeTool = Tool.make("memory_mode", {
   .annotate(Tool.OpenWorld, false)
   .annotate(McpSchema.EnabledWhen, McpInvocationContext.hiddenFromOutsideClients);
 
-export const MemoryToolkit = Toolkit.make(
+export const toolkit = Toolkit.make(
   MemorySearchTool,
   MemoryRememberTool,
   MemoryForgetTool,
@@ -148,7 +149,7 @@ const toFailure = (
 
 // Built with the server's context: a runtime without MemoryStore (a tool-list test) refuses calls.
 export const layer = McpToolAccess.toLayer(
-  MemoryToolkit,
+  toolkit,
   Effect.gen(function* () {
     const memory = yield* Effect.serviceOption(MemoryStore.MemoryStore);
     const withCaller = Effect.fn("MemoryTools.withCaller")(
@@ -245,6 +246,8 @@ export const layer = McpToolAccess.toLayer(
           ),
         ),
       ),
-    } satisfies McpToolAccess.Handlers<typeof MemoryToolkit.tools>;
+    } satisfies McpToolAccess.Handlers<typeof toolkit.tools>;
   }),
 );
+
+export const register = (registration: typeof toolkitRegistration) => registration(toolkit, layer);

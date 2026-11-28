@@ -1,17 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as SqlClient from "effect/sql/SqlClient";
 
-import { ensureAuditSchema } from "../fork/audit/schema.ts";
-import { ensureWorkflowTrustSchema } from "../fork/workflowTrust/schema.ts";
-import { ensureNotificationsSchema } from "../fork/notifications/schema.ts";
-import { ensureMemorySchema } from "../fork/memory/schema.ts";
-import { ensureWorkLedgerSchema } from "../fork/workLedger/schema.ts";
-import { ensureCheckScriptsSchema } from "../fork/checkScripts/schema.ts";
-import { ensureDecisionsSchema } from "../fork/decisions/schema.ts";
-import { ensureUsageAlertsSchema } from "../fork/usageAlerts/schema.ts";
-import { ensureMessagePinsSchema } from "../fork/messagePins/schema.ts";
-import { ensureBotsSchema } from "../fork/bots/schema.ts";
-import { ensureSandboxSchema } from "../fork/sandbox/schema.ts";
+import * as ForkSchemas from "../fork/schemas.ts";
 
 // Fork-only tables stay outside the numbered ledger: the migrator skips every id at or below the
 // highest recorded one, so a fork id would make later upstream migrations silently never run.
@@ -53,17 +43,8 @@ export const ensureForkSchema = Effect.fn("ensureForkSchema")(function* () {
     client_json TEXT,
     approved_at TEXT
   )`;
-  yield* ensureAuditSchema();
-  yield* ensureWorkflowTrustSchema();
-  yield* ensureNotificationsSchema();
-  yield* ensureMemorySchema();
-  yield* ensureWorkLedgerSchema();
-  yield* ensureCheckScriptsSchema();
-  yield* ensureDecisionsSchema();
-  yield* ensureUsageAlertsSchema();
-  yield* ensureMessagePinsSchema();
-  yield* ensureBotsSchema();
-  yield* ensureSandboxSchema();
+  // Each module owns its tables (`fork/<module>/schema.ts`, listed in `fork/schemas.ts`).
+  for (const ensure of Object.values(ForkSchemas)) yield* ensure();
   // Failed runs in a row of a scheduled task, which pauses the task at a limit.
   const taskColumns = yield* sql<{ name: string }>`PRAGMA table_info(scheduled_tasks)`;
   if (!taskColumns.some((column) => column.name === "failure_streak")) {

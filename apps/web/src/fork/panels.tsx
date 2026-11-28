@@ -1,33 +1,23 @@
 import type { ScopedThreadRef } from "@t3tools/contracts";
-import { msg, useMessages } from "gt-react";
+import { useMessages } from "gt-react";
 import { BrainIcon } from "lucide-react";
-import type { ComponentType } from "react";
 import { create } from "zustand";
 
 import { Toggle, ToggleGroup } from "../components/ui/toggle-group";
 import type { MessageResolver } from "../i18n/messages";
 import { useRightPanelStore } from "../rightPanelStore";
-import { MemoryUsedPanel } from "./memory/MemoryUsedPanel";
-import { PinnedMessagesPanel } from "./pins/PinnedMessagesPanel";
-import { WorkLedgerPanel } from "./WorkLedgerPanel";
+import * as Modules from "./panelModules";
 
-type ForkPanelTabId = "memory" | "work-ledger" | "pins";
-
-interface ForkPanelTab {
-  readonly id: ForkPanelTabId;
-  readonly title: string;
-  readonly Content: ComponentType<{ readonly threadRef: ScopedThreadRef }>;
-}
+type ForkPanelTab = (typeof Modules)[keyof typeof Modules]["panelTab"];
+type ForkPanelTabId = ForkPanelTab["id"];
 
 /**
- * Tabs of the right panel's one fork surface (`cmdeck`). A module adds its tab here; the
- * thread's memory first, then notes, pins and a conductor's work ledger as they land.
+ * Tabs of the right panel's one fork surface (`cmdeck`). Each module's panel (listed in
+ * `panelModules.ts`) exports its `panelTab`; the thread's memory comes first.
  */
-const FORK_PANEL_TABS: ReadonlyArray<ForkPanelTab> = [
-  { id: "memory", title: msg("Memory used here"), Content: MemoryUsedPanel },
-  { id: "work-ledger", title: msg("Work ledger"), Content: WorkLedgerPanel },
-  { id: "pins", title: msg("Pinned messages"), Content: PinnedMessagesPanel },
-];
+const FORK_PANEL_TABS: ReadonlyArray<ForkPanelTab> = Object.values(Modules)
+  .map((module) => module.panelTab)
+  .toSorted((a, b) => a.order - b.order);
 
 const useActiveTab = create<{ readonly id: ForkPanelTabId | null }>(() => ({ id: null }));
 

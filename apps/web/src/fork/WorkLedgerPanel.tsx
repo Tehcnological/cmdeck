@@ -153,3 +153,10 @@ export function WorkLedgerPanel({ threadRef }: { readonly threadRef: ScopedThrea
     </div>
   );
 }
+
+export const panelTab = {
+  id: "work-ledger",
+  order: 20,
+  title: msg("Work ledger"),
+  Content: WorkLedgerPanel,
+} as const;

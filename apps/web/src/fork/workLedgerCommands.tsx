@@ -26,8 +26,10 @@ function useRouteThreadRef(): ScopedThreadRef | null {
   return draft === null ? null : scopeThreadRef(draft.environmentId, draft.threadId);
 }
 
+export const commandOrder = 50;
+
 /** Start conductor and Open work ledger for the open thread or new-thread draft (WI-2.02). */
-export function useWorkLedgerCommandItems(): ReadonlyArray<CommandPaletteActionItem> {
+export function useCommandItems(): ReadonlyArray<CommandPaletteActionItem> {
   const gt = useGT();
   const threadRef = useRouteThreadRef();
   const startConductor = useAtomCommand(setConductor, { reportFailure: false });

@@ -1,6 +1,6 @@
 import type { EnvironmentId, ScopedThreadRef, ThreadId } from "@t3tools/contracts";
 import { Link } from "@tanstack/react-router";
-import { T, useGT } from "gt-react";
+import { msg, T, useGT } from "gt-react";
 
 import { RelativeTime } from "../../components/RelativeTime";
 import { Badge } from "../../components/ui/badge";
@@ -117,3 +117,10 @@ function InjectedMemory(props: {
     </div>
   );
 }
+
+export const panelTab = {
+  id: "memory",
+  order: 10,
+  title: msg("Memory used here"),
+  Content: MemoryUsedPanel,
+} as const;

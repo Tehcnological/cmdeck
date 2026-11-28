@@ -438,3 +438,5 @@ function ScheduleBotForm(props: {
     </div>
   );
 }
+
+export const settingsSection = { page: "threads", order: 10, Component: BotsSection } as const;
