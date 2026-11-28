@@ -316,6 +316,22 @@ describe("hosted thread links", () => {
     expect(parseThreadLinkHref("https://evil.test/threads/env-1/thread-1")).toBeNull();
   });
 
+  it("reads this web app's own thread links only when given its origin", () => {
+    const origin = "https://box.tail1234.ts.net";
+    const own = hostedThreadLink(ref("env-1", "thread-1"), origin);
+    expect(parseThreadLinkHref(own)).toBeNull();
+    expect(parseThreadLinkHref(own, origin)).toEqual(ref("env-1", "thread-1"));
+    expect(parseThreadLinkHref("https://evil.test/threads/env-1/thread-1", origin)).toBeNull();
+    expect(parseThreadLinkHref(`${origin}/threads/env-1/thread-1?prompt=go`, origin)).toBeNull();
+    expect(
+      replaceThreadLinks(
+        `See [it](${own}), ${own} and https://evil.test/threads/env-1/thread-1`,
+        (link) => `<${link.threadId}>`,
+        origin,
+      ),
+    ).toBe("See <thread-1>, <thread-1> and https://evil.test/threads/env-1/thread-1");
+  });
+
   it("writes a copied link on this web origin, labeled when it has a title", () => {
     const origin = "https://box.tail1234.ts.net";
     expect(formatHostedThreadLink(ref("e", "t1"), "Fix [ci]", origin)).toBe(

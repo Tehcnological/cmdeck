@@ -5,7 +5,7 @@ import {
   encodeComposerContextFragment,
 } from "@t3tools/shared/composerContextClipboard";
 import { threadContextRecord } from "@t3tools/shared/composerContextReferences";
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { importPastedComposerText } from "./composerInlineTokenPaste";
 
@@ -40,6 +40,37 @@ describe("importPastedComposerText", () => {
     );
     expect(text).toBe(`See ${chip("Fix the login flow")}`);
     expect(imported.map((fragment) => fragment.records)).toEqual([target.fragment!.records]);
+  });
+
+  describe("in the browser", () => {
+    const origin = "https://box.tail1234.ts.net";
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("pastes a thread link copied from this web app back as its chip", () => {
+      vi.stubGlobal("window", { location: { protocol: "https:", origin } });
+      const target = threadChipCopyTarget(thread, "Fix the login flow", origin);
+      expect(target.value).toBe(`${origin}/threads/env-1/thread-1`);
+      const imported: Array<ComposerContextClipboardFragment> = [];
+      const text = importPastedComposerText(
+        clipboard({
+          "text/plain": `See ${target.value}`,
+          [COMPOSER_CONTEXT_CLIPBOARD_MIME]: encodeComposerContextFragment(target.fragment!)!,
+        }),
+        importAll(imported),
+      );
+      expect(text).toBe(`See ${chip("Fix the login flow")}`);
+      expect(imported.map((fragment) => fragment.records)).toEqual([target.fragment!.records]);
+    });
+
+    it("keeps another site's /threads/ link as text", () => {
+      vi.stubGlobal("window", { location: { protocol: "https:", origin } });
+      const pasted = "https://other.example.com/threads/env-1/thread-1";
+      expect(importPastedComposerText(clipboard({ "text/plain": pasted }), importAll([]))).toBe(
+        pasted,
+      );
+    });
   });
 
   it("makes a chip of a v2 link pasted without T3's clipboard format", () => {
