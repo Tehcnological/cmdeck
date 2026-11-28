@@ -88,6 +88,20 @@ const presetUntilChecked = (name, options) =>
     }
   });
 
+/** The items of a list a person typed, one per line, without list markers or repeats. */
+const presetLines = (text) => {
+  const seen = new Set();
+  return String(text ?? "")
+    .split("\n")
+    .map((line) => line.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").trim())
+    .filter((line) => {
+      const key = line.toLowerCase().split(/\s+/).join(" ");
+      if (key === "" || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
 const PresetReview = Schema.Struct({ approved: Schema.Boolean, notes: Schema.String });
 
 /** A review by an agent on the model a person picked, usually another provider's. */
