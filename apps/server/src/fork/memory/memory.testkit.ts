@@ -18,6 +18,7 @@ import * as ProjectionStore from "../../orchestration-v2/ProjectionStore.ts";
 import * as ProjectStore from "../../orchestration-v2/ProjectStore.ts";
 import * as SqlitePersistence from "../../persistence/Sqlite.ts";
 import * as ServerSettings from "../../serverSettings.ts";
+import * as AgentDiscipline from "../agentDiscipline/AgentDiscipline.ts";
 import * as ForkMcpToolkits from "../mcpToolkits.ts";
 import * as MemoryStore from "./MemoryStore.ts";
 import * as TurnContext from "./TurnContext.ts";
@@ -65,6 +66,7 @@ const shell = (projectId: string): OrchestrationProjectShell => {
 export const layerMemoryTest = (options: { readonly memoryEnabled: boolean }) =>
   TurnContext.layer.pipe(
     Layer.provideMerge(MemoryStore.layer),
+    Layer.provideMerge(AgentDiscipline.layer),
     Layer.provideMerge(SqlitePersistence.layerMemory),
     Layer.provide(ServerSettings.layerTest({ cmdeck: { memoryEnabled: options.memoryEnabled } })),
     Layer.provide(

@@ -22,6 +22,13 @@ describe("cmdeck settings key", () => {
         protectedPaths: [],
         denyWritesOutsideWorkspace: false,
       },
+      agentDiscipline: {
+        enabled: true,
+        subagentCap: 2,
+        reviewRoundCap: 2,
+        checkpointMinutes: 20,
+        stallLimit: 3,
+      },
     };
     expect(decodeServerSettings({}).cmdeck).toEqual(defaults);
     expect(decodeServerSettings({ cmdeck: {} }).cmdeck).toEqual(defaults);
@@ -29,6 +36,11 @@ describe("cmdeck settings key", () => {
     expect(decodeServerSettings({ cmdeck: { memoryEnabled: true } }).cmdeck.memoryEnabled).toBe(
       true,
     );
+    // A partial agent discipline block keeps the other defaults.
+    expect(
+      decodeServerSettings({ cmdeck: { agentDiscipline: { subagentCap: 4 } } }).cmdeck
+        .agentDiscipline,
+    ).toEqual({ ...defaults.agentDiscipline, subagentCap: 4 });
   });
 
   it("keeps usage alert thresholds whole percentages from 1 to 100", () => {

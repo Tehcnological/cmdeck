@@ -122,6 +122,7 @@ import * as ProjectService from "../project/ProjectService.ts";
 import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
 import * as ScheduledTaskService from "../scheduledTasks/ScheduledTaskService.ts";
 import * as ServerSettings from "../serverSettings.ts";
+import * as AgentDiscipline from "../fork/agentDiscipline/AgentDiscipline.ts";
 import {
   clientModeCeiling,
   type McpInvocationScope,
@@ -1367,6 +1368,9 @@ const make = Effect.gen(function* () {
   const gitDriver = yield* GitVcsDriver.GitVcsDriver;
   const serverSettings = yield* ServerSettings.ServerSettingsService;
   const remoteDelegation = yield* RemoteDelegation.RemoteDelegation;
+  const agentDiscipline = Option.getOrUndefined(
+    yield* Effect.serviceOption(AgentDiscipline.AgentDiscipline),
+  );
 
   const requireProject = (projectId: ProjectId) =>
     projects.getById(projectId).pipe(
@@ -2969,6 +2973,14 @@ const make = Effect.gen(function* () {
         operation: "delegate-task",
       });
       const isRetryOfAcceptedDelegation = yield* threadManagement.hasReceipt(commandId);
+      const budgetRefusal =
+        agentDiscipline === undefined || isRetryOfAcceptedDelegation
+          ? undefined
+          : yield* agentDiscipline.delegationRefusal({
+              threadId: parent.thread.id,
+              task: input.task,
+            });
+      if (budgetRefusal !== undefined) return yield* failure("capability_denied", budgetRefusal);
       const target = yield* resolveTargetRechecking({
         parent,
         target: input.target,

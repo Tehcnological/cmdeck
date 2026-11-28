@@ -1,6 +1,7 @@
 import type {
   OrchestrationV2Actor,
   ProjectId,
+  ProviderDriverKind,
   RunId,
   ScheduledTaskId,
   ThreadId,
@@ -10,6 +11,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
+import * as AgentDiscipline from "../agentDiscipline/AgentDiscipline.ts";
 import * as MemoryStore from "./MemoryStore.ts";
 import { factNarrowing } from "./retrieval.ts";
 
@@ -23,6 +25,8 @@ export interface TurnContextInput {
   };
   /** False for a turn that sends no prompt of its own: a manual resume or a slash command. */
   readonly inject: boolean;
+  /** The provider driver the turn runs on; contributors may skip drivers they do not suit. */
+  readonly driver?: ProviderDriverKind | undefined;
 }
 
 /** One contributor's part of the block, most important entry first. */
@@ -128,6 +132,17 @@ const memoryContributor = Effect.gen(function* () {
   }, skipOnFailure);
 });
 
+const disciplineContributor = Effect.gen(function* () {
+  const discipline = yield* AgentDiscipline.AgentDiscipline;
+  return Effect.fn("TurnContext.agentDiscipline")(function* (
+    input: TurnContextInput,
+  ): Effect.fn.Return<TurnContextSection | undefined> {
+    if (!input.inject) return undefined;
+    const entries = yield* discipline.guidance({ threadId: input.thread.id, driver: input.driver });
+    return entries.length === 0 ? undefined : { title: "How to work", entries };
+  }, skipOnFailure);
+});
+
 export class TurnContext extends Context.Service<
   TurnContext,
   {
@@ -138,7 +153,11 @@ export class TurnContext extends Context.Service<
 
 const make = Effect.gen(function* () {
   // Bots, notes and state cards append their contributors here, after memory.
-  const contributors: ReadonlyArray<Contributor> = [yield* memoryContributor];
+  // Working rules go first so memory can never crowd them out of the budget.
+  const contributors: ReadonlyArray<Contributor> = [
+    yield* disciplineContributor,
+    yield* memoryContributor,
+  ];
   return TurnContext.of({
     contribute: Effect.fn("TurnContext.contribute")(function* (input) {
       const sections = yield* Effect.forEach(contributors, (contribute) =>

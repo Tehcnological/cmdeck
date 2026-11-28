@@ -220,6 +220,17 @@ required=(
   'apps/desktop/src/backend/DesktopBackendConfiguration.ts:Effect\.flatMap\(DesktopSecretsKey\.withSecretsKey\(secretsKey, environment\.baseDir\)\)'
   # WI-2.10: scheduled tasks start new threads on the decision service's routed model.
   'apps/server/src/scheduledTasks/ScheduledTaskService.ts:modelSelection: yield\* Decisions\.routeScheduledTask\(active\),'
+  # Agent discipline: subagent budget, review round cap, and the header counts.
+  'apps/server/src/orchestration-v2/ProviderTurnStartService.ts:driver: session\.driver, +\}\);'
+  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:budgetHooks: agentDiscipline\.claudeHooks\(turnInput\.threadId\)'
+  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:\.\.\.input\.budgetHooks,'
+  'apps/server/src/mcp/OrchestratorMcpService.ts:yield\* agentDiscipline\.delegationRefusal\('
+  'apps/server/src/orchestration-v2/PullRequestWatchReactor.ts:applyReviewRoundCap\('
+  'apps/server/src/orchestration-v2/PullRequestWatchReactor.ts:text: withReviewRoundNote\(message\.text,'
+  'apps/server/src/orchestration-v2/Orchestrator.ts:reviewRounds: existing\.endedWatch\.reviewRounds,'
+  'packages/contracts/src/threadPullRequest.ts:reviewRounds: Schema\.optional\(NonNegativeInt\),'
+  'apps/web/src/components/chat/ChatHeader.tsx:<AgentBudgetIndicator threadRef=\{activeThreadRef\} />'
+  'apps/web/src/components/settings/ProviderSettingsPanel.tsx:<AgentDisciplineSection'
   # WI-2.21: design-critique eval cases load the repo skill they test.
   'evals/mcp-tool-use/run.ts:skill: Schema\.optional\(Schema\.String\),'
   'evals/mcp-tool-use/run.ts:: invokedSkillPrompt\('

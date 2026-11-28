@@ -104,6 +104,7 @@ import { useSecretSources } from "./SecretSourceInput";
 import { TextGeneratorsSettings } from "./TextGeneratorsSettings";
 import { UsageProviderSettings } from "./UsageProviderSettings";
 import { UsageAlertsSection } from "~/fork/UsageAlertsSection";
+import { AgentDisciplineSection } from "~/fork/AgentDisciplineSection";
 import { ProviderSetupSection, readAntigravityAuthMethod } from "./ProviderSetupSection";
 import { ProviderAuthenticationSection } from "./ProviderAuthenticationSection";
 import { CodexSetupSection, CodexManagedRuntimeFields } from "./CodexSetupSection";
@@ -1155,6 +1156,11 @@ export function EnvironmentProviderSettings({
         readOnly={readOnly}
       />
       <UsageAlertsSection environmentId={environmentId} settings={settings} readOnly={readOnly} />
+      <AgentDisciplineSection
+        environmentId={environmentId}
+        settings={settings}
+        readOnly={readOnly}
+      />
 
       {/* The server drops text generators under a provider allow-list. */}
       {managedPolicy?.limits?.providers?.allowedDrivers === undefined ? (

@@ -3,6 +3,7 @@ import * as Layer from "effect/Layer";
 import * as RemoteMcpTokens from "../auth/RemoteMcpTokens.ts";
 import * as PublicAddressCheck from "../environment/PublicAddressCheck.ts";
 import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
+import * as AgentDiscipline from "./agentDiscipline/AgentDiscipline.ts";
 import * as ApprovalGate from "./approvalPolicy/ApprovalGate.ts";
 import * as ApprovalPolicy from "./approvalPolicy/ApprovalPolicy.ts";
 import * as AuditLog from "./audit/AuditLog.ts";
@@ -34,6 +35,8 @@ export const layer = Layer.mergeAll(
  */
 export const layerBeneathOrchestration = Layer.mergeAll(TurnContext.layer, ApprovalGate.layer).pipe(
   Layer.provideMerge(MemoryStore.layer),
+  // TurnContext adds the working rules; the adapters, delegate_task and the PR watch enforce them.
+  Layer.provideMerge(AgentDiscipline.layer),
   // TurnContext narrows memory and the scheduler routes models through it.
   Layer.provideMerge(Decisions.layer),
   Layer.provide(ProjectionStore.layer),

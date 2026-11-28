@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import { ModelSelection } from "../modelSelection.ts";
+import { AgentDisciplineSettings, AgentDisciplineSettingsPatch } from "./agentDiscipline.ts";
 import { ApprovalPolicyRules } from "./approvalPolicy.ts";
 import { DecisionModelSetting } from "./decisions.ts";
 
@@ -37,6 +38,8 @@ export const CmdeckSettings = Schema.Struct({
   ),
   /** Deny rules for provider approvals; a managed policy can set and lock them. */
   approvalPolicy: ApprovalPolicyRules.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
+  /** Unlike the modules above, on by default: it is how CMDeck wants agents to work. */
+  agentDiscipline: AgentDisciplineSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
 });
 
 export const CmdeckSettingsPatch = Schema.Struct({
@@ -45,4 +48,5 @@ export const CmdeckSettingsPatch = Schema.Struct({
   routingTierModels: Schema.optionalKey(RoutingTierModels),
   usageAlertPercents: Schema.optionalKey(Schema.Array(UsageAlertPercent)),
   approvalPolicy: Schema.optionalKey(ApprovalPolicyRules),
+  agentDiscipline: Schema.optionalKey(AgentDisciplineSettingsPatch),
 });

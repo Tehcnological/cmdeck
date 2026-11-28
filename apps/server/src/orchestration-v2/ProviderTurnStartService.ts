@@ -2116,6 +2116,7 @@ export const layer: Layer.Layer<
         runId: run.id,
         message: providerMessage,
         inject: !(slashCommand || manualResume),
+        driver: session.driver,
       });
       const carriesPendingContext =
         forkContext !== "" ||
