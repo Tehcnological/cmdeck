@@ -82,6 +82,7 @@ T3 Code is an open-source control plane for coding agents. It gives the coding a
 - [Bots](./bots.md) — Persistent agents with a pinned thread, standing instructions, private memory, and schedules.
 - [Decision service](./decisions.md) — How scheduled tasks pick a model under usage limits, and opt-in local models for small decisions.
 - [Memory search by meaning](./memory-search.md) — Optional embeddings from a local inference server, keyword fallback, and how older facts rank.
+- [Knowledge library and notes](./knowledge-library.md) — Folders, files and a notes folder that agents search with `knowledge_search`, and what is never indexed.
 - [Containers](./containers.md) — Run a thread's agent and terminals in a Docker or Apple container, with networking off by default.
 - [Appearance and themes](./appearance.md) — Built-in themes, custom palettes/CSS, background images, LaTeX math, and environment themes.
 - [Keybindings](./keybindings.md) — Shortcuts, `keybindings.json` syntax, `when` conditions, and hardware keyboards.

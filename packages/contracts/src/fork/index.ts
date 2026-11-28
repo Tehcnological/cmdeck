@@ -12,3 +12,4 @@ export * from "./agentDiscipline.ts";
 export * from "./messagePins.ts";
 export * from "./bots.ts";
 export * from "./sandbox.ts";
+export * from "./knowledge.ts";
