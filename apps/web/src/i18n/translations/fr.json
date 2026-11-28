@@ -13747,5 +13747,17 @@
   "8b0779c904a48aa9": "Annulé",
   "340910fc99017e2f": "Aucun événement choisi",
   "45ed6bb9e12af6bc": "Choisissez au moins un événement qui exécute cette tâche.",
-  "2a65e323588530fb": "Quand : {events}"
+  "2a65e323588530fb": "Quand : {events}",
+  "38a2cda7104ebfbc": "Afficher la fiche d'état de la session",
+  "adc29178de49b756": "Fiche d'état",
+  "5a63090b31972f2a": "Aucune fiche d'état",
+  "07a17b9adaf31182": "Un agent l'enregistre pendant un travail long. L'agent la voit lors des exécutions planifiées, par intervalle et par webhook, et après le compactage de la conversation.",
+  "94493230e3966179": "Mise à jour",
+  "e9d83cdee61b2e7f": "pas encore montrée à l'agent",
+  "412381cf2e91cd65": "montrée à l'agent",
+  "6db6491ad27026c9": "Objectif",
+  "f07b682d502ea48f": "Phase",
+  "021477f53dcc1448": "terminée, n'est plus montrée",
+  "39bbd757e4977de7": "Étape suivante",
+  "4b2f29c79ae2bd09": "Essayé et écarté"
 }

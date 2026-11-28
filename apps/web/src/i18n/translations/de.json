@@ -13747,5 +13747,17 @@
   "8b0779c904a48aa9": "Abgebrochen",
   "340910fc99017e2f": "Kein Ereignis gewählt",
   "45ed6bb9e12af6bc": "Wähle mindestens ein Ereignis, das diese Aufgabe ausführt.",
-  "2a65e323588530fb": "Wenn: {events}"
+  "2a65e323588530fb": "Wenn: {events}",
+  "38a2cda7104ebfbc": "Sitzungsstatuskarte anzeigen",
+  "adc29178de49b756": "Statuskarte",
+  "5a63090b31972f2a": "Keine Statuskarte",
+  "07a17b9adaf31182": "Ein Agent legt sie bei langer Arbeit an. Der Agent sieht sie bei geplanten, Intervall- und Webhook-Läufen und nachdem das Gespräch komprimiert wurde.",
+  "94493230e3966179": "Aktualisiert",
+  "e9d83cdee61b2e7f": "dem Agenten noch nicht gezeigt",
+  "412381cf2e91cd65": "dem Agenten gezeigt",
+  "6db6491ad27026c9": "Ziel",
+  "f07b682d502ea48f": "Phase",
+  "021477f53dcc1448": "abgeschlossen, wird nicht mehr gezeigt",
+  "39bbd757e4977de7": "Nächster Schritt",
+  "4b2f29c79ae2bd09": "Versucht und verworfen"
 }

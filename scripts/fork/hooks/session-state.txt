@@ -1,0 +1,2 @@
+# WI-2.06: the session state card's table.
+apps/server/src/fork/schemas.ts:export \{ ensureSessionStateSchema \}

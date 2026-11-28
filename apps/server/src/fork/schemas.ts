@@ -8,6 +8,7 @@ export { ensureMemorySchema } from "./memory/schema.ts";
 export { ensureMessagePinsSchema } from "./messagePins/schema.ts";
 export { ensureNotificationsSchema } from "./notifications/schema.ts";
 export { ensureSandboxSchema } from "./sandbox/schema.ts";
+export { ensureSessionStateSchema } from "./sessionState/schema.ts";
 export { ensureUsageAlertsSchema } from "./usageAlerts/schema.ts";
 export { ensureWorkflowTrustSchema } from "./workflowTrust/schema.ts";
 export { ensureWorkLedgerSchema } from "./workLedger/schema.ts";

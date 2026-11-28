@@ -13,3 +13,4 @@ export * from "./messagePins.ts";
 export * from "./bots.ts";
 export * from "./sandbox.ts";
 export * from "./eventTriggers.ts";
+export * from "./sessionState.ts";
