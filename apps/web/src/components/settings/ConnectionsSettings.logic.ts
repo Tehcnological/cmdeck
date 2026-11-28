@@ -2,7 +2,7 @@ import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
 import * as DateTime from "effect/DateTime";
 import { msg } from "gt-react";
 
-import { resolveDesktopPairingUrl, resolveHostedPairingUrl } from "./pairingUrls";
+import { resolveDesktopPairingUrl } from "./pairingUrls";
 import {
   getPairingTokenFromUrl,
   setPairingServerKeyOnUrl,
@@ -450,12 +450,6 @@ export function resolveAdvertisedEndpointPairingUrl(
   credential: string,
   serverIdentityKey?: string | null,
 ): string {
-  if (endpoint.compatibility.hostedHttpsApp === "compatible") {
-    return (
-      resolveHostedPairingUrl(endpoint.httpBaseUrl, credential) ??
-      resolveDesktopPairingUrl(endpoint.httpBaseUrl, credential, serverIdentityKey)
-    );
-  }
   return resolveDesktopPairingUrl(endpoint.httpBaseUrl, credential, serverIdentityKey);
 }
 
@@ -475,22 +469,12 @@ export function resolveCurrentOriginPairingUrl(
     : withToken.toString();
 }
 
-export function isHostedAppPairingUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.pathname === "/pair" && url.searchParams.has("host");
-  } catch {
-    return false;
-  }
-}
-
 export function endpointShareHint(
   endpoint: AdvertisedEndpoint,
-  url: string,
   resolve: MessageResolver = m,
 ): string {
-  if (isHostedAppPairingUrl(url)) {
-    return resolve(msg("Opens the hosted app, no install needed"));
+  if (endpoint.compatibility.hostedHttpsApp === "compatible") {
+    return resolve(msg("Opens this machine's web app in a browser"));
   }
   switch (endpoint.reachability) {
     case "lan":

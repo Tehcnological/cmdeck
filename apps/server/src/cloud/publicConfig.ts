@@ -1,8 +1,4 @@
-import {
-  connectLoopbackRedirectUri,
-  CONNECT_OAUTH_SCOPES,
-  DEFAULT_HOSTED_APP_URL,
-} from "@t3tools/shared/connectAuth";
+import { connectLoopbackRedirectUri, CONNECT_OAUTH_SCOPES } from "@t3tools/shared/connectAuth";
 import { clerkFrontendApiUrlFromPublishableKey } from "@t3tools/shared/relayAuth";
 import { normalizeSecureRelayUrl } from "@t3tools/shared/relayUrl";
 import * as Config from "effect/Config";
@@ -12,7 +8,6 @@ import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
 
 declare const __T3CODE_BUILD_RELAY_URL__: string | undefined;
-declare const __T3CODE_BUILD_CHANNEL__: "nightly" | "latest" | undefined;
 declare const __T3CODE_BUILD_CLERK_PUBLISHABLE_KEY__: string | undefined;
 declare const __T3CODE_BUILD_CLERK_CLI_OAUTH_CLIENT_ID__: string | undefined;
 
@@ -66,51 +61,8 @@ const connectRemoved = new ConfigProvider.SourceError({
 
 export const relayUrlConfig: Config.Config<string> = Config.fail(connectRemoved);
 
-export const hostedAppUrlConfig = makePublicValueConfig(
-  "T3CODE_HOSTED_APP_URL",
-  DEFAULT_HOSTED_APP_URL,
-).pipe(Config.mapEffect(validateHostedAppUrl));
-
-const NIGHTLY_HOSTED_APP_URL = "https://nightly.app.t3.codes";
-
-/**
- * Where agent sign-ins on the T3 Connect address are approved. A nightly build defaults to the
- * nightly hosted app, which ships the same approval page; app.t3.codes serves stable.
- */
-export const agentApprovalAppUrlConfig = makePublicValueConfig(
-  "T3CODE_HOSTED_APP_URL",
-  typeof __T3CODE_BUILD_CHANNEL__ !== "undefined" && __T3CODE_BUILD_CHANNEL__ === "nightly"
-    ? NIGHTLY_HOSTED_APP_URL
-    : DEFAULT_HOSTED_APP_URL,
-).pipe(Config.mapEffect(validateHostedAppUrl));
-
-function validateHostedAppUrl(value: string) {
-  try {
-    const url = new URL(value);
-    const isLoopbackHttp =
-      url.protocol === "http:" &&
-      (url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]");
-    if (
-      (url.protocol !== "https:" && !isLoopbackHttp) ||
-      url.pathname !== "/" ||
-      url.search !== "" ||
-      url.hash !== ""
-    ) {
-      throw new Error("invalid hosted app origin");
-    }
-    return Effect.succeed(url.origin);
-  } catch {
-    return Effect.fail(
-      new Config.ConfigError(
-        new Schema.SchemaError(
-          new SchemaIssue.InvalidValue({
-            message: "Hosted app URL must be an absolute HTTPS origin (or HTTP loopback origin).",
-          }),
-        ),
-      ),
-    );
-  }
-}
+// Upstream's hosted app is removed with T3 Connect; nothing here points at it.
+export const hostedAppUrlConfig: Config.Config<string> = Config.fail(connectRemoved);
 
 function makePublicValueConfig(name: string, fallback: string) {
   const runtimeConfig = Config.NonEmptyString(name);

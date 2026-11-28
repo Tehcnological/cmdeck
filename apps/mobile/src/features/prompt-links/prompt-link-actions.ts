@@ -1,4 +1,5 @@
 import * as Dialog from "../../components/ui/Dialog";
+import { LEGACY_HOSTED_APP_URL } from "@t3tools/shared/connectAuth";
 import { buildNewThreadLink, type LinkedPrompt } from "@t3tools/shared/promptLinks";
 import { msg } from "gt-react-native";
 
@@ -46,7 +47,11 @@ export async function applyLinkedPromptToThreadDraft(
 }
 
 export async function copyPromptLink(prompt: string): Promise<void> {
-  if (!(await tryCopyTextWithHaptic(buildNewThreadLink({ prompt }), { target: "prompt link" }))) {
+  if (
+    !(await tryCopyTextWithHaptic(buildNewThreadLink({ prompt, origin: LEGACY_HOSTED_APP_URL }), {
+      target: "prompt link",
+    }))
+  ) {
     Dialog.alert(m(msg("Could not copy")), m(msg("Try again.")));
   }
 }

@@ -15,14 +15,17 @@ import {
 
 import { type ComposerThreadTarget, useComposerDraftStore } from "~/composerDraftStore";
 import { writeTextToClipboard } from "~/hooks/useCopyToClipboard";
-import { configuredHostedAppUrl } from "~/hostedPairing";
+import { shareableAppOrigin } from "~/hostedPairing";
 import { draftModelSelectionApplies } from "~/lib/chatThreadActions";
 
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { msg } from "gt-react";
 import { m } from "~/i18n/messages";
 
-/** A shareable link to a prompt on the hosted app, or null when the prompt cannot fit in one. */
+/**
+ * A shareable link to a prompt on this web origin, or null when the prompt cannot fit in one or
+ * there is no origin to share (the desktop window).
+ */
 export function promptLinkFor(
   prompt: string,
   context?: {
@@ -32,8 +35,10 @@ export function promptLinkFor(
   },
 ): string | null {
   const trimmed = isAttachmentOnlyBootstrapPrompt(prompt) ? "" : prompt.trim();
+  const origin = shareableAppOrigin();
+  if (origin === undefined) return null;
   if (trimmed.length === 0 || trimmed.length > PROMPT_LINK_MAX_PROMPT_LENGTH) return null;
-  return buildNewThreadLink({ prompt: trimmed, ...context, origin: configuredHostedAppUrl() });
+  return buildNewThreadLink({ prompt: trimmed, ...context, origin });
 }
 
 export function promptLinkRepositoryOf(

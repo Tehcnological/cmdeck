@@ -106,7 +106,7 @@ import {
 import { isModelPickerOpen } from "../modelPickerVisibility";
 import { isMacPlatform } from "~/lib/utils";
 import { readLocalApi } from "../localApi";
-import { configuredHostedAppUrl } from "../hostedPairing";
+import { shareableAppOrigin } from "../hostedPairing";
 import { shortProjectNames } from "./sidebar/projectShortNames";
 import { useSidebarPendingFileDropStore } from "../sidebarPendingFileDropStore";
 import { SidebarFolderDrop } from "./sidebar/SidebarFolderDrop";
@@ -2947,7 +2947,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
             return;
           case "copy-thread":
             void copyThreadReference(
-              threadChipCopyTarget(threadRef, thread.title, configuredHostedAppUrl(), m),
+              threadChipCopyTarget(threadRef, thread.title, shareableAppOrigin(), m),
             );
             return;
           case "copy-thread-id":
