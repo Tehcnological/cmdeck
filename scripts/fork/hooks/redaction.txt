@@ -1,0 +1,5 @@
+# WI-1.02: the shared redactor applies at log, feedback and webhook-prompt egress.
+packages/shared/package.json:"\./redaction"
+apps/server/src/serverLogger.ts:redactingSecrets\(redactingCredentials\(Logger\.consolePretty\(\)\)\)
+apps/server/src/feedback/scrubFeedback.ts:\.\.\.SECRET_PATTERNS,
+apps/server/src/scheduledTasks/webhookTemplate.ts:expression\.includes\("\."\) \? text : redactSecrets\(text\)

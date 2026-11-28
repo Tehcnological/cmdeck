@@ -1,0 +1,17 @@
+# WI-2.18: sandboxed threads launch through the container AgentScope, and refuse providers that cannot.
+apps/server/src/server.ts:import \* as ContainerSandbox from "\./fork/sandbox/ContainerSandbox\.ts";
+apps/server/src/server.ts:Layer\.provideMerge\(ContainerSandbox\.layer\.pipe\(Layer\.provide\(layerServerSettings\)\)\), +Layer\.provideMerge\(AgentScopeLive\.layer\)
+apps/server/src/orchestration-v2/ProviderSessionManager.ts:import \{ sandboxLaunchGate \} from "\.\./fork/sandbox/launchGate\.ts";
+apps/server/src/orchestration-v2/ProviderSessionManager.ts:yield\* sandboxLaunchGate\(input, registry\);
+apps/server/src/persistence/ForkSchema.ts:yield\* ensureSandboxSchema\(\)
+apps/web/src/components/settings/SettingsPanels.tsx:import \{ ContainerSandboxSection \} from "~/fork/ContainerSandboxSection";
+apps/web/src/components/settings/SettingsPanels.tsx:<ContainerSandboxSection />
+# A sandboxed thread's Claude launches through the container scope even from a script entry.
+apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:import \* as ForkSandbox from "\.\./\.\./fork/sandbox/ContainerSandbox\.ts";
+apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const inContainer = yield\* ForkSandbox\.sandboxedThreadCheck;
+apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const sandboxed = yield\* inContainer\(input\.threadId\);
+apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:command: binaryPath \?\? "claude",
+# ...and gets no MCP servers, so it holds no CMDeck credential, decided once with the scope's say.
+apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const mcpServers = ForkSandbox\.isContained\(sandboxed, unit\) \? undefined : requestedMcpServers;
+# Host git never runs the fsmonitor of a repository a container wrote into the worktree.
+apps/server/src/vcs/VcsProcess.ts:\["core\.fsmonitor", "false"\], // Fork \(WI-2\.18\)

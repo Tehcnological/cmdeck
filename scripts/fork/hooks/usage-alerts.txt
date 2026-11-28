@@ -1,0 +1,4 @@
+# WI-2.14: usage alert state table, and the thresholds row beside Usage providers.
+apps/server/src/persistence/ForkSchema.ts:yield\* ensureUsageAlertsSchema\(\)
+apps/web/src/components/settings/ProviderSettingsPanel.tsx:import \{ UsageAlertsSection \} from "~/fork/UsageAlertsSection";
+apps/web/src/components/settings/ProviderSettingsPanel.tsx:<UsageAlertsSection environmentId=\{environmentId\} settings=\{settings\} readOnly=\{readOnly\} />
