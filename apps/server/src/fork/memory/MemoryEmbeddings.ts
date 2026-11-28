@@ -16,7 +16,7 @@ import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import * as SqlClient from "effect/sql/SqlClient";
-import { HttpClient, HttpClientRequest } from "effect/http";
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 
 import { parseBaseUrl } from "../../inference/InferenceServerRegistry.ts";
 import { requireSettingsSecret } from "../../secrets/settingsSecretValue.ts";
@@ -147,7 +147,12 @@ class EmbedFailure extends Schema.TaggedError<EmbedFailure>()("EmbedFailure", {
 const make = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
   const settingsService = yield* Settings.ServerSettingsService;
-  const client = yield* HttpClient.HttpClient;
+  // Redirects are refused, not followed, so memory never reaches a host other than the local one.
+  const client = (yield* HttpClient.HttpClient).pipe(
+    HttpClient.transformResponse(
+      Effect.provideService(FetchHttpClient.RequestInit, { redirect: "manual" }),
+    ),
+  );
   const secrets = yield* SecretResolver.SecretResolver;
   const layerScope = yield* Scope.Scope;
   const health = yield* Ref.make<Health | null>(null);

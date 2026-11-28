@@ -1,11 +1,13 @@
 import { describe, expect, it } from "@effect/vitest";
-import { MilestoneId, RunId } from "@t3tools/contracts";
+import { MilestoneId, RunId, type ServerSettingsError } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
+import * as SqlClient from "effect/sql/SqlClient";
 import * as TestClock from "effect/testing/TestClock";
 
 import * as MilestoneHub from "../../milestones/MilestoneHub.ts";
+import * as ServerSettings from "../../serverSettings.ts";
 import * as MemoryAccess from "../memory/MemoryAccess.ts";
-import { MemoryStore } from "../memory/MemoryStore.ts";
+import { MemoryStore, type MemoryStoreError } from "../memory/MemoryStore.ts";
 import * as Lessons from "./Lessons.ts";
 import {
   correctionChat,
@@ -139,6 +141,46 @@ describe("Lessons", () => {
       expect(MemoryAccess.restrictedContext(thread.id).mode).toBe("temporary");
     }).pipe(Effect.provide(world.layer));
   });
+
+  it.effect("memory turned off or a thread made private during the model call saves nothing", () =>
+    Effect.gen(function* () {
+      const changes: ReadonlyArray<
+        Effect.Effect<
+          unknown,
+          ServerSettingsError | MemoryStoreError,
+          ServerSettings.ServerSettingsService | MemoryStore
+        >
+      > = [
+        ServerSettings.ServerSettingsService.pipe(
+          Effect.flatMap((settings) =>
+            settings.updateSettings({ cmdeck: { memoryEnabled: false } }),
+          ),
+        ),
+        MemoryStore.pipe(Effect.flatMap((memory) => memory.setThreadMode(thread.id, "incognito"))),
+        MemoryStore.pipe(Effect.flatMap((memory) => memory.setThreadMode(thread.id, "temporary"))),
+      ];
+      for (const change of changes) {
+        const world = makeWorld({ memoryEnabled: true, model: true });
+        yield* Effect.gen(function* () {
+          world.chat.messages = correctionChat();
+          const lessons = yield* Lessons.Lessons;
+          yield* lessons.setProject({ projectId: project, source: "local" });
+          const services = yield* Effect.context<
+            ServerSettings.ServerSettingsService | MemoryStore
+          >();
+          world.model.during.effect = change.pipe(
+            Effect.provideContext(services),
+            Effect.orDie,
+            Effect.asVoid,
+          );
+          expect(yield* lessons.consolidate(thread.id)).toBe(0);
+          expect(world.model.prompts).toHaveLength(1);
+          const sql = yield* SqlClient.SqlClient;
+          expect(yield* sql`SELECT content FROM memory_items`).toEqual([]);
+        }).pipe(Effect.provide(world.layer));
+      }
+    }),
+  );
 
   it.effect("passes after the thread rests, or at once past the message threshold", () => {
     const world = makeWorld({ memoryEnabled: true, model: true });

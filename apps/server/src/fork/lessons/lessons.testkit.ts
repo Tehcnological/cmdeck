@@ -87,6 +87,8 @@ export const thread = {
  */
 const makeModel = () => {
   const prompts: Array<string> = [];
+  /** Runs while the model is answering, to change settings or the thread meanwhile. */
+  const during: { effect: Effect.Effect<void> } = { effect: Effect.void };
   const runner: TextGenerationOperations.Runner = (request) => {
     prompts.push(request.prompt);
     const conversation = /<conversation>\n([\s\S]*)\n<\/conversation>/u.exec(request.prompt)?.[1];
@@ -94,10 +96,15 @@ const makeModel = () => {
       .split(/[.\n]/u)
       .filter((sentence) => /\balways\b/iu.test(sentence))
       .map((sentence) => ({ lesson: sentence.trim() }));
-    return TextGenerationOperations.decodeJsonReply(request, "fake", JSON.stringify({ lessons }));
+    return during.effect.pipe(
+      Effect.andThen(
+        TextGenerationOperations.decodeJsonReply(request, "fake", JSON.stringify({ lessons })),
+      ),
+    );
   };
   return {
     prompts,
+    during,
     layer: Layer.mock(TextGenerators.TextGenerators)({
       runner: (id) => Effect.succeed(id === LOCAL_GENERATOR ? runner : undefined),
     }),
@@ -140,7 +147,7 @@ export const makeWorld = (options: {
       }),
     ),
     Layer.provideMerge(SqlitePersistence.layerMemory),
-    Layer.provide(
+    Layer.provideMerge(
       ServerSettings.layerTest({
         textGenerators: generators,
         cmdeck: {

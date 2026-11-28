@@ -306,7 +306,8 @@ const make = Effect.gen(function* () {
       const at = yield* now;
       yield* sql`INSERT OR IGNORE INTO thread_memory_mode (thread_id, mode, updated_at)
       VALUES (${threadId}, ${inherited}, ${at})`;
-      return inherited;
+      // A mode another client set since the first read wins over the inherited copy.
+      return Option.getOrElse(yield* storedMode(threadId), () => inherited);
     });
 
   const threadMode = (threadId: ThreadId) => resolveMode(threadId, 0);
