@@ -122,6 +122,8 @@ required=(
   'apps/server/src/mcp/McpHttpServer.ts:ForkMcpToolkits\.layer\(toolkitRegistration\)'
   'packages/contracts/src/rpc.ts:\.merge\(ForkWsRpcGroup\)'
   'packages/contracts/src/clientRpcPermissions.ts:\.\.\.FORK_RPC_SCOPES,'
+  # Fork reads are checked by the server only, so query atoms can read them with `request`.
+  'apps/server/src/auth/RpcAuthorization.ts:\.\.\.FORK_RPC_READ_SCOPES,'
   'packages/contracts/src/index.ts:export \* from "\./fork/index\.ts";'
   'packages/contracts/src/settings.ts:cmdeck: CmdeckSettings\.pipe\(Schema\.withDecodingDefault'
   'packages/contracts/src/settings.ts:cmdeck: Schema\.optionalKey\(CmdeckSettingsPatch\)'
