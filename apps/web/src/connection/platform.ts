@@ -445,6 +445,8 @@ const layerCapabilities = Layer.effectContext(
       Context.add(ClientCapabilities.RelayDeviceIdentity, identity),
       Context.add(ClientCapabilities.ClientPresentation, presentation),
       Context.add(ClientCapabilities.SshEnvironmentGateway, ssh),
+      // Fork: LAN fallback. Desktop main verifies pinned certificates (apps/desktop/src/fork/lanFallbackPins.ts).
+      Context.add(ClientCapabilities.PinsLanCertificates, window.desktopBridge !== undefined),
     );
   }),
 );

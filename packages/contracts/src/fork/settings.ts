@@ -47,6 +47,8 @@ export const CmdeckSettings = Schema.Struct({
   /** Unlike the modules above, on by default: it is how CMDeck wants agents to work. */
   agentDiscipline: AgentDisciplineSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
   heartbeat: HeartbeatSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
+  /** Serves pinned HTTPS on this machine's LAN addresses as a backup route; off opens no listener. */
+  lanFallback: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
 });
 
 export const CmdeckSettingsPatch = Schema.Struct({
@@ -58,4 +60,5 @@ export const CmdeckSettingsPatch = Schema.Struct({
   approvalPolicy: Schema.optionalKey(ApprovalPolicyRules),
   agentDiscipline: Schema.optionalKey(AgentDisciplineSettingsPatch),
   heartbeat: Schema.optionalKey(HeartbeatSettingsPatch),
+  lanFallback: Schema.optionalKey(Schema.Boolean),
 });

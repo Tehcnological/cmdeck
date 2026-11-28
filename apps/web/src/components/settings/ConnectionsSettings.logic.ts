@@ -416,7 +416,10 @@ export function isServerNetworkAccessible(input: {
   readonly directEndpoints: ReadonlyArray<ServerDirectEndpoint> | undefined;
 }): boolean {
   if (input.authPolicy === "remote-reachable") return true;
-  return input.authPolicy === "loopback-browser" && (input.directEndpoints?.length ?? 0) > 0;
+  return (
+    input.authPolicy === "loopback-browser" &&
+    (input.directEndpoints ?? []).some((endpoint) => endpoint.kind !== "lan-tls") // Fork: LAN fallback pairs nothing
+  );
 }
 
 export function isTailscaleHttpsEndpoint(endpoint: AdvertisedEndpoint): boolean {

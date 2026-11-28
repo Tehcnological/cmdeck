@@ -140,16 +140,26 @@ const ROUTE_KIND_RANK: Record<ConnectionRouteKind, number> = {
   relay: 5,
 };
 
+/** Fork: LAN fallback. A route the desktop reaches only through its pinned certificate. */
+export function isPinnedLanRoute(route: ConnectionRoute): boolean {
+  const profile = Option.getOrNull(route.profile);
+  return profile?._tag === "BearerConnectionProfile" && profile.certificateSha256 !== undefined;
+}
+
+// A pinned LAN route is a backup: it ranks behind every route the user paired.
+const routeRank = (route: ConnectionRoute) =>
+  isPinnedLanRoute(route) ? ROUTE_KIND_RANK.relay + 1 : ROUTE_KIND_RANK[connectionRouteKind(route)];
+
 export function insertRoute(
   routes: ReadonlyArray<ConnectionRoute>,
   route: ConnectionRoute,
   { aheadOfSameKind = false }: { readonly aheadOfSameKind?: boolean } = {},
 ): ReadonlyArray<ConnectionRoute> {
   const kind = connectionRouteKind(route);
-  const rank = ROUTE_KIND_RANK[kind];
+  const rank = routeRank(route);
   const index = routes.findIndex((existing) => {
     const existingKind = connectionRouteKind(existing);
-    return ROUTE_KIND_RANK[existingKind] > rank || (aheadOfSameKind && existingKind === kind);
+    return routeRank(existing) > rank || (aheadOfSameKind && existingKind === kind);
   });
   return index === -1
     ? [...routes, route]
@@ -198,7 +208,7 @@ export function connectionRouteLabel(route: ConnectionRoute): string {
     case "loopback":
       return msg("This device");
     case "lan":
-      return "LAN";
+      return isPinnedLanRoute(route) ? msg("LAN fallback") : "LAN";
     case "tailnet":
       // Tailscale Serve answers over HTTPS on the machine's name; the same machine's
       // plain address is another route, so the two are told apart.
@@ -228,6 +238,8 @@ export function connectionRouteLabelText(
       return resolve(msg("This device"));
     case "public":
       return routeHostname(route) ?? resolve(msg("Remote link"));
+    case "lan":
+      return isPinnedLanRoute(route) ? resolve(msg("LAN fallback")) : "LAN";
     default:
       return connectionRouteLabel(route);
   }
@@ -259,6 +271,8 @@ export function mergeLearnedRoutes(input: {
   readonly reported: ReadonlyArray<ReportedEndpoint>;
   /** Plain HTTP routes are unusable from an HTTPS page (mixed content). */
   readonly allowInsecure: boolean;
+  /** Fork: LAN fallback. Only a client that verifies pinned certificates learns `lan-tls` routes. */
+  readonly pinsCertificates?: boolean;
 }): ReadonlyArray<ConnectionRoute> | null {
   const { entry } = input;
   const active = input.activeRoute.target;
@@ -279,6 +293,7 @@ export function mergeLearnedRoutes(input: {
       : undefined;
   const reported = new Map<string, URL>();
   const tailscaleOrigins = new Set<string>();
+  const pins = new Map<string, string>();
   for (const endpoint of input.reported) {
     let url: URL;
     try {
@@ -286,6 +301,9 @@ export function mergeLearnedRoutes(input: {
     } catch {
       continue;
     }
+    const pin = pinnedLanCertificate(endpoint, url);
+    if (endpoint.kind === "lan-tls" && (pin === null || input.pinsCertificates !== true)) continue;
+    if (pin !== null) pins.set(url.origin, pin);
     if (url.protocol !== "http:" && url.protocol !== "https:") continue;
     if (url.protocol === "http:" && !input.allowInsecure) continue;
     // A loopback address names whichever device opens it, never the server.
@@ -311,6 +329,11 @@ export function mergeLearnedRoutes(input: {
     }
     if (url === null || !reported.has(normalized(url)) || known.has(normalized(url))) return [];
     if (sendsTokenInClear(saved, route, tailscaleOrigins.has(normalized(url)))) return [];
+    // A rotated certificate replaces the route, so its new pin is saved.
+    const profile = Option.getOrNull(route.profile);
+    const savedPin =
+      profile?._tag === "BearerConnectionProfile" ? profile.certificateSha256 : undefined;
+    if (savedPin !== pins.get(normalized(url))) return [];
     known.add(normalized(url));
     return [withNetwork(route, tailscaleOrigins.has(normalized(url)))];
   });
@@ -347,6 +370,7 @@ export function mergeLearnedRoutes(input: {
           learned: true,
           ...(authorization === undefined ? {} : { authorization }),
           ...(tailscaleOrigins.has(url.origin) ? { network: "tailscale" as const } : {}),
+          ...(pins.has(url.origin) ? { certificateSha256: pins.get(url.origin)! } : {}),
         }),
       ),
     });
@@ -355,7 +379,7 @@ export function mergeLearnedRoutes(input: {
     routes
       .map(
         (route) =>
-          `${connectionRouteId(route.target)} ${routeHttpBaseUrl(route) ?? ""} ${connectionRouteKind(route)}`,
+          `${connectionRouteId(route.target)} ${routeHttpBaseUrl(route) ?? ""} ${connectionRouteKind(route)} ${pinOf(route)}`,
       )
       .join("\n");
   return signature(saved) === signature(next) ? null : next;
@@ -409,7 +433,24 @@ export function usableRoutes(entry: ConnectionCatalogEntry): ReadonlyArray<Conne
 export interface ReportedEndpoint {
   readonly httpBaseUrl: string;
   readonly kind?: string;
+  readonly certificateSha256?: string;
 }
+
+/**
+ * Fork: LAN fallback. The pin of a `lan-tls` endpoint, or null. Only an HTTPS address on the LAN
+ * may carry one: a pin never makes a plain HTTP, tailnet or public address usable.
+ */
+function pinnedLanCertificate(endpoint: ReportedEndpoint, url: URL): string | null {
+  if (endpoint.kind !== "lan-tls" || url.protocol !== "https:") return null;
+  if (directAddressKind(url.hostname) !== "lan") return null;
+  const pin = endpoint.certificateSha256;
+  return pin !== undefined && /^[0-9a-f]{64}$/.test(pin) ? pin : null;
+}
+
+const pinOf = (route: ConnectionRoute) => {
+  const profile = Option.getOrNull(route.profile);
+  return profile?._tag === "BearerConnectionProfile" ? (profile.certificateSha256 ?? "") : "";
+};
 
 function withNetwork(route: ConnectionRoute, tailscale: boolean): ConnectionRoute {
   const profile = Option.getOrNull(route.profile);
@@ -427,6 +468,9 @@ function withNetwork(route: ConnectionRoute, tailscale: boolean): ConnectionRout
         ...(profile.learned === undefined ? {} : { learned: profile.learned }),
         ...(profile.authorization === undefined ? {} : { authorization: profile.authorization }),
         ...(tailscale ? { network: "tailscale" as const } : {}),
+        ...(profile.certificateSha256 === undefined
+          ? {}
+          : { certificateSha256: profile.certificateSha256 }),
       }),
     ),
   };
