@@ -22,6 +22,23 @@ describe("fork read scopes", () => {
       AuthOrchestrationReadScope,
     );
     expect(RpcAuthorization.RPC_REQUIRED_SCOPES).toHaveProperty(
+      [CMDECK_WS_METHODS.botsList],
+      AuthOrchestrationReadScope,
+    );
+    for (const method of [
+      CMDECK_WS_METHODS.memoryList,
+      CMDECK_WS_METHODS.memoryRevisions,
+      CMDECK_WS_METHODS.memoryPreviewEdit,
+      CMDECK_WS_METHODS.memoryThreadMode,
+      CMDECK_WS_METHODS.memoryInjections,
+    ]) {
+      expect(RpcAuthorization.RPC_REQUIRED_SCOPES).toHaveProperty(
+        [method],
+        AuthOrchestrationReadScope,
+      );
+      expect(clientRpcRequiredScopes(method, {})).toEqual([]);
+    }
+    expect(RpcAuthorization.RPC_REQUIRED_SCOPES).toHaveProperty(
       [CMDECK_WS_METHODS.memoryEmbeddingsStatus],
       AuthOrchestrationReadScope,
     );

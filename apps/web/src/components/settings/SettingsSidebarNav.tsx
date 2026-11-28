@@ -33,6 +33,7 @@ import {
   SmartphoneIcon,
   WrenchIcon,
   XIcon,
+  BrainIcon,
 } from "lucide-react";
 import { resolveEventKeys } from "@t3tools/shared/keybindings";
 import { useLocation, useNavigate } from "@tanstack/react-router";
@@ -106,6 +107,7 @@ const SETTINGS_SECTION_ICONS: Readonly<
   "/settings/providers": BotIcon,
   "/settings/inference": CpuIcon,
   "/settings/threads": MessagesSquareIcon,
+  "/settings/memory": BrainIcon,
   "/settings/browser": GlobeIcon,
   "/settings/devices": SmartphoneIcon,
   "/settings/scheduled-tasks": CalendarClockIcon,

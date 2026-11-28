@@ -5,6 +5,7 @@ import { act, render } from "../../../test/render";
 import { AppRouteModal } from "../AppRouteModal";
 import { SidebarProvider } from "../ui/sidebar";
 import { SettingsSidebarNav } from "./SettingsSidebarNav";
+import { m } from "../../i18n/messages";
 import { settingsNavGroups, SETTINGS_SECTION_LABELS } from "./settingsSearch";
 
 vi.mock("./useAvailableSettingsSearchItems", () => ({
@@ -116,7 +117,7 @@ it("moves Tab through every settings section", async () => {
 
   const sections = settingsNavGroups(false)
     .flatMap((group) => group.paths)
-    .map((to) => SETTINGS_SECTION_LABELS[to]);
+    .map((to) => m(SETTINGS_SECTION_LABELS[to]));
   const tabbed: string[] = [];
   for (let step = 0; step < sections.length; step += 1) {
     await userEvent.tab();

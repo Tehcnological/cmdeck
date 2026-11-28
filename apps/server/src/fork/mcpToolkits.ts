@@ -2,6 +2,7 @@ import * as Layer from "effect/Layer";
 
 import type { toolkitRegistration } from "../mcp/McpHttpServer.ts";
 import * as OrchestratorMcpService from "../mcp/OrchestratorMcpService.ts";
+import * as BotTools from "./bots/mcpTools.ts";
 import * as MemoryTools from "./memory/mcpTools.ts";
 import * as CheckScriptTools from "./checkScripts/mcpTools.ts";
 
@@ -16,4 +17,5 @@ export const layer = (register: typeof toolkitRegistration) =>
     register(CheckScriptTools.CheckScriptToolkit, CheckScriptTools.layer).pipe(
       Layer.provide(OrchestratorMcpService.layer),
     ),
+    register(BotTools.BotsToolkit, BotTools.layer),
   );

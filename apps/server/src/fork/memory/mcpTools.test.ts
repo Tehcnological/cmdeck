@@ -55,5 +55,25 @@ describe("memory MCP tools", () => {
         }
       }),
     );
+
+    it.effect("memory_mode reads the mode and only makes it more private", () =>
+      Effect.gen(function* () {
+        const mode = (args: Record<string, unknown>) =>
+          callTool("memory_mode", args, threads.clone.id).pipe(
+            Effect.map((result) => (result.structuredContent as { mode: string }).mode),
+          );
+        expect(yield* mode({})).toBe("persistent");
+        expect(yield* mode({ mode: "temporary" })).toBe("temporary");
+        expect(yield* mode({ mode: "incognito" })).toBe("temporary");
+        // Making it less private is not a mode the tool accepts; only the user promotes.
+        const promote = yield* callTool(
+          "memory_mode",
+          { mode: "persistent" },
+          threads.clone.id,
+        ).pipe(Effect.exit);
+        expect(promote._tag).toBe("Failure");
+        expect(yield* mode({})).toBe("temporary");
+      }),
+    );
   });
 });

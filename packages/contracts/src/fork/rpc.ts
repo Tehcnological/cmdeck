@@ -8,6 +8,7 @@ import {
   AuthOrchestrationReadScope,
   AuthTerminalOperateScope,
   AuthSettingsWriteScope,
+  AuthOrchestrationOperateScope,
   type AuthEnvironmentScope,
   EnvironmentAuthorizationError,
 } from "../auth.ts";
@@ -34,7 +35,32 @@ import {
   ScheduledTaskCheckSetResult,
 } from "./checkScripts.ts";
 import { DecisionConsentSetInput, DecisionsError, DecisionsStatus } from "./decisions.ts";
-import { MemoryEmbeddingsStatus } from "./memory.ts";
+import {
+  BotCreateInput,
+  BotIdInput,
+  BotProfile,
+  BotScheduleInput,
+  BotsError,
+  BotUpdateInput,
+  BotWakeResult,
+} from "./bots.ts";
+import {
+  MemoryEditInput,
+  MemoryEmbeddingsStatus,
+  MemoryInjection,
+  MemoryItem,
+  MemoryBulkEditInput,
+  MemoryBulkEditResult,
+  MemoryItemIdInput,
+  MemoryListInput,
+  MemoryRememberInput,
+  MemoryRevertInput,
+  MemoryRevision,
+  MemoryRpcError,
+  SetThreadMemoryModeInput,
+  ThreadMemoryMode,
+  ThreadMemoryModeInput,
+} from "./memory.ts";
 
 // The `cmdeck.` prefix keeps fork methods clear of upstream's names. Append new methods here.
 export const CMDECK_WS_METHODS = {
@@ -53,6 +79,23 @@ export const CMDECK_WS_METHODS = {
   checkScriptsApprove: "cmdeck.checkScripts.approve",
   decisionsStatus: "cmdeck.decisions.status",
   decisionsSetConsent: "cmdeck.decisions.setConsent",
+  botsList: "cmdeck.bots.list",
+  botsCreate: "cmdeck.bots.create",
+  botsUpdate: "cmdeck.bots.update",
+  botsDelete: "cmdeck.bots.delete",
+  botsRestore: "cmdeck.bots.restore",
+  botsSchedule: "cmdeck.bots.schedule",
+  botsWake: "cmdeck.bots.wake",
+  memoryList: "cmdeck.memory.list",
+  memoryRevisions: "cmdeck.memory.revisions",
+  memoryEdit: "cmdeck.memory.edit",
+  memoryRevert: "cmdeck.memory.revert",
+  memoryPreviewEdit: "cmdeck.memory.previewEdit",
+  memoryApplyEdit: "cmdeck.memory.applyEdit",
+  memoryRemember: "cmdeck.memory.remember",
+  memoryThreadMode: "cmdeck.memory.threadMode",
+  memorySetThreadMode: "cmdeck.memory.setThreadMode",
+  memoryInjections: "cmdeck.memory.injections",
   memoryEmbeddingsStatus: "cmdeck.memory.embeddingsStatus",
 } as const;
 
@@ -159,6 +202,112 @@ const CmdeckDecisionsSetConsentRpc = Rpc.make(CMDECK_WS_METHODS.decisionsSetCons
   error: Schema.Union([DecisionsError, EnvironmentAuthorizationError]),
 });
 
+const BotsRpcError = Schema.Union([BotsError, EnvironmentAuthorizationError]);
+
+const CmdeckBotsListRpc = Rpc.make(CMDECK_WS_METHODS.botsList, {
+  payload: Schema.Struct({}),
+  success: Schema.Array(BotProfile),
+  error: BotsRpcError,
+});
+
+const CmdeckBotsCreateRpc = Rpc.make(CMDECK_WS_METHODS.botsCreate, {
+  payload: BotCreateInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsUpdateRpc = Rpc.make(CMDECK_WS_METHODS.botsUpdate, {
+  payload: BotUpdateInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsDeleteRpc = Rpc.make(CMDECK_WS_METHODS.botsDelete, {
+  payload: BotIdInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsRestoreRpc = Rpc.make(CMDECK_WS_METHODS.botsRestore, {
+  payload: BotIdInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsScheduleRpc = Rpc.make(CMDECK_WS_METHODS.botsSchedule, {
+  payload: BotScheduleInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsWakeRpc = Rpc.make(CMDECK_WS_METHODS.botsWake, {
+  payload: BotIdInput,
+  success: BotWakeResult,
+  error: BotsRpcError,
+});
+
+const MemoryError = Schema.Union([MemoryRpcError, EnvironmentAuthorizationError]);
+
+const CmdeckMemoryListRpc = Rpc.make(CMDECK_WS_METHODS.memoryList, {
+  payload: MemoryListInput,
+  success: Schema.Array(MemoryItem),
+  error: MemoryError,
+});
+
+const CmdeckMemoryRevisionsRpc = Rpc.make(CMDECK_WS_METHODS.memoryRevisions, {
+  payload: MemoryItemIdInput,
+  success: Schema.Array(MemoryRevision),
+  error: MemoryError,
+});
+
+const CmdeckMemoryEditRpc = Rpc.make(CMDECK_WS_METHODS.memoryEdit, {
+  payload: MemoryEditInput,
+  success: MemoryItem,
+  error: MemoryError,
+});
+
+const CmdeckMemoryRevertRpc = Rpc.make(CMDECK_WS_METHODS.memoryRevert, {
+  payload: MemoryRevertInput,
+  success: MemoryItem,
+  error: MemoryError,
+});
+
+const CmdeckMemoryPreviewEditRpc = Rpc.make(CMDECK_WS_METHODS.memoryPreviewEdit, {
+  payload: MemoryBulkEditInput,
+  success: MemoryBulkEditResult,
+  error: MemoryError,
+});
+
+const CmdeckMemoryApplyEditRpc = Rpc.make(CMDECK_WS_METHODS.memoryApplyEdit, {
+  payload: MemoryBulkEditInput,
+  success: MemoryBulkEditResult,
+  error: MemoryError,
+});
+
+const CmdeckMemoryRememberRpc = Rpc.make(CMDECK_WS_METHODS.memoryRemember, {
+  payload: MemoryRememberInput,
+  success: MemoryItem,
+  error: MemoryError,
+});
+
+const CmdeckMemoryThreadModeRpc = Rpc.make(CMDECK_WS_METHODS.memoryThreadMode, {
+  payload: ThreadMemoryModeInput,
+  success: Schema.Struct({ mode: ThreadMemoryMode }),
+  error: MemoryError,
+});
+
+const CmdeckMemorySetThreadModeRpc = Rpc.make(CMDECK_WS_METHODS.memorySetThreadMode, {
+  payload: SetThreadMemoryModeInput,
+  success: Schema.Struct({ mode: ThreadMemoryMode }),
+  error: MemoryError,
+});
+
+const CmdeckMemoryInjectionsRpc = Rpc.make(CMDECK_WS_METHODS.memoryInjections, {
+  payload: ThreadMemoryModeInput,
+  success: Schema.Array(MemoryInjection),
+  error: MemoryError,
+});
+
 const CmdeckMemoryEmbeddingsStatusRpc = Rpc.make(CMDECK_WS_METHODS.memoryEmbeddingsStatus, {
   payload: Schema.Struct({}),
   success: MemoryEmbeddingsStatus,
@@ -182,6 +331,23 @@ export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckCheckScriptsApproveRpc,
   CmdeckDecisionsStatusRpc,
   CmdeckDecisionsSetConsentRpc,
+  CmdeckBotsListRpc,
+  CmdeckBotsCreateRpc,
+  CmdeckBotsUpdateRpc,
+  CmdeckBotsDeleteRpc,
+  CmdeckBotsRestoreRpc,
+  CmdeckBotsScheduleRpc,
+  CmdeckBotsWakeRpc,
+  CmdeckMemoryListRpc,
+  CmdeckMemoryRevisionsRpc,
+  CmdeckMemoryEditRpc,
+  CmdeckMemoryRevertRpc,
+  CmdeckMemoryPreviewEditRpc,
+  CmdeckMemoryApplyEditRpc,
+  CmdeckMemoryRememberRpc,
+  CmdeckMemoryThreadModeRpc,
+  CmdeckMemorySetThreadModeRpc,
+  CmdeckMemoryInjectionsRpc,
   CmdeckMemoryEmbeddingsStatusRpc,
 );
 
@@ -196,6 +362,12 @@ export const FORK_RPC_READ_SCOPES = {
   [CMDECK_WS_METHODS.decisionsStatus]: AuthOrchestrationReadScope,
   // Scripts are task data, read like prompts.
   [CMDECK_WS_METHODS.checkScriptsList]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.botsList]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryList]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryRevisions]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryPreviewEdit]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryThreadMode]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryInjections]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.memoryEmbeddingsStatus]: AuthOrchestrationReadScope,
 } as const;
 
@@ -219,6 +391,20 @@ export const FORK_RPC_SCOPES = {
   [CMDECK_WS_METHODS.checkScriptsApprove]: AuthTerminalOperateScope,
   // Consent decides whether turn text may reach a model API, so only a settings writer grants it.
   [CMDECK_WS_METHODS.decisionsSetConsent]: AuthSettingsWriteScope,
+  // A bot is a thread plus scheduled tasks, so changing one needs what those commands need.
+  [CMDECK_WS_METHODS.botsCreate]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsUpdate]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsDelete]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsRestore]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsSchedule]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsWake]: AuthOrchestrationOperateScope,
+  // Memory is what agents are told every turn, so changing it is a settings write.
+  [CMDECK_WS_METHODS.memoryEdit]: AuthSettingsWriteScope,
+  [CMDECK_WS_METHODS.memoryRevert]: AuthSettingsWriteScope,
+  [CMDECK_WS_METHODS.memoryApplyEdit]: AuthSettingsWriteScope,
+  // Acting in one thread, as sending it a message does.
+  [CMDECK_WS_METHODS.memoryRemember]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.memorySetThreadMode]: AuthOrchestrationOperateScope,
 } as const satisfies Record<
   Exclude<ForkRpcTag, keyof typeof FORK_RPC_READ_SCOPES>,
   AuthEnvironmentScope
