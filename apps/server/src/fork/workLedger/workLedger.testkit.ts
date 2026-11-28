@@ -13,6 +13,7 @@ import * as McpHttpServer from "../../mcp/McpHttpServer.ts";
 import * as McpInvocationContext from "../../mcp/McpInvocationContext.ts";
 import * as McpToolAccessTestkit from "../../mcp/McpToolAccess.testkit.ts";
 import * as ForkMcpToolkits from "../mcpToolkits.ts";
+import { layerOrchestratorMcpStubs } from "../checkScripts/checkScripts.testkit.ts";
 
 import * as ProjectionStore from "../../orchestration-v2/ProjectionStore.ts";
 import * as SqlitePersistence from "../../persistence/Sqlite.ts";
@@ -58,6 +59,8 @@ export const layerWorkLedgerToolsTest = ForkMcpToolkits.layer(
   Layer.provideMerge(McpHttpServer.layerInProcessMcpServer),
   Layer.provideMerge(McpToolAccessTestkit.liveThreadsLayer),
   Layer.provideMerge(layerWorkLedgerTest),
+  // The check-script toolkit in the same registry needs upstream's orchestrator services.
+  Layer.provide(layerOrchestratorMcpStubs()),
 );
 
 const client = McpSchema.McpServerClient.of({

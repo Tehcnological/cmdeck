@@ -59,6 +59,18 @@ Create and manage scheduled tasks in **Settings → Scheduled tasks** (web, desk
 - **Destination**: Choose **New thread each run**, **One thread (continue conversation)**, or **One thread (fresh session each run)**. Deleting a target thread deletes tasks bound to it; archiving a target thread causes runs to fail (settle it instead).
 - **Controls**: Edit, pause, resume, run now (except webhook tasks), or delete from the list.
 
+### Check scripts
+
+A check script lets a task run only when there is work, without spending a model call to find out. Click the terminal button on a task's row (web and desktop) and choose an interpreter: `bash` (Git Bash on Windows), `node`, or `pwsh`. The script runs before each run, in the project folder, and its exit code decides:
+
+- **Exit 0**: the run starts, with the script's output added to the prompt as data. Put `{{check_output}}` in the prompt to choose where it goes.
+- **Exit 10**: the run is skipped. No thread, no turn, no model call.
+- **Anything else**, or the timeout (default 120 seconds): the run fails and you get a notification. It counts toward the three-failures pause.
+
+Turn on **Notify only** for a task that never needs the agent: exit 0 sends the script's output as a notification instead. Scripts can keep files in `CMDECK_STATE_DIR`, which survives between runs, and read `CMDECK_PREVIOUS_RUN_AT`, `CMDECK_TRIGGER` and `CMDECK_PROJECT_DIR`.
+
+Scripts run with the server's full access. A script you save runs as saved. A script an agent adds or changes (agents use the `set_scheduled_task_check` tool) does not run until you open it, read it and click **Approve**; until then the button shows a warning, each run fails with a note asking for approval, and those runs do not count toward the pause. Changing an approved script, or its interpreter, needs approval again.
+
 ### Webhook automations
 
 Choose **On webhook** as a task's schedule to trigger runs from external services (e.g., GitHub PR or CI events). A public URL needs your own [Cloudflare Tunnel](./cloudflare-tunnel.md#webhooks) with an Access bypass for the hooks path; click **Rotate** to invalidate and replace the URL.

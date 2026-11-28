@@ -25,6 +25,7 @@ import * as Notifications from "../notifications/Notifications.ts";
 import * as ThreadManagement from "../../orchestration-v2/ThreadManagementService.ts";
 import * as WorkLedger from "../workLedger/WorkLedger.ts";
 import { stopWorkers } from "../workLedger/stopWorkers.ts";
+import { CheckScripts } from "../checkScripts/CheckScripts.ts";
 import * as MemoryRpc from "../memory/MemoryRpc.ts";
 
 /** Spread into the server's WS handlers; each fork module adds its methods here. */
@@ -45,6 +46,7 @@ export const make = Effect.gen(function* () {
   );
   const ledgerFailure = (error: WorkLedger.WorkLedgerStoreError) =>
     new WorkLedgerError({ reason: error.message });
+  const checks = yield* CheckScripts;
   const decisions = yield* Effect.serviceOption(Decisions);
   const noDecisions = Effect.fail(
     new DecisionsError({ detail: "The decision service is not available." }),
@@ -97,6 +99,11 @@ export const make = Effect.gen(function* () {
       Option.isSome(ledger) && Option.isSome(threads) && Option.isSome(random)
         ? stopWorkers(ledger.value, threads.value, random.value, input.threadId)
         : noLedger,
+    [CMDECK_WS_METHODS.checkScriptsList]: () =>
+      Effect.map(checks.list, (list) => ({ checks: list })),
+    [CMDECK_WS_METHODS.checkScriptsSet]: (input) =>
+      Effect.map(checks.set({ ...input, by: "user" }), (check) => ({ check })),
+    [CMDECK_WS_METHODS.checkScriptsApprove]: (input) => Effect.as(checks.approve(input), {}),
     [CMDECK_WS_METHODS.decisionsStatus]: () =>
       Option.isSome(decisions) ? decisions.value.status : noDecisions,
     [CMDECK_WS_METHODS.decisionsSetConsent]: (input) =>

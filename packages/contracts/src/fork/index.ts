@@ -5,6 +5,7 @@ export * from "./settings.ts";
 export * from "./workflowTrust.ts";
 export * from "./memory.ts";
 export * from "./workLedger.ts";
+export * from "./checkScripts.ts";
 export * from "./decisions.ts";
 export * from "./approvalPolicy.ts";
 export * from "./bots.ts";

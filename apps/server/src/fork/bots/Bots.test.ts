@@ -31,6 +31,7 @@ import * as MemoryStore from "../memory/MemoryStore.ts";
 import { asAgentIn, layerMemoryTest, threads } from "../memory/memory.testkit.ts";
 import * as TurnContext from "../memory/TurnContext.ts";
 import * as ForkMcpToolkits from "../mcpToolkits.ts";
+import { layerOrchestratorMcpStubs } from "../checkScripts/checkScripts.testkit.ts";
 import { Bots, layer as botsLayer } from "./Bots.ts";
 
 const modelSelection = { instanceId: ProviderInstanceId.make("codex"), model: "gpt-test" };
@@ -153,6 +154,8 @@ const makeWorld = Effect.gen(function* () {
   const mcpLayer = ForkMcpToolkits.layer(McpHttpServer.toolkitRegistration).pipe(
     Layer.provideMerge(McpHttpServer.layerInProcessMcpServer),
     Layer.provideMerge(layer),
+    // The check-script toolkit in the same registry needs upstream's orchestrator services.
+    Layer.provide(layerOrchestratorMcpStubs()),
   );
   return { commands, tasks, ranNow, threadModes, layer, mcpLayer };
 });
