@@ -1,8 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import { requestGuarded } from "@t3tools/client-runtime/rpc";
 import {
-  createEnvironmentQueryAtomFamily,
   createEnvironmentRpcCommand,
+  createEnvironmentRpcQueryAtomFamily,
 } from "@t3tools/client-runtime/state/runtime";
 import {
   CMDECK_WS_METHODS,
@@ -10,7 +9,6 @@ import {
   type SandboxConfigureInput,
   type SandboxRuntimeKind,
   type SandboxStatus,
-  type SandboxStatusInput,
 } from "@t3tools/contracts";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
@@ -40,15 +38,10 @@ import {
   recipeFromForm,
 } from "./containerSandbox.logic";
 
-export const sandboxStatus = createEnvironmentQueryAtomFamily(connectionAtomRuntime, {
+export const sandboxStatus = createEnvironmentRpcQueryAtomFamily(connectionAtomRuntime, {
   label: "environment-data:cmdeck:sandbox-status",
-  staleTimeMs: 0,
-  execute: (input: SandboxStatusInput) => requestGuarded(CMDECK_WS_METHODS.sandboxStatus, input),
-});
-
-const checkSandbox = createEnvironmentRpcCommand(connectionAtomRuntime, {
-  label: "environment-data:cmdeck:sandbox-check",
   tag: CMDECK_WS_METHODS.sandboxStatus,
+  staleTimeMs: 0,
 });
 
 export const configureSandbox = createEnvironmentRpcCommand(connectionAtomRuntime, {
@@ -73,12 +66,13 @@ export function ContainerSandboxSection() {
 function ContainerSandbox({ environmentId }: { readonly environmentId: EnvironmentId }) {
   const gt = useGT();
   // Read afresh each time Settings opens; the server probes Docker only once an image is set.
-  const statusAtom = sandboxStatus({ environmentId, input: {} });
+  // "Check again" switches to a query that probes the runtimes afresh.
+  const [probe, setProbe] = useState(false);
+  const statusAtom = sandboxStatus({ environmentId, input: probe ? { refresh: true } : {} });
   const result = useAtomValue(statusAtom);
   const refresh = useAtomRefresh(statusAtom);
   const canChange = useAtomValue(configureSandbox.permissionAtom(environmentId));
   const configure = useAtomCommand(configureSandbox, { reportFailure: false });
-  const check = useAtomCommand(checkSandbox, { reportFailure: false });
   const projects = useProjects().filter(
     (project) => project.environmentId === environmentId && project.isScratch !== true,
   );
@@ -113,11 +107,7 @@ function ContainerSandbox({ environmentId }: { readonly environmentId: Environme
       id="containers"
       title={gt("Containers")}
       headerAction={
-        <Button
-          size="xs"
-          variant="outline"
-          onClick={() => void check({ environmentId, input: { refresh: true } }).then(refresh)}
-        >
+        <Button size="xs" variant="outline" onClick={() => (probe ? refresh() : setProbe(true))}>
           <T>Check again</T>
         </Button>
       }
