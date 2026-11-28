@@ -287,10 +287,10 @@ required=(
   # A sandboxed thread's Claude launches through the container scope even from a script entry.
   'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:import \* as ForkSandbox from "\.\./\.\./fork/sandbox/ContainerSandbox\.ts";'
   'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const inContainer = yield\* ForkSandbox\.sandboxedThreadCheck;'
-  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:!\(yield\* inContainer\(input\.threadId\)\)'
+  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const sandboxed = yield\* inContainer\(input\.threadId\);'
   'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:command: binaryPath \?\? "claude",'
-  # ...and gets no MCP servers, so it holds no CMDeck credential.
-  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const mcpServers = \(yield\* inContainer\(input\.threadId\)\) \? undefined : requestedMcpServers;'
+  # ...and gets no MCP servers, so it holds no CMDeck credential, decided once with the scope's say.
+  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const mcpServers = ForkSandbox\.isContained\(sandboxed, unit\) \? undefined : requestedMcpServers;'
 )
 # 6. Only a person approves a workflow file: no MCP tool may reach the trust gate (WI-1.06).
 hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts)"

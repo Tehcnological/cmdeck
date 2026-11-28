@@ -151,6 +151,8 @@ interface ModeRow {
 const decodeRecipe = Schema.decodeEffect(Schema.fromJsonString(SandboxRecipe));
 const encodeRecipe = Schema.encodeEffect(Schema.fromJsonString(SandboxRecipe));
 
+const CONTAINER_PREFIX = "cmdeck-";
+
 const safeId = (threadId: string) => threadId.replace(/[^A-Za-z0-9_-]/g, "_");
 
 const toError = (detail: string) => (cause: unknown) => new SandboxError({ detail, cause });
@@ -477,7 +479,7 @@ const make = Effect.gen(function* () {
       (hostPath) => containerPathFor(hostPath, platform),
       agent,
     );
-    const name = `cmdeck-${input.name}-${NodeCrypto.randomUUID().slice(0, 12)}`;
+    const name = `${CONTAINER_PREFIX}${input.name}-${NodeCrypto.randomUUID().slice(0, 12)}`;
     const mounts = mountsFor(workspace, current, git.mounts);
     const inContainer = containerCommand(input.name, input.command, input.args);
     const binary = RUNTIME_TRAITS[current.runtime].binary;
@@ -533,7 +535,7 @@ const make = Effect.gen(function* () {
     wrap,
     oomKilled: inner.oomKilled,
     stop: Effect.fn("ContainerSandbox.stop")(function* (unit) {
-      if (!unit.startsWith("cmdeck-")) return yield* inner.stop(unit);
+      if (!unit.startsWith(CONTAINER_PREFIX)) return yield* inner.stop(unit);
       const runtime = yield* cleanupRuntime;
       if (runtime !== null) yield* remove(runtime, [unit]);
       const threadId = agentUnits.get(unit);
@@ -720,6 +722,13 @@ export const sandboxedThreadCheck = Effect.map(
   (sandbox) => (threadId: string) =>
     Option.isSome(sandbox) ? sandbox.value.isSandboxed(threadId) : Effect.succeed(false),
 );
+
+/**
+ * Whether a launch runs in a container: the thread was sandboxed when checked, or the scope that
+ * wrapped it started a container anyway (turned on in between). Either way it gets no credentials.
+ */
+export const isContained = (sandboxed: boolean, unit: string | undefined) =>
+  sandboxed || unit?.startsWith(CONTAINER_PREFIX) === true;
 
 /** The service and the AgentScope it wraps, without the stores it reads (tests provide fakes). */
 export const layerCore = Layer.effectContext(

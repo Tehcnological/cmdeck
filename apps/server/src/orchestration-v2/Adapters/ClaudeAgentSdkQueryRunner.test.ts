@@ -336,6 +336,62 @@ it.effect.each([true, false])(
     ),
 );
 
+// Fork (WI-2.18): whether a launch is in a container is decided once, and the scope that ran it
+// has the last word, so a thread turned on mid-launch never gets a credential inside a container.
+it.effect.each([
+  ["a script entry, turned on after the first check", "/opt/claude/cli.js", [false, true]],
+  ["a native binary the scope put in a container", "/opt/claude/claude", [false]],
+] as const)("never registers MCP servers for a container launch: %s", ([, cli, answers]) =>
+  Effect.gen(function* () {
+    const registered: Array<unknown> = [];
+    const wraps: Array<string> = [];
+    let checks = 0;
+    const querySpy = vi.spyOn(ClaudeSdk, "query").mockImplementation(
+      () =>
+        ({
+          initializationResult: async () => ({}),
+          setMcpServers: async (servers: unknown) => {
+            registered.push(servers);
+            return { added: ["t3-code"], removed: [], errors: {} };
+          },
+          close: vi.fn(),
+        }) as unknown as ClaudeSdk.Query,
+    );
+    yield* Effect.addFinalizer(() => Effect.sync(() => querySpy.mockRestore()));
+    const session = yield* Effect.gen(function* () {
+      const runner = yield* ClaudeAgentSdkQueryRunner;
+      return yield* runner.open({
+        ...resumedMcpQueryInput,
+        options: { ...resumedMcpQueryInput.options, pathToClaudeCodeExecutable: cli },
+      });
+    }).pipe(
+      Effect.provide(
+        realQueryRunner.pipe(
+          Layer.provide(
+            Layer.mergeAll(
+              Layer.succeed(AgentScope, {
+                ...AgentScope.defaultValue(),
+                wrap: ({ command }) =>
+                  Effect.sync(() => {
+                    wraps.push(command);
+                    return { command: "docker", args: ["run", "image"], unit: "cmdeck-claude-1" };
+                  }),
+              }),
+              Layer.mock(ContainerSandbox)({
+                isSandboxed: () =>
+                  Effect.succeed(answers[Math.min(checks++, answers.length - 1)] ?? true),
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+    yield* Effect.addFinalizer(() => session.close.pipe(Effect.orDie));
+    assert.equal(checks, 1);
+    assert.isFalse(wraps.length > 0 && registered.length > 0);
+  }),
+);
+
 it.effect("reopens a stalled MCP registration before delivering the resumed prompt", () =>
   Effect.gen(function* () {
     const registrationStarted = Promise.withResolvers<void>();

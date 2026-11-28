@@ -1759,7 +1759,6 @@ export const layerQueryRunner: Layer.Layer<
       );
       // Send MCP credentials over stdin to keep them out of SDK argv and inherited command environments.
       const { mcpServers: requestedMcpServers, ...sdkOptions } = input.options;
-      const mcpServers = (yield* inContainer(input.threadId)) ? undefined : requestedMcpServers;
       // Jobs the agent starts inherit the thread, so port discovery can attribute their servers.
       let resumeSessionAt = sdkOptions.resumeSessionAt;
       let endsOnFailedRequest = false;
@@ -1800,10 +1799,11 @@ export const layerQueryRunner: Layer.Layer<
       };
       // The SDK can prepend a scope wrapper to native binaries; script entries run through node.
       const binaryPath = queryOptions.pathToClaudeCodeExecutable;
+      const sandboxed = yield* inContainer(input.threadId);
       const launch =
         (binaryPath === undefined ||
           CLAUDE_SCRIPT_EXTENSIONS.some((ext) => binaryPath.endsWith(ext))) &&
-        !(yield* inContainer(input.threadId))
+        !sandboxed
           ? undefined
           : yield* agentScope.wrap({
               command: binaryPath ?? "claude",
@@ -1821,6 +1821,7 @@ export const layerQueryRunner: Layer.Layer<
               executableArgs: [...launch.args, ...(queryOptions.executableArgs ?? [])],
             };
       const unit = launch?.unit;
+      const mcpServers = ForkSandbox.isContained(sandboxed, unit) ? undefined : requestedMcpServers;
       const stopScope = unit === undefined ? undefined : () => void runFork(agentScope.stop(unit));
       // Only a CLI that fails before its first message explains itself on
       // stderr. The known root refusal becomes a curated failure; any other
