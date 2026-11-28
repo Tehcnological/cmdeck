@@ -1,7 +1,7 @@
 // Ported from agent-of-empires@e5cf0b9f388de560e5716184f5507d744a517f27 src/containers/runtime_base.rs
 // (create_args), src/containers/container_interface.rs (docker_env_args) and
 // src/session/config/container_config.rs (the .git overlay table) (MIT).
-import type { SandboxRuntimeKind } from "@t3tools/contracts";
+import type { SandboxRecipe, SandboxRuntimeKind } from "@t3tools/contracts";
 
 /** What each CLI can do; Apple `container` has no read-only mounts and no network-off mode. */
 export const RUNTIME_TRAITS = {
@@ -56,7 +56,51 @@ export interface RunSpec {
 
 // `--mount` is CSV: a field holding a comma or quote is quoted, with quotes doubled.
 const csvField = (field: string) =>
-  /[",]/.test(field) ? `"${field.replaceAll('"', '""')}"` : field;
+  /[",\r\n]/.test(field) ? `"${field.replaceAll('"', '""')}"` : field;
+
+// Image references, network and runtime names, CPU and memory amounts: one token that cannot
+// start a flag. Characters cover registry:port/path:tag@sha256:digest and values like 1.5 or 4g.
+const TOKEN = /^[A-Za-z0-9][A-Za-z0-9._:/@+=-]*$/;
+const UNSAFE_PATH = /[\u0000-\u001f]/;
+const ABSOLUTE_PATH = /^(\/|~(\/|\\|$)|[A-Za-z]:[\\/]|\\\\)/;
+
+/** Trims every field, so " none " is none and stray spaces never reach argv. */
+export function normalizeRecipe(recipe: SandboxRecipe): SandboxRecipe {
+  const trimmedOrNull = (value: string | null) =>
+    value === null || value.trim() === "" ? null : value.trim();
+  return {
+    ...recipe,
+    ociRuntime: trimmedOrNull(recipe.ociRuntime),
+    image: recipe.image.trim(),
+    network: recipe.network.trim(),
+    cpus: trimmedOrNull(recipe.cpus),
+    memory: trimmedOrNull(recipe.memory),
+    mounts: recipe.mounts.map((mount) => ({ ...mount, hostPath: mount.hostPath.trim() })),
+    env: recipe.env.map((name) => name.trim()).filter((name) => name !== ""),
+  };
+}
+
+/** What is wrong with a normalized recipe, naming the field, or null when argv can carry it. */
+export function recipeProblem(recipe: SandboxRecipe): string | null {
+  const fields: ReadonlyArray<readonly [string, string | null]> = [
+    ["image", recipe.image === "" ? null : recipe.image],
+    ["network", recipe.network],
+    ["OCI runtime", recipe.ociRuntime],
+    ["CPUs", recipe.cpus],
+    ["memory", recipe.memory],
+  ];
+  for (const [label, value] of fields) {
+    if (value !== null && !TOKEN.test(value)) {
+      return `The ${label} must be one word that does not start with "-".`;
+    }
+  }
+  for (const mount of recipe.mounts) {
+    if (UNSAFE_PATH.test(mount.hostPath) || !ABSOLUTE_PATH.test(mount.hostPath)) {
+      return "Each mount must be an absolute path or start with ~, on one line.";
+    }
+  }
+  return null;
+}
 
 /** `--mount` rather than `-v`: it never creates a missing source, and drive letters need no parsing. */
 export function mountArg(mount: ContainerMount, readOnly: boolean): string {

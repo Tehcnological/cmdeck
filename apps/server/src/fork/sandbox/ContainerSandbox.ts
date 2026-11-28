@@ -48,8 +48,10 @@ import {
   LABEL_OWNER,
   LABEL_THREAD,
   listArgs,
+  normalizeRecipe,
   parseDockerRuntimes,
   parseList,
+  recipeProblem,
   removeArgs,
   RUNTIME_TRAITS,
   runArgs,
@@ -689,13 +691,15 @@ const make = Effect.gen(function* () {
         }),
       );
     if (input.recipe !== undefined) {
-      const next = input.recipe;
+      const next = normalizeRecipe(input.recipe);
       if (next.ociRuntime !== null && next.runtime !== "docker") {
         return yield* new SandboxError({ detail: "An OCI runtime applies to Docker only." });
       }
-      if (next.network.trim() === "") {
+      if (next.network === "") {
         return yield* new SandboxError({ detail: "Choose a network, or none." });
       }
+      const problem = recipeProblem(next);
+      if (problem !== null) return yield* new SandboxError({ detail: problem });
       const opened = yield* atomically(
         Effect.gen(function* () {
           const previous = yield* recipe;

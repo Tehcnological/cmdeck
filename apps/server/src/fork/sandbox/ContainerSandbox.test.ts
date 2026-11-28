@@ -444,6 +444,20 @@ describe("disabled with a reason", () => {
     ),
   );
 
+  it.effect("refuses a recipe whose image would read as a Docker flag", () =>
+    withSandbox({}, () =>
+      Effect.gen(function* () {
+        const sandbox = yield* ContainerSandbox;
+        const before = (yield* sandbox.status({})).recipe;
+        const error = yield* sandbox
+          .configure({ recipe: { ...before, image: "--privileged" } }, "user")
+          .pipe(Effect.flip);
+        expect(error.detail).toContain("image");
+        expect((yield* sandbox.status({})).recipe.image).toBe(before.image);
+      }),
+    ),
+  );
+
   it.effect("refuses a launch with its own Docker config", () =>
     withSandbox({}, () =>
       Effect.gen(function* () {
