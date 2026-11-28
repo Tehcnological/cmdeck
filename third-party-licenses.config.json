@@ -3,6 +3,21 @@
     {
       "bundles": ["desktop", "web"],
       "license": "Apache-2.0",
+      "name": "Kiro Crew monitor decision order and nothing_to_do tool text (monitor loops, quiet turns)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "Adapted for CMDeck's monitor loops and quiet turns (apps/server/src/fork/monitoring/decide.ts and mcpTools.ts) from monitoring/decision.py and mcp_tools/control_parts/schemas.py. Changes: the decision order (terminal, budget, dedup by fingerprint) was rewritten in TypeScript for one loop shape with busy-thread coalescing and an idle wait; the nothing_to_do description was shortened, renamed nothing_to_report and limited to automated turns."
+          ]
+        }
+      ]
+    },
+    {
+      "bundles": ["desktop", "web"],
+      "license": "Apache-2.0",
       "name": "Kiro Crew knowledge chunker and ignore rules (knowledge library)",
       "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/knowledge",
       "generatedNotices": [

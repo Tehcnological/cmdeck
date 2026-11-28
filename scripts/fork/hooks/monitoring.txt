@@ -1,0 +1,7 @@
+# WI-2.12: nothing_to_report shows as a compact "Checked, nothing to report" row.
+packages/shared/src/t3McpToolPresentation.ts:\| "nothing-to-report";
+packages/shared/src/t3McpToolPresentation.ts:nothing_to_report: tool\( *\["Check", "Checking", "Checked", "nothing to report"\], *"nothing-to-report",? *\),
+packages/client-runtime/src/work-log/t3ToolSentences.ts:"Check.nChecking.nChecked.nnothing to report",
+packages/client-runtime/src/t3ToolSummary.ts:case "nothing-to-report": \{
+# WI-2.12: a nothing_to_report run reads as stopped in the shell, so web and desktop skip its completion notice and sound.
+apps/server/src/orchestration-v2/ProjectionStore.ts:OR EXISTS \(SELECT 1 FROM quiet_turns quiet WHERE quiet\.thread_id = t\.thread_id AND quiet\.run_id = presented\.run_id\)

@@ -18,6 +18,9 @@ import * as WorkLedger from "./workLedger/WorkLedger.ts";
 import * as CheckScripts from "./checkScripts/CheckScripts.ts";
 import * as CheckScriptAlerts from "./checkScripts/alerts.ts";
 import * as UsageAlerts from "./usageAlerts/UsageAlerts.ts";
+import * as Heartbeat from "./monitoring/Heartbeat.ts";
+import * as MonitorGate from "./monitoring/MonitorGate.ts";
+import * as MonitorLoops from "./monitoring/MonitorLoops.ts";
 import * as Layers from "./layers.ts";
 
 /**
@@ -30,13 +33,18 @@ export const layer = Layer.mergeAll(
   RemoteMcpTokens.layer,
   PublicAddressCheck.layer,
   // The approval policy audits and alerts on each decline, usage alerts alert on thresholds,
-  // check scripts report through alerts, and Notifications audits its own changes; all share
-  // one Notifications.
+  // check scripts report through alerts, the heartbeat alerts on health changes, and
+  // Notifications audits its own changes; all share one Notifications. Quiet turns suppress it.
   Layer.mergeAll(
     ApprovalPolicy.layer.pipe(Layer.provide(ProjectionStore.layer)),
     UsageAlerts.layer,
     CheckScriptAlerts.layer,
-  ).pipe(Layer.provideMerge(Notifications.layer), Layer.provideMerge(AuditLog.layer)),
+    Heartbeat.layer,
+  ).pipe(
+    Layer.provideMerge(Notifications.layer),
+    Layer.provideMerge(MonitorLoops.suppressionLayer),
+    Layer.provideMerge(AuditLog.layer),
+  ),
   MessagePins.layer.pipe(Layer.provide(ProjectionStore.layer)),
   ...Object.values(Layers),
 );
@@ -71,6 +79,9 @@ export const layerBeneathOrchestration = Layer.merge(
     Layer.provideMerge(Decisions.layer),
     Layer.provide(ProjectionStore.layer),
   ),
-  // The scheduler gates runs on it (WI-2.11).
-  CheckScripts.layer,
+  // The scheduler gates runs on it (WI-2.11), and monitor loops decide right after it (WI-2.12).
+  MonitorGate.checkScriptsLayer.pipe(
+    Layer.provide(CheckScripts.layer),
+    Layer.provideMerge(MonitorGate.layer),
+  ),
 );

@@ -374,6 +374,14 @@ Limits: the shell is simulated, so a CLI's output is the simulator's reading of 
 pnpm mcp-tool-use --cases mcp-tool-use/cases/check-scripts.ndjson --samples 3 --out runs/check-scripts
 ```
 
+## Monitoring cases
+
+`cases/monitoring.ndjson` covers CMDeck's monitor loop and quiet-turn tools (WI-2.12): asked to keep watching CI, the agent arms `monitor_start` on its own thread; a loop wake whose check shows no change ends with `nothing_to_report`; a user who asks for the status directly gets an answer, not a quiet turn (control); and a user who no longer needs the watch gets `monitor_stop`. All prompts and mocks are authored Acme data. Not yet run.
+
+```sh
+pnpm mcp-tool-use --cases mcp-tool-use/cases/monitoring.ndjson --samples 3 --out runs/monitoring
+```
+
 ## Event trigger cases
 
 `cases/event-triggers.ndjson` covers the `event` schedule type of `schedule_task` (CMDeck WI-2.13): a task that reacts to failed turns gets an event trigger rather than an interval; a note on approvals in any project leaves out the project filter; and a weekly task stays a timed schedule (control). All prompts and mocks are authored Acme data. Not yet run.
