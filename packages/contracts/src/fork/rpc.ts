@@ -68,6 +68,13 @@ import {
   ThreadMemoryMode,
   ThreadMemoryModeInput,
 } from "./memory.ts";
+import {
+  MessagePin,
+  MessagePinInput,
+  MessagePinsError,
+  MessagePinsListInput,
+  MessageUnpinInput,
+} from "./messagePins.ts";
 
 // The `cmdeck.` prefix keeps fork methods clear of upstream's names. Append new methods here.
 export const CMDECK_WS_METHODS = {
@@ -107,6 +114,9 @@ export const CMDECK_WS_METHODS = {
   memorySetThreadMode: "cmdeck.memory.setThreadMode",
   memoryInjections: "cmdeck.memory.injections",
   memoryEmbeddingsStatus: "cmdeck.memory.embeddingsStatus",
+  messagePinsList: "cmdeck.messagePins.list",
+  messagePinsPin: "cmdeck.messagePins.pin",
+  messagePinsUnpin: "cmdeck.messagePins.unpin",
 } as const;
 
 /** Fork stream methods the client runtime subscribes to like upstream's. */
@@ -343,6 +353,25 @@ const CmdeckMemoryEmbeddingsStatusRpc = Rpc.make(CMDECK_WS_METHODS.memoryEmbeddi
   error: EnvironmentAuthorizationError,
 });
 
+const MessagePinsFailure = Schema.Union([MessagePinsError, EnvironmentAuthorizationError]);
+
+const CmdeckMessagePinsListRpc = Rpc.make(CMDECK_WS_METHODS.messagePinsList, {
+  payload: MessagePinsListInput,
+  success: Schema.Array(MessagePin),
+  error: MessagePinsFailure,
+});
+
+const CmdeckMessagePinsPinRpc = Rpc.make(CMDECK_WS_METHODS.messagePinsPin, {
+  payload: MessagePinInput,
+  success: MessagePin,
+  error: MessagePinsFailure,
+});
+
+const CmdeckMessagePinsUnpinRpc = Rpc.make(CMDECK_WS_METHODS.messagePinsUnpin, {
+  payload: MessageUnpinInput,
+  error: MessagePinsFailure,
+});
+
 /** Merged into `WsRpcGroup`, so fork methods share its scope middleware. */
 export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckStatusRpc,
@@ -381,6 +410,9 @@ export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckMemorySetThreadModeRpc,
   CmdeckMemoryInjectionsRpc,
   CmdeckMemoryEmbeddingsStatusRpc,
+  CmdeckMessagePinsListRpc,
+  CmdeckMessagePinsPinRpc,
+  CmdeckMessagePinsUnpinRpc,
 );
 
 /**
@@ -401,6 +433,7 @@ export const FORK_RPC_READ_SCOPES = {
   [CMDECK_WS_METHODS.memoryThreadMode]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.memoryInjections]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.memoryEmbeddingsStatus]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.messagePinsList]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.workLedgerList]: AuthOrchestrationReadScope,
 } as const;
 
@@ -441,6 +474,9 @@ export const FORK_RPC_SCOPES = {
   // Acting in one thread, as sending it a message does.
   [CMDECK_WS_METHODS.memoryRemember]: AuthOrchestrationOperateScope,
   [CMDECK_WS_METHODS.memorySetThreadMode]: AuthOrchestrationOperateScope,
+  // A pin marks a thread for everyone on the server, as other thread changes do.
+  [CMDECK_WS_METHODS.messagePinsPin]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.messagePinsUnpin]: AuthOrchestrationOperateScope,
 } as const satisfies Record<
   Exclude<ForkRpcTag, keyof typeof FORK_RPC_READ_SCOPES>,
   AuthEnvironmentScope

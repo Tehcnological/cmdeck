@@ -276,6 +276,12 @@ required=(
   # WI-2.21: design-critique eval cases load the repo skill they test.
   'evals/mcp-tool-use/run.ts:skill: Schema\.optional\(Schema\.String\),'
   'evals/mcp-tool-use/run.ts:: invokedSkillPrompt\('
+  # WI-2.15: message pins. Pin buttons in message actions and the timeline's jump to a pin.
+  'apps/web/src/components/chat/TimelineAssistantRows.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{message\.id\} +text=\{message\.text\}'
+  'apps/web/src/components/chat/TimelineUserMessageRow.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{row\.message\.id\} +text=\{text\}'
+  'apps/web/src/components/chat/TimelineUserMessageRow.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{row\.message\.id\} +text=\{plainText\}'
+  'apps/web/src/components/chat/MessagesTimeline.tsx:useMessagePinJump\(\{ +threadKey: routeThreadKey,'
+  'apps/server/src/persistence/ForkSchema.ts:yield\* ensureMessagePinsSchema\(\)'
 )
 # 6. Only a person approves a workflow file: no MCP tool may reach the trust gate (WI-1.06).
 hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts)"

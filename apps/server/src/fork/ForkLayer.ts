@@ -12,6 +12,7 @@ import * as Decisions from "./decisions/Decisions.ts";
 import * as Notifications from "./notifications/Notifications.ts";
 import * as MemoryEmbeddings from "./memory/MemoryEmbeddings.ts";
 import * as MemoryStore from "./memory/MemoryStore.ts";
+import * as MessagePins from "./messagePins/MessagePins.ts";
 import * as TurnContext from "./memory/TurnContext.ts";
 import * as WorkLedger from "./workLedger/WorkLedger.ts";
 import * as CheckScripts from "./checkScripts/CheckScripts.ts";
@@ -34,6 +35,7 @@ export const layer = Layer.mergeAll(
     UsageAlerts.layer,
     CheckScriptAlerts.layer,
   ).pipe(Layer.provideMerge(Notifications.layer), Layer.provideMerge(AuditLog.layer)),
+  MessagePins.layer.pipe(Layer.provide(ProjectionStore.layer)),
   Bots.layer,
 );
 

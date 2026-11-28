@@ -28,9 +28,9 @@ import {
 } from "../../components/ui/menu";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../../components/ui/tooltip";
 import { useEnvironmentSettings } from "../../hooks/useSettings";
-import { useRightPanelStore } from "../../rightPanelStore";
 import { useEnvironmentQuery } from "../../state/query";
 import { useAtomCommand } from "../../state/use-atom-command";
+import { openForkPanel } from "../panels";
 import { memoryModeChip } from "./memoryMode.logic";
 import { setThreadMemoryMode, threadMemoryMode } from "./memoryRpc";
 
@@ -151,11 +151,7 @@ function MemoryModeMenu(props: {
           </T>
         </p>
         <MenuSeparator />
-        <MenuItem
-          onClick={() =>
-            useRightPanelStore.getState().open(scopeThreadRef(environmentId, threadId), "cmdeck")
-          }
-        >
+        <MenuItem onClick={() => openForkPanel(scopeThreadRef(environmentId, threadId), "memory")}>
           <HistoryIcon />
           <T>Memory used here</T>
         </MenuItem>
