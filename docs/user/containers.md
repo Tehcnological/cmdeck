@@ -57,12 +57,13 @@ The worktree is mounted at the same path it has on the host (on Windows, `C:\wor
 separate git history CMDeck keeps for the thread, starting from the branch's latest commit.
 
 When the agent's container stops, CMDeck copies its new commits onto the thread's branch. If the
-branch moved on the host in the meantime, nothing on the branch changes and the agent's commits
-wait under `refs/cmdeck/sandbox/<thread>` for you to merge or cherry-pick.
+branch moved on the host in the meantime, or the commits add a submodule, the branch stays as it
+is and the agent's commits wait under `refs/cmdeck/sandbox/<thread>` for you to merge or
+cherry-pick.
 
 A thread can run in a container only from the root of a git repository or worktree with at least
-one commit and no submodules, on a case-sensitive volume (on Windows, a folder made case-sensitive with
-`fsutil file setCaseSensitiveInfo`).
+one commit and no submodules, on a case-sensitive volume (on Windows, a folder made
+case-sensitive with `fsutil file setCaseSensitiveInfo`).
 
 ## Limits
 

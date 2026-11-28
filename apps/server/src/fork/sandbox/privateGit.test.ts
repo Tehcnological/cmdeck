@@ -139,6 +139,36 @@ describe("private git dir", () => {
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
+  it.effect("keeps a commit that adds a submodule off the branch", () =>
+    Effect.gen(function* () {
+      const host = yield* makeHost;
+      const workspace = yield* makeWorkspace;
+      yield* Effect.gen(function* () {
+        const agent = yield* launchAgent;
+        const privateDir = yield* privateDirOf;
+        const start = yield* gitIn(workspace, ["rev-parse", "HEAD"]);
+        // A gitlink in the branch's index would make host git status enter the planted repo.
+        const env = {
+          ...process.env,
+          GIT_DIR: privateDir,
+          GIT_WORK_TREE: workspace,
+          GIT_ALTERNATE_OBJECT_DIRECTORIES: (yield* Path.Path).join(workspace, ".git", "objects"),
+        };
+        const run = (args: ReadonlyArray<string>) =>
+          NodeChildProcess.execFileSync(
+            "git",
+            ["-c", "user.name=agent", "-c", "user.email=a@example.com", ...args],
+            { cwd: workspace, env, encoding: "utf8" },
+          );
+        run(["update-index", "--add", "--cacheinfo", `160000,${start},evil`]);
+        run(["commit", "-q", "-m", "submodule"]);
+        yield* (yield* AgentScope).stop(agent.unit ?? "");
+        expect(yield* gitIn(workspace, ["rev-parse", "HEAD"])).toBe(start);
+        expect(yield* gitIn(workspace, ["ls-files", "--stage", "evil"])).toBe("");
+      }).pipe(Effect.provide(layerSandbox({ workspace, host })));
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("keeps the agent's commits aside when the branch moved on the host", () =>
     Effect.gen(function* () {
       const host = yield* makeHost;

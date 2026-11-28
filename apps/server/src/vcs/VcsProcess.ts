@@ -125,6 +125,7 @@ const SERVER_GIT_CONFIG = [
   ["safe.bareRepository", "explicit"],
   ["maintenance.auto", "false"],
   ["gc.auto", "0"],
+  ["core.fsmonitor", "false"], // Fork (WI-2.18): a container-written nested repo's fsmonitor never runs.
 ] as const;
 
 export const serverGitConfigEnv = (env: NodeJS.ProcessEnv, platform: NodeJS.Platform) => {

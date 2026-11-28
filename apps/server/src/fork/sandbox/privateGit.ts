@@ -253,6 +253,12 @@ export const make = Effect.gen(function* () {
       paths.quarantineDir,
       `+refs/heads/import:${ref}`,
     ]).pipe(Effect.ensuring(reset(paths.quarantineDir).pipe(Effect.ignore)));
+    // A gitlink or .gitmodules would make host git status enter a repository the container wrote.
+    const changes = yield* git(paths, ["diff", "--raw", "-r", "--no-renames", host.head, head]);
+    const submodules = changes
+      .split("\n")
+      .some((line) => line.split(" ")[1] === "160000" || line.endsWith("\t.gitmodules"));
+    if (submodules) return "kept" as const;
     const ancestor = yield* git(paths, ["merge-base", "--is-ancestor", host.head, head]).pipe(
       Effect.as(true),
       Effect.orElseSucceed(() => false),
