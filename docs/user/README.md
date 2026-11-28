@@ -45,6 +45,7 @@ T3 Code is an open-source control plane for coding agents. It gives the coding a
 
 - [Working with threads](./thread-sidebar.md) — Starting threads, scratch threads, pinning, settling, snoozing, archiving, and side chats.
 - [Message pins](./message-pins.md) — Pin messages and jump back to them from the thread's Pinned messages tab.
+- [Session state card](./session-state.md): The goal, phase and next step an agent saves for long-running work, shown again on automated runs and after compaction.
 - [Messages and context](./composer.md) — Composer formatting, attachments, queueing/steering, `@` threads/models, `#` PRs, `/goal`, stash, and rewind.
 - [Memory](./memory.md) — What CMDeck remembers across threads, `/remember`, proposals, revisions, and incognito and temporary threads.
 - [Permission modes](./permission-modes.md) — Supervised, Auto-accept edits, Auto, Full access, push-hook prompts, and provider differences.

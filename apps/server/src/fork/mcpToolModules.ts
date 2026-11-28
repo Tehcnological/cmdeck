@@ -4,4 +4,5 @@ export * as checkScripts from "./checkScripts/mcpTools.ts";
 export * as memory from "./memory/mcpTools.ts";
 export * as messagePins from "./messagePins/mcpTools.ts";
 export * as sandbox from "./sandbox/mcpTools.ts";
+export * as sessionState from "./sessionState/mcpTools.ts";
 export * as workLedger from "./workLedger/mcpTools.ts";
