@@ -91,6 +91,18 @@ Join both devices to a tailnet with [MagicDNS and HTTPS certificates](https://ta
 - **Phone**: Install Tailscale and join the same tailnet, then scan the QR code in the app's **Add environment**, or enter the `https://machine.tailnet.ts.net/` address and the pairing code.
 - **Any browser on the tailnet**: Create a pairing link and pick **Tailscale HTTPS** ("Opens this machine's web app in a browser"). Scanning its QR code or opening the link loads `https://machine.tailnet.ts.net/pair` and signs that browser in.
 
+### LAN fallback when Tailscale is off
+
+A desktop app paired over Tailscale (plain or Tailscale HTTPS) can keep working when Tailscale is off but both machines are on the same local network.
+
+1. On the host, turn on **Settings → General → LAN fallback → Allow LAN fallback**. It is off by default; while it is off the host opens nothing on the local network.
+2. Connect the desktop app over Tailscale once. It learns a **LAN fallback** route in **Settings → Environments**, after the routes you paired.
+3. When Tailscale stops answering, the desktop app switches to **LAN fallback**, and switches back once Tailscale answers again. The environment row shows the route in use ("via LAN fallback").
+
+The fallback route is encrypted HTTPS with a certificate the host creates for itself. The desktop app learns that certificate's fingerprint over the Tailscale route and trusts only that certificate at those addresses, so no other machine on the network can stand in for the host. The host listens only on its private local addresses (`10.x`, `172.16.x` to `172.31.x`, `192.168.x`, and IPv6 `fc00::/7`) and closes connections from anywhere else. When its addresses change, connected desktop apps learn the new ones.
+
+Only the desktop app uses this route. Browsers and the mobile app cannot check a pinned certificate, so they keep the routes you paired.
+
 ### Balance new threads across machines
 
 On web and desktop with 2+ connected machines, enable **Settings → Environments → Load balancing** (per client) to auto-select a host for new threads in shared projects. Set each machine to **Prefer**, **Normal**, **Less often**, or **Manual only**.

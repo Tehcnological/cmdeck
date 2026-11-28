@@ -124,6 +124,7 @@ import { hasCloudPublicConfig } from "./cloud/publicConfig.ts";
 import * as ServerSettings from "./serverSettings.ts";
 import * as ForkAlerts from "./fork/ForkAlerts.ts";
 import * as ForkLayer from "./fork/ForkLayer.ts";
+import * as LanFallback from "./fork/lanFallback/LanFallback.ts"; // Fork: LAN fallback
 import * as ContainerSandbox from "./fork/sandbox/ContainerSandbox.ts";
 import * as ManagedLimits from "./policy/managedLimits.ts";
 import * as ManagedPolicy from "./policy/ManagedPolicy.ts";
@@ -405,6 +406,7 @@ const layerHttpServer = Layer.unwrap(
           keepIdleConnections(guardHttpResponseWriteErrors(NodeHttp.createServer())),
           () => Ref.getUnsafe(migrationProgress.current),
         );
+        LanFallback.adoptPrimaryServer(server); // Fork: LAN fallback hands its TLS connections here
         if (config.privateNetworkOnly) {
           runSync(closeNonPrivateNetworkConnections(server));
         }

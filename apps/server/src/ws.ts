@@ -251,6 +251,7 @@ import * as RepositoryIdentityResolver from "./project/RepositoryIdentityResolve
 import * as WorktreeSetupTracker from "./project/WorktreeSetupTracker.ts";
 import * as ServerEnvironment from "./environment/ServerEnvironment.ts";
 import * as DirectEndpoints from "./environment/DirectEndpoints.ts";
+import * as LanFallback from "./fork/lanFallback/LanFallback.ts"; // Fork: LAN fallback
 import * as RemoteOpenTargets from "./environment/RemoteOpenTargets.ts";
 import * as DefectReporter from "./observability/DefectReporter.ts";
 import * as EventLoopMonitor from "./observability/EventLoopMonitor.ts";
@@ -363,7 +364,9 @@ export const withLateConfigDiscovery = <E, R>(
   liveUpdates: Stream.Stream<ServerConfigStreamEvent, E, R>,
   launcher: EditorDiscovery,
   remoteOpenTargets: RemoteOpenTargets.RemoteOpenTargets["Service"],
-  directEndpoints: Pick<DirectEndpoints.DirectEndpoints["Service"], "resolve">,
+  directEndpoints: Pick<DirectEndpoints.DirectEndpoints["Service"], "resolve"> & {
+    readonly changes?: LanFallback.EndpointChanges;
+  },
 ) => {
   const lateEditorConfig = Stream.fromEffect(launcher.resolveAvailableEditors()).pipe(
     Stream.filter(
@@ -391,7 +394,11 @@ export const withLateConfigDiscovery = <E, R>(
     Stream.map((targets) => ({ type: "remoteOpenTargetsResolved" as const, targets })),
   );
 
-  const lateDirectEndpoints = Stream.fromEffect(directEndpoints.resolve()).pipe(
+  // Fork: LAN fallback re-advertises through `changes`.
+  const lateDirectEndpoints = Stream.concat(
+    Stream.fromEffect(directEndpoints.resolve()),
+    directEndpoints.changes ?? Stream.empty,
+  ).pipe(
     Stream.catchCause(() => Stream.empty),
     Stream.map((endpoints) => ({ type: "directEndpointsResolved" as const, endpoints })),
   );
@@ -1489,7 +1496,10 @@ export const layerWsRpc = (
       const environmentTheme = yield* EnvironmentTheme.EnvironmentThemeService;
       const externalLauncher = yield* ExternalLauncher.ExternalLauncher;
       const remoteOpenTargets = yield* RemoteOpenTargets.RemoteOpenTargets;
-      const directEndpoints = yield* DirectEndpoints.DirectEndpoints;
+      const directEndpoints = LanFallback.withLanFallback(
+        yield* DirectEndpoints.DirectEndpoints,
+        yield* LanFallback.LanFallback,
+      ); // Fork: LAN fallback
       const gitWorkflow = yield* GitWorkflowService.GitWorkflowService;
       const review = yield* ReviewService.ReviewService;
       const threadReview = yield* ThreadReview.ThreadReview;
@@ -3661,7 +3671,7 @@ export const layerWsRpc = (
                 {
                   resolveTargets: () => Fiber.join(remoteTargets),
                 },
-                { resolve: () => Fiber.join(directResult) },
+                { resolve: () => Fiber.join(directResult), changes: directEndpoints.changes }, // Fork: LAN fallback
               );
               return Stream.concat(
                 rpcInitialItems([

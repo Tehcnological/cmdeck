@@ -33,6 +33,7 @@ describe("cmdeck settings key", () => {
         stallLimit: 3,
       },
       heartbeat: { enabled: false, environments: false, sessionStallMinutes: 15, probes: [] },
+      lanFallback: false,
     };
     expect(decodeServerSettings({}).cmdeck).toEqual(defaults);
     expect(decodeServerSettings({ cmdeck: {} }).cmdeck).toEqual(defaults);

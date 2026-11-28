@@ -13744,5 +13744,9 @@
   "864d7a1c3cb3f9d7": "État actuel",
   "c4c80d7dc61a8f54": "Rien à surveiller pour l’instant.",
   "1bf1e6950b4009d2": "Répond",
-  "dd614ca7497750f6": "Ne répond pas"
+  "dd614ca7497750f6": "Ne répond pas",
+  "96efb851cf3613d2": "Repli LAN",
+  "26697a72990cee64": "lan réseau local repli secours route tailscale hors ligne https certificat",
+  "58a20119173b8cf3": "Autoriser le repli LAN",
+  "39067899ffeb98e4": "Sert aussi cet environnement en HTTPS chiffré sur ses adresses du réseau local, pour qu'une app de bureau associée via Tailscale continue de fonctionner sur le même réseau quand Tailscale est coupé. L'app de bureau ne fait confiance qu'au certificat propre de cet environnement. Tant que c'est désactivé, rien n'écoute sur le réseau local."
 }

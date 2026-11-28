@@ -13744,5 +13744,9 @@
   "864d7a1c3cb3f9d7": "Estado atual",
   "c4c80d7dc61a8f54": "Nada para monitorar agora.",
   "1bf1e6950b4009d2": "Respondendo",
-  "dd614ca7497750f6": "Sem resposta"
+  "dd614ca7497750f6": "Sem resposta",
+  "96efb851cf3613d2": "Alternativa pela LAN",
+  "26697a72990cee64": "lan rede local alternativa reserva rota tailscale offline https certificado",
+  "58a20119173b8cf3": "Permitir alternativa pela LAN",
+  "39067899ffeb98e4": "Também disponibiliza este ambiente por HTTPS criptografado nos endereços da rede local, para que um app de desktop pareado pelo Tailscale continue funcionando na mesma rede enquanto o Tailscale estiver desligado. O app de desktop confia apenas no certificado do próprio ambiente. Enquanto isto estiver desligado, nada escuta na rede local."
 }

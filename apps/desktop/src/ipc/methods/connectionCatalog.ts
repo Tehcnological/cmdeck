@@ -3,6 +3,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import * as DesktopConnectionCatalogStore from "../../app/DesktopConnectionCatalogStore.ts";
+import { syncLanPins } from "../../fork/lanFallbackPins.ts"; // Fork: LAN fallback
 import * as IpcChannels from "../channels.ts";
 import * as DesktopIpc from "../DesktopIpc.ts";
 
@@ -12,7 +13,9 @@ export const getConnectionCatalog = DesktopIpc.makeIpcMethod({
   result: Schema.NullOr(Schema.String),
   handler: Effect.fn("desktop.ipc.connectionCatalog.get")(function* () {
     const store = yield* DesktopConnectionCatalogStore.DesktopConnectionCatalogStore;
-    return Option.getOrNull(yield* store.get);
+    const catalog = Option.getOrNull(yield* store.get);
+    yield* syncLanPins(catalog); // Fork: LAN fallback
+    return catalog;
   }),
 });
 
@@ -22,6 +25,7 @@ export const setConnectionCatalog = DesktopIpc.makeIpcMethod({
   result: Schema.Boolean,
   handler: Effect.fn("desktop.ipc.connectionCatalog.set")(function* (catalog) {
     const store = yield* DesktopConnectionCatalogStore.DesktopConnectionCatalogStore;
+    yield* syncLanPins(catalog); // Fork: LAN fallback
     return yield* store.set(catalog);
   }),
 });

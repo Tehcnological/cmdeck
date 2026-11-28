@@ -13753,5 +13753,9 @@
   "864d7a1c3cb3f9d7": "Current state",
   "c4c80d7dc61a8f54": "Nothing to watch right now.",
   "1bf1e6950b4009d2": "Responding",
-  "dd614ca7497750f6": "Not responding"
+  "dd614ca7497750f6": "Not responding",
+  "96efb851cf3613d2": "LAN fallback",
+  "26697a72990cee64": "lan local network fallback backup route tailscale offline https certificate",
+  "58a20119173b8cf3": "Allow LAN fallback",
+  "39067899ffeb98e4": "Also serves this environment over encrypted HTTPS on its local network addresses, so a desktop app paired over Tailscale keeps working on the same network while Tailscale is off. The desktop app trusts only this environment's own certificate. While this is off, nothing listens on the local network."
 }
