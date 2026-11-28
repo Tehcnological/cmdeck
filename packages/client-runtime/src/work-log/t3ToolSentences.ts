@@ -282,6 +282,14 @@ const T3_TOOL_SENTENCES: ReadonlyMap<string, T3ToolSentence> = new Map<string, T
     },
   ],
   [
+    "Check\nChecking\nChecked\nnothing to report",
+    {
+      detail: msg(
+        "{status, select, inProgress {Checking for anything to report} completed {Checked, nothing to report} failed {Failed to close the run quietly} declined {Declined to close the run quietly} stopped {Stopped checking for anything to report} other {Checking for anything to report}}",
+      ),
+    },
+  ],
+  [
     "Wait\nWaiting\nWaited\nfor a T3 thread",
     {
       detail: msg(

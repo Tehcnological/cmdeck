@@ -6,6 +6,7 @@ import { AgentDisciplineSettings, AgentDisciplineSettingsPatch } from "./agentDi
 import { ApprovalPolicyRules } from "./approvalPolicy.ts";
 import { DecisionModelSetting } from "./decisions.ts";
 import { MemoryEmbedderSetting } from "./memory.ts";
+import { HeartbeatSettings, HeartbeatSettingsPatch } from "./monitoring.ts";
 
 /** Models a scheduled task's new thread runs on for each routing tier; an unset tier keeps the task's model. */
 export const RoutingTierModels = Schema.Struct({
@@ -45,6 +46,7 @@ export const CmdeckSettings = Schema.Struct({
   approvalPolicy: ApprovalPolicyRules.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
   /** Unlike the modules above, on by default: it is how CMDeck wants agents to work. */
   agentDiscipline: AgentDisciplineSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
+  heartbeat: HeartbeatSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
 });
 
 export const CmdeckSettingsPatch = Schema.Struct({
@@ -55,4 +57,5 @@ export const CmdeckSettingsPatch = Schema.Struct({
   usageAlertPercents: Schema.optionalKey(Schema.Array(UsageAlertPercent)),
   approvalPolicy: Schema.optionalKey(ApprovalPolicyRules),
   agentDiscipline: Schema.optionalKey(AgentDisciplineSettingsPatch),
+  heartbeat: Schema.optionalKey(HeartbeatSettingsPatch),
 });

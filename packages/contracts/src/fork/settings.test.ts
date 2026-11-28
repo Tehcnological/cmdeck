@@ -32,6 +32,7 @@ describe("cmdeck settings key", () => {
         checkpointMinutes: 20,
         stallLimit: 3,
       },
+      heartbeat: { enabled: false, environments: false, sessionStallMinutes: 15, probes: [] },
     };
     expect(decodeServerSettings({}).cmdeck).toEqual(defaults);
     expect(decodeServerSettings({ cmdeck: {} }).cmdeck).toEqual(defaults);
