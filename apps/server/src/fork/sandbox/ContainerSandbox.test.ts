@@ -405,6 +405,23 @@ describe("disabled with a reason", () => {
     expect(recipeRefusal(runtimeStatuses(host, current), current)).toBe(reason);
   });
 
+  it.effect("cleanup never reaches an engine away from this machine", () =>
+    withSandbox(
+      { env: { DOCKER_HOST: "ssh://user@build-host" }, sandboxedBefore: [THREAD] },
+      ({ host }) =>
+        Effect.gen(function* () {
+          const scope = yield* AgentScope;
+          yield* scope.stop("cmdeck-claude-left");
+          expect(yield* scope.kill(THREAD)).toBe(false);
+          yield* (yield* ContainerSandbox).removeThread(THREAD);
+          const acting = host.calls.filter((call) =>
+            ["ps", "rm", "kill", "list", "delete"].includes(call[1] ?? ""),
+          );
+          expect(acting).toEqual([]);
+        }),
+    ),
+  );
+
   it.effect("a remote DOCKER_HOST disables Docker instead of using it", () =>
     withSandbox({ env: { DOCKER_HOST: "ssh://user@build-host" } }, ({ host }) =>
       Effect.gen(function* () {

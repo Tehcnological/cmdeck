@@ -308,11 +308,21 @@ const make = Effect.gen(function* () {
           ),
         );
 
+  // The runtime cleanup may use: the configured one, only while its probe found it local and up.
+  // A remote DOCKER_HOST or context must never receive a list, kill or remove either.
+  const cleanupRuntime = Effect.gen(function* () {
+    const current = yield* recipe;
+    const host = yield* probe(false);
+    const reason = current.runtime === "docker" ? host.docker.reason : host.apple.reason;
+    return reason === null ? current.runtime : null;
+  }).pipe(Effect.orElseSucceed(() => null));
+
   const reap = Effect.gen(function* () {
-    const { recipe: current } = yield* readiness(false);
-    const stale = (yield* listOwn(current.runtime)).filter((listed) => listed.boot !== boot);
+    const runtime = yield* cleanupRuntime;
+    if (runtime === null) return;
+    const stale = (yield* listOwn(runtime)).filter((listed) => listed.boot !== boot);
     yield* remove(
-      current.runtime,
+      runtime,
       stale.map((listed) => listed.name),
     );
     if (stale.length > 0) {
@@ -325,12 +335,11 @@ const make = Effect.gen(function* () {
   const removeThread = Effect.fn("ContainerSandbox.removeThread")(
     function* (threadId: string) {
       if (!inUse) return;
-      const current = yield* recipe;
-      const own = (yield* listOwn(current.runtime)).filter(
-        (listed) => listed.threadId === threadId,
-      );
+      const runtime = yield* cleanupRuntime;
+      if (runtime === null) return;
+      const own = (yield* listOwn(runtime)).filter((listed) => listed.threadId === threadId);
       yield* remove(
-        current.runtime,
+        runtime,
         own.map((listed) => listed.name),
       );
       agentContainers.delete(threadId);
@@ -572,17 +581,16 @@ const make = Effect.gen(function* () {
     oomKilled: inner.oomKilled,
     stop: (unit) =>
       unit.startsWith("cmdeck-")
-        ? recipe.pipe(
-            Effect.flatMap((current) => remove(current.runtime, [unit])),
-            Effect.ignore,
+        ? cleanupRuntime.pipe(
+            Effect.flatMap((runtime) => (runtime === null ? Effect.void : remove(runtime, [unit]))),
           )
         : inner.stop(unit),
     kill: Effect.fn("ContainerSandbox.kill")(function* (threadId) {
       const name = agentContainers.get(threadId);
       if (name === undefined) return yield* inner.kill(threadId);
-      const current = yield* recipe.pipe(Effect.orElseSucceed(() => null));
-      if (current === null) return false;
-      const killed = yield* run(RUNTIME_TRAITS[current.runtime].binary, ["kill", name]);
+      const runtime = yield* cleanupRuntime;
+      if (runtime === null) return false;
+      const killed = yield* run(RUNTIME_TRAITS[runtime].binary, ["kill", name]);
       return Option.isSome(killed) && killed.value.code === 0;
     }),
     clear: (threadId) =>
