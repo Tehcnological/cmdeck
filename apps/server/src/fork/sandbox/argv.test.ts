@@ -141,29 +141,36 @@ describe("containerPathFor", () => {
 
 describe("gitProtectedPaths", () => {
   const join = (...parts: ReadonlyArray<string>) => parts.join("/");
-  it("protects config, hooks and config.worktree of a main checkout", () => {
+  it("protects config, hooks, config.worktree, worktrees and modules of a main checkout", () => {
     expect(
       gitProtectedPaths({ commonDir: "/r/.git", adminDir: "/r/.git", dotGitFile: null }, join),
     ).toEqual([
-      { path: "/r/.git/config", kind: "file", create: false },
+      // A missing config is created, so the container cannot write one host git would run.
+      { path: "/r/.git/config", kind: "file", create: true },
       { path: "/r/.git/hooks", kind: "dir", create: true },
       { path: "/r/.git/config.worktree", kind: "file", create: true },
+      // Other worktrees' pointers and submodules' configs and hooks run on the host too.
+      { path: "/r/.git/worktrees", kind: "dir", create: true },
+      { path: "/r/.git/modules", kind: "dir", create: true },
     ]);
   });
 
-  it("also protects a linked worktree's pointers and its .git file", () => {
+  it("reopens only the thread's own worktree admin dir, then protects its pointers", () => {
     const paths = gitProtectedPaths(
       { commonDir: "/r/.git", adminDir: "/r/.git/worktrees/wt", dotGitFile: "/wt/.git" },
       join,
-    ).map((entry) => entry.path);
+    ).map((entry) => [entry.path, entry.writable === true ? "rw" : "ro"]);
     expect(paths).toEqual([
-      "/r/.git/config",
-      "/r/.git/hooks",
-      "/r/.git/config.worktree",
-      "/r/.git/worktrees/wt/config.worktree",
-      "/r/.git/worktrees/wt/commondir",
-      "/r/.git/worktrees/wt/gitdir",
-      "/wt/.git",
+      ["/r/.git/config", "ro"],
+      ["/r/.git/hooks", "ro"],
+      ["/r/.git/config.worktree", "ro"],
+      ["/r/.git/worktrees", "ro"],
+      ["/r/.git/modules", "ro"],
+      ["/r/.git/worktrees/wt", "rw"],
+      ["/r/.git/worktrees/wt/config.worktree", "ro"],
+      ["/r/.git/worktrees/wt/commondir", "ro"],
+      ["/r/.git/worktrees/wt/gitdir", "ro"],
+      ["/wt/.git", "ro"],
     ]);
   });
 });

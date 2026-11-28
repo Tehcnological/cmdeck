@@ -85,7 +85,7 @@ describe("ContainerSandbox", () => {
         expect(valuesOf(agent.args, "-e")).toEqual(["ANTHROPIC_API_KEY", "T3CODE_THREAD_ID"]);
         const mounts = valuesOf(agent.args, "--mount");
         expect(mounts[0]).toBe(`type=bind,source=${workspace},target=${workspace}`);
-        expect(mounts.filter((mount) => mount.endsWith(",readonly"))).toHaveLength(3);
+        expect(mounts.filter((mount) => mount.endsWith(",readonly"))).toHaveLength(5);
         expect(agent.args.slice(-3)).toEqual(["acme/agent:1", "claude", "--print"]);
 
         // Terminals carry the thread only in their environment.
@@ -236,6 +236,16 @@ describe("git layout", () => {
       if (exit._tag !== "Success") return;
       expect(valuesOf(exit.value.args, "--mount")).toContain(
         `type=bind,source=${path.join(root, ".git")},target=${path.join(root, ".git")}`,
+      );
+      const mounts = valuesOf(exit.value.args, "--mount");
+      const at = (host: string, readOnly: boolean) =>
+        `type=bind,source=${host},target=${host}${readOnly ? ",readonly" : ""}`;
+      expect(mounts).toContain(at(path.join(root, ".git", "worktrees"), true));
+      expect(mounts).toContain(at(path.join(root, ".git", "modules"), true));
+      expect(mounts).toContain(at(path.join(root, ".git", "worktrees", "wt"), false));
+      // Parents mount before children, so the read-only pointers sit on top of the admin dir.
+      expect(mounts.indexOf(at(path.join(root, ".git", "worktrees", "wt"), false))).toBeLessThan(
+        mounts.indexOf(at(path.join(root, ".git", "worktrees", "wt", "gitdir"), true)),
       );
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );

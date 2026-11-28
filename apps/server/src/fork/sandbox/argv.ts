@@ -176,6 +176,8 @@ export interface ProtectedGitPath {
   readonly kind: "file" | "dir";
   /** Created before mounting: a missing bind source would fail, and an empty one is harmless. */
   readonly create: boolean;
+  /** Mounted read-write over a protected parent: the thread's own worktree admin dir. */
+  readonly writable?: true;
 }
 
 /**
@@ -188,12 +190,16 @@ export function gitProtectedPaths(
   join: (...parts: ReadonlyArray<string>) => string,
 ): Array<ProtectedGitPath> {
   const paths: Array<ProtectedGitPath> = [
-    { path: join(layout.commonDir, "config"), kind: "file", create: false },
+    { path: join(layout.commonDir, "config"), kind: "file", create: true },
     { path: join(layout.commonDir, "hooks"), kind: "dir", create: true },
     { path: join(layout.commonDir, "config.worktree"), kind: "file", create: true },
+    // Another worktree's commondir, or a submodule's config and hooks, also run on the host.
+    { path: join(layout.commonDir, "worktrees"), kind: "dir", create: true },
+    { path: join(layout.commonDir, "modules"), kind: "dir", create: true },
   ];
   if (layout.adminDir !== layout.commonDir) {
     paths.push(
+      { path: layout.adminDir, kind: "dir", create: false, writable: true },
       { path: join(layout.adminDir, "config.worktree"), kind: "file", create: true },
       { path: join(layout.adminDir, "commondir"), kind: "file", create: false },
       { path: join(layout.adminDir, "gitdir"), kind: "file", create: false },

@@ -462,8 +462,8 @@ const make = Effect.gen(function* () {
             ? fileSystem.makeDirectory(target.path, { recursive: true })
             : fileSystem.writeFileString(target.path, "", { flag: "wx" }).pipe(Effect.ignore);
         }
-        if (!copy) {
-          mounts.push(at(target.path, true));
+        if (target.writable === true || !copy) {
+          mounts.push(at(target.path, target.writable !== true));
           continue;
         }
         // Apple cannot mount read-only: the container gets a copy, and its writes stay in the copy.
@@ -481,7 +481,9 @@ const make = Effect.gen(function* () {
       }
     }
     for (const extra of current.mounts) mounts.push(at(expandHome(extra.hostPath), extra.readOnly));
-    return mounts;
+    // Parents first, so a read-only overlay always lands on top of the mount that contains it.
+    const depth = (mount: ContainerMount) => mount.containerPath.split(/[\\/]/).length;
+    return mounts.toSorted((a, b) => depth(a) - depth(b));
   });
 
   // Agent containers per thread, for `kill`. Terminals are not the agent and are never killed here.
