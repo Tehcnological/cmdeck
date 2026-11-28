@@ -69,7 +69,7 @@ Restart `vp run dev --share` and open its printed pairing URL once per browser p
 
 ## Desktop artifacts
 
-Unsigned local builds write to `release/`:
+Local builds write to `release/`:
 
 ```sh
 vp run dist:desktop:dmg
