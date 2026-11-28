@@ -6,3 +6,4 @@ export * from "./workflowTrust.ts";
 export * from "./memory.ts";
 export * from "./checkScripts.ts";
 export * from "./decisions.ts";
+export * from "./approvalPolicy.ts";

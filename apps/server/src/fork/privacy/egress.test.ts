@@ -62,6 +62,8 @@ import { generators, LOCAL_GENERATOR } from "../decisions/decisions.testkit.ts";
 import { narrower } from "../decisions/points/memoryNarrowing.ts";
 import { annotateApproval } from "../decisions/points/riskAnnotation.ts";
 import { decideWake } from "../decisions/points/wakeSuppression.ts";
+import * as UsageAlerts from "../usageAlerts/UsageAlerts.ts";
+import { claudeAtPercent, layerUsageAlertsTest } from "../usageAlerts/usageAlerts.testkit.ts";
 
 vi.mock("@anthropic-ai/claude-agent-sdk", { spy: true });
 
@@ -389,6 +391,27 @@ it.effect("notifications start no milestone subscription or timer without an ena
         ),
       ),
     );
+  }),
+);
+it.effect("usage alerts raise nothing and keep no state without an enabled channel", () =>
+  Effect.gen(function* () {
+    const providers = yield* Ref.make<ReadonlyArray<ServerProvider>>([claudeAtPercent(99)]);
+    let sends = 0;
+    const channel: Notifications.NotificationChannelDriver = {
+      kind: "test",
+      send: () => Effect.sync(() => void (sends += 1)),
+    };
+    yield* Effect.gen(function* () {
+      const notifications = yield* Notifications.Notifications;
+      const sql = yield* SqlClient.SqlClient;
+      yield* notifications.addChannel({ kind: "test", name: "Off", enabled: false });
+      expect(yield* (yield* UsageAlerts.UsageAlerts).check).toBe(0);
+      const rows = yield* sql<{
+        readonly n: number;
+      }>`SELECT COUNT(*) AS n FROM usage_alert_windows`;
+      expect(rows[0]?.n).toBe(0);
+      expect(sends).toBe(0);
+    }).pipe(Effect.provide(layerUsageAlertsTest({ providers, drivers: [channel] })));
   }),
 );
 describe("memory", () => {
