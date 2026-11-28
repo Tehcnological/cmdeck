@@ -4,6 +4,7 @@ import {
   AuthDiagnosticsReadScope,
   AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
+  AuthTerminalOperateScope,
   AuthSettingsWriteScope,
   AuthTerminalReadScope,
   CMDECK_RPC_VERSION,
@@ -13,6 +14,7 @@ import {
   type OrchestrationV2ConversationMessage,
   RpcScopeAuthorization,
   ThreadId,
+  ScheduledTaskId,
 } from "@t3tools/contracts";
 import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -172,5 +174,32 @@ it.effect("lets readers see a thread's pins and only operators pin or unpin", ()
 
     yield* operator[CMDECK_WS_METHODS.messagePinsUnpin]({ threadId, messageId });
     expect(yield* reader[CMDECK_WS_METHODS.messagePinsList]({ threadId })).toEqual([]);
+  }).pipe(Effect.scoped),
+);
+
+it.effect("only clients that may run commands save or approve a check script", () =>
+  Effect.gen(function* () {
+    const group = ForkWsRpcGroup.middleware(RpcScopeAuthorization);
+    const handlers = group.toLayer(ForkRpcHandlers.make);
+    const client = (scopes: Parameters<typeof RpcAuthorization.layer>[0]) =>
+      RpcTest.makeClient(group).pipe(
+        Effect.provide(Layer.merge(handlers, RpcAuthorization.layer(scopes))),
+      );
+    const input = { taskId: ScheduledTaskId.make("scheduled-task:a"), sha256: "00" };
+
+    const reader = yield* client([AuthOrchestrationReadScope]);
+    expect(yield* reader[CMDECK_WS_METHODS.checkScriptsList]({})).toEqual({ checks: [] });
+    expect(
+      yield* reader[CMDECK_WS_METHODS.checkScriptsApprove](input).pipe(Effect.flip),
+    ).toMatchObject({
+      _tag: "EnvironmentAuthorizationError",
+      requiredPermission: AuthTerminalOperateScope,
+    });
+
+    // Without the scheduler's check service, an allowed client gets a plain refusal.
+    const operator = yield* client([AuthOrchestrationReadScope, AuthTerminalOperateScope]);
+    expect(
+      yield* operator[CMDECK_WS_METHODS.checkScriptsApprove](input).pipe(Effect.flip),
+    ).toMatchObject({ _tag: "CheckScriptError" });
   }).pipe(Effect.scoped),
 );

@@ -1,15 +1,20 @@
 import type { ScopedThreadRef } from "@t3tools/contracts";
 import { msg, useMessages } from "gt-react";
 import { BrainIcon } from "lucide-react";
-import { type ComponentType, useState } from "react";
+import type { ComponentType } from "react";
+import { create } from "zustand";
 
 import { Toggle, ToggleGroup } from "../components/ui/toggle-group";
 import type { MessageResolver } from "../i18n/messages";
+import { useRightPanelStore } from "../rightPanelStore";
 import { MemoryUsedPanel } from "./memory/MemoryUsedPanel";
 import { PinnedMessagesPanel } from "./pins/PinnedMessagesPanel";
+import { WorkLedgerPanel } from "./WorkLedgerPanel";
+
+type ForkPanelTabId = "memory" | "work-ledger" | "pins";
 
 interface ForkPanelTab {
-  readonly id: string;
+  readonly id: ForkPanelTabId;
   readonly title: string;
   readonly Content: ComponentType<{ readonly threadRef: ScopedThreadRef }>;
 }
@@ -20,8 +25,17 @@ interface ForkPanelTab {
  */
 const FORK_PANEL_TABS: ReadonlyArray<ForkPanelTab> = [
   { id: "memory", title: msg("Memory used here"), Content: MemoryUsedPanel },
+  { id: "work-ledger", title: msg("Work ledger"), Content: WorkLedgerPanel },
   { id: "pins", title: msg("Pinned messages"), Content: PinnedMessagesPanel },
 ];
+
+const useActiveTab = create<{ readonly id: ForkPanelTabId | null }>(() => ({ id: null }));
+
+/** Opens the thread's fork surface on one tab. */
+export function openForkPanel(threadRef: ScopedThreadRef, tab: ForkPanelTabId) {
+  useActiveTab.setState({ id: tab });
+  useRightPanelStore.getState().open(threadRef, "cmdeck");
+}
 
 /** The surface's tab title: its only tab's, or CMDeck once there are several. */
 export function forkPanelTitle(resolve: MessageResolver): string {
@@ -35,7 +49,7 @@ export function ForkPanelIcon() {
 
 export function ForkPanel({ threadRef }: { readonly threadRef: ScopedThreadRef }) {
   const messages = useMessages();
-  const [activeId, setActiveId] = useState(FORK_PANEL_TABS[0]?.id ?? "");
+  const activeId = useActiveTab((state) => state.id);
   const active = FORK_PANEL_TABS.find((tab) => tab.id === activeId) ?? FORK_PANEL_TABS[0];
   if (active === undefined) return null;
   return (
@@ -46,7 +60,7 @@ export function ForkPanel({ threadRef }: { readonly threadRef: ScopedThreadRef }
             value={[active.id]}
             onValueChange={(value: ReadonlyArray<string>) => {
               const [next] = value;
-              if (next !== undefined) setActiveId(next);
+              if (next !== undefined) useActiveTab.setState({ id: next as ForkPanelTabId });
             }}
           >
             {FORK_PANEL_TABS.map((tab) => (

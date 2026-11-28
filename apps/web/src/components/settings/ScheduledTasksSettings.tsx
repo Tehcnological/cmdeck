@@ -156,6 +156,7 @@ import {
   SETTINGS_PICKER_TRIGGER_CLASSNAME,
 } from "./settingsLayout";
 import { SharedTooltipTrigger } from "../ui/shared-tooltip";
+import { ScheduledTaskCheckControl } from "~/fork/ScheduledTaskCheck";
 
 const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
 const WEEKDAY_SHORT = [
@@ -907,6 +908,7 @@ function ScheduledTaskRow({
       }
       control={
         <div className="flex items-center gap-2">
+          <ScheduledTaskCheckControl environmentId={environmentId} task={task} />
           <Switch
             checked={task.enabled}
             disabled={busy || !canOperate}

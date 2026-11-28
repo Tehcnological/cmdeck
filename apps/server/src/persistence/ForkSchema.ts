@@ -5,6 +5,8 @@ import { ensureAuditSchema } from "../fork/audit/schema.ts";
 import { ensureWorkflowTrustSchema } from "../fork/workflowTrust/schema.ts";
 import { ensureNotificationsSchema } from "../fork/notifications/schema.ts";
 import { ensureMemorySchema } from "../fork/memory/schema.ts";
+import { ensureWorkLedgerSchema } from "../fork/workLedger/schema.ts";
+import { ensureCheckScriptsSchema } from "../fork/checkScripts/schema.ts";
 import { ensureDecisionsSchema } from "../fork/decisions/schema.ts";
 import { ensureUsageAlertsSchema } from "../fork/usageAlerts/schema.ts";
 import { ensureMessagePinsSchema } from "../fork/messagePins/schema.ts";
@@ -54,6 +56,8 @@ export const ensureForkSchema = Effect.fn("ensureForkSchema")(function* () {
   yield* ensureWorkflowTrustSchema();
   yield* ensureNotificationsSchema();
   yield* ensureMemorySchema();
+  yield* ensureWorkLedgerSchema();
+  yield* ensureCheckScriptsSchema();
   yield* ensureDecisionsSchema();
   yield* ensureUsageAlertsSchema();
   yield* ensureMessagePinsSchema();

@@ -210,6 +210,29 @@ required=(
   # and a thread hidden by a tag filter leaves the panel.
   'apps/web/src/components/ChatView.tsx:activeThread\?\.projectId !== panelHostShell\?\.projectId'
   'apps/web/src/components/chat/SideThreadPane.tsx:useCloseWhenHidden\(threadRef, props\.onClose\)'
+  # WI-2.02: the work ledger's table and the archive offer.
+  'apps/server/src/persistence/ForkSchema.ts:yield\* ensureWorkLedgerSchema\(\)'
+  'apps/web/src/hooks/useThreadActions.ts:await offerToStopConductorWorkers\(threadRef\);'
+  # Lean tool profiles (Pi, auto on an inference server) keep the work ledger tools.
+  'packages/provider-core/src/server/mcpToolProfile.ts:import \{ WORK_LEDGER_MCP_TOOL_NAMES \} from "@t3tools/contracts";'
+  'packages/provider-core/src/server/mcpToolProfile.ts:\.\.\.WORK_LEDGER_MCP_TOOL_NAMES,'
+  # WI-2.11: a scheduled task's check script decides whether its run wakes the agent.
+  'apps/server/src/scheduledTasks/webhookTemplate.ts:export const MENTION = '
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:import \* as CheckScripts from "\.\./fork/checkScripts/CheckScripts\.ts";'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:const checkScripts = yield\* CheckScripts\.CheckScripts;'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:const checked = yield\* checkScripts\.gate\('
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:checked\?\._tag === "Wake" \? checked\.prompt : \(webhook\?\.prompt \?\? active\.prompt\)'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:const dispatchExit = CheckScripts\.exitAfter\(checked\);'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:\? yield\* dispatchExit\( +threadLaunch'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:: yield\* dispatchExit\( +// The stored selection'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:\(checked\?\._tag !== "Failed" \|\| checked\.counts\) &&'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:runTask\(task, "scheduled"\)\.pipe\(checkScripts\.runsAside\(task\.id, serviceScope\)\)'
+  'apps/server/src/persistence/ForkSchema.ts:yield\* ensureCheckScriptsSchema\(\)'
+  'apps/web/src/components/settings/ScheduledTasksSettings.tsx:import \{ ScheduledTaskCheckControl \} from "~/fork/ScheduledTaskCheck";'
+  'apps/web/src/components/settings/ScheduledTasksSettings.tsx:<ScheduledTaskCheckControl environmentId=\{environmentId\} task=\{task\} />'
+  # WI-2.11: an agent changes a task's check only within the limits that editing the task needs.
+  'apps/server/src/mcp/OrchestratorMcpService.ts:readonly authorizeScheduledTaskChange: \( +scope: McpInvocationScope, +scheduledTaskId: ScheduledTask\["id"\], +\) => Effect\.Effect<ScheduledTask, OrchestratorMcpFailure>;'
+  'apps/server/src/mcp/OrchestratorMcpService.ts:authorizeScheduledTaskChange: Effect\.fn\("OrchestratorMcpService\.authorizeScheduledTaskChange"\)\( +function\* \(scope, scheduledTaskId\) \{ +const \{ parent, limits \} = yield\* loadCaller\(scope, \["runs"\]\); +const existing = yield\* loadScheduledTask\(scheduledTaskId, limits\); +yield\* assertLiveCallerForOtherProject\(scope, parent, existing\.projectId\);'
   # WI-2.17: secrets at rest. The desktop app hands the key over in the bootstrap envelope.
   'packages/contracts/src/desktopBootstrap.ts:cmdeckSecretsKey: Schema\.optionalKey\(Schema\.String\)'
   'apps/server/src/config.ts:readonly cmdeckSecretsKey\?: Redacted\.Redacted<string> \| undefined;'
@@ -264,7 +287,11 @@ required=(
 hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts)"
 [ -z "$hits" ] || bad "MCP code reaches the workflow trust gate: $hits"
 
-# 7. WI-2.17: a file that builds the secret store must build the encrypting one, or it reads and
+# 7. Only a person approves a check script: no MCP code may reach its approval (WI-2.11).
+hits="$(git grep -l -E '\.approve\(|checkScriptsApprove' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts apps/server/src/fork/checkScripts/mcpTools.ts)"
+[ -z "$hits" ] || bad "MCP code reaches check script approval: $hits"
+
+# 8. WI-2.17: a file that builds the secret store must build the encrypting one, or it reads and
 #    writes envelopes as raw bytes. Its `ServerSecretStore` import names the fork module instead.
 for file in $(git grep -l -E 'ServerSecretStore\.layer([^A-Za-z]|$)' -- apps/server/src ':!apps/server/src/fork/**' ':!**/*.test.ts' ':!**/*.testkit.ts' ':!**/testkit/**'); do
   grep -q -E '^import \* as ServerSecretStore from "(\./|(\.\./)+)fork/secrets/EncryptedSecretStore\.ts";' "$file" ||
