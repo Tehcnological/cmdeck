@@ -82,6 +82,12 @@ import { ThemeToolkit } from "../../apps/server/src/mcp/toolkits/theme/tools.ts"
 import { ThreadToolkit } from "../../apps/server/src/mcp/toolkits/thread/tools.ts";
 import { ReviewToolkit } from "../../apps/server/src/mcp/toolkits/review/tools.ts";
 import { WorktreeToolkit } from "../../apps/server/src/mcp/toolkits/worktree/tools.ts";
+import { BotsToolkit } from "../../apps/server/src/fork/bots/mcpTools.ts";
+import { MessagePinsToolkit } from "../../apps/server/src/fork/messagePins/mcpTools.ts";
+import { MemoryToolkit } from "../../apps/server/src/fork/memory/mcpTools.ts";
+import { WorkLedgerToolkit } from "../../apps/server/src/fork/workLedger/mcpTools.ts";
+import { CheckScriptToolkit } from "../../apps/server/src/fork/checkScripts/mcpTools.ts";
+import { SandboxToolkit } from "../../apps/server/src/fork/sandbox/mcpTools.ts";
 import {
   CLAUDE_PROVIDER,
   makeClaudeQueryOptions,
@@ -357,6 +363,11 @@ export const McpToolUseCase = Schema.Struct({
     forge: Schema.optional(Schema.Boolean),
     /** delegate_task `role` for a delegated child. T3 builds the child's first message from it. */
     delegateRole: Schema.optional(OrchestratorMcpTaskRole),
+    /**
+     * A skill in this repo's `skills/` that the user invoked with `prompt` as its arguments. Its
+     * SKILL.md body is loaded from this checkout into the user message, as Claude Code sends it.
+     */
+    skill: Schema.optional(Schema.String),
     context: Schema.optional(Schema.String),
     priorTurns: Schema.optional(
       Schema.Array(
@@ -514,6 +525,12 @@ const t3SourceTools: ReadonlyArray<Tool.Any> = [
   DeviceToolkit,
   HtmlToolkit,
   MessageToolkit,
+  MemoryToolkit,
+  WorkLedgerToolkit,
+  CheckScriptToolkit,
+  BotsToolkit,
+  SandboxToolkit,
+  MessagePinsToolkit,
 ].flatMap((toolkit): ReadonlyArray<Tool.Any> => Object.values(toolkit.tools));
 // McpHttpServer decodes arguments with each tool's JSON codec, which drops undeclared keys.
 const t3InputDecoders = new Map(
@@ -1926,6 +1943,14 @@ const BRANCH_HAS_NO_PR_ERROR =
 const SUBAGENT_WATCH_ERROR =
   "This thread is a subagent, so it cannot watch pull requests. Its parent thread owns the pull request: finish your task and report back instead.";
 
+/** The user message for `/<skill> <args>`: Claude Code drops the front matter and sends the body. */
+export const invokedSkillPrompt = (name: string, skillFile: string, args: string) =>
+  [
+    `Base directory for this skill: ~/.claude/skills/${name}`,
+    skillFile.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, "").trim(),
+    ...(args.trim() === "" ? [] : [`ARGUMENTS: ${args}`]),
+  ].join("\n\n");
+
 /** Result for a native tool the case does not mock, other than shell, file, and web tools. */
 const nativeResult = (name: string, input: Readonly<Record<string, unknown>>) => {
   const skill = valueText(input.skill);
@@ -3277,8 +3302,20 @@ const main = Effect.gen(function* () {
           return { ...turn, toolCalls };
         }),
       );
+      const { skill } = testCase.setup;
+      const prompt =
+        skill === undefined
+          ? testCase.prompt
+          : invokedSkillPrompt(
+              skill,
+              yield* fs.readFileString(
+                path.resolve(import.meta.dirname, "../../skills", skill, "SKILL.md"),
+              ),
+              testCase.prompt,
+            );
       return {
         ...testCase,
+        prompt,
         expect: flags.arm === "raw" ? (testCase.expectRaw ?? testCase.expect) : testCase.expect,
         setup: {
           ...testCase.setup,

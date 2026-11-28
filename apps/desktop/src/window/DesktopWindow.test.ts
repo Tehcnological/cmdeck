@@ -294,6 +294,8 @@ function layerTest(input: {
     setWslBackendEnabled: () => Effect.die("unexpected WSL backend toggle"),
     setWslDistro: () => Effect.die("unexpected WSL distro change"),
     setWslOnly: () => Effect.die("unexpected WSL-only toggle"),
+    setUpdateAutoCheck: () => Effect.die("unexpected update auto-check toggle"),
+    setLinuxSpellcheck: () => Effect.die("unexpected spellcheck toggle"),
     setLocalEnvironmentEnabled: () => Effect.die("unexpected local environment toggle"),
     setTraySettings: () => Effect.die("unexpected tray settings change"),
     applyWslWindowsFallback: Effect.die("unexpected WSL Windows fallback"),
@@ -1559,13 +1561,17 @@ describe("DesktopWindow", () => {
           if (!willAttachWebview) {
             return yield* Effect.die("will-attach-webview listener was not registered");
           }
-          const webPreferences: Electron.WebPreferences = {};
+          const webPreferences: Electron.WebPreferences = { preload: "/repo/elsewhere/other.cjs" };
           willAttachWebview({ preventDefault: () => {} }, webPreferences, {
             partition: "persist:t3code-preview-test",
           });
 
           assert.deepEqual(webPreferences.additionalArguments, expected);
           assert.isTrue(webPreferences.contextIsolation);
+          assert.equal(
+            webPreferences.preload,
+            "/repo/apps/desktop/dist-electron/preview-pick-preload.cjs",
+          );
         }).pipe(Effect.provide(layer));
       }),
   );

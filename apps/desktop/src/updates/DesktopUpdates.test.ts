@@ -288,6 +288,29 @@ describe("DesktopUpdates", () => {
     ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
   });
 
+  it.effect("skips automatic checks while they are off and resumes without a restart", () => {
+    const harness = makeHarness({ autoCheck: false });
+
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const updates = yield* DesktopUpdates.DesktopUpdates;
+        const settings = yield* DesktopAppSettings.DesktopAppSettings;
+        yield* updates.configure;
+
+        yield* TestClock.adjust("15 seconds");
+        yield* TestClock.adjust("4 hours");
+        assert.equal(harness.checkCount(), 0);
+
+        yield* updates.check("manual");
+        assert.equal(harness.checkCount(), 1);
+
+        yield* settings.setUpdateAutoCheck(true);
+        yield* TestClock.adjust("4 hours");
+        assert.equal(harness.checkCount(), 2);
+      }),
+    ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
+  });
+
   it.effect.each([
     { action: "download", offer: "update-available", found: null, accepted: true },
     { action: "install", offer: "update-downloaded", found: null, accepted: true },
@@ -1387,6 +1410,15 @@ describe("describeUpdateErrorCause", () => {
     cyclic.cause = cyclic;
     assert.include(DesktopUpdates.describeUpdateErrorCause(cyclic), "[truncated cause]");
     assert.isAtMost(DesktopUpdates.describeUpdateErrorCause(cyclic).length, 1024);
+
+    const describeCause = (outer: string, inner: string) =>
+      DesktopUpdates.describeUpdateErrorCause(
+        Object.assign(new Error(outer), { cause: new Error(inner) }),
+      );
+    const a = "a".repeat(512);
+    const b = "b".repeat(485);
+    assert.equal(describeCause(`${a.slice(1)}🚀`, "b"), `Error: ${a.slice(1)}; caused by Error: b`);
+    assert.equal(describeCause(a, `${b}🚀`), `Error: ${a}; caused by Error: ${b}`);
   });
 
   it("does not serialize arbitrary payloads or let unreadable errors break logging", () => {

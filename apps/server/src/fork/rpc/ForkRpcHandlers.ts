@@ -1,0 +1,165 @@
+import {
+  AuditLogError,
+  BotsError,
+  CMDECK_RPC_VERSION,
+  DecisionsError,
+  CMDECK_WS_METHODS,
+  ForkWsRpcGroup,
+  MessagePinsError,
+  WorkflowTrustError,
+  NotificationChannelError,
+  WorkLedgerError,
+  SandboxError,
+} from "@t3tools/contracts";
+import * as SecureRandom from "effect/crypto/SecureRandom";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import * as Stream from "effect/Stream";
+
+import { WorkflowDefinitions } from "../../workflows/WorkflowRuntime.ts";
+import * as AuditLog from "../audit/AuditLog.ts";
+import { Bots, type BotActor } from "../bots/Bots.ts";
+import { Decisions } from "../decisions/Decisions.ts";
+import { MemoryEmbeddings } from "../memory/MemoryEmbeddings.ts";
+import { installPreset } from "../presets/install.ts";
+import { ContainerSandbox } from "../sandbox/ContainerSandbox.ts";
+import { WorkflowTrust } from "../workflowTrust/WorkflowTrust.ts";
+import * as Notifications from "../notifications/Notifications.ts";
+import * as ThreadManagement from "../../orchestration-v2/ThreadManagementService.ts";
+import * as WorkLedger from "../workLedger/WorkLedger.ts";
+import { stopWorkers } from "../workLedger/stopWorkers.ts";
+import { CheckScripts } from "../checkScripts/CheckScripts.ts";
+import * as MemoryRpc from "../memory/MemoryRpc.ts";
+import { MessagePins } from "../messagePins/MessagePins.ts";
+
+/** Spread into the server's WS handlers; each fork module adds its methods here. */
+export const make = Effect.gen(function* () {
+  // Optional so upstream's ws tests, which build the handlers without fork services, still compile.
+  const audit = yield* Effect.serviceOption(AuditLog.AuditLog);
+  const trust = yield* Effect.serviceOption(WorkflowTrust);
+  const definitions = yield* Effect.serviceOption(WorkflowDefinitions);
+  const unavailable = Effect.fail(new AuditLogError({}));
+  const noTrust = Effect.fail(new WorkflowTrustError({ reason: "Workflows are not available." }));
+  const notifications = yield* Effect.serviceOption(Notifications.Notifications);
+  const noNotifications = Effect.fail(new NotificationChannelError({}));
+  const ledger = yield* Effect.serviceOption(WorkLedger.WorkLedger);
+  const threads = yield* Effect.serviceOption(ThreadManagement.ThreadManagementService);
+  const random = yield* Effect.serviceOption(SecureRandom.SecureRandom);
+  const noLedger = Effect.fail(
+    new WorkLedgerError({ reason: "The work ledger is not available." }),
+  );
+  const ledgerFailure = (error: WorkLedger.WorkLedgerStoreError) =>
+    new WorkLedgerError({ reason: error.message });
+  const checks = yield* CheckScripts;
+  const decisions = yield* Effect.serviceOption(Decisions);
+  const noDecisions = Effect.fail(
+    new DecisionsError({ detail: "The decision service is not available." }),
+  );
+  const bots = yield* Effect.serviceOption(Bots);
+  const noBots = Effect.fail(new BotsError({ reason: "Bots are not available." }));
+  const asPerson: BotActor = { createdBy: "user", creationSource: "web" };
+  const memory = yield* MemoryRpc.make;
+  const embeddings = yield* Effect.serviceOption(MemoryEmbeddings);
+  const sandbox = yield* Effect.serviceOption(ContainerSandbox);
+  const noSandbox = Effect.fail(
+    new SandboxError({ detail: "Containers are not available on this server." }),
+  );
+  const pins = yield* Effect.serviceOption(MessagePins);
+  const noPins = Effect.fail(new MessagePinsError({ reason: "unavailable" }));
+  return ForkWsRpcGroup.of({
+    [CMDECK_WS_METHODS.status]: () => Effect.succeed({ version: CMDECK_RPC_VERSION }),
+    [CMDECK_WS_METHODS.auditList]: (input) =>
+      Option.isSome(audit) ? audit.value.list(input) : unavailable,
+    [CMDECK_WS_METHODS.auditVerify]: () =>
+      Option.isSome(audit) ? audit.value.verify : unavailable,
+    [CMDECK_WS_METHODS.workflowTrustPending]: () =>
+      Option.isSome(trust) ? Effect.map(trust.value.pending, (files) => ({ files })) : noTrust,
+    [CMDECK_WS_METHODS.workflowTrustApprove]: (input) =>
+      Option.isSome(trust) ? Effect.as(trust.value.approve(input.path, input.sha256), {}) : noTrust,
+    [CMDECK_WS_METHODS.workflowPresetInstall]: (input) =>
+      Option.isSome(trust) && Option.isSome(definitions)
+        ? installPreset(trust.value, definitions.value, input.id)
+        : noTrust,
+    [CMDECK_WS_METHODS.notificationChannelsList]: () =>
+      Option.isSome(notifications) ? notifications.value.listChannels : noNotifications,
+    [CMDECK_WS_METHODS.notificationChannelsSetEnabled]: (input) =>
+      Option.isSome(notifications) ? notifications.value.setChannelEnabled(input) : noNotifications,
+    [CMDECK_WS_METHODS.notificationChannelsRemove]: (input) =>
+      Option.isSome(notifications)
+        ? notifications.value.removeChannel(input.channelId)
+        : noNotifications,
+    [CMDECK_WS_METHODS.notificationsSubscribeAlerts]: () =>
+      Option.isSome(notifications)
+        ? Stream.unwrap(notifications.value.subscribeAlerts)
+        : Stream.empty,
+    [CMDECK_WS_METHODS.workLedgerList]: (input) =>
+      Option.isSome(ledger)
+        ? Effect.all({
+            conductor: ledger.value.isConductor(input.threadId),
+            items: ledger.value.list(input.threadId),
+          }).pipe(Effect.mapError(ledgerFailure))
+        : noLedger,
+    [CMDECK_WS_METHODS.workLedgerSetConductor]: (input) =>
+      Option.isSome(ledger)
+        ? ledger.value
+            .setConductor(input.threadId, input.conductor)
+            .pipe(Effect.mapError(ledgerFailure))
+        : noLedger,
+    [CMDECK_WS_METHODS.workLedgerStopWorkers]: (input) =>
+      Option.isSome(ledger) && Option.isSome(threads) && Option.isSome(random)
+        ? stopWorkers(ledger.value, threads.value, random.value, input.threadId)
+        : noLedger,
+    [CMDECK_WS_METHODS.checkScriptsList]: () =>
+      Effect.map(checks.list, (list) => ({ checks: list })),
+    [CMDECK_WS_METHODS.checkScriptsSet]: (input) =>
+      Effect.map(checks.set({ ...input, by: "user" }), (check) => ({ check })),
+    [CMDECK_WS_METHODS.checkScriptsApprove]: (input) => Effect.as(checks.approve(input), {}),
+    [CMDECK_WS_METHODS.decisionsStatus]: () =>
+      Option.isSome(decisions) ? decisions.value.status : noDecisions,
+    [CMDECK_WS_METHODS.decisionsSetConsent]: (input) =>
+      Option.isSome(decisions) ? decisions.value.setConsent(input) : noDecisions,
+    [CMDECK_WS_METHODS.botsList]: () => (Option.isSome(bots) ? bots.value.list : noBots),
+    [CMDECK_WS_METHODS.botsCreate]: (input) =>
+      Option.isSome(bots) ? bots.value.create(input, asPerson) : noBots,
+    [CMDECK_WS_METHODS.botsUpdate]: (input) =>
+      Option.isSome(bots) ? bots.value.update(input) : noBots,
+    [CMDECK_WS_METHODS.botsDelete]: (input) =>
+      Option.isSome(bots) ? bots.value.delete(input.id) : noBots,
+    [CMDECK_WS_METHODS.botsRestore]: (input) =>
+      Option.isSome(bots) ? bots.value.restore(input.id) : noBots,
+    [CMDECK_WS_METHODS.botsSchedule]: (input) =>
+      Option.isSome(bots) ? bots.value.schedule(input, asPerson) : noBots,
+    [CMDECK_WS_METHODS.botsWake]: (input) =>
+      Option.isSome(bots) ? bots.value.wake(input.id) : noBots,
+    [CMDECK_WS_METHODS.memoryList]: memory.list,
+    [CMDECK_WS_METHODS.memoryRevisions]: (input) => memory.revisions(input.itemId),
+    [CMDECK_WS_METHODS.memoryEdit]: memory.edit,
+    [CMDECK_WS_METHODS.memoryRevert]: memory.revert,
+    [CMDECK_WS_METHODS.memoryPreviewEdit]: memory.previewEdit,
+    [CMDECK_WS_METHODS.memoryApplyEdit]: memory.applyEdit,
+    [CMDECK_WS_METHODS.memoryRemember]: memory.remember,
+    [CMDECK_WS_METHODS.memoryThreadMode]: (input) => memory.threadMode(input.threadId),
+    [CMDECK_WS_METHODS.memorySetThreadMode]: memory.setThreadMode,
+    [CMDECK_WS_METHODS.memoryInjections]: (input) => memory.injections(input.threadId),
+    [CMDECK_WS_METHODS.memoryEmbeddingsStatus]: () =>
+      Option.isSome(embeddings)
+        ? embeddings.value.status
+        : Effect.succeed({
+            mode: "keyword" as const,
+            embedder: null,
+            embedded: 0,
+            total: 0,
+            checkedAt: null,
+          }),
+    [CMDECK_WS_METHODS.sandboxStatus]: (input) =>
+      Option.isSome(sandbox) ? sandbox.value.status(input) : noSandbox,
+    [CMDECK_WS_METHODS.sandboxConfigure]: (input) =>
+      Option.isSome(sandbox) ? sandbox.value.configure(input, "user") : noSandbox,
+    [CMDECK_WS_METHODS.messagePinsList]: (input) =>
+      Option.isSome(pins) ? pins.value.list(input.threadId) : noPins,
+    [CMDECK_WS_METHODS.messagePinsPin]: (input) =>
+      Option.isSome(pins) ? pins.value.pin(input) : noPins,
+    [CMDECK_WS_METHODS.messagePinsUnpin]: (input) =>
+      Option.isSome(pins) ? pins.value.unpin(input) : noPins,
+  });
+});

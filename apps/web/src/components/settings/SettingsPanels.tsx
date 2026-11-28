@@ -2,6 +2,10 @@ import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
 import { m as resolveMessage } from "~/i18n/messages";
 import { useAtomValue } from "@effect/atom-react";
 import { NotificationSettings } from "./NotificationSettings";
+import { NotificationChannelsSection } from "~/fork/NotificationChannelsSection";
+import { BotsSection } from "~/fork/BotsSection";
+import { MemoryEmbeddingsSection } from "~/fork/memory/MemoryEmbeddingsSection";
+import { ContainerSandboxSection } from "~/fork/ContainerSandboxSection";
 import { PRIVACY_POLICY_URL } from "../../legalLinks";
 import { CheckIcon } from "lucide-react";
 import { msg, T, useGT, useMessages } from "gt-react";
@@ -42,6 +46,7 @@ import { AboutVersionTitle } from "./AboutVersionTitle";
 import { CliCommandSettingsRow } from "./CliCommandSettingsRow";
 import { UninstallSettingsSection } from "./UninstallSettingsSection";
 import { DesktopTraySettings } from "./DesktopTraySettings";
+import { DesktopLinuxSpellcheckSetting } from "./DesktopLinuxSpellcheckSetting";
 import { getDesktopTrayBridge } from "~/state/desktopTraySettings";
 import { MobileAppSettingsRow } from "./MobileAppSettingsRow";
 import {
@@ -122,6 +127,7 @@ import {
   SettingsSection,
 } from "./settingsLayout";
 import { useSearchableSetting } from "./settingsSearch";
+import { DesktopUpdateAutoCheckSetting } from "./DesktopUpdateAutoCheckSetting";
 import { nativeLanguageName, SYSTEM_LANGUAGE } from "@t3tools/client-runtime/locales";
 import { SUPPORTED_LOCALES } from "../../i18n/locales";
 import { BackgroundActivitySettingsRow } from "./BackgroundActivitySettings";
@@ -381,6 +387,9 @@ function AboutVersionSection() {
         }
       />
       {hasDesktopBridge ? (
+        <DesktopUpdateAutoCheckSetting disabled={updatesDenial !== undefined} />
+      ) : null}
+      {hasDesktopBridge ? (
         <SettingsRow
           {...setting("update-track")}
           description={
@@ -536,6 +545,9 @@ export function useSettingsRestore(onRestored?: () => void) {
       : []),
     ...(settings.mathRenderingEnabled !== DEFAULT_UNIFIED_SETTINGS.mathRenderingEnabled
       ? [gt("Render math")]
+      : []),
+    ...(settings.siteIconsEnabled !== DEFAULT_UNIFIED_SETTINGS.siteIconsEnabled
+      ? [gt("Show site icons")]
       : []),
     ...(settings.panelAnimationDurationMs !== DEFAULT_UNIFIED_SETTINGS.panelAnimationDurationMs
       ? [gt("Panel animations")]
@@ -731,6 +743,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       htmlPreviewWidth: DEFAULT_UNIFIED_SETTINGS.htmlPreviewWidth,
       effortDisplay: DEFAULT_UNIFIED_SETTINGS.effortDisplay,
       mathRenderingEnabled: DEFAULT_UNIFIED_SETTINGS.mathRenderingEnabled,
+      siteIconsEnabled: DEFAULT_UNIFIED_SETTINGS.siteIconsEnabled,
       language: DEFAULT_UNIFIED_SETTINGS.language,
       timestampFormat: DEFAULT_UNIFIED_SETTINGS.timestampFormat,
       notificationMode: DEFAULT_UNIFIED_SETTINGS.notificationMode,
@@ -890,6 +903,9 @@ export function GeneralSettingsPanel() {
           }
         />
       </SettingsSection>
+      <NotificationChannelsSection />
+      <MemoryEmbeddingsSection />
+      <ContainerSandboxSection />
 
       <SettingsSection id="sidebar" title={gt("Sidebar")}>
         <SettingsRow
@@ -1151,6 +1167,7 @@ export function GeneralSettingsPanel() {
       {getDesktopTrayBridge() ? (
         <SettingsSection id="desktop-app" title={gt("Desktop app")}>
           <DesktopTraySettings />
+          <DesktopLinuxSpellcheckSetting />
         </SettingsSection>
       ) : null}
 
@@ -2447,6 +2464,7 @@ export function ThreadsSettingsPanel() {
           />
         </AdvancedSettings>
       </SettingsSection>
+      <BotsSection />
     </SettingsPageContainer>
   );
 }

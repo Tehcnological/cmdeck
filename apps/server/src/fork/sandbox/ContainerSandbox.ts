@@ -1,0 +1,756 @@
+// @effect-diagnostics nodeBuiltinImport:off -- container names and the owner label hash with Node crypto.
+// Fork-only. Runs a sandboxed thread's provider and terminals in containers (WI-2.18).
+import * as NodeCrypto from "node:crypto";
+
+import {
+  type ProjectId,
+  type SandboxConfigureInput,
+  SandboxError,
+  type SandboxMode,
+  SandboxRecipe,
+  type SandboxRuntimeKind,
+  type SandboxRuntimeStatus,
+  type SandboxStatus,
+  type SandboxStatusInput,
+  ThreadId,
+} from "@t3tools/contracts";
+import { AgentScope, type AgentScopeShape } from "@t3tools/shared/AgentScope";
+import * as HostProcess from "@t3tools/shared/HostProcess";
+import { resolveCommandPath } from "@t3tools/shared/shell";
+import * as Context from "effect/Context";
+import * as DateTime from "effect/DateTime";
+import type * as Duration from "effect/Duration";
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
+import * as Schema from "effect/Schema";
+import * as SqlClient from "effect/sql/SqlClient";
+
+import * as ServerConfig from "../../config.ts";
+import * as ProjectionStore from "../../orchestration-v2/ProjectionStore.ts";
+import * as ProjectStore from "../../orchestration-v2/ProjectStore.ts";
+import { AGENT_THREAD_ENV } from "../../preview/PortScanner.ts";
+import * as ProcessRunner from "../../processRunner.ts";
+import * as AuditLog from "../audit/AuditLog.ts";
+import {
+  appleContainerHostReason,
+  type ContainerMount,
+  containerCommand,
+  containerPathFor,
+  forwardedEnvKeys,
+  isLocalDockerEndpoint,
+  LABEL_BOOT,
+  LABEL_OWNER,
+  LABEL_THREAD,
+  listArgs,
+  normalizeRecipe,
+  parseDockerRuntimes,
+  parseList,
+  recipeProblem,
+  removeArgs,
+  RUNTIME_TRAITS,
+  runArgs,
+} from "./argv.ts";
+import * as PrivateGit from "./privateGit.ts";
+
+/** Only Claude starts one CLI process per thread; Codex shares one app-server across threads. */
+const CONTAINER_DRIVERS: ReadonlySet<string> = new Set(["claudeAgent"]);
+
+export class ContainerSandbox extends Context.Service<
+  ContainerSandbox,
+  {
+    readonly status: (input: SandboxStatusInput) => Effect.Effect<SandboxStatus, SandboxError>;
+    readonly configure: (
+      input: SandboxConfigureInput,
+      actor: string,
+    ) => Effect.Effect<SandboxStatus, SandboxError>;
+    readonly isSandboxed: (threadId: string) => Effect.Effect<boolean>;
+    /** Why a provider session must not open for this thread, or null when it may. */
+    readonly launchRefusal: (threadId: string, driver: string) => Effect.Effect<string | null>;
+    readonly removeThread: (threadId: string) => Effect.Effect<void>;
+    /** Runs `start` once the first container starts, or now if one has; nothing runs before. */
+    readonly whenInUse: (start: Effect.Effect<void>) => Effect.Effect<void>;
+  }
+>()("t3/fork/sandbox/ContainerSandbox") {}
+
+const NOT_CHECKED_REASON = "Not checked yet.";
+const NOT_CHECKED: ProbedRuntimes = {
+  docker: { reason: NOT_CHECKED_REASON, ociRuntimes: [], endpoint: null },
+  apple: { reason: NOT_CHECKED_REASON },
+};
+
+interface ProbedRuntimes {
+  readonly docker: {
+    readonly reason: string | null;
+    readonly ociRuntimes: ReadonlyArray<string>;
+    /** The local socket or pipe the probe verified; every Docker command is pinned to it. */
+    readonly endpoint: string | null;
+  };
+  readonly apple: { readonly reason: string | null };
+}
+
+/** The recipe's own reasons a runtime cannot be used, on top of what the host probe found. */
+export function runtimeStatuses(
+  probed: ProbedRuntimes,
+  recipe: SandboxRecipe,
+): Array<SandboxRuntimeStatus> {
+  const dockerReason =
+    probed.docker.reason ??
+    (recipe.ociRuntime !== null && !probed.docker.ociRuntimes.includes(recipe.ociRuntime)
+      ? `Docker does not list the ${recipe.ociRuntime} runtime.`
+      : null);
+  const appleReason =
+    probed.apple.reason ??
+    (recipe.network === "none"
+      ? "Apple container cannot turn networking off. Choose a named network to use it."
+      : null);
+  return [
+    {
+      kind: "docker",
+      available: dockerReason === null,
+      reason: dockerReason,
+      ociRuntimes: [...probed.docker.ociRuntimes],
+    },
+    {
+      kind: "apple",
+      available: appleReason === null,
+      reason: appleReason,
+      ociRuntimes: [],
+    },
+  ];
+}
+
+/** Null when the recipe can start containers; otherwise what to fix. */
+export function recipeRefusal(
+  statuses: ReadonlyArray<SandboxRuntimeStatus>,
+  recipe: SandboxRecipe,
+): string | null {
+  if (recipe.image.trim() === "") return "Choose a container image in Settings first.";
+  // The stored row is checked again: only configure validates what it writes.
+  const problem = recipeProblem(normalizeRecipe(recipe));
+  if (problem !== null) return problem;
+  const runtime = statuses.find((status) => status.kind === recipe.runtime);
+  return runtime === undefined || runtime.available
+    ? null
+    : (runtime.reason ?? "The container runtime is not available.");
+}
+
+/** Labels this server's containers, so another CMDeck's reaper on the same engine leaves them alone. */
+export const ownerLabel = (stateDir: string) =>
+  NodeCrypto.createHash("sha256").update(stateDir).digest("hex").slice(0, 12);
+
+interface ModeRow {
+  readonly kind: "project" | "thread";
+  readonly target_id: string;
+  readonly mode: SandboxMode;
+}
+
+const decodeRecipe = Schema.decodeEffect(Schema.fromJsonString(SandboxRecipe));
+const encodeRecipe = Schema.encodeEffect(Schema.fromJsonString(SandboxRecipe));
+
+const CONTAINER_PREFIX = "cmdeck-";
+
+const safeId = (threadId: string) => threadId.replace(/[^A-Za-z0-9_-]/g, "_");
+
+const toError = (detail: string) => (cause: unknown) => new SandboxError({ detail, cause });
+
+const make = Effect.gen(function* () {
+  const inner = yield* AgentScope;
+  const sql = yield* SqlClient.SqlClient;
+  const projections = yield* ProjectionStore.ProjectionStoreV2;
+  const projects = yield* ProjectStore.ProjectStoreV2;
+  const audit = yield* AuditLog.AuditLog;
+  const runner = yield* ProcessRunner.ProcessRunner;
+  const fileSystem = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const platform = yield* HostProcess.Platform;
+  const hostEnvironment = yield* HostProcess.Environment;
+  const architecture = yield* HostProcess.Architecture;
+  const kernelRelease = yield* HostProcess.KernelRelease;
+  const userId = yield* HostProcess.UserId;
+  const homeDirectory = yield* HostProcess.HomeDirectory;
+  const { stateDir } = yield* ServerConfig.ServerConfig;
+  const layerScope = yield* Effect.scope;
+
+  const owner = ownerLabel(stateDir);
+  // Containers from an earlier server run carry another boot id, so the reaper never races new ones.
+  const boot = NodeCrypto.randomUUID().slice(0, 8);
+  const privateGit = yield* PrivateGit.make;
+
+  // Kept in this module's table, not settings.json: only configure, which validates and audits,
+  // may change what a sandboxed agent can reach.
+  const recipe = sql<{ readonly recipe_json: string }>`SELECT recipe_json FROM sandbox_recipe`.pipe(
+    Effect.flatMap((rows) => decodeRecipe(rows[0]?.recipe_json ?? "{}")),
+    Effect.mapError(toError("Could not read the sandbox recipe.")),
+  );
+
+  const modes = sql<ModeRow>`SELECT kind, target_id, mode FROM sandbox_modes`.pipe(
+    Effect.mapError(toError("Could not read which threads run in containers.")),
+  );
+
+  const threadModes = Effect.fn("ContainerSandbox.threadModes")(function* (threadId: string) {
+    // An unreadable thread fails, so isSandboxed keeps it in a container rather than guess.
+    const thread = yield* projections
+      .findThread(ThreadId.make(threadId))
+      .pipe(Effect.mapError(toError("Could not read the thread.")));
+    const rows = yield* modes;
+    const own = rows.find((row) => row.kind === "thread" && row.target_id === threadId)?.mode;
+    const projectMode =
+      thread === null
+        ? undefined
+        : rows.find((row) => row.kind === "project" && row.target_id === thread.projectId)?.mode;
+    return { thread, own: own ?? null, sandboxed: (own ?? projectMode) === "on" };
+  });
+
+  const isSandboxed = (threadId: string) =>
+    threadModes(threadId).pipe(
+      Effect.map((resolved) => resolved.sandboxed),
+      // An unreadable table must not quietly put a sandboxed thread on the host.
+      Effect.orElseSucceed(() => true),
+    );
+
+  const run = (
+    command: string,
+    args: ReadonlyArray<string>,
+    timeout: Duration.Input = "20 seconds",
+  ) => runner.run({ command, args, timeout, env: hostEnvironment }).pipe(Effect.option);
+
+  // Windows environment names ignore case, so docker_host is DOCKER_HOST there.
+  const envValue = (env: NodeJS.ProcessEnv, name: string) => {
+    if (platform !== "win32") return env[name];
+    const key = Object.keys(env).find((candidate) => candidate.toUpperCase() === name);
+    return key === undefined ? undefined : env[key];
+  };
+
+  const probeDocker = Effect.gen(function* () {
+    const unavailable = (reason: string) => ({ reason, ociRuntimes: [], endpoint: null });
+    const envHost = envValue(hostEnvironment, "DOCKER_HOST");
+    if (envHost !== undefined && envHost !== "" && !isLocalDockerEndpoint(envHost)) {
+      return unavailable(
+        "DOCKER_HOST points away from this machine. CMDeck only uses the local Docker engine.",
+      );
+    }
+    const context = yield* run("docker", [
+      "context",
+      "inspect",
+      "--format",
+      "{{.Endpoints.docker.Host}}",
+    ]);
+    if (Option.isNone(context)) return unavailable("Docker is not installed or not on PATH.");
+    const host = context.value.stdout.trim();
+    // An unreadable context could be a remote one: fail closed.
+    if (context.value.code !== 0 || host === "") {
+      return unavailable("Could not read the current Docker context to confirm it is local.");
+    }
+    if (!isLocalDockerEndpoint(host)) {
+      return unavailable(
+        "The current Docker context points away from this machine. CMDeck only uses the local Docker engine.",
+      );
+    }
+    const info = yield* run("docker", ["-H", host, "info", "--format", "{{json .Runtimes}}"]);
+    if (Option.isNone(info) || info.value.code !== 0) {
+      return unavailable("Docker is installed, but its engine is not running.");
+    }
+    return {
+      reason: null,
+      ociRuntimes: parseDockerRuntimes(info.value.stdout),
+      endpoint: host,
+    };
+  });
+
+  const probeApple = Effect.gen(function* () {
+    const hostReason = appleContainerHostReason(platform, architecture, kernelRelease);
+    if (hostReason !== null) return { reason: hostReason };
+    const status = yield* run("container", ["system", "status"]);
+    if (Option.isNone(status)) return { reason: "Apple container is not installed." };
+    return status.value.code === 0
+      ? { reason: null }
+      : { reason: "Apple container is installed, but its services are not running." };
+  });
+
+  const probed = yield* Ref.make<ProbedRuntimes | null>(null);
+  const probe = Effect.fn("ContainerSandbox.probe")(function* (refresh: boolean) {
+    const cached = yield* Ref.get(probed);
+    if (cached !== null && !refresh) return cached;
+    const [docker, apple] = yield* Effect.all([probeDocker, probeApple], {
+      concurrency: "unbounded",
+    });
+    const fresh = { docker, apple };
+    yield* Ref.set(probed, fresh);
+    return fresh;
+  });
+
+  const readiness = Effect.fn("ContainerSandbox.readiness")(function* (refresh: boolean) {
+    const current = yield* recipe;
+    const cached = yield* Ref.get(probed);
+    // Opening Settings on an unconfigured server starts no container CLI; asking to check does.
+    const host =
+      cached === null && !refresh && current.image.trim() === ""
+        ? NOT_CHECKED
+        : yield* probe(refresh);
+    const statuses = runtimeStatuses(host, current);
+    return { recipe: current, statuses, refusal: recipeRefusal(statuses, current) };
+  });
+
+  // Nothing subscribes, probes or reaps until the sandbox is in use.
+  let inUse = false;
+  const pendingStarts: Array<Effect.Effect<void>> = [];
+  const markInUse = Effect.suspend(() => {
+    if (inUse) return Effect.void;
+    inUse = true;
+    return Effect.forEach(pendingStarts.splice(0), (start) => start, { discard: true });
+  });
+  const whenInUse = (start: Effect.Effect<void>) =>
+    Effect.suspend(() => {
+      if (inUse) return start;
+      pendingStarts.push(start);
+      return Effect.void;
+    });
+
+  // Docker commands name the engine the probe verified, so a context switch or a DOCKER_HOST in
+  // some environment cannot point them elsewhere afterwards.
+  const runOn = (runtime: SandboxRuntimeKind, args: ReadonlyArray<string>) =>
+    Effect.flatMap(Ref.get(probed), (host) => {
+      const endpoint = runtime === "docker" ? (host?.docker.endpoint ?? null) : null;
+      return run(
+        RUNTIME_TRAITS[runtime].binary,
+        endpoint === null ? args : ["-H", endpoint, ...args],
+      );
+    });
+
+  const listOwn = (runtime: SandboxRuntimeKind) =>
+    runOn(runtime, listArgs(runtime, owner)).pipe(
+      Effect.map((result) =>
+        Option.isSome(result) && result.value.code === 0
+          ? parseList(runtime, result.value.stdout, owner)
+          : [],
+      ),
+    );
+
+  const remove = (runtime: SandboxRuntimeKind, names: ReadonlyArray<string>) =>
+    names.length === 0
+      ? Effect.void
+      : runOn(runtime, removeArgs(runtime, names)).pipe(Effect.asVoid);
+
+  // The runtime cleanup may use: the configured one, only while its probe found it local and up.
+  // A remote DOCKER_HOST or context must never receive a list, kill or remove either.
+  const cleanupRuntime = Effect.gen(function* () {
+    const current = yield* recipe;
+    const host = yield* probe(false);
+    const reason = current.runtime === "docker" ? host.docker.reason : host.apple.reason;
+    return reason === null ? current.runtime : null;
+  }).pipe(Effect.orElseSucceed(() => null));
+
+  const reap = Effect.gen(function* () {
+    const runtime = yield* cleanupRuntime;
+    if (runtime === null) return;
+    const stale = (yield* listOwn(runtime)).filter((listed) => listed.boot !== boot);
+    yield* remove(
+      runtime,
+      stale.map((listed) => listed.name),
+    );
+    if (stale.length > 0) {
+      yield* Effect.logInfo("Removed containers left by a previous server", {
+        count: stale.length,
+      });
+    }
+  }).pipe(Effect.catchCause((cause) => Effect.logWarning("Could not reap containers", { cause })));
+
+  const removeThread = Effect.fn("ContainerSandbox.removeThread")(
+    function* (threadId: string) {
+      if (!inUse) return;
+      const runtime = yield* cleanupRuntime;
+      if (runtime === null) return;
+      const own = (yield* listOwn(runtime)).filter((listed) => listed.threadId === threadId);
+      yield* remove(
+        runtime,
+        own.map((listed) => listed.name),
+      );
+      agentContainers.delete(threadId);
+      const paths = yield* gitPathsOf(threadId);
+      if (paths !== null && (yield* importInto(threadId, paths)) !== "failed") {
+        yield* fileSystem.remove(paths.privateDir, { recursive: true }).pipe(Effect.ignore);
+      }
+    },
+    (effect) => Effect.ignore(effect),
+  );
+
+  const workspaceOf = Effect.fn("ContainerSandbox.workspaceOf")(function* (threadId: string) {
+    const thread = yield* projections
+      .findThread(ThreadId.make(threadId))
+      .pipe(Effect.orElseSucceed(() => null));
+    if (thread === null) return null;
+    const project = yield* projects
+      .get(thread.projectId)
+      .pipe(Effect.orElseSucceed(() => Option.none()));
+    if (Option.isNone(project)) return null;
+    return thread.worktreePath || project.value.workspaceRoot;
+  });
+
+  // Thread ids name directories and refs, so only plain characters reach either.
+  const gitPathsOf = Effect.fn("ContainerSandbox.gitPathsOf")(function* (threadId: string) {
+    const workspace = yield* workspaceOf(threadId);
+    if (workspace === null) return null;
+    const dir = path.join(stateDir, "sandbox");
+    const safe = safeId(threadId);
+    return {
+      workspace,
+      privateDir: path.join(dir, "git", safe),
+      quarantineDir: path.join(dir, "import", safe),
+      coverDir: path.join(dir, "cover"),
+      hooksDir: path.join(dir, "no-hooks"),
+    } satisfies PrivateGit.PrivateGitPaths;
+  });
+
+  /** Imports the agent's commits; a git dir that cannot be imported is set aside, never reused. */
+  const importInto = (threadId: string, paths: PrivateGit.PrivateGitPaths) =>
+    privateGit
+      .importCommits(paths, `refs/cmdeck/sandbox/${safeId(threadId)}`)
+      .pipe(
+        Effect.catchCause((cause) =>
+          Effect.logWarning("Could not import a container's commits", { threadId, cause }).pipe(
+            Effect.andThen(privateGit.setAside(paths, NodeCrypto.randomUUID().slice(0, 8))),
+            Effect.as("failed" as const),
+          ),
+        ),
+      );
+
+  const expandHome = (value: string) =>
+    value === "~" || value.startsWith("~/") || value.startsWith("~\\")
+      ? path.join(homeDirectory, value.slice(1))
+      : value;
+
+  const mountsFor = (
+    workspace: string,
+    current: SandboxRecipe,
+    git: ReadonlyArray<ContainerMount>,
+  ) => {
+    const at = (hostPath: string, readOnly: boolean): ContainerMount => ({
+      hostPath,
+      containerPath: containerPathFor(hostPath, platform),
+      readOnly,
+    });
+    const mounts = [
+      at(workspace, false),
+      ...git,
+      ...current.mounts.map((extra) => at(expandHome(extra.hostPath), extra.readOnly)),
+    ];
+    // Parents first, so the read-only cover over .git lands on top of the worktree mount.
+    const depth = (mount: ContainerMount) => mount.containerPath.split(/[\\/]/).length;
+    return mounts.toSorted((a, b) => depth(a) - depth(b));
+  };
+
+  // Agent containers per thread, for `kill`. Terminals are not the agent and are never killed here.
+  const agentContainers = new Map<string, string>();
+  // The thread of each agent container, so stopping one imports its commits.
+  const agentUnits = new Map<string, string>();
+
+  const launch = Effect.fn("ContainerSandbox.launch")(function* (
+    threadId: string,
+    input: Parameters<AgentScopeShape["wrap"]>[0],
+  ) {
+    const { recipe: current, refusal } = yield* readiness(false);
+    if (refusal !== null) return yield* new SandboxError({ detail: refusal });
+    const env = input.env ?? hostEnvironment;
+    const envHost = envValue(env, "DOCKER_HOST");
+    const differs = (name: string) => envValue(env, name) !== envValue(hostEnvironment, name);
+    if (
+      (envHost !== undefined && envHost !== "" && !isLocalDockerEndpoint(envHost)) ||
+      differs("DOCKER_CONTEXT") ||
+      differs("DOCKER_CONFIG")
+    ) {
+      return yield* new SandboxError({
+        detail:
+          "This launch's environment points Docker at another engine. CMDeck only uses the local one.",
+      });
+    }
+    const paths = yield* gitPathsOf(threadId);
+    if (paths === null) {
+      return yield* new SandboxError({ detail: "The thread has no workspace to mount." });
+    }
+    const { workspace } = paths;
+    const agent = input.name !== "terminal";
+    // Commits left by an earlier agent come home before its git dir is rebuilt.
+    if (agent) yield* importInto(threadId, paths);
+    const git = yield* privateGit.prepare(
+      paths,
+      (hostPath) => containerPathFor(hostPath, platform),
+      agent,
+    );
+    const name = `${CONTAINER_PREFIX}${input.name}-${NodeCrypto.randomUUID().slice(0, 12)}`;
+    const mounts = mountsFor(workspace, current, git.mounts);
+    const inContainer = containerCommand(input.name, input.command, input.args);
+    const binary = RUNTIME_TRAITS[current.runtime].binary;
+    // The host's PATH, not the launch's: a provider environment must not choose the docker binary.
+    const resolved = yield* resolveCommandPath(binary, { env: hostEnvironment }).pipe(
+      Effect.provideService(FileSystem.FileSystem, fileSystem),
+      Effect.provideService(Path.Path, path),
+      Effect.provideService(HostProcess.Platform, platform),
+      Effect.orElseSucceed(() => null),
+    );
+    const endpoint = (yield* probe(false)).docker.endpoint;
+    const args = runArgs({
+      runtime: current.runtime,
+      endpoint,
+      name,
+      image: current.image,
+      labels: { [LABEL_THREAD]: threadId, [LABEL_OWNER]: owner, [LABEL_BOOT]: boot },
+      workdir: containerPathFor(workspace, platform),
+      mounts,
+      envKeys: forwardedEnvKeys(env, current.env),
+      envValues: git.env,
+      network: current.network,
+      ociRuntime: current.ociRuntime,
+      cpus: current.cpus,
+      memory: current.memory,
+      user:
+        platform === "linux" && current.runtime === "docker" && userId !== undefined
+          ? `${userId}:${process.getgid?.() ?? userId}`
+          : null,
+      // A terminal's pseudo-terminal is already a TTY; the agent speaks JSON over pipes.
+      tty: input.name === "terminal",
+      command: inContainer.command,
+      args: inContainer.args,
+    });
+    if (agent) {
+      agentContainers.set(threadId, name);
+      agentUnits.set(name, threadId);
+    }
+    yield* markInUse;
+    return { command: resolved ?? binary, args, unit: name };
+  });
+
+  const wrap: AgentScopeShape["wrap"] = Effect.fn("ContainerSandbox.wrap")(function* (input) {
+    // A shared process (Codex's app-server) serves other threads, so it never runs in one's container.
+    const threadId =
+      input.shared === true ? undefined : (input.threadId ?? input.env?.[AGENT_THREAD_ENV]);
+    if (threadId === undefined || !(yield* isSandboxed(threadId))) return yield* inner.wrap(input);
+    // Fail closed: a sandboxed thread never falls back to the host. Session open refuses first.
+    return yield* launch(threadId, input).pipe(Effect.orDie);
+  });
+
+  const scope: AgentScopeShape = {
+    wrap,
+    oomKilled: inner.oomKilled,
+    stop: Effect.fn("ContainerSandbox.stop")(function* (unit) {
+      if (!unit.startsWith(CONTAINER_PREFIX)) return yield* inner.stop(unit);
+      const runtime = yield* cleanupRuntime;
+      if (runtime !== null) yield* remove(runtime, [unit]);
+      const threadId = agentUnits.get(unit);
+      if (threadId === undefined) return;
+      agentUnits.delete(unit);
+      const paths = yield* gitPathsOf(threadId);
+      if (paths !== null) yield* importInto(threadId, paths);
+    }),
+    kill: Effect.fn("ContainerSandbox.kill")(function* (threadId) {
+      const name = agentContainers.get(threadId);
+      if (name === undefined) return yield* inner.kill(threadId);
+      const runtime = yield* cleanupRuntime;
+      if (runtime === null) return false;
+      const killed = yield* runOn(runtime, ["kill", name]);
+      return Option.isSome(killed) && killed.value.code === 0;
+    }),
+    clear: (threadId) =>
+      Effect.sync(() => agentContainers.delete(threadId)).pipe(
+        Effect.andThen(inner.clear(threadId)),
+      ),
+  };
+
+  const status = Effect.fn("ContainerSandbox.status")(function* (input: SandboxStatusInput) {
+    const ready = yield* readiness(input.refresh === true);
+    const rows = yield* modes;
+    const thread =
+      input.threadId === undefined
+        ? null
+        : yield* threadModes(input.threadId).pipe(
+            Effect.map((resolved) => ({
+              threadId: ThreadId.make(input.threadId ?? ""),
+              mode: resolved.own,
+              sandboxed: resolved.sandboxed,
+            })),
+          );
+    return {
+      recipe: ready.recipe,
+      ready: ready.refusal === null,
+      runtimes: ready.statuses,
+      projects: rows
+        .filter((row) => row.kind === "project")
+        .map((row) => ({ projectId: row.target_id as ProjectId, mode: row.mode })),
+      thread,
+    } satisfies SandboxStatus;
+  });
+
+  const setMode = Effect.fn("ContainerSandbox.setMode")(function* (
+    kind: ModeRow["kind"],
+    targetId: string,
+    mode: SandboxMode | null,
+  ) {
+    const now = DateTime.formatIso(yield* DateTime.now);
+    yield* (
+      mode === null
+        ? sql`DELETE FROM sandbox_modes WHERE kind = ${kind} AND target_id = ${targetId}`
+        : sql`INSERT INTO sandbox_modes (kind, target_id, mode, updated_at)
+          VALUES (${kind}, ${targetId}, ${mode}, ${now})
+          ON CONFLICT (kind, target_id) DO UPDATE SET mode = excluded.mode, updated_at = excluded.updated_at`
+    ).pipe(Effect.mapError(toError("Could not save the sandbox choice.")));
+  });
+
+  const configure = Effect.fn("ContainerSandbox.configure")(function* (
+    input: SandboxConfigureInput,
+    actor: string,
+  ) {
+    // Each read-compare-write runs in one transaction, so a concurrent change cannot slip an
+    // opt-out past the audit. The entry is written after the commit: AuditLog takes its own lock
+    // and then a transaction, so appending inside this one could deadlock against another append.
+    const atomically = <A>(effect: Effect.Effect<A, SandboxError>) =>
+      sql.withTransaction(effect).pipe(
+        Effect.catchTags({
+          SqlError: (cause) =>
+            Effect.fail(new SandboxError({ detail: "Could not save the sandbox choice.", cause })),
+        }),
+      );
+    if (input.recipe !== undefined) {
+      const next = normalizeRecipe(input.recipe);
+      if (next.ociRuntime !== null && next.runtime !== "docker") {
+        return yield* new SandboxError({ detail: "An OCI runtime applies to Docker only." });
+      }
+      if (next.network === "") {
+        return yield* new SandboxError({ detail: "Choose a network, or none." });
+      }
+      const problem = recipeProblem(next);
+      if (problem !== null) return yield* new SandboxError({ detail: problem });
+      const opened = yield* atomically(
+        Effect.gen(function* () {
+          const previous = yield* recipe;
+          const now = DateTime.formatIso(yield* DateTime.now);
+          const json = yield* encodeRecipe(next).pipe(
+            Effect.mapError(toError("Could not save the sandbox recipe.")),
+          );
+          yield* sql`INSERT INTO sandbox_recipe (id, recipe_json, updated_at) VALUES (1, ${json}, ${now})
+            ON CONFLICT (id) DO UPDATE SET recipe_json = excluded.recipe_json, updated_at = excluded.updated_at`.pipe(
+            Effect.mapError(toError("Could not save the sandbox recipe.")),
+          );
+          return next.network !== "none" && next.network !== previous.network;
+        }),
+      );
+      if (opened) {
+        yield* audit.append({
+          kind: "sandbox.network_opened",
+          actor,
+          subject: next.network,
+          detail: { runtime: next.runtime },
+        });
+      }
+    }
+    const optedOut = (subject: string, scope: "project" | "thread") =>
+      audit.append({ kind: "sandbox.opted_out", actor, subject, detail: { scope } });
+    if (input.project !== undefined) {
+      const { projectId, mode } = input.project;
+      const turnedOff = yield* atomically(
+        Effect.gen(function* () {
+          const before = (yield* modes).find(
+            (row) => row.kind === "project" && row.target_id === projectId,
+          )?.mode;
+          yield* setMode("project", projectId, mode === "on" ? "on" : null);
+          return before === "on" && mode === "off";
+        }),
+      );
+      if (turnedOff) yield* optedOut(projectId, "project");
+    }
+    if (input.thread !== undefined) {
+      const { threadId, mode } = input.thread;
+      const turnedOff = yield* atomically(
+        Effect.gen(function* () {
+          const before = yield* threadModes(threadId);
+          yield* setMode("thread", threadId, mode);
+          const after = yield* threadModes(threadId);
+          return before.sandboxed && !after.sandboxed;
+        }),
+      );
+      if (turnedOff) yield* optedOut(threadId, "thread");
+    }
+    return yield* status(input.thread === undefined ? {} : { threadId: input.thread.threadId });
+  });
+
+  const launchRefusal = Effect.fn("ContainerSandbox.launchRefusal")(function* (
+    threadId: string,
+    driver: string,
+  ) {
+    if (!(yield* isSandboxed(threadId))) return null;
+    if (!CONTAINER_DRIVERS.has(driver)) {
+      return `This thread runs in a container, and ${driver} cannot start inside one yet: only Claude runs one process per thread. Switch to Claude, or turn the container off for this thread.`;
+    }
+    return yield* readiness(false).pipe(
+      Effect.map((ready) => ready.refusal),
+      Effect.orElseSucceed(() => "Could not read the sandbox settings."),
+    );
+  });
+
+  // Reap only where containers were used: a fresh install spawns no container CLI at start-up.
+  const used = yield* Effect.all([recipe, modes]).pipe(
+    Effect.map(
+      ([current, rows]) => current.image.trim() !== "" && rows.some((row) => row.mode === "on"),
+    ),
+    Effect.orElseSucceed(() => false),
+  );
+  if (used) {
+    yield* markInUse;
+    yield* reap.pipe(Effect.forkIn(layerScope));
+  }
+
+  return {
+    scope,
+    service: ContainerSandbox.of({
+      status,
+      configure,
+      isSandboxed,
+      launchRefusal,
+      removeThread,
+      whenInUse,
+    }),
+  };
+});
+
+/**
+ * For a provider adapter, read at its build: whether a thread runs in a container. Absent the
+ * service (tests, upstream builds), no thread does.
+ */
+export const sandboxedThreadCheck = Effect.map(
+  Effect.serviceOption(ContainerSandbox),
+  (sandbox) => (threadId: string) =>
+    Option.isSome(sandbox) ? sandbox.value.isSandboxed(threadId) : Effect.succeed(false),
+);
+
+/**
+ * Whether a launch runs in a container: the thread was sandboxed when checked, or the scope that
+ * wrapped it started a container anyway (turned on in between). Either way it gets no credentials.
+ */
+export const isContained = (sandboxed: boolean, unit: string | undefined) =>
+  sandboxed || unit?.startsWith(CONTAINER_PREFIX) === true;
+
+/** The service and the AgentScope it wraps, without the stores it reads (tests provide fakes). */
+export const layerCore = Layer.effectContext(
+  make.pipe(
+    Effect.map(({ scope, service }) =>
+      Context.make(ContainerSandbox, service).pipe(Context.add(AgentScope, scope)),
+    ),
+  ),
+);
+
+/**
+ * Wraps whichever AgentScope lies beneath (systemd on Linux) and provides the sandbox service.
+ * `server.ts` provides it right above that AgentScope, with the settings layer for its database.
+ */
+export const layer = layerCore.pipe(
+  Layer.provide(
+    Layer.mergeAll(
+      ProjectionStore.layer,
+      ProjectStore.layer,
+      AuditLog.layerService,
+      ProcessRunner.layer,
+    ),
+  ),
+);

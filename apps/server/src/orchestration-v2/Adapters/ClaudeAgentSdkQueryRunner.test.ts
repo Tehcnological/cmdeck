@@ -27,6 +27,7 @@ import { AgentScope } from "@t3tools/shared/AgentScope";
 import { ProviderEventLoggers } from "@t3tools/provider-core/server/ProviderEventLoggers";
 import { makeProviderFailure } from "@t3tools/provider-core/server/failure";
 import { signalProcessGroup } from "@t3tools/provider-core/server/processGroup";
+import { ContainerSandbox } from "../../fork/sandbox/ContainerSandbox.ts";
 import * as PortScanner from "../../preview/PortScanner.ts";
 import {
   ClaudeAgentSdkQueryRunner,
@@ -260,6 +261,135 @@ it.effect("resumes a session whose history exceeds the status-probe output limit
     assert.equal(querySpy.mock.calls.length, 1);
     assert.equal(querySpy.mock.calls[0]?.[0].options?.resume, FORK_SESSION_ID);
   }).pipe(Effect.provide(Layer.merge(realQueryRunner, NodeServices.layer))),
+);
+
+// Fork (WI-2.18): a script entry (npm's cli.js) would run through node on the host, so a thread
+// that runs in a container must still launch through the AgentScope, as the image's `claude`.
+it.effect.each([true, false])(
+  "a script executable goes through the container scope only when the thread is sandboxed: %s",
+  (sandboxed) =>
+    Effect.gen(function* () {
+      const wraps: Array<string> = [];
+      const querySpy = vi
+        .spyOn(ClaudeSdk, "query")
+        .mockImplementation(() => ({ close: vi.fn() }) as unknown as ClaudeSdk.Query);
+      yield* Effect.addFinalizer(() => Effect.sync(() => querySpy.mockRestore()));
+      const cli = "/usr/lib/node_modules/@anthropic-ai/claude-code/cli.js";
+      const session = yield* openFakeCli(cli).pipe(
+        Effect.provide(
+          realQueryRunner.pipe(
+            Layer.provide(
+              Layer.mergeAll(
+                Layer.succeed(AgentScope, {
+                  ...AgentScope.defaultValue(),
+                  wrap: ({ command }) =>
+                    Effect.sync(() => {
+                      wraps.push(command);
+                      return { command: "docker", args: ["run", "--rm", "-i", "image", "claude"] };
+                    }),
+                }),
+                Layer.mock(ContainerSandbox)({ isSandboxed: () => Effect.succeed(sandboxed) }),
+              ),
+            ),
+          ),
+        ),
+      );
+      yield* Effect.addFinalizer(() => session.close.pipe(Effect.orDie));
+      const launched = querySpy.mock.calls[0]?.[0].options?.pathToClaudeCodeExecutable;
+      assert.deepEqual(wraps, sandboxed ? [cli] : []);
+      assert.equal(launched, sandboxed ? "docker" : cli);
+    }),
+);
+
+// Fork (WI-2.18): an agent in a container must hold no CMDeck MCP credential, or one that can
+// reach the server could start and steer threads that run on the host.
+it.effect.each([true, false])(
+  "registers MCP servers only for a thread outside a container: sandboxed %s",
+  (sandboxed) =>
+    Effect.gen(function* () {
+      const registered: Array<unknown> = [];
+      const querySpy = vi.spyOn(ClaudeSdk, "query").mockImplementation(
+        () =>
+          ({
+            initializationResult: async () => ({}),
+            setMcpServers: async (servers: unknown) => {
+              registered.push(servers);
+              return { added: ["t3-code"], removed: [], errors: {} };
+            },
+            close: vi.fn(),
+          }) as unknown as ClaudeSdk.Query,
+      );
+      yield* Effect.addFinalizer(() => Effect.sync(() => querySpy.mockRestore()));
+      const runner = yield* ClaudeAgentSdkQueryRunner;
+      const session = yield* runner.open(resumedMcpQueryInput);
+      yield* Effect.addFinalizer(() => session.close.pipe(Effect.orDie));
+      assert.equal(registered.length, sandboxed ? 0 : 1);
+      assert.isUndefined(querySpy.mock.calls[0]?.[0].options?.mcpServers);
+    }).pipe(
+      Effect.provide(
+        realQueryRunner.pipe(
+          Layer.provide(
+            Layer.mock(ContainerSandbox)({ isSandboxed: () => Effect.succeed(sandboxed) }),
+          ),
+        ),
+      ),
+    ),
+);
+
+// Fork (WI-2.18): whether a launch is in a container is decided once, and the scope that ran it
+// has the last word, so a thread turned on mid-launch never gets a credential inside a container.
+it.effect.each([
+  ["a script entry, turned on after the first check", "/opt/claude/cli.js", [false, true]],
+  ["a native binary the scope put in a container", "/opt/claude/claude", [false]],
+] as const)("never registers MCP servers for a container launch: %s", ([, cli, answers]) =>
+  Effect.gen(function* () {
+    const registered: Array<unknown> = [];
+    const wraps: Array<string> = [];
+    let checks = 0;
+    const querySpy = vi.spyOn(ClaudeSdk, "query").mockImplementation(
+      () =>
+        ({
+          initializationResult: async () => ({}),
+          setMcpServers: async (servers: unknown) => {
+            registered.push(servers);
+            return { added: ["t3-code"], removed: [], errors: {} };
+          },
+          close: vi.fn(),
+        }) as unknown as ClaudeSdk.Query,
+    );
+    yield* Effect.addFinalizer(() => Effect.sync(() => querySpy.mockRestore()));
+    const session = yield* Effect.gen(function* () {
+      const runner = yield* ClaudeAgentSdkQueryRunner;
+      return yield* runner.open({
+        ...resumedMcpQueryInput,
+        options: { ...resumedMcpQueryInput.options, pathToClaudeCodeExecutable: cli },
+      });
+    }).pipe(
+      Effect.provide(
+        realQueryRunner.pipe(
+          Layer.provide(
+            Layer.mergeAll(
+              Layer.succeed(AgentScope, {
+                ...AgentScope.defaultValue(),
+                wrap: ({ command }) =>
+                  Effect.sync(() => {
+                    wraps.push(command);
+                    return { command: "docker", args: ["run", "image"], unit: "cmdeck-claude-1" };
+                  }),
+              }),
+              Layer.mock(ContainerSandbox)({
+                isSandboxed: () =>
+                  Effect.succeed(answers[Math.min(checks++, answers.length - 1)] ?? true),
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+    yield* Effect.addFinalizer(() => session.close.pipe(Effect.orDie));
+    assert.equal(checks, 1);
+    assert.isFalse(wraps.length > 0 && registered.length > 0);
+  }),
 );
 
 it.effect("reopens a stalled MCP registration before delivering the resumed prompt", () =>
@@ -763,7 +893,7 @@ describe.skipIf(HostProcess.Platform.defaultValue() === "win32")("Claude CLI pro
     pid,
     ppid,
     pgid: pid,
-    started: `Sun Nov 15 10:00:0${startedSecond} 2026`,
+    startTimeSeconds: startedSecond,
   });
   const byNumber = (left: number, right: number) => left - right;
 
@@ -827,6 +957,25 @@ describe.skipIf(HostProcess.Platform.defaultValue() === "win32")("Claude CLI pro
       });
     },
   );
+
+  it.effect("rejects a same-second pid reuse after an intervening lower precision snapshot", () => {
+    const cli = processRow(1000, 10, 0);
+    const child = processRow(1100, 1000, 1);
+    const orphan = { ...child, ppid: 1 };
+    const tables = [
+      [cli, { ...child, startTimeMicros: 1000001 }],
+      [cli, orphan],
+      [{ ...orphan, startTimeMicros: 1000002 }, processRow(1101, orphan.pid, 2)],
+    ];
+    const tracker = makeClaudeDescendantPoll(Effect.sync(() => tables.shift() ?? [])).track(
+      cli.pid,
+    );
+    return Effect.gen(function* () {
+      yield* tracker.refresh;
+      yield* tracker.refresh;
+      assert.deepStrictEqual(yield* tracker.leftovers, []);
+    });
+  });
 
   // The poll and a session close read the table independently. The older table still lists a
   // re-parented job and the child it just started; the newer one lists a job started since.

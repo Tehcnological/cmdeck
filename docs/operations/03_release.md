@@ -19,6 +19,11 @@ app version `N.0.0-beta.M`, shown as `vN-beta.M`. There is no nightly or preview
 4. Install the previous release on each platform and check that it offers and installs the new
    one (for a beta, on the Beta track).
 
+The same workflow builds the CLI archives (`t3-<version>-<platform>-<arch>.tar.gz`, `.zip` on
+Windows, for each key in `CLI_ARCHIVE_PLATFORM_KEYS`) and `SHA256SUMS`, and fails if any archive is
+missing. SSH bootstraps, `t3 service install` and `t3 update` download them from the release tag
+when no mirror or `T3CODE_RELEASE_BASE_URL` is set, and check them against `SHA256SUMS`.
+
 Betas for version N come before `vN`: cut `vN-beta.1`, `vN-beta.2`, ..., then `vN` from a later
 commit, which Beta apps also install. After `vN`, the next betas are `vN+1-beta.M`. Never cut a
 beta of a version that already shipped (`v3-beta.3` after `v3`): every app has moved past it.
@@ -41,7 +46,17 @@ signature.
 
 The Beta track is stored as `nightly`, the value official T3 Code clients and servers know, so a
 saved Nightly setting is Beta. Track switches move only the desktop app: CMDeck has no npm release
-for the multi-machine switch, and servers update through `t3 update` only from a managed mirror.
+for the multi-machine switch.
+
+`fork-release.yml` and `fork-desktop-build.yml` can run their Windows and macOS jobs (not `publish`)
+on the owner's machines: CMD1 (`self-hosted, cmd1, windows, x64`) and the Mac mini
+(`self-hosted, macmini, macos, arm64`). Their `pick-runner` job picks a machine only when the repo
+variable `SELF_HOSTED` is `on`, `Tehcnological` started the run by a push or by hand, and the
+machine's runner is online and idle, checked with the `RUNNER_STATUS_TOKEN` secret (a fine-grained
+token with only Administration: Read-only on this repository). Otherwise those jobs use
+`windows-2025` and `macos-26` as before. The runners' job-started hooks enforce the same rules, so a
+fork that edits `runs-on` is refused there. Turn it off with
+`gh variable delete SELF_HOSTED -R Tehcnological/cmdeck`.
 
 The rest of this runbook describes upstream T3 Code's release pipeline, which this fork does not
 run.

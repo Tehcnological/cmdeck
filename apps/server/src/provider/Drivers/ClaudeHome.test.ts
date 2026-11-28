@@ -5,6 +5,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import { TELEMETRY_OPT_OUT_ENV } from "@t3tools/provider-core/server/instanceEnvironment";
 
 import {
   makeClaudeCapabilitiesCacheKey,
@@ -101,10 +102,12 @@ it.layer(NodeServices.layer)("ClaudeHome", (it) => {
         ];
 
         expect(yield* mergeClaudeProcessEnvironment({ homePath }, undefined, host)).toEqual({
+          ...TELEMETRY_OPT_OUT_ENV,
           CLAUDE_CODE_ENTRYPOINT: "t3-code",
           KEEP: "1",
         });
         expect(yield* mergeClaudeProcessEnvironment({ homePath }, instance, host)).toEqual({
+          ...TELEMETRY_OPT_OUT_ENV,
           CLAUDE_CODE_ENTRYPOINT: "instance",
           CLAUDE_EFFORT: "low",
           KEEP: "1",

@@ -59,6 +59,7 @@ import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import { environmentThreadDetails, threadEnvironment } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { toolActivityFaviconUrl } from "@t3tools/shared/favicon";
+import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { isJavaScriptReplTool } from "@t3tools/shared/toolActivity";
 import { useMarkdownCodeHighlight } from "./markdownCodeHighlightState";
 import { highlightCommand, type HighlightedLines, withTokenStarts } from "../../lib/highlights";
@@ -1570,11 +1571,14 @@ function ToolActivityIconView(props: {
   readonly fallbackColor: ColorValue;
   readonly themeAppearance: "light" | "dark";
 }) {
+  const { siteIconsEnabled } = useAppearancePreferences();
   if (!props.icon) {
     return <WorkLogIcon icon={props.fallback} color={props.fallbackColor} />;
   }
   if (props.icon._tag === "website") {
-    const source = toolActivityFaviconUrl(props.icon, props.themeAppearance, 32);
+    const source = siteIconsEnabled
+      ? toolActivityFaviconUrl(props.icon, props.themeAppearance, 32)
+      : null;
     return source ? (
       <ToolActivityImage
         key={source}
@@ -1592,6 +1596,10 @@ function ToolActivityIconView(props: {
       props.themeAppearance === "dark"
         ? (props.icon.logoUrlDark ?? props.icon.logoUrl)
         : props.icon.logoUrl;
+    // Provider logos are often remote (Claude sends icon-service URLs); data: logos load nothing.
+    if (!siteIconsEnabled && !source.startsWith("data:")) {
+      return <WorkLogIcon icon={props.fallback} color={props.fallbackColor} />;
+    }
     return (
       <ToolActivityImage
         key={source}

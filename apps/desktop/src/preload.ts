@@ -240,6 +240,9 @@ contextBridge.exposeInMainWorld("desktopBridge", {
   setWslOnly: (enabled) => ipcRenderer.invoke(IpcChannels.SET_WSL_ONLY_CHANNEL, enabled),
   getTraySettings: () => ipcRenderer.invoke(IpcChannels.GET_TRAY_SETTINGS_CHANNEL),
   setTraySettings: (update) => ipcRenderer.invoke(IpcChannels.SET_TRAY_SETTINGS_CHANNEL, update),
+  getLinuxSpellcheck: () => ipcRenderer.invoke(IpcChannels.GET_LINUX_SPELLCHECK_CHANNEL),
+  setLinuxSpellcheck: (enabled) =>
+    ipcRenderer.invoke(IpcChannels.SET_LINUX_SPELLCHECK_CHANNEL, enabled),
   pickFolder: (options) => ipcRenderer.invoke(IpcChannels.PICK_FOLDER_CHANNEL, options),
   toLocalBackendPath: (backendId, path) =>
     ipcRenderer.invoke(IpcChannels.TO_LOCAL_BACKEND_PATH_CHANNEL, { backendId, path }),
@@ -334,6 +337,9 @@ contextBridge.exposeInMainWorld("desktopBridge", {
   getUpdateState: () => ipcRenderer.invoke(IpcChannels.UPDATE_GET_STATE_CHANNEL),
   setUpdateChannel: (channel, minimumVersion) =>
     ipcRenderer.invoke(IpcChannels.UPDATE_SET_CHANNEL_CHANNEL, { channel, minimumVersion }),
+  getUpdateAutoCheck: () => ipcRenderer.invoke(IpcChannels.UPDATE_GET_AUTO_CHECK_CHANNEL),
+  setUpdateAutoCheck: (enabled) =>
+    ipcRenderer.invoke(IpcChannels.UPDATE_SET_AUTO_CHECK_CHANNEL, enabled),
   checkForUpdate: () => ipcRenderer.invoke(IpcChannels.UPDATE_CHECK_CHANNEL),
   downloadUpdate: () => ipcRenderer.invoke(IpcChannels.UPDATE_DOWNLOAD_CHANNEL),
   installUpdate: (expectedVersion) =>

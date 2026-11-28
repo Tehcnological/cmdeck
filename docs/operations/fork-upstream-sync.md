@@ -64,6 +64,41 @@ usual conflicts:
 
 Add a pattern to its list whenever you remove something upstream may reintroduce.
 
+## Where fork code goes
+
+Fork features attach to upstream through a few seams, each one line in an upstream file and listed in
+the guard. Adding a feature should not need another edit to a busy upstream file:
+
+- **Services:** `apps/server/src/fork/<module>/`, provided from `apps/server/src/fork/ForkLayer.ts`.
+- **Tables:** the module's own idempotent `ensure*Schema()`, called from
+  `apps/server/src/persistence/ForkSchema.ts`.
+- **RPCs:** methods named `cmdeck.*` in `packages/contracts/src/fork/rpc.ts` (`ForkWsRpcGroup`, merged
+  into `WsRpcGroup`), each with a scope in `FORK_RPC_SCOPES`, which the server authorizes like any other
+  method. Handlers go in `apps/server/src/fork/rpc/ForkRpcHandlers.ts`.
+- **Settings:** fields of `CmdeckSettings` (`packages/contracts/src/fork/settings.ts`), stored under one
+  `cmdeck` key that upstream clients, including the official mobile app, ignore. A missing field means
+  the module is off.
+- **MCP tools:** `apps/server/src/fork/mcpToolkits.ts`.
+- **Services orchestration reads:** `ForkLayer.layerBeneathOrchestration`, provided beneath
+  orchestration in `server.ts`, so it may depend only on settings, persistence and the project store.
+- **Turn context:** contributors in `apps/server/src/fork/memory/TurnContext.ts` add one fenced block to
+  the provider prompt at turn start (`ProviderTurnStartService.ts`). The stored message never holds it,
+  so events and the official mobile app are unchanged.
+- **Command palette:** `apps/web/src/fork/commands.ts`.
+- **Right panel:** one `cmdeck` surface kind whose tabs come from `apps/web/src/fork/panels.tsx`. A module
+  adds a tab there, not another surface kind.
+- **Secret store:** a file that builds `ServerSecretStore.layer` imports `ServerSecretStore` from
+  `apps/server/src/fork/secrets/EncryptedSecretStore.ts`, which re-exports the upstream module with an
+  encrypting `layer`. A builder that keeps the upstream import would read encrypted files as raw
+  bytes, so the guard fails on it; after a merge, point its import at the fork module.
+- **Right panel tabs:** a panel id in `apps/web/src/fork/panelSurface.ts` and its title, icon and
+  content in `apps/web/src/fork/panels.tsx`. Every fork panel is one `cmdeck` surface kind, so a new
+  panel needs no edit to `rightPanelStore.ts` or the tab components.
+
+Fork RPCs and settings are additive and never change `ORCHESTRATION_PROTOCOL_VERSION`. An optional
+module does nothing while it is off (no fibre, timer, subscription or request) and adds a case to
+`apps/server/src/fork/privacy/egress.test.ts` proving it.
+
 ## Separate data from T3 Code
 
 CMDeck keeps its own data and identity, so it installs and runs next to the official T3 Code

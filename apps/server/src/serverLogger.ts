@@ -1,3 +1,4 @@
+import * as SharedObservability from "@t3tools/shared/observability";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -6,9 +7,16 @@ import * as Redactable from "effect/Redactable";
 import * as References from "effect/References";
 
 import * as ServerConfig from "./config.ts";
+import { redactingSecrets } from "./fork/redactingLogger.ts";
+
+// HTTP errors logged with --log-ws-events carry the request URL and its connection ticket.
+const redactingCredentials = <Output>(logger: Logger.Logger<unknown, Output>) =>
+  Logger.make<unknown, Output>((options) =>
+    logger.log({ ...options, cause: SharedObservability.redactCauseCredentials(options.cause) }),
+  );
 
 const consolePretty = (): Logger.Logger<unknown, void> => {
-  const pretty = Logger.consolePretty();
+  const pretty = redactingSecrets(redactingCredentials(Logger.consolePretty()));
   return Logger.make((options) =>
     pretty.log({
       ...options,

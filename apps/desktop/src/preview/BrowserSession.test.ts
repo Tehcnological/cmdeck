@@ -10,6 +10,21 @@ import * as Layer from "effect/Layer";
 import * as NodeEvents from "node:events";
 import { beforeEach, vi } from "vite-plus/test";
 
+/** Electron fills a new session's dictionary list from the locale. */
+const { makeSpellchecker, defaultSession } = vi.hoisted(() => {
+  const makeSpellchecker = () => {
+    let languages: ReadonlyArray<string> = ["en-US"];
+    return {
+      getSpellCheckerLanguages: vi.fn(() => [...languages]),
+      setSpellCheckerLanguages: vi.fn((next: ReadonlyArray<string>) => {
+        languages = next;
+      }),
+      setSpellCheckerEnabled: vi.fn(),
+    };
+  };
+  return { makeSpellchecker, defaultSession: { current: makeSpellchecker() } };
+});
+
 const { fromPartition, sessions } = vi.hoisted(() => ({
   fromPartition: vi.fn(),
   sessions: new Map<
@@ -24,7 +39,7 @@ const { fromPartition, sessions } = vi.hoisted(() => ({
       readonly setPermissionCheckHandler: ReturnType<typeof vi.fn>;
       readonly setUserAgent: ReturnType<typeof vi.fn>;
       readonly webRequest: { readonly onBeforeSendHeaders: ReturnType<typeof vi.fn> };
-    }
+    } & ReturnType<typeof makeSpellchecker>
   >(),
 }));
 
@@ -55,6 +70,9 @@ vi.mock("electron", () => ({
   BrowserWindow: { fromWebContents },
   session: {
     fromPartition,
+    get defaultSession() {
+      return defaultSession.current;
+    },
   },
   systemPreferences: { getMediaAccessStatus, askForMediaAccess },
 }));
@@ -154,6 +172,7 @@ describe("BrowserSession", () => {
     appListeners.clear();
     storage.root = "";
     showErrorBox.mockReset();
+    defaultSession.current = makeSpellchecker();
     fromPartition.mockReset();
     fromPartition.mockImplementation((partition: string) => {
       const browserSession = {
@@ -170,6 +189,7 @@ describe("BrowserSession", () => {
         setPermissionCheckHandler: vi.fn(),
         setUserAgent: vi.fn(),
         webRequest: { onBeforeSendHeaders: vi.fn() },
+        ...makeSpellchecker(),
       };
       sessions.set(partition, browserSession);
       return browserSession;
@@ -188,6 +208,49 @@ describe("BrowserSession", () => {
       assert.strictEqual(first, second);
       assert.strictEqual(fromPartition.mock.calls.length, 1);
     }).pipe(Effect.provide(layer)),
+  );
+
+  it.effect.each(["linux", "win32"] as const)(
+    "spellcheck off clears every session's dictionaries on Linux only, platform=%s",
+    (platform) =>
+      Effect.gen(function* () {
+        const browserSessions = yield* BrowserSession.BrowserSession;
+        const languagesOf = () =>
+          [defaultSession.current, ...sessions.values()].map((target) =>
+            target.getSpellCheckerLanguages(),
+          );
+
+        yield* browserSessions.getSession("scope-a");
+        yield* browserSessions.setLinuxSpellcheck(false);
+        yield* browserSessions.getSession("scope-b");
+        const off = languagesOf();
+        yield* browserSessions.setLinuxSpellcheck(true);
+
+        if (platform === "linux") {
+          assert.deepStrictEqual(off, [[], [], []]);
+          assert.deepStrictEqual(languagesOf(), [["en-US"], ["en-US"], ["en-US"]]);
+        } else {
+          assert.deepStrictEqual(off, [["en-US"], ["en-US"], ["en-US"]]);
+          for (const target of [defaultSession.current, ...sessions.values()]) {
+            assert.strictEqual(target.setSpellCheckerLanguages.mock.calls.length, 0);
+            assert.strictEqual(target.setSpellCheckerEnabled.mock.calls.length, 0);
+          }
+        }
+      }).pipe(
+        Effect.provide(
+          BrowserSession.layer.pipe(
+            Layer.provide(
+              Layer.mergeAll(
+                NodeServices.layer,
+                NodeCrypto.layer,
+                layerDialog,
+                ElectronApp.layer,
+                Layer.succeed(HostProcess.Platform, platform),
+              ),
+            ),
+          ),
+        ),
+      ),
   );
 
   it.effect("keeps scopes that differ only by a lone surrogate in separate partitions", () =>
@@ -244,6 +307,7 @@ describe("BrowserSession", () => {
             userAgent = next;
           }),
           webRequest: { onBeforeSendHeaders: vi.fn() },
+          ...makeSpellchecker(),
         };
         sessions.set(partition, browserSession);
         return browserSession;

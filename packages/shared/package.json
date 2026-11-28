@@ -99,6 +99,14 @@
       "types": "./src/logging.ts",
       "import": "./src/logging.ts"
     },
+    "./observability": {
+      "types": "./src/observability.ts",
+      "import": "./src/observability.ts"
+    },
+    "./redaction": {
+      "types": "./src/redaction.ts",
+      "import": "./src/redaction.ts"
+    },
     "./httpObservability": {
       "types": "./src/httpObservability.ts",
       "import": "./src/httpObservability.ts"

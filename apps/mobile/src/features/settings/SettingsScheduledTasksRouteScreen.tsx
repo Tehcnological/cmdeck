@@ -139,6 +139,12 @@ function describeSchedule(
   }
   if (task.schedule.type === "interval")
     return formatScheduledTaskInterval(task.schedule.everyMs, resolve);
+  if (task.schedule.type === "cron") {
+    const expression = task.schedule.expression;
+    return task.schedule.timeZone === undefined
+      ? resolve(msg("Cron {expression}", { expression }))
+      : resolve(msg("Cron {expression} {zone}", { expression, zone: task.schedule.timeZone }));
+  }
   const days = task.schedule.weekdays?.length
     ? repeatLabel(task.schedule.weekdays, resolve, locale)
     : resolve(msg("Every day"));
@@ -149,12 +155,15 @@ function describeSchedule(
     : resolve(msg("{days} at {time} {zone}", { days, time, zone }));
 }
 
+// A stored wall time names no date or zone, so format it in UTC where nothing can shift it.
 function formatTime(value: string): string {
   const [hours, minutes] = value.split(":").map(Number);
   if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return value;
-  const time = new Date();
-  time.setHours(hours ?? 9, minutes ?? 0, 0, 0);
-  return time.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return new Date(Date.UTC(2000, 0, 1, hours ?? 9, minutes ?? 0)).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "UTC",
+  });
 }
 
 function formatRunAtDate(value: Date): string {
@@ -167,7 +176,8 @@ function formatRunAtTime(value: Date): string {
 
 function timePickerValue(value: string): Date {
   const [hours, minutes] = value.split(":").map(Number);
-  const time = new Date();
+  // Native pickers read local hours, and 2000-01-01 has no DST change in any zone, unlike today.
+  const time = new Date(2000, 0, 1);
   time.setHours(
     Number.isInteger(hours) ? (hours ?? 9) : 9,
     Number.isInteger(minutes) ? (minutes ?? 0) : 0,
@@ -1163,6 +1173,10 @@ function TaskForm({
                     ]
                   : []),
                 { value: "interval", label: gt("Interval") },
+                // Cron is edited on web; a cron task can switch away and back.
+                ...(draft.schedule.cron === null
+                  ? []
+                  : [{ value: "cron" as const, label: gt("Cron") }]),
                 ...(webhookDenial === undefined || draft.schedule.mode === "webhook"
                   ? [{ value: "webhook" as const, label: gt("On webhook") }]
                   : []),
@@ -1424,6 +1438,21 @@ function TaskForm({
                 </T>
               </Text>
             </>
+          ) : draft.schedule.mode === "cron" && draft.schedule.cron !== null ? (
+            // Shown, not edited: an interval field here would be saved over nothing.
+            <View className="gap-1 border-t border-border-subtle px-4 py-3">
+              <Text textRole="body" className="text-foreground">
+                {draft.schedule.cron.timeZone === undefined
+                  ? gt("Cron {expression}", { expression: draft.schedule.cron.expression })
+                  : gt("Cron {expression} {zone}", {
+                      expression: draft.schedule.cron.expression,
+                      zone: draft.schedule.cron.timeZone,
+                    })}
+              </Text>
+              <Text className="text-sm text-foreground-muted">
+                <T>Change a cron schedule on web or desktop.</T>
+              </Text>
+            </View>
           ) : (
             <>
               <FormField

@@ -40,6 +40,7 @@ import { releaseComposerDraftUploads } from "../lib/composerDraftUploads";
 import { announce } from "../lib/announce";
 import { m } from "../i18n/messages";
 import { readLocalApi } from "../localApi";
+import { offerToStopConductorWorkers } from "../fork/workLedger";
 import {
   readDelegatedUnderParent,
   readEnvironmentServerConfigLoaded,
@@ -435,6 +436,7 @@ export function useThreadActions() {
     const shouldNavigateToDraft =
       currentRouteThreadRef?.threadId === threadRef.threadId &&
       currentRouteThreadRef.environmentId === threadRef.environmentId;
+    await offerToStopConductorWorkers(threadRef);
     const action = ThreadUndo.begin("archive", scopedThreadKey(threadRef));
     const archiveResult = await archiveThreadMutation({
       environmentId: threadRef.environmentId,

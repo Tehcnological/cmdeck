@@ -207,6 +207,7 @@ const layerBrowserSession = Layer.succeed(
     clearCookies: () => Effect.void,
     cookiesCleared: () => Effect.void,
     clearCache: () => Effect.void,
+    setLinuxSpellcheck: () => Effect.void,
   }),
 );
 

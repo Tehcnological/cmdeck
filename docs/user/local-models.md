@@ -36,6 +36,10 @@ concurrent requests**. CMDeck checks each server and shows whether it is ready, 
 serves with their context windows, and its current load when the server reports one. **Refresh**
 checks again.
 
+The engine is named for TensorFold, vLLM, llama.cpp, Ollama, LM Studio, oMLX, Osaurus and Locals.
+Load (requests running and waiting) comes from TensorFold, vLLM, llama.cpp and oMLX; Osaurus and
+Locals do not report how many requests are waiting, so no load is shown for them.
+
 Each machine keeps its own list, because `localhost` means a different computer on each. To use a
 server you registered on one machine from another, such as a Spark added over SSH, select that
 machine at the top of **Settings → Inference**: servers registered on your other connected machines
@@ -206,7 +210,7 @@ Add a Claude instance with its own config directory, then set these
 
 Add your model's ID with **Add custom model** and select it in the chat model
 picker. The built-in Claude models stay listed but your server will not serve
-them. See [Claude](./providers-claude.md#other-routers).
+them. See [Claude](./providers-claude.md#openrouter-and-local-routers).
 
 ### Codex
 

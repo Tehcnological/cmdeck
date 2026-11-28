@@ -2,7 +2,11 @@ import { assert, describe, it } from "@effect/vitest";
 import { collectComposerContextReferences } from "@t3tools/shared/composerContextReferences";
 import { SKILL_MENTION_PATTERN } from "@t3tools/shared/composerInlineTokens";
 
-import { renderWebhookPrompt, type WebhookRequest } from "./webhookTemplate.ts";
+import {
+  renderWebhookPrompt,
+  type WebhookRequest,
+  webhookExpressionResolver,
+} from "./webhookTemplate.ts";
 
 const githubPullRequest: WebhookRequest = {
   method: "POST",
@@ -162,6 +166,29 @@ describe("renderWebhookPrompt", () => {
       named,
       `<webhook-data-id>Bearer h-secret</webhook-data-id> <webhook-data-id>q-secret</webhook-data-id>${NOTE}`,
     );
+  });
+
+  it("redacts secrets in whole-body placeholders but not named fields", () => {
+    // Assembled at runtime so secret scanners do not flag the test.
+    const token = ["gh", "p_", "aB3dE5gH7jK9mN1pQ2rS4tU6vW8xY0z12345"].join("");
+    const request = {
+      ...githubPullRequest,
+      headers: { ...githubPullRequest.headers, "x-debug": token },
+      query: `note=${token}`,
+      bodyText: JSON.stringify({ note: `use ${token}` }),
+    };
+
+    const whole = renderWebhookPrompt(
+      "{{body}}|{{request}}|{{headers}}|{{query}}",
+      request,
+      "id",
+    ).prompt;
+    assert.notInclude(whole, token);
+    assert.include(whole, "use [redacted]");
+    assert.include(renderWebhookPrompt("{{body.note}}", request, "id").prompt, token);
+    // Replay and coalescing keys render raw, so deliveries that differ only in a secret stay distinct.
+    assert.include(renderWebhookPrompt("{{body}}", request, "", true).prompt, token);
+    assert.include(webhookExpressionResolver(request)("body") as string, token);
   });
 
   it("renders a [] wildcard as the list of matching values", () => {

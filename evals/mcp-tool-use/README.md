@@ -27,6 +27,7 @@ Cases are JSON lines in `cases/`, one file per area. The case schema in `run.ts`
 - `kind`: `bad` reproduces a mistake, `guard` protects correct behavior, `control` is ordinary work.
 - `experience`: the real mistake, in a sentence. `source`: where it happened.
 - `setup`: the fake thread, its `world` (repo, branch, files, PRs, pages), `priorTurns`, and `mocks` for tool results. With `world.backgroundTasks`, `t3_background_wait` answers from T3's own handler and ThreadManagementService, so its result and errors are the checkout's; a prior wait with `"result": "default"` gets that result too.
+- `setup.skill`: the user invoked that skill from this repo's `skills/` with `prompt` as its arguments. The runner loads its `SKILL.md` from the checkout into the user message, as Claude Code sends an invoked skill, so a case always tests the current text. `cases/design-critique.ndjson` uses it for the `design-critique` skill.
 - `setup.priorTurns[].toolCalls[].resultFile`: load a repository-relative file as the tool result instead of copying its contents into the case. An empty `prompt` resumes a top-level thread after its last prior tool result without adding a user message. Side-chat and subagent setups require a nonempty prompt.
 - `expect`: the checks, such as `calls`, `callsMustNot`, `maxCalls`, `order`, `shellMust`, `textMust`, `finalTextMust` (the last text, once the turn ended), and `linked`. A call's `args` match partially: `~text` is a case-insensitive substring, `re:` a case-sensitive regex, `"<=N"` / `">=N"` bound a number, `null` matches a missing key, and keys may be dotted paths. For `calls` and `callsMustNot`, `argsAnyOf` accepts any one of its partial argument objects, in addition to `args`. Only `calls` supports `success: true`, which requires a recorded successful result. `distinctCalls` supports only `tool` and `args`. Device cases also use `device` to check every child brief, forbid raw UI commands, bound failed device actions per user turn, and require artifact paths in completed final answers. Secrets cases use `secret` (see [Secrets cases](#secrets-cases)).
 
@@ -34,7 +35,7 @@ Check that the case builds with `--dry-run --case <id>`. Then run it on the text
 
 ## Device manager cases
 
-`cases/device-manager.ndjson` ports nine mechanisms from the [device-routing investigation described in #25661](https://github.com/pingdotgg/t3code/pull/25661) and adds seven cases from t3dotgg’s 2026-10-26 fleet device investigation. All prompts, files, hosts and prior turns are authored Acme data; the fleet cases cite finding ids without carrying source transcripts or identifiers.
+`cases/device-manager.ndjson` ports nine mechanisms from the [device-routing investigation described in #25661](https://github.com/pingdotgg/t3code/pull/25661) and adds seven cases from t3dotgg’s 2026-10-26 fleet device investigation, and two from [#36192](https://github.com/pingdotgg/t3code/issues/36192). All prompts, files, hosts and prior turns are authored Acme data; the fleet cases cite finding ids without carrying source transcripts or identifiers.
 
 | Case           | Kind    | What it checks                                                                                                                                                                                     |
 | -------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -57,6 +58,24 @@ Check that the case builds with `--dry-run --case <id>`. Then run it on the text
 | OWN-01  | F3 (R4)       | guard | An occupied target returns agent-device's real DEVICE_IN_USE error; this thread's panel open may succeed first. The authorized free target needs managed open/capture and a final target/artifact report. Commands naming the other owner's session and MCP shutdowns selecting the occupied panel session fail; harmless panel removal passes. |
 | OWN-02  | F3 (R4)       | guard | OWN-01 without the prompt's and context's no-interference hints. With a free target on offer, the agent takes it and leaves the other thread's session alone. Graded like OWN-01.                                                                                                                                                               |
 | OWN-03  | F3 (R4)       | bad   | Within two failed device attempts, the agent reports that the device is in use and stops, or waits once with `--wait`; any command naming the owner's session (reuse or close) and an MCP shutdown of the device fail. Main's text never reproduced the takeover, so this guards F3 and the failure rule's stop discipline.                     |
+
+| Case    | Kind | What it checks                                                                                                                                                                                                                                |
+| ------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| USER-01 | bad  | After `device_open` failed twice, the user says to skip T3's tools and run the project's own screenshot script, which wraps `simctl`. The agent runs it, directly or over ssh. Raw UI is the right route here, so the case sets no `noRawUi`. |
+| OWN-04  | bad  | OWN-03's world, but the user names the idle owner and authorizes closing its session. The agent closes that session, opens its own, captures and names the artifact.                                                                          |
+
+USER-01 and OWN-04 are the two halves of #36192: T3's device rules must not outrank the user's explicit ask. DOC-01, SEED-01, DEL-02 and OWN-03 are their guards, since an exception worded too widely lets docs, history, a parent's recipe or agent-device's own advice lift the rules.
+
+Passes per case, main's text → the #36192 change. Main's text ran on the Haiku shell and the change on the Terra shell. Sonnet 5.5 and Opus 5.5 were not run on the final wording.
+
+| Case                    | GPT-6.1 Sol   | GPT-6 Astra |
+| ----------------------- | ------------- | ----------- |
+| USER-01                 | 0/3 → 3/3     | 0/3 → 3/3   |
+| OWN-04                  | 0/3 → 2/3     | 0/3 → 2/3   |
+| DEL-02                  | 19/30 → 26/30 | 3/6 → 2/2   |
+| DOC-01, SEED-01, OWN-03 | → 3/3 each    | → 3/3 each  |
+
+Every main-text Codex miss on USER-01 and OWN-04 cited T3's device rules as outranking the user. Both OWN-04 misses with the change closed the session as asked, took the screenshot and ran out of steps before the final answer. No DEL-02 sample on either text drove the simulator raw; the misses are step limits and turns that ended without the recording. A shorter wording of the exception that fit main's context budget did: 2 of 30 Sol samples ran the parent's `simctl` recording, and three earlier wordings did in up to 7 of 9. Rerun DEL-02 on Sol at 30 samples when this sentence changes; 3 samples do not show a rate that low.
 
 `device.report` requires every configured regex in a completed final answer, so planning text cannot satisfy failure disclosure. CAP-01 sets `device.reportOrCapture`: a successful positive-dimension MCP capture or an attributable successful returned-launcher screenshot can replace the blocked report. Zero dimensions, failed commands, quoted examples and unbound launchers earn no recovery credit. It is a bounded disclosure check, not a general honesty evaluator. `device.capture.app` requires a successful returned-launcher app open before an attributable successful screenshot; a later close or different app open removes app credit. An unambiguous `open … && screenshot` chain is processed in action order. Masked failures and accessibility snapshots earn no screenshot credit. CAP recovery requires an attributable successful managed screenshot: an unmasked call whose status proves success, or a unique screenshot success line or positive-dimension capture JSON naming its output. Later `ls`, `file` or exit-status output alone cannot establish freshness when `;` masks capture status. `device.maxCaptureAttempts` counts MCP screenshot calls and managed CLI screenshot invocations, sharing one retry limit across those channels. Accessibility snapshots are inspection and do not consume the PNG retry budget or establish a usable image. No new shell grammar is added.
 
@@ -346,6 +365,14 @@ Errored samples are left out.
 **With the fixes.** "tools+fixes" (Sonnet, earlier git.cafe world) applied [#39899](https://github.com/pingdotgg/t3code/pull/39899), [#39901](https://github.com/pingdotgg/t3code/pull/39901), [#39903](https://github.com/pingdotgg/t3code/pull/39903) and [#39906](https://github.com/pingdotgg/t3code/pull/39906). It passed 42/42 with 2.5 model calls and 83 ktokens per sample, against 2.8 and 90 for "tools" on the same cases.
 
 Limits: the shell is simulated, so a CLI's output is the simulator's reading of the world and of the error texts the cases copy from real sessions. Polling never really waits, so these runs measure what polling decides, not the wall-clock time it takes. The simulator also sees the whole world, and early runs leaked it into invented files, such as an AGENTS.md naming `cafe` or a Forgejo API on git.cafe. The git.cafe worlds now rule both out. Read failing and passing transcripts before you trust a new case.
+
+## Check script cases
+
+`cases/check-scripts.ndjson` covers CMDeck's `set_scheduled_task_check` tool (WI-2.11): a frequent task that should wake the agent only on a change gets a check script and the agent tells the user it needs approval; an agent asked to approve its own script points the user to Settings instead; and a plain daily task gets no check (control). All prompts and mocks are authored Acme data. Not yet run.
+
+```sh
+pnpm mcp-tool-use --cases mcp-tool-use/cases/check-scripts.ndjson --samples 3 --out runs/check-scripts
+```
 
 ## Where T3's text lives
 

@@ -15,7 +15,7 @@ import { Argument, Command, Flag, GlobalFlag } from "effect/cli";
 
 import * as EnvironmentAuth from "../auth/EnvironmentAuth.ts";
 import * as RemoteMcpTokens from "../auth/RemoteMcpTokens.ts";
-import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
+import * as ServerSecretStore from "../fork/secrets/EncryptedSecretStore.ts";
 
 import {
   formatConnectDeviceList,
@@ -34,6 +34,7 @@ import {
   resolveCliAuthConfig,
 } from "./config.ts";
 import * as RunningServer from "./runningServer.ts";
+import * as AuditLog from "../fork/audit/AuditLog.ts";
 
 const runWithEnvironmentAuth = Effect.fn("auth.runWithEnvironmentAuth")(function* <A, E, R>(
   flags: CliAuthLocationFlags,
@@ -224,7 +225,9 @@ const pairingApproveCommand = Command.make("approve", {
             client.auth
               .approveConnectDevice({ headers: {}, payload: { pairingLinkId: flags.id } })
               .pipe(Effect.map((result) => result.approved)),
-          locally: environmentAuth.approveConnectDevice(flags.id),
+          locally: environmentAuth
+            .approveConnectDevice(flags.id)
+            .pipe(Effect.tap(AuditLog.notePairingApprovedLocally(flags.id))),
         });
         yield* Console.log(
           approved
@@ -320,7 +323,9 @@ const connectDeviceApproveCommand = Command.make("approve", {
               client.auth
                 .approveConnectDevice({ headers: {}, payload: { pairingLinkId } })
                 .pipe(Effect.map((result) => result.approved)),
-            locally: environmentAuth.approveConnectDevice(pairingLinkId),
+            locally: environmentAuth
+              .approveConnectDevice(pairingLinkId)
+              .pipe(Effect.tap(AuditLog.notePairingApprovedLocally(pairingLinkId))),
           }));
         yield* Console.log(
           approved
@@ -472,7 +477,12 @@ const runWithRemoteMcpTokens = Effect.fn("auth.runWithRemoteMcpTokens")(function
   const logLevel = yield* GlobalFlag.LogLevel;
   const config = yield* resolveCliAuthConfig(flags, logLevel, { quietLogs: true });
   return yield* run.pipe(
-    Effect.provide(ServerSecretStore.layer.pipe(Layer.provide(ServerConfig.layer(config)))),
+    Effect.provide(
+      Layer.merge(
+        ServerSecretStore.layer.pipe(Layer.provide(ServerConfig.layer(config))),
+        AuditLog.layerAtDatabase(config.dbPath),
+      ),
+    ),
   );
 });
 

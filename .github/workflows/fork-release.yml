@@ -2,7 +2,8 @@
 # update feeds the desktop app reads and their blockmaps, as a GitHub release of this repository.
 # Stable tag vN is app version N.0.0, carries latest*.yml and becomes the latest release. Beta tag
 # vN-beta.M is app version N.0.0-beta.M, carries beta*.yml and is published as a prerelease, which
-# GitHub never makes the latest release, so Stable apps never see it.
+# GitHub never makes the latest release, so Stable apps never see it. Secrets: pick-runner's
+# read-only runner-status token, and the optional Apple Developer ID and notarization secrets.
 name: Fork release
 
 on:
@@ -25,6 +26,28 @@ env:
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
+  # Picks the self-hosted runner only when the repo variable SELF_HOSTED is 'on', Tehcnological started the run
+  # (never a fork PR or anyone else), and the machine is online and idle. Otherwise the GitHub-hosted runner, as before,
+  # so a job never waits on a machine that is off. RUNNER_STATUS_TOKEN is a fine-grained PAT with only
+  # Administration: read on this repo. The runners re-check the same rules in their own job-started hooks.
+  pick-runner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    outputs:
+      windows: ${{ steps.pick.outputs.windows }}
+      macos: ${{ steps.pick.outputs.macos }}
+    steps:
+      - id: pick
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RUNNER_STATUS_TOKEN }}
+          TRUSTED: ${{ vars.SELF_HOSTED == 'on' && github.repository_owner == 'Tehcnological' && github.actor == 'Tehcnological' && github.triggering_actor == 'Tehcnological' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        run: |
+          idle() { [ "$TRUSTED" = true ] && [ -n "$GH_TOKEN" ] && [ "$(timeout 30 gh api "repos/$GITHUB_REPOSITORY/actions/runners" --jq "[.runners[] | select(.status == \"online\" and (.busy | not) and any(.labels[]; .name == \"$1\"))] | length" 2>/dev/null || echo 0)" -gt 0 ] 2>/dev/null; }
+          if idle cmd1; then echo 'windows=["self-hosted","cmd1","windows","x64"]'; else echo 'windows="windows-2025"'; fi >> "$GITHUB_OUTPUT"
+          if idle macmini; then echo 'macos=["self-hosted","macmini","macos","arm64"]'; else echo 'macos="macos-26"'; fi >> "$GITHUB_OUTPUT"
+
   check-version:
     name: Check tag and version
     runs-on: ubuntu-24.04
@@ -56,8 +79,8 @@ jobs:
 
   windows-x64:
     name: Windows x64 installer
-    needs: check-version
-    runs-on: windows-2025
+    needs: [check-version, pick-runner]
+    runs-on: ${{ fromJSON(needs.pick-runner.outputs.windows) }}
     timeout-minutes: 90
     steps:
       - name: Checkout
@@ -78,6 +101,12 @@ jobs:
       # On a Vite+ cache hit the shared action adds a bash-style path that pwsh cannot read.
       - name: Add Vite+ to PATH
         run: Add-Content $env:GITHUB_PATH "$HOME\.vite-plus\bin"
+
+      # GitHub's images ship Rust; the self-hosted runners do not, and the desktop build needs it.
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
 
       - name: Install dependencies
         run: vp install --frozen-lockfile
@@ -104,8 +133,8 @@ jobs:
   macos-arm64:
     name: macOS arm64 disk image and zip
     # The Apple Speech helper needs Xcode 26.
-    runs-on: macos-26
-    needs: check-version
+    runs-on: ${{ fromJSON(needs.pick-runner.outputs.macos) }}
+    needs: [check-version, pick-runner]
     timeout-minutes: 90
     steps:
       - name: Checkout
@@ -122,6 +151,12 @@ jobs:
         uses: ./.github/actions/setup-ci-deps
         with:
           install: "false"
+
+      # GitHub's images ship Rust; the self-hosted runners do not, and the desktop build needs it.
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
 
       - name: Install dependencies
         run: vp install --frozen-lockfile
@@ -192,9 +227,118 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  # The CLI archives that SSH bootstraps, `cmdeck service install` and `cmdeck update` download: one
+  # per CLI_ARCHIVE_PLATFORM_KEYS entry in packages/shared/src/cliRelease.ts, each built natively and
+  # unsigned. There is no darwin-x64 archive because Node single-executables do not run there.
+  cli-archives:
+    name: CLI archive ${{ matrix.key }}
+    needs: [check-version, pick-runner]
+    # Entries with `pick` take their runner from pick-runner; `runner` is the hosted label it falls back to.
+    runs-on: ${{ matrix.pick && fromJSON(needs.pick-runner.outputs[matrix.pick]) || matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { key: darwin-arm64, platform: mac, arch: arm64, runner: macos-26, pick: macos }
+          - { key: linux-arm64, platform: linux, arch: arm64, runner: ubuntu-24.04-arm }
+          - { key: linux-x64, platform: linux, arch: x64, runner: ubuntu-24.04 }
+          - { key: win32-arm64, platform: win, arch: arm64, runner: windows-11-arm }
+          - { key: win32-x64, platform: win, arch: x64, runner: windows-2025, pick: windows }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          sparse-checkout: |
+            /*
+            !/.repos/
+            !/apps/mobile/modules/t3-terminal/Vendor/**/*.a
+          sparse-checkout-cone-mode: false
+
+      - name: Setup Vite+
+        uses: ./.github/actions/setup-ci-deps
+        with:
+          install: "false"
+
+      # On a Vite+ cache hit the shared action adds a bash-style path that pwsh cannot read.
+      - name: Add Vite+ to PATH
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Add-Content $env:GITHUB_PATH "$HOME\.vite-plus\bin"
+
+      - name: Install dependencies
+        run: vp install --frozen-lockfile
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+
+      # The Linux archive ships libatomic.so.1 and points t3's RUNPATH at it.
+      - name: Install patchelf
+        if: matrix.platform == 'linux'
+        run: command -v patchelf || { sudo apt-get update -o Acquire::Languages=none && sudo apt-get install -y patchelf; }
+
+      # Releases and betas carry production branding, as the desktop build gives them.
+      - name: Build server and web client
+        run: |
+          vp run --filter t3 build
+          node scripts/apply-web-brand-assets.ts production apps/server/dist/client
+
+      - name: Build resource monitor
+        run: |
+          set -euo pipefail
+          cargo build --locked --release --manifest-path native/resource-monitor/Cargo.toml
+          exe=t3-resource-monitor
+          if [ "${{ matrix.platform }}" = win ]; then exe=t3-resource-monitor.exe; fi
+          mkdir -p "cli-resource-monitor/${{ matrix.key }}"
+          cp "native/resource-monitor/target/release/$exe" "cli-resource-monitor/${{ matrix.key }}/$exe"
+
+      - name: Build CLI archive
+        run: |
+          set -euo pipefail
+          node apps/server/scripts/cli.ts build-exe --verbose
+          node scripts/build-cli-archive.ts \
+            --platform "${{ matrix.platform }}" \
+            --arch "${{ matrix.arch }}" \
+            --version "$(node -p 'require("./apps/server/package.json").version')" \
+            --resource-monitor-dir cli-resource-monitor \
+            --output-dir release-cli
+
+      - name: Smoke-test CLI archive
+        run: |
+          set -euo pipefail
+          version="$(node -p 'require("./apps/server/package.json").version')"
+          stem="t3-$version-${{ matrix.key }}"
+          mkdir smoke
+          if [ "${{ matrix.platform }}" = win ]; then
+            # Git Bash's GNU tar cannot read zip; System32 bsdtar can.
+            /c/Windows/System32/tar.exe -xf "release-cli/$stem.zip" -C smoke
+            exe="smoke/$stem/t3.exe"
+          else
+            tar -xzf "release-cli/$stem.tar.gz" -C smoke
+            exe="smoke/$stem/t3"
+          fi
+          actual="$("$exe" --version)"
+          [ "$actual" = "cmdeck v$version" ] || { echo "::error::$stem reports '$actual', not 'cmdeck v$version'." >&2; exit 1; }
+
+      - name: Upload CLI archive
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-cli-${{ matrix.key }}
+          path: release-cli/*
+          if-no-files-found: error
+          retention-days: 7
+          # The archive is already gzip or zip.
+          compression-level: 0
+
   publish:
     name: Publish GitHub release
-    needs: [windows-x64, macos-arm64, linux-x64]
+    needs: [windows-x64, macos-arm64, linux-x64, cli-archives]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -225,6 +369,19 @@ jobs:
             files=($pattern)
             [ "${#files[@]}" -gt 0 ] || { echo "::error::No release asset matches $pattern." >&2; exit 1; }
           done
+          # SSH bootstraps and `cmdeck update` verify the CLI archives against SHA256SUMS.
+          version="${RELEASE_TAG#v}"
+          major="${version%%-*}"
+          version="$major.0.0${version#"$major"}"
+          archives=()
+          for key in darwin-arm64 linux-arm64 linux-x64 win32-arm64 win32-x64; do
+            archive="t3-$version-$key.tar.gz"
+            [[ "$key" == win32-* ]] && archive="t3-$version-$key.zip"
+            [ -f "$archive" ] || { echo "::error::Missing CLI archive $archive." >&2; exit 1; }
+            archives+=("$archive")
+          done
+          sha256sum -- "${archives[@]}" > SHA256SUMS
+          cat SHA256SUMS
           sha256sum -- * > SHA256SUMS.txt
           cat SHA256SUMS.txt
 

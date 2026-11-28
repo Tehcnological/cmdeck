@@ -60,6 +60,7 @@ const layerRejectedBeforeSession = Layer.succeed(
     clearCookies: () => Effect.die("clearCookies must not be reached"),
     cookiesCleared: () => Effect.die("cookiesCleared must not be reached"),
     clearCache: () => Effect.die("clearCache must not be reached"),
+    setLinuxSpellcheck: () => Effect.die("setLinuxSpellcheck must not be reached"),
   }),
 );
 
@@ -164,6 +165,7 @@ describe("BrowserImport.importCookies", () => {
                   clearCookies: () => Effect.die("clearCookies must not be reached"),
                   cookiesCleared: () => Effect.die("cookiesCleared must not be reached"),
                   clearCache: () => Effect.die("clearCache must not be reached"),
+                  setLinuxSpellcheck: () => Effect.die("setLinuxSpellcheck must not be reached"),
                 }),
               ),
               Layer.provide(DesktopManagedPolicy.layerTest()),

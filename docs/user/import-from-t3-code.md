@@ -4,11 +4,11 @@ CMDeck keeps its own data folder, separate from the official T3 Code. To bring y
 threads, projects, settings and provider sign-ins over, run the import once:
 
 ```sh
-cmdeck import-from-t3 --dry-run   # see what would be copied; changes nothing
-cmdeck import-from-t3             # import
+cmdeck import t3 --plan   # see what would be copied; changes nothing
+cmdeck import t3          # import
 ```
 
-`t3 import-from-t3` is the same command.
+`t3 import t3` is the same command, and so is the older `cmdeck import-from-t3`.
 
 When CMDeck starts with no threads and finds a T3 Code data folder, the app offers the import once
 with the exact command to run. Dismiss it and it does not come back.
@@ -22,7 +22,7 @@ with the exact command to run. Dismiss it and it does not come back.
 - If T3 Code's database is newer than your CMDeck build, the import refuses. Update CMDeck first. An
   older database is fine: CMDeck upgrades the copy the next time it starts.
 
-By default the import reads `~/.t3` and writes to CMDeck's data folder. Use `--from <folder>` for a
+By default the import reads `~/.t3` and writes to CMDeck's data folder. Use `--source <folder>` for a
 T3 Code folder elsewhere and `--base-dir <folder>` for a CMDeck folder elsewhere.
 
 If CMDeck already has data, the import stops. `--force` moves CMDeck's current `userdata` and
@@ -33,7 +33,8 @@ If CMDeck already has data, the import stops. `--force` moves CMDeck's current `
 - Threads, projects, history and scheduled tasks.
 - Settings, provider instances, keybindings and themes.
 - Stored credentials: provider API keys and environment variables, source control and issue tracker
-  tokens, and other secrets you entered in settings.
+  tokens, and other secrets you entered in settings. CMDeck encrypts them on its next start (see
+  [Secrets at rest](./secrets-at-rest.md)).
 - Provider sign-ins T3 Code keeps itself, such as extra Codex accounts and Antigravity profiles.
   Sign-ins kept by the provider CLIs in your home folder (for example `~/.codex` or `~/.claude`)
   are shared by both apps and need nothing.

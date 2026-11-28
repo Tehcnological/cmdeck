@@ -10,6 +10,7 @@ import * as TestClock from "effect/testing/TestClock";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { it } from "@effect/vitest";
+import { TELEMETRY_OPT_OUT_ENV } from "@t3tools/provider-core/server/instanceEnvironment";
 import { describe, expect, vi } from "vite-plus/test";
 import { MuseSettings } from "../settings.ts";
 import * as MuseSdk from "./sdk.ts";
@@ -223,6 +224,7 @@ describe("Muse history discovery", () => {
         expect(create).toHaveBeenCalledWith({
           binaryPath: path.join("/test-home", "bin/custom-muse"),
           environment: {
+            ...TELEMETRY_OPT_OUT_ENV,
             PATH: "/host/bin",
             XDG_DATA_HOME: xdg ?? "/host/data",
             MUSE_NO_AUTO_UPDATE: "1",

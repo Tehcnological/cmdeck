@@ -5,7 +5,7 @@ import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 
-import { mergeProviderInstanceEnvironment } from "./instanceEnvironment.ts";
+import { mergeProviderInstanceEnvironment, TELEMETRY_OPT_OUT_ENV } from "./instanceEnvironment.ts";
 
 describe("mergeProviderInstanceEnvironment", () => {
   it.effect.each([
@@ -30,6 +30,7 @@ describe("mergeProviderInstanceEnvironment", () => {
       );
 
       expect(environment).toEqual({
+        ...TELEMETRY_OPT_OUT_ENV,
         CODEX_HOME: path.join("/home/ada", tail),
         CLAUDE_CONFIG_DIR: path.join("/home/ada", tail),
         GROK_HOME: path.join("/home/ada", tail),
@@ -55,7 +56,7 @@ describe("mergeProviderInstanceEnvironment", () => {
           [{ name: "CUSTOM_VALUE", value: "~/.custom", sensitive: false }],
           baseEnv,
         ),
-      ).toEqual({ ...baseEnv, CUSTOM_VALUE: "~/.custom" });
+      ).toEqual({ ...TELEMETRY_OPT_OUT_ENV, ...baseEnv, CUSTOM_VALUE: "~/.custom" });
     }),
   );
 
@@ -123,6 +124,7 @@ describe("mergeProviderInstanceEnvironment", () => {
         });
 
         expect(merged).toEqual({
+          ...TELEMETRY_OPT_OUT_ENV,
           PATH: ":/usr/bin",
           LD_LIBRARY_PATH: keptLibraryPath,
           XDG_DATA_DIRS: "/usr/share",
@@ -147,10 +149,15 @@ describe("mergeProviderInstanceEnvironment", () => {
           Effect.provideService(HostProcess.Platform, "win32"),
           Effect.provideService(HostProcess.HomeDirectory, "/home/ada"),
         ),
-      ).toEqual({ CODEX_HOME: "/home/ada/corp" });
+      ).toEqual({ ...TELEMETRY_OPT_OUT_ENV, CODEX_HOME: "/home/ada/corp" });
       // Upper case sorts first, so it also wins where a spawn merges the parent environment back.
-      expect(yield* merge("win32")).toEqual({ HTTPS_PROXY: "http://gateway", PATH: "/bin" });
+      expect(yield* merge("win32")).toEqual({
+        ...TELEMETRY_OPT_OUT_ENV,
+        HTTPS_PROXY: "http://gateway",
+        PATH: "/bin",
+      });
       expect(yield* merge("linux")).toEqual({
+        ...TELEMETRY_OPT_OUT_ENV,
         HTTPS_PROXY: "http://mine",
         Https_Proxy: "http://gateway",
         PATH: "/bin",
@@ -158,15 +165,26 @@ describe("mergeProviderInstanceEnvironment", () => {
     }),
   );
 
-  it.effect("defaults provider subprocesses to telemetry opt-out when using process.env", () =>
+  it.effect.each([
+    { label: "process.env", baseEnv: undefined },
+    { label: "a passed base environment", baseEnv: { PATH: "/bin" } },
+  ])("opts provider subprocesses out of telemetry with $label", ({ baseEnv }) =>
     Effect.gen(function* () {
-      const env = yield* mergeProviderInstanceEnvironment(undefined);
+      const env = yield* mergeProviderInstanceEnvironment(undefined, baseEnv);
       expect(env).toMatchObject({
         DO_NOT_TRACK: "1",
         DISABLE_TELEMETRY: "1",
         DISABLE_ERROR_REPORTING: "1",
         OPENCODE_DISABLE_TELEMETRY: "1",
+        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
       });
+    }),
+  );
+
+  it.effect("lets the user's own environment turn telemetry back on", () =>
+    Effect.gen(function* () {
+      const env = yield* mergeProviderInstanceEnvironment(undefined, { DO_NOT_TRACK: "0" });
+      expect(env.DO_NOT_TRACK).toBe("0");
     }),
   );
 });

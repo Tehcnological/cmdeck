@@ -1,6 +1,11 @@
 import { HOSTED_APP_CHANNEL } from "~/branding";
 import { isElectron } from "~/env";
-import { isMacPlatform, isWindowsPlatform, normalizeSearchText } from "~/lib/utils";
+import {
+  isLinuxPlatform,
+  isMacPlatform,
+  isWindowsPlatform,
+  normalizeSearchText,
+} from "~/lib/utils";
 import { STATIC_KEYBINDING_COMMANDS, type KeybindingCommand } from "@t3tools/contracts";
 import type { EnvironmentId } from "@t3tools/contracts";
 import type { EnvironmentConnectionPhase } from "@t3tools/client-runtime/connection";
@@ -16,6 +21,7 @@ import { writeLocalStorageValue } from "../../hooks/useLocalStorage";
 import type { MessageResolver } from "../../i18n/messages";
 import { commandLabel } from "./KeybindingsSettings.logic";
 import type { ResolvedSettingsScope } from "./settingsScope";
+import { FORK_SETTINGS_SEARCH_ITEMS } from "../../fork/settingsSearch";
 
 export type SettingsPath =
   | "/settings/projects"
@@ -41,7 +47,8 @@ export type SettingsPath =
   | "/settings/maintenance"
   | "/settings/labs"
   | "/settings/about"
-  | "/settings/archived";
+  | "/settings/archived"
+  | "/settings/memory";
 
 export type SettingsSearchScope =
   | "environment"
@@ -61,6 +68,7 @@ export interface SettingsSearchItem {
   readonly desktopOnly?: boolean;
   readonly macOnly?: boolean;
   readonly windowsOnly?: boolean;
+  readonly linuxOnly?: boolean;
   readonly releaseChannelOnly?: boolean;
   readonly secretProvidersOnly?: boolean;
   readonly cloudOnly?: boolean;
@@ -122,6 +130,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/about": msg("About"),
   "/settings/voice": msg("Voice"),
   "/settings/archived": msg("Archive"),
+  "/settings/memory": msg("Memory", { $context: "what CMDeck remembers for agents" }),
 };
 
 /** Sidebar labels; an entry of its own lets a translator shorten one below its page title. */
@@ -163,6 +172,7 @@ const ALL_SETTINGS_NAV_GROUPS: ReadonlyArray<SettingsNavGroup> = [
       "/settings/browser",
       "/settings/devices",
       "/settings/scheduled-tasks",
+      "/settings/memory",
     ],
   },
   {
@@ -410,6 +420,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: msg("Render math"),
     to: "/settings/appearance",
     searchTerms: [msg("latex tex katex equations formulas markdown")],
+  },
+  {
+    id: "site-icons",
+    title: msg("Show site icons"),
+    to: "/settings/appearance",
+    searchTerms: [msg("favicon link website privacy images")],
   },
   {
     id: "panel-animations",
@@ -974,6 +990,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     desktopOnly: true,
   },
   {
+    id: "linux-spellcheck",
+    title: msg("Spellcheck"),
+    to: "/settings/general",
+    searchTerms: [msg("spelling spell check dictionary hunspell download network privacy")],
+    desktopOnly: true,
+    linuxOnly: true,
+  },
+  {
     id: "text-generation-model",
     title: msg("Text generation model"),
     to: "/settings/threads",
@@ -999,6 +1023,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: msg("Version"),
     to: "/settings/about",
     searchTerms: [msg("about check for updates download install upgrade release")],
+  },
+  {
+    id: "update-auto-check",
+    title: msg("Check for updates automatically"),
+    to: "/settings/about",
+    searchTerms: [msg("automatic update check background poll network privacy")],
   },
   {
     id: "update-track",
@@ -1572,6 +1602,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/archived",
     searchTerms: [msg("restore reopen deleted history projects")],
   },
+  ...FORK_SETTINGS_SEARCH_ITEMS,
 ] as const satisfies ReadonlyArray<SettingsSearchItem>;
 
 export type SettingsSearchItemId = (typeof SETTINGS_SEARCH_ITEMS)[number]["id"];
@@ -1603,6 +1634,7 @@ const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScop
   "/settings/labs": null,
   "/settings/about": null,
   "/settings/archived": "project-defaults",
+  "/settings/memory": "environment",
 };
 
 const RENAMED_SETTINGS_PATHS: Readonly<Record<string, SettingsPath>> = {
@@ -1755,7 +1787,8 @@ export function settingsForThisPlatform(
       (isElectron || item.desktopOnly !== true) &&
       (!item.releaseChannelOnly || isElectron || HOSTED_APP_CHANNEL !== null) &&
       (!item.macOnly || isMacPlatform(platform)) &&
-      (!item.windowsOnly || isWindowsPlatform(platform)),
+      (!item.windowsOnly || isWindowsPlatform(platform)) &&
+      (!item.linuxOnly || isLinuxPlatform(platform)),
   );
 }
 

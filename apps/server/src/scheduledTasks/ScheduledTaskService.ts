@@ -54,6 +54,7 @@ import * as ThreadManagementService from "../orchestration-v2/ThreadManagementSe
 import { OrchestratorDispatchError } from "../orchestration-v2/Orchestrator.ts";
 import { userFacingDispatchErrorMessage } from "../orchestration-v2/UserFacingErrors.ts";
 import * as SecretRequests from "../secrets/SecretRequests.ts";
+import * as CheckScripts from "../fork/checkScripts/CheckScripts.ts";
 import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
 import * as DueHint from "../scheduling/DueHint.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
@@ -76,6 +77,8 @@ import {
 } from "./webhookDedupe.ts";
 import { describeFailedWebhookFilter, findFailedWebhookFilter } from "./webhookFilter.ts";
 import { constantTimeEquals, verifyWebhookSignature } from "./webhookVerification.ts";
+import { routineSpan } from "@t3tools/shared/observability";
+import * as Decisions from "../fork/decisions/Decisions.ts";
 
 export const WEBHOOK_ROUTE_PREFIX = "/api/hooks";
 
@@ -329,6 +332,9 @@ const UNSUCCESSFUL_RUN_ERRORS = {
   rolled_back: "The run was rolled back.",
 } as const;
 const localNow = DateTime.withCurrentZoneLocal(DateTime.nowInCurrentZone);
+const FAILED_RUNS_BEFORE_PAUSE = 3;
+const pausedAfterFailuresError = (error: string) =>
+  `Paused after ${FAILED_RUNS_BEFORE_PAUSE} failed runs in a row. Last error: ${error}`;
 
 function nextRunAt(
   task: Pick<ScheduledTask, "enabled" | "schedule">,
@@ -494,6 +500,7 @@ export const layer = Layer.effect(
     const secretRequests = yield* SecretRequests.SecretRequests;
     const scheduler = yield* Scheduler.Scheduler;
     const readWebhookOrigin = yield* ScheduledTaskWebhookOrigin;
+    const checkScripts = yield* CheckScripts.CheckScripts;
     const managedPolicy = yield* ManagedPolicy.ManagedPolicy;
     const webhookPolicyOrganization = ManagedPolicy.deniedBy(managedPolicy, "webhookTasks");
     // Existing webhook tasks stay stored but report why they do not run.
@@ -805,7 +812,11 @@ export const layer = Layer.effect(
       sql`
         UPDATE scheduled_tasks
         SET updated_at = ${input.completedAtIso},
-            next_run_at = ${input.nextRunAtIso},
+            -- An earlier run's usage-limit hold may have moved next_run_at past this occurrence.
+            next_run_at = CASE
+              WHEN ${input.nextRunAtIso} IS NOT NULL AND next_run_at IS NOT NULL
+                AND julianday(next_run_at) > julianday(${input.nextRunAtIso})
+              THEN next_run_at ELSE ${input.nextRunAtIso} END,
             last_run_status = ${input.status},
             last_run_error = ${input.error},
             run_count = run_count + 1
@@ -819,6 +830,31 @@ export const layer = Layer.effect(
           taskError("Could not record schedule task run.", { taskId: input.id, cause }),
         ),
       );
+
+    // A timed task that keeps failing would otherwise fail unattended on every occurrence, so the
+    // Nth failed scheduled run in a row pauses it. Manual, held, stopped and interrupted runs are
+    // not counted; any completed run starts the count again. `latestRunAt` limits the count to the
+    // run the row shows; a run's outcome passes null, since a newer dispatch may already show.
+    const countFailedRun = (
+      taskId: ScheduledTaskId,
+      createdAt: string,
+      latestRunAt: string | null,
+      error: string,
+    ) =>
+      sql<{ enabled: number }>`
+        UPDATE scheduled_tasks
+        SET failure_streak = CASE WHEN failure_streak + 1 >= ${FAILED_RUNS_BEFORE_PAUSE}
+              THEN 0 ELSE failure_streak + 1 END,
+            enabled = CASE WHEN failure_streak + 1 >= ${FAILED_RUNS_BEFORE_PAUSE} THEN 0 ELSE 1 END,
+            next_run_at = CASE WHEN failure_streak + 1 >= ${FAILED_RUNS_BEFORE_PAUSE}
+              THEN NULL ELSE next_run_at END,
+            last_run_error = CASE WHEN failure_streak + 1 >= ${FAILED_RUNS_BEFORE_PAUSE}
+              THEN ${pausedAfterFailuresError(error)} ELSE last_run_error END
+        WHERE task_id = ${taskId} AND created_at = ${createdAt} AND enabled = 1
+          AND ${latestRunAt === null ? sql`1 = 1` : sql`last_run_at = ${latestRunAt} AND last_run_status = 'failed'`}
+          AND json_extract(schedule_json, '$.type') IN ('interval', 'fixed_time', 'cron')
+        RETURNING enabled
+      `.pipe(Effect.map((rows) => rows[0]?.enabled === 0));
 
     // A failure between markRunning and markCompleted must still write a terminal record:
     // runDueTasks skips 'running' rows forever, and the dispatch may already have gone out,
@@ -904,15 +940,17 @@ export const layer = Layer.effect(
       ),
     );
 
-    // A dispatch is recorded once the message is accepted; the provider can still
-    // reject the turn after that, so follow the run and record its failure. A one-time
-    // task whose turn completed at or after its runAt is spent, so it is removed; its
-    // thread stays. A paused task always has a NULL next_run_at, so that alone proves nothing.
+    // The provider can reject a turn after its message is accepted, so follow the run and record
+    // its failure; `createdAt` keeps it off a task recreated with the same id. A one-time task whose
+    // turn completed at or after its runAt is spent and removed; its thread stays. A paused task
+    // always has a NULL next_run_at, so that alone proves nothing.
     const recordRunOutcome = Effect.fn("ScheduledTaskService.recordRunOutcome")(function* (
       taskId: ScheduledTaskId,
+      createdAt: string,
       startedAtIso: string,
       threadId: ThreadId,
       messageId: MessageId,
+      scheduled: boolean,
     ) {
       const shell = yield* threadManagement.getThreadShell(threadId);
       if (shell === null) return;
@@ -927,6 +965,9 @@ export const layer = Layer.effect(
       });
       if (run === null || !ThreadManagementService.isTerminalRunStatus(run.status)) return;
       if (run.status === "completed") {
+        const reset = yield* sql`UPDATE scheduled_tasks SET failure_streak = 0
+          WHERE task_id = ${taskId} AND created_at = ${createdAt} AND failure_streak <> 0
+          RETURNING task_id`;
         const removed = yield* sql`
           DELETE FROM scheduled_tasks
           WHERE task_id = ${taskId} AND last_run_at = ${startedAtIso}
@@ -935,7 +976,7 @@ export const layer = Layer.effect(
             AND julianday(last_run_at) >= julianday(json_extract(schedule_json, '$.runAt'))
           RETURNING task_id
         `;
-        if (removed.length > 0) yield* notifyChanged;
+        if (removed.length > 0 || reset.length > 0) yield* notifyChanged;
         return;
       }
       // Only the run's failed errors feed latestRootProviderFailure; a long-lived task
@@ -956,17 +997,48 @@ export const layer = Layer.effect(
         messages.find((message) => message.id === messageId)?.runId !== run.id
       )
         return;
-      const error =
-        latestRootProviderFailure(run, turnItems)?.message ?? UNSUCCESSFUL_RUN_ERRORS[run.status];
-      const updated = yield* sql`
-        UPDATE scheduled_tasks
-        SET last_run_status = 'failed', last_run_error = ${error}
-        WHERE task_id = ${taskId} AND last_run_at = ${startedAtIso}
-          AND (last_run_status = 'succeeded'
-            OR (last_run_status = 'failed' AND last_run_error = ${HELD_OCCURRENCE_ERROR}))
-        RETURNING task_id
-      `;
-      if (updated.length > 0) yield* notifyChanged;
+      const failure = latestRootProviderFailure(run, turnItems);
+      const error = failure?.message ?? UNSUCCESSFUL_RUN_ERRORS[run.status];
+      const now = yield* DateTime.now;
+      const resetAt =
+        failure?.class === "usage_limit" && failure.resetAt != null
+          ? Option.filter(
+              DateTime.make(failure.resetAt),
+              (at) => DateTime.toEpochMillis(at) > DateTime.toEpochMillis(now),
+            )
+          : Option.none();
+      // One transaction, so a list read never sees the failure without its hold or count. Only the
+      // display update needs this run to be the latest; a newer dispatch may already have started.
+      const recorded = yield* sql.withTransaction(
+        Effect.gen(function* () {
+          const updated = yield* sql`
+            UPDATE scheduled_tasks
+            SET last_run_status = 'failed', last_run_error = ${error}
+            WHERE task_id = ${taskId} AND last_run_at = ${startedAtIso}
+              AND (last_run_status = 'succeeded'
+                OR (last_run_status = 'failed' AND last_run_error = ${HELD_OCCURRENCE_ERROR}))
+            RETURNING task_id
+          `;
+          if (Option.isSome(resetAt)) {
+            // Occurrences before the account's reset would only hit the limit again, so the
+            // next one waits for it and runs once then.
+            const held = yield* sql`
+              UPDATE scheduled_tasks SET next_run_at = ${iso(resetAt.value)}
+              WHERE task_id = ${taskId} AND created_at = ${createdAt} AND enabled = 1
+                AND next_run_at IS NOT NULL AND next_run_at < ${iso(resetAt.value)}
+                AND json_extract(schedule_json, '$.type') IN ('interval', 'fixed_time', 'cron')
+              RETURNING task_id
+            `;
+            return updated.length > 0 || held.length > 0;
+          }
+          if (scheduled && run.status === "failed") {
+            yield* countFailedRun(taskId, createdAt, null, error);
+            return true;
+          }
+          return updated.length > 0;
+        }),
+      );
+      if (recorded) yield* notifyChanged;
     });
 
     const runTask = Effect.fn("ScheduledTaskService.runTask")(function* (
@@ -1069,6 +1141,11 @@ export const layer = Layer.effect(
             );
 
         yield* notifyChanged;
+        const checked = yield* checkScripts.gate({
+          task: active,
+          prompt: webhook?.prompt ?? active.prompt,
+          trigger,
+        });
 
         const fireKey =
           webhook === undefined
@@ -1076,7 +1153,8 @@ export const layer = Layer.effect(
             : `${active.id}:webhook:${webhook.deliveryId}`;
         const commandId = CommandId.make(`scheduled-task:${fireKey}`);
         const messageId = MessageId.make(`scheduled-task-message:${fireKey}`);
-        const prompt = webhook?.prompt ?? active.prompt;
+        const prompt =
+          checked?._tag === "Wake" ? checked.prompt : (webhook?.prompt ?? active.prompt);
         const threadMode = scheduledTaskThreadMode(active);
 
         // A bound thread can move to another project (No project to a project) while
@@ -1117,15 +1195,16 @@ export const layer = Layer.effect(
             );
 
         // Capture defects and interrupts too so dispatch failures still reach markCompleted.
+        const dispatchExit = CheckScripts.exitAfter(checked);
         const result =
           active.threadId === null
-            ? yield* Effect.exit(
+            ? yield* dispatchExit(
                 threadLaunch
                   .launch({
                     commandId,
                     projectId: active.projectId,
                     title: active.title,
-                    modelSelection: active.modelSelection,
+                    modelSelection: yield* Decisions.routeScheduledTask(active),
                     runtimeMode: active.runtimeMode,
                     interactionMode: active.interactionMode,
                     workspaceStrategy: active.workspaceStrategy,
@@ -1145,7 +1224,7 @@ export const layer = Layer.effect(
                     ),
                   ),
               )
-            : yield* Effect.exit(
+            : yield* dispatchExit(
                 // The stored selection only seeds fresh threads. A bound run
                 // follows the thread's current provider, so it passes none.
                 sendBound(ThreadId.make(active.threadId), active.projectId, 2).pipe(
@@ -1205,6 +1284,20 @@ export const layer = Layer.effect(
               if (counted.length > 0) written = yield* completion;
             }
           }
+          if (
+            written &&
+            trigger === "scheduled" &&
+            lastRunError !== null &&
+            (checked?._tag !== "Failed" || checked.counts) &&
+            (yield* countFailedRun(task.id, active.createdAt, startedAtIso, lastRunError))
+          ) {
+            const paused = {
+              enabled: false,
+              nextRunAt: null,
+              lastRunError: pausedAfterFailuresError(lastRunError),
+            };
+            return { recorded: { ...completed, ...paused }, written };
+          }
           // A row recreated mid-run is not this run's, so report what is stored.
           return { recorded: written ? completed : current, written };
         });
@@ -1224,7 +1317,14 @@ export const layer = Layer.effect(
           );
         if (written) yield* notifyChanged;
         if (written && threadId !== null) {
-          yield* recordRunOutcome(active.id, startedAtIso, threadId, messageId).pipe(
+          yield* recordRunOutcome(
+            active.id,
+            active.createdAt,
+            startedAtIso,
+            threadId,
+            messageId,
+            trigger === "scheduled",
+          ).pipe(
             Effect.catchCause((cause) =>
               Effect.logWarning("Could not record scheduled run outcome", {
                 taskId: active.id,
@@ -1307,56 +1407,58 @@ export const layer = Layer.effect(
       if (updated.length > 0) yield* notifyChanged;
     });
 
-    const runDueTasks = Effect.fn("ScheduledTaskService.runDueTasks")(function* () {
-      const now = yield* localNow;
-      const nowMs = DateTime.toEpochMillis(now);
-      if (yield* dueTasks.isIdle(nowMs)) return;
-      const readVersion = yield* dueTasks.version;
-      const [next] = yield* sql<{ next_run_at: string | null }>`
+    const runDueTasks = Effect.fn("ScheduledTaskService.runDueTasks", { attributes: routineSpan })(
+      function* () {
+        const now = yield* localNow;
+        const nowMs = DateTime.toEpochMillis(now);
+        if (yield* dueTasks.isIdle(nowMs)) return;
+        const readVersion = yield* dueTasks.version;
+        const [next] = yield* sql<{ next_run_at: string | null }>`
         SELECT MIN(next_run_at) AS next_run_at FROM scheduled_tasks
         WHERE enabled = 1 AND next_run_at IS NOT NULL AND last_run_status <> 'running'
       `.pipe(
-        NodeSqliteClient.readOnly,
-        Effect.mapError((cause) => taskError("Could not list schedule tasks.", { cause })),
-      );
-      // Compare as text like listDueTasks: expanded years (`+011533-…`) sort first but parse far ahead.
-      const nextRunAt = next?.next_run_at ?? null;
-      if (nextRunAt === null || nextRunAt > iso(now)) {
-        const nextDueAt =
-          nextRunAt === null
-            ? Option.some(Infinity)
-            : DateTime.make(nextRunAt).pipe(Option.map(DateTime.toEpochMillis));
-        if (Option.isSome(nextDueAt) && nextDueAt.value > nowMs) {
-          yield* dueTasks.record(readVersion, nextDueAt.value, nowMs);
+          NodeSqliteClient.readOnly,
+          Effect.mapError((cause) => taskError("Could not list schedule tasks.", { cause })),
+        );
+        // Compare as text like listDueTasks: expanded years (`+011533-…`) sort first but parse far ahead.
+        const nextRunAt = next?.next_run_at ?? null;
+        if (nextRunAt === null || nextRunAt > iso(now)) {
+          const nextDueAt =
+            nextRunAt === null
+              ? Option.some(Infinity)
+              : DateTime.make(nextRunAt).pipe(Option.map(DateTime.toEpochMillis));
+          if (Option.isSome(nextDueAt) && nextDueAt.value > nowMs) {
+            yield* dueTasks.record(readVersion, nextDueAt.value, nowMs);
+          }
+          return;
         }
-        return;
-      }
-      const tasks = yield* listDueTasks(now).pipe(
-        Effect.mapError((cause) => taskError("Could not list schedule tasks.", { cause })),
-      );
-      const due = tasks.flatMap((task) =>
-        task.nextRunAt === null ? [] : [{ task, dueAt: DateTime.makeUnsafe(task.nextRunAt) }],
-      );
-      yield* Effect.forEach(
-        due,
-        ({ task, dueAt }) =>
-          Effect.suspend(() =>
-            isMissedFixedTimeRun(task.schedule, dueAt, now)
-              ? rescheduleMissedRun(
-                  task,
-                  now,
-                  "missed",
-                  "Missed a scheduled run because the server was not running at that time.",
-                )
-              : runTask(task, "scheduled"),
-          ).pipe(
-            Effect.catch((cause) =>
-              Effect.logWarning("Scheduled task run failed", { taskId: task.id, cause }),
+        const tasks = yield* listDueTasks(now).pipe(
+          Effect.mapError((cause) => taskError("Could not list schedule tasks.", { cause })),
+        );
+        const due = tasks.flatMap((task) =>
+          task.nextRunAt === null ? [] : [{ task, dueAt: DateTime.makeUnsafe(task.nextRunAt) }],
+        );
+        yield* Effect.forEach(
+          due,
+          ({ task, dueAt }) =>
+            Effect.suspend(() =>
+              isMissedFixedTimeRun(task.schedule, dueAt, now)
+                ? rescheduleMissedRun(
+                    task,
+                    now,
+                    "missed",
+                    "Missed a scheduled run because the server was not running at that time.",
+                  )
+                : runTask(task, "scheduled").pipe(checkScripts.runsAside(task.id, serviceScope)),
+            ).pipe(
+              Effect.catch((cause) =>
+                Effect.logWarning("Scheduled task run failed", { taskId: task.id, cause }),
+              ),
             ),
-          ),
-        { concurrency: 1, discard: true },
-      );
-    });
+          { concurrency: 1, discard: true },
+        );
+      },
+    );
 
     // Recover crash-left running rows that the due-task filter would otherwise skip forever.
     yield* Effect.gen(function* () {
@@ -2563,7 +2665,9 @@ export const layer = Layer.effect(
       );
     });
 
-    const dispatchPending = Effect.fn("ScheduledTaskService.dispatchPendingWebhooks")(function* () {
+    const dispatchPending = Effect.fn("ScheduledTaskService.dispatchPendingWebhooks", {
+      attributes: routineSpan,
+    })(function* () {
       const now = DateTime.toEpochMillis(yield* localNow);
       if (yield* pendingWebhooks.isIdle(now)) return;
       const readVersion = yield* pendingWebhooks.version;

@@ -31,6 +31,7 @@ import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 
 import * as ServerConfig from "../config.ts";
+import * as WorkflowTrust from "../fork/workflowTrust/WorkflowTrust.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { engineTag, text, type WorkflowDefinition } from "./workflow.ts";
 import type * as WorkflowEngine from "./WorkflowEngine.ts";
@@ -305,6 +306,7 @@ export const make = Effect.fn("WorkflowRuntime.make")(function* <E, R>(
   yield* Effect.ignore(fileSystem.makeDirectory(directory, { recursive: true }));
   const outer = yield* Scope.Scope;
   const services = yield* Effect.context<R | Path.Path>();
+  const trust = yield* WorkflowTrust.WorkflowTrust;
 
   // One reload at a time, and callers during one wait for the engine that comes out of it.
   const lock = yield* Semaphore.make(1);
@@ -465,7 +467,7 @@ export const make = Effect.fn("WorkflowRuntime.make")(function* <E, R>(
       if (Option.isNone(source) || seen.get(name) === source.value) continue;
       seen.set(name, source.value);
       changed = true;
-      const loaded = yield* load(file, name);
+      const loaded = yield* trust.gated(file, source.value, (from) => load(from, name));
       if (loaded.definitions === undefined) {
         broken.set(name, loaded.problem);
         pending.delete(name);
@@ -557,6 +559,7 @@ export const make = Effect.fn("WorkflowRuntime.make")(function* <E, R>(
   });
 
   yield* lock.withPermits(1)(reload());
+  yield* WorkflowTrust.onApproved(directory, seen, lock.withPermits(1)(reload()));
   // No file defines anything yet, though runs kept from before may still be read.
   if (!(yield* Deferred.isDone(ready))) yield* boot([]);
 
@@ -621,6 +624,9 @@ export const make = Effect.fn("WorkflowRuntime.make")(function* <E, R>(
     }),
     list: Effect.fn("Workflows.list")(function* (...input) {
       return yield* (yield* current).list(...input);
+    }),
+    about: Effect.fn("Workflows.about")(function* (...input) {
+      return yield* (yield* current).about(...input);
     }),
     waitFor: Effect.fn("Workflows.waitFor")(function* (...input) {
       // A reload replaces the engine, and a wait on the old one would never hear of the run again.
@@ -720,6 +726,7 @@ export const make = Effect.fn("WorkflowRuntime.make")(function* <E, R>(
     if (written._tag === "Failure") {
       return refusal([{ message: `Could not write ${file}: ${text(written.failure)}` }]);
     }
+    yield* trust.record(directory, name, source, "user");
     return yield* taken(name);
   });
 
@@ -886,6 +893,9 @@ export const gate = Effect.fn("WorkflowRuntime.gate")(function* <E, R>(
     }),
     list: Effect.fn("Workflows.list")(function* (...input) {
       return yield* (yield* current).list(...input);
+    }),
+    about: Effect.fn("Workflows.about")(function* (...input) {
+      return yield* (yield* current).about(...input);
     }),
     waitFor: Effect.fn("Workflows.waitFor")(function* (...input) {
       // Off, nothing changes a run; a wait goes on once workflows are on again.

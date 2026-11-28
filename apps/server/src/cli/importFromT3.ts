@@ -1,17 +1,29 @@
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-import { Command, Flag } from "effect/cli";
+import { Argument, Command, Flag } from "effect/cli";
 
-import * as T3Import from "../fork/T3Import.ts";
+import * as ServerConfig from "../config.ts";
+import * as AuditLog from "../fork/audit/AuditLog.ts";
+import * as Importer from "../fork/import/Importer.ts";
+import type * as T3Import from "../fork/T3Import.ts";
+import { T3ImportRefusedError } from "../fork/T3Import.ts";
 import { baseDirFlag } from "./config.ts";
 
-const fromFlag = Flag.String("from").pipe(
-  Flag.withDescription("The official T3 Code data folder to import. Default: ~/.t3."),
+const sourceArgument = Argument.String("source").pipe(
+  Argument.withDescription("What to import from. Sources: t3 (the official T3 Code)."),
+  Argument.withDefault("t3"),
+);
+
+const sourceDirFlag = Flag.String("source").pipe(
+  Flag.withAlias("from"),
+  Flag.withDescription("The data folder to import from. Default: the source's own, like ~/.t3."),
   Flag.optional,
 );
 
-const dryRunFlag = Flag.Boolean("dry-run").pipe(
+const planFlag = Flag.Boolean("plan").pipe(
+  Flag.withAlias("dry-run"),
   Flag.withDescription("Show what would be imported, and change nothing."),
   Flag.withDefault(false),
 );
@@ -66,33 +78,52 @@ const AFTER_IMPORT = [
   "themselves carry over; any that were left out above must be entered again.",
 ];
 
-export const importFromT3Command = Command.make("import-from-t3", {
-  from: fromFlag,
+// `import-from-t3` predates other sources; the alias keeps its flags (`--from`, `--dry-run`) working.
+export const importCommand = Command.make("import", {
+  source: sourceArgument,
+  sourceDir: sourceDirFlag,
   baseDir: baseDirFlag,
-  dryRun: dryRunFlag,
+  plan: planFlag,
   force: forceFlag,
 }).pipe(
+  Command.withAlias("import-from-t3"),
   Command.withDescription(
-    "Import threads, projects, settings and provider sign-ins from the official T3 Code. Quit CMDeck first.",
+    "Import threads, projects, settings and provider sign-ins from another app, like the official T3 Code. Quit CMDeck first.",
   ),
   Command.withHandler((flags) =>
     Effect.gen(function* () {
-      const importer = yield* T3Import.T3Import;
-      const locations = yield* T3Import.resolveImportLocations({
-        from: Option.getOrUndefined(flags.from),
+      const source = yield* (yield* Importer.Importer).source(flags.source);
+      const locations = yield* Importer.resolveImportLocations({
+        source,
+        from: Option.getOrUndefined(flags.sourceDir),
         baseDir: Option.getOrUndefined(flags.baseDir),
       });
-      const plan = yield* importer.plan(locations);
+      const plan = yield* source.plan(locations);
       yield* Console.log(formatImportPlan(plan));
       if (plan.blockers.length > 0) {
-        return yield* new T3Import.T3ImportRefusedError({ reasons: [...plan.blockers] });
+        return yield* new T3ImportRefusedError({ reasons: [...plan.blockers] });
       }
-      if (flags.dryRun) {
+      if (flags.plan) {
         yield* Console.log("\nDry run: nothing was changed.");
         return;
       }
       yield* Console.log("\nImporting…");
-      const result = yield* importer.run({ ...locations, force: flags.force });
+      const result = yield* source.run({ ...locations, force: flags.force });
+      // The chain starts again in the imported database; the previous one moved with the backup.
+      const { dbPath } = yield* ServerConfig.deriveServerPaths(locations.target, undefined);
+      const fs = yield* FileSystem.FileSystem;
+      if (yield* fs.exists(dbPath).pipe(Effect.orElseSucceed(() => false))) {
+        yield* AuditLog.appendToDatabase(dbPath, {
+          kind: "import.run",
+          actor: "cli",
+          subject: flags.source,
+          detail: {
+            from: locations.source,
+            items: plan.items.filter((item) => item.action !== "skip").length,
+            backups: result.backups.length,
+          },
+        });
+      }
       const removed = Object.entries(result.removedRows)
         .filter(([, count]) => count > 0)
         .map(([table, count]) => `${count} ${table}`);
@@ -107,6 +138,6 @@ export const importFromT3Command = Command.make("import-from-t3", {
           ...AFTER_IMPORT,
         ].join("\n"),
       );
-    }).pipe(Effect.provide(T3Import.layer)),
+    }).pipe(Effect.provide(Importer.layer)),
   ),
 );

@@ -1,6 +1,8 @@
 // Frame untrusted values with unpredictable per-request tags and break their mentions, preserving template mentions.
 // Whole-set placeholders redact credentials; named placeholders return raw values.
 
+import { redactSecrets } from "@t3tools/shared/redaction";
+
 export interface WebhookRequest {
   readonly method: string;
   readonly path: string;
@@ -49,7 +51,8 @@ const PLACEHOLDER = /\{\{([^{}]*)\}\}/g;
 
 // Break mentions before provider CLI parsing, including currency signs, embedded @, commands, context links and frame tags.
 // Checked with Claude Code 2.1.296, Codex 0.162.1, Pi 1.2.0 and dsh 0.2.0-rc.2; others may parse more.
-const MENTION = /[\p{Sc}@]|(?<=^|\s)\/(?=[^\s/]+(?:\s|$))|t3-context(?=:)|webhook(?=-data)/giu;
+export const MENTION =
+  /[\p{Sc}@]|(?<=^|\s)\/(?=[^\s/]+(?:\s|$))|t3-context(?=:)|webhook(?=-data)/giu;
 
 function parseBody(request: WebhookRequest): unknown {
   const contentType = (request.headers["content-type"] ?? "").toLowerCase();
@@ -168,7 +171,9 @@ export function renderWebhookPrompt(
     if (text === "") return "";
     if (raw) return text;
     framed = true;
-    return `<${tag}>${text.replace(MENTION, "$&\u2060")}</${tag}>`;
+    // Fork: only the prompt is redacted; filters and replay keys read the raw request.
+    const shown = expression.includes(".") ? text : redactSecrets(text);
+    return `<${tag}>${shown.replace(MENTION, "$&\u2060")}</${tag}>`;
   });
   if (!framed) return { prompt, missing };
   return {

@@ -34,6 +34,10 @@ forbidden=(
   'relay\.t3\.codes'
   '@opentelemetry/exporter'
   'OTLPTraceExporter'
+  # A1: local tracing only; no OTLP exporter may be wired back in.
+  'effect/(unstable/)?observability'
+  'Otlp(Exporter|Serialization|Logger)'
+  'Otlp(Tracer|Metrics)\.'
   'github\.com/\$\{CLI_RELEASE_REPOSITORY\}/releases/download'
   'AnalyticsService'
   'telemetryId'
@@ -42,10 +46,15 @@ forbidden=(
   'registry\.npmjs\.org/t3'
   'name: "zed"'
   'pingdotgg/t3code/releases'
+  'CLI_RELEASE_REPOSITORY = "pingdotgg'
+  # Agents must not be told to follow text from upstream's repository during triage.
+  'raw\.githubusercontent\.com/pingdotgg'
   't3\.codes/install'
+  # Link icons come from the site itself (opt-in), never a third-party icon service.
+  'google\.com/s2/favicons'
 )
 for pattern in "${forbidden[@]}"; do
-  hits="$(git grep -n -i -E "$pattern" -- apps packages scripts ':!scripts/fork/**' ':!**/*.md' ':!apps/marketing/**' ':!**/*.graphql' ':!**/*.test.ts' ':!**/*.test.tsx' ':!packages/contracts/src/relay.ts' | head -5)"
+  hits="$(git grep -n -i -E "$pattern" -- apps packages scripts ':!scripts/fork/**' ':!**/*.md' ':!apps/marketing/**' ':!**/*.graphql' ':!**/*.test.ts' ':!**/*.test.tsx' ':!**/testkit/fixtures/**' ':!packages/contracts/src/relay.ts' | head -5)"
   [ -z "$hits" ] || bad "forbidden pattern '$pattern' is back:"$'\n'"$hits"
 done
 
@@ -68,6 +77,12 @@ fi
   grep -q -E '^export const APP_RELEASE_REPO = "cmdeck";$' packages/shared/src/appIdentity.ts; } ||
   bad "packages/shared/src/appIdentity.ts no longer names Tehcnological/cmdeck as the release feed"
 
+# 4b. Without T3CODE_RELEASE_BASE_URL, installs, SSH bootstraps and `cmdeck update` download CLI
+#     archives from CMDeck's own GitHub releases (the repository pinned in 4), never another host.
+{ grep -q -F 'export const APP_RELEASE_DOWNLOAD_BASE_URL = `https://github.com/${APP_RELEASE_REPOSITORY}/releases/download`;' packages/shared/src/appIdentity.ts &&
+  grep -q -x -F 'const CLI_RELEASE_DEFAULT_BASE_URL = APP_RELEASE_DOWNLOAD_BASE_URL;' packages/shared/src/cliRelease.ts; } ||
+  bad "the default CLI release base URL is no longer CMDeck's GitHub releases (packages/shared/src/cliRelease.ts)"
+
 # 5. Fork hooks and the CMDeck identity live in upstream files; a merge that takes upstream's side drops them.
 required=(
   'apps/server/src/cloud/pinnedRuntime.ts:FORK_RUNTIME_MARKER_FILE'
@@ -79,7 +94,7 @@ required=(
   'apps/server/src/ws.ts:ForkAlerts\.configIssues'
   'packages/contracts/src/server.ts:fork\.shared-data'
   'apps/web/src/appInit.tsx:startForkSharedDataToasts'
-  'apps/server/src/binCli.ts:importFromT3Command'
+  'apps/server/src/binCli.ts:importCommand,'
   'apps/server/src/ws.ts:T3Import\.importOfferIssues'
   'packages/contracts/src/server.ts:fork\.import-available'
   'apps/web/src/appInit.tsx:startForkImportOfferToast'
@@ -100,9 +115,210 @@ required=(
   'apps/server/src/cloud/npmRelease.ts:Effect\.fn\("NpmRelease\.get"\)\(function\* \(\) \{ +return null;'
   'packages/contracts/src/settings.ts:requireConnectDeviceApproval: Schema\.Boolean\.pipe\( +Schema\.withDecodingDefault\(Effect\.succeed\(true\)\)'
   'apps/mobile/app.config.ts:updates: \{ +enabled: false,'
-  'apps/server/src/provider/acp/AntigravityAcpSupport.ts:ANTIGRAVITY_CLIENT_INFO = \{ +name: "t3-code",'
-  'apps/server/src/provider/acp/AntigravityAcpSupport.ts:clientInfo: ANTIGRAVITY_CLIENT_INFO,'
+  'apps/server/src/provider/acp/AntigravityAcpSupport.ts:clientInfo: \{ name: "t3-code",'
+  # Fork extension seams (docs/operations/fork-upstream-sync.md#where-fork-code-goes).
+  'apps/server/src/server.ts:Layer\.provideMerge\(ForkLayer\.layer\)'
+  'apps/server/src/ws.ts:\.\.\.\(yield\* ForkRpcHandlers\.make\)'
+  'apps/server/src/mcp/McpHttpServer.ts:ForkMcpToolkits\.layer\(toolkitRegistration\)'
+  'packages/contracts/src/rpc.ts:\.merge\(ForkWsRpcGroup\)'
+  'packages/contracts/src/clientRpcPermissions.ts:\.\.\.FORK_RPC_SCOPES,'
+  # Fork reads are checked by the server only, so query atoms can read them with `request`.
+  'apps/server/src/auth/RpcAuthorization.ts:\.\.\.FORK_RPC_READ_SCOPES,'
+  'packages/contracts/src/index.ts:export \* from "\./fork/index\.ts";'
+  'packages/contracts/src/settings.ts:cmdeck: CmdeckSettings\.pipe\(Schema\.withDecodingDefault'
+  'packages/contracts/src/settings.ts:cmdeck: Schema\.optionalKey\(CmdeckSettingsPatch\)'
+  'apps/web/src/components/CommandPalette.tsx:const forkCommandItems = useForkCommandItems\(\);'
+  'apps/web/src/components/CommandPalette.tsx:actionItems\.push\(\.\.\.forkCommandItems\);'
+  # WI-1.12: any thread opens beside the current one from the sidebar menu.
+  'apps/web/src/components/threadActionMenu.logic.ts:id: "open-beside" as const'
+  'apps/web/src/components/Sidebar.tsx:canOpenBeside: canOpenThreadBeside\(threadRef, routeThreadRef\)'
+  'apps/web/src/components/Sidebar.tsx:case "open-beside": +if \(openThreadBeside\('
+  'apps/web/src/lib/sideChatPane.ts:export function canOpenThreadInPanel\('
+  # The star prompt stars CMDeck's repository, not upstream's.
+  'apps/web/src/components/GitHubStarPrompt.tsx:const REPOSITORY = APP_RELEASE_REPOSITORY;'
+  # WI-1.11: the Amazon Bedrock preset in the Claude provider dialog.
+  'apps/web/src/components/settings/AddProviderInstanceDialog.tsx:<BedrockPresetSection'
+  'apps/web/src/components/settings/AddProviderInstanceDialog.tsx:environment: bedrockEnvironmentForSave\(bedrockEnvironment\)'
+  # WI-1.02: the shared redactor applies at log, feedback and webhook-prompt egress.
+  'packages/shared/package.json:"\./redaction"'
+  'apps/server/src/serverLogger.ts:redactingSecrets\(redactingCredentials\(Logger\.consolePretty\(\)\)\)'
+  'apps/server/src/feedback/scrubFeedback.ts:\.\.\.SECRET_PATTERNS,'
+  'apps/server/src/scheduledTasks/webhookTemplate.ts:expression\.includes\("\."\) \? text : redactSecrets\(text\)'
+  # WI-1.10: new threads start on the default environment; the composer says when it is offline.
+  'apps/web/src/components/Sidebar.tsx:startNewThreadFromContext, +\} from "\.\./fork/defaultThreadEnvironment"'
+  'apps/web/src/components/Sidebar.tsx:handleNewThread\( *preferDefaultThreadEnvironment\('
+  'apps/web/src/components/CommandPalette.tsx:startNewThreadFromContext, +\} from "\.\./fork/defaultThreadEnvironment"'
+  'apps/web/src/components/CommandPalette.tsx:handleNewThread\( *preferDefaultThreadEnvironment\('
+  'apps/web/src/shortcuts/chatRouteCommands.ts:import \{ startNewThreadFromContext \} from "\.\./fork/defaultThreadEnvironment"'
+  'apps/web/src/routes/_chat.index.tsx:handleNewThread\(preferDefaultThreadEnvironment\(projectRef\)'
+  'apps/web/src/components/ChatView.tsx:useForkComposerBannerItems\('
+  'apps/web/src/components/ChatView.tsx:\.\.\.forkComposerBannerItems,'
+  'apps/web/src/components/settings/ProjectDefaultsSettings.tsx:<DefaultThreadEnvironmentRow />'
+  'apps/web/src/components/settings/settingsSearch.ts:\.\.\.FORK_SETTINGS_SEARCH_ITEMS,'
+  # WI-1.03: the audit log's CLI, Diagnostics viewer and event hooks.
+  'apps/server/src/binCli.ts:import \{ auditCommand \} from "\./fork/audit/auditCommand\.ts";'
+  'apps/server/src/binCli.ts:auditCommand,'
+  'apps/server/src/auth/http.ts:import \* as AuditLog from "\.\./fork/audit/AuditLog\.ts";'
+  'apps/server/src/auth/http.ts:if \(approved\) yield\* AuditLog\.notePairingApproved\(args\.payload\.pairingLinkId\);'
+  'apps/server/src/secrets/SecretRequests.ts:import \* as AuditLog from "\.\./fork/audit/AuditLog\.ts";'
+  'apps/server/src/secrets/SecretRequests.ts:yield\* AuditLog\.noteSecretReveal\("ref", input\.projectId\);'
+  'apps/server/src/secrets/SecretRequests.ts:yield\* AuditLog\.noteSecretReveal\("file", input\.threadId\);'
+  'apps/web/src/components/settings/DiagnosticsSettings.tsx:import \{ AuditLogSection \} from "~/fork/AuditLogSection";'
+  'apps/web/src/components/settings/DiagnosticsSettings.tsx:<AuditLogSection environmentId=\{environmentId\} />'
+  # WI-1.06: workflow files load only once their exact bytes are approved; workflows default on (A2).
+  'apps/server/src/workflows/WorkflowRuntime.ts:import \* as WorkflowTrust from "\.\./fork/workflowTrust/WorkflowTrust\.ts";'
+  'apps/server/src/workflows/WorkflowRuntime.ts:const trust = yield\* WorkflowTrust\.WorkflowTrust;'
+  'apps/server/src/workflows/WorkflowRuntime.ts:const loaded = yield\* trust\.gated\(file, source\.value, \(from\) => load\(from, name\)\);'
+  'apps/server/src/workflows/WorkflowRuntime.ts:yield\* trust\.record\(directory, name, source, "user"\);'
+  'apps/server/src/workflows/WorkflowRuntime.ts:yield\* WorkflowTrust\.onApproved\(directory, seen, lock\.withPermits\(1\)\(reload\(\)\)\);'
+  'apps/server/src/workflows/WorkflowRuntime.test.ts:WorkflowTrustTestkit\.make\(gated, database\)'
+  'apps/server/src/workflows/WorkflowRuntime.test.ts:a file in the folder is not imported until its exact bytes are approved'
+  'apps/server/src/orchestration-v2/runtimeLayer.ts:import \* as WorkflowTrust from "\.\./fork/workflowTrust/WorkflowTrust\.ts";'
+  'apps/server/src/orchestration-v2/runtimeLayer.ts:Layer\.provideMerge\(WorkflowTrust\.layer\)'
+  'apps/server/src/persistence/ForkSchema.ts:yield\* ensureWorkflowTrustSchema\(\)'
+  'packages/contracts/src/settings.ts:workflowsEnabled: Schema\.Boolean\.pipe\(Schema\.withDecodingDefault\(Effect\.succeed\(true\)\)\)'
+  'apps/web/src/components/workflows/WorkflowsPage.tsx:import \{ WorkflowApprovals \} from "~/fork/WorkflowApprovals";'
+  'apps/web/src/components/workflows/WorkflowsPage.tsx:<WorkflowApprovals key=\{environmentId\} environmentId=\{environmentId\} />'
+  # WI-1.04: fork alerts reach the open app, and notification channels show in Settings > General.
+  'packages/client-runtime/src/rpc/client.ts:type CmdeckSubscriptionRpcTag,'
+  'packages/client-runtime/src/rpc/client.ts:\| CmdeckSubscriptionRpcTag;'
+  'apps/web/src/appInit.tsx:import \{ startForkAlertNotifications \} from "\./fork/forkAlertNotifications";'
+  'apps/web/src/appInit.tsx:startForkAlertNotifications\(\);'
+  'apps/web/src/components/settings/SettingsPanels.tsx:import \{ NotificationChannelsSection \} from "~/fork/NotificationChannelsSection";'
+  'apps/web/src/components/settings/SettingsPanels.tsx:<NotificationChannelsSection />'
+  # WI-1.03: remote MCP tokens changed from the CLI are audited too.
+  'apps/server/src/cli/auth.ts:AuditLog\.layerAtDatabase\(config\.dbPath\),'
+  # WI-1.03: a pairing approved from the CLI without a server is audited too.
+  'apps/server/src/cli/auth.ts:Effect\.tap\(AuditLog\.notePairingApprovedLocally\(flags\.id\)\)'
+  'apps/server/src/cli/auth.ts:Effect\.tap\(AuditLog\.notePairingApprovedLocally\(pairingLinkId\)\)'
+  # WI-2.16: an accept the approval policy denies is turned into a decline where it is dispatched.
+  'apps/server/src/orchestration-v2/Orchestrator.ts:import \* as ApprovalGate from "\.\./fork/approvalPolicy/ApprovalGate\.ts";'
+  'apps/server/src/orchestration-v2/Orchestrator.ts:const forkApprovalGate = yield\* ApprovalGate\.forRuntimeResponse;'
+  'apps/server/src/orchestration-v2/Orchestrator.ts:command = yield\* forkApprovalGate\(command, context\);'
+  # Memory (WI-1.07): fork services orchestration reads, and the turn-context block in the provider prompt.
+  'apps/server/src/server.ts:Layer\.provideMerge\(ForkLayer\.layerBeneathOrchestration\)'
+  'apps/server/src/orchestration-v2/ProviderTurnStartService.ts:import \* as TurnContext from "\.\./fork/memory/TurnContext\.ts";'
+  'apps/server/src/orchestration-v2/ProviderTurnStartService.ts:const forkTurnContext = yield\* TurnContext\.forProviderTurnStart;'
+  'apps/server/src/orchestration-v2/ProviderTurnStartService.ts:const forkContext = yield\* forkTurnContext\('
+  'apps/server/src/orchestration-v2/ProviderTurnStartService.ts:const carriesPendingContext = +forkContext !== "" \|\|'
+  'apps/server/src/orchestration-v2/ProviderTurnStartService.ts:const context = \[ +compact \? "" : forkContext,'
+  # WI-2.14: usage alert state table, and the thresholds row beside Usage providers.
+  'apps/server/src/persistence/ForkSchema.ts:yield\* ensureUsageAlertsSchema\(\)'
+  'apps/web/src/components/settings/ProviderSettingsPanel.tsx:import \{ UsageAlertsSection \} from "~/fork/UsageAlertsSection";'
+  'apps/web/src/components/settings/ProviderSettingsPanel.tsx:<UsageAlertsSection environmentId=\{environmentId\} settings=\{settings\} readOnly=\{readOnly\} />'
+  # Open beside: an unrelated project's thread never runs code blocks in the host's terminal,
+  # and a thread hidden by a tag filter leaves the panel.
+  'apps/web/src/components/ChatView.tsx:activeThread\?\.projectId !== panelHostShell\?\.projectId'
+  'apps/web/src/components/chat/SideThreadPane.tsx:useCloseWhenHidden\(threadRef, props\.onClose\)'
+  # WI-2.02: the work ledger's table and the archive offer.
+  'apps/server/src/persistence/ForkSchema.ts:yield\* ensureWorkLedgerSchema\(\)'
+  'apps/web/src/hooks/useThreadActions.ts:await offerToStopConductorWorkers\(threadRef\);'
+  # Lean tool profiles (Pi, auto on an inference server) keep the work ledger tools.
+  'packages/provider-core/src/server/mcpToolProfile.ts:import \{ WORK_LEDGER_MCP_TOOL_NAMES \} from "@t3tools/contracts";'
+  'packages/provider-core/src/server/mcpToolProfile.ts:\.\.\.WORK_LEDGER_MCP_TOOL_NAMES,'
+  # WI-2.11: a scheduled task's check script decides whether its run wakes the agent.
+  'apps/server/src/scheduledTasks/webhookTemplate.ts:export const MENTION = '
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:import \* as CheckScripts from "\.\./fork/checkScripts/CheckScripts\.ts";'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:const checkScripts = yield\* CheckScripts\.CheckScripts;'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:const checked = yield\* checkScripts\.gate\('
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:checked\?\._tag === "Wake" \? checked\.prompt : \(webhook\?\.prompt \?\? active\.prompt\)'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:const dispatchExit = CheckScripts\.exitAfter\(checked\);'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:\? yield\* dispatchExit\( +threadLaunch'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:: yield\* dispatchExit\( +// The stored selection'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:\(checked\?\._tag !== "Failed" \|\| checked\.counts\) &&'
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:runTask\(task, "scheduled"\)\.pipe\(checkScripts\.runsAside\(task\.id, serviceScope\)\)'
+  'apps/server/src/persistence/ForkSchema.ts:yield\* ensureCheckScriptsSchema\(\)'
+  'apps/web/src/components/settings/ScheduledTasksSettings.tsx:import \{ ScheduledTaskCheckControl \} from "~/fork/ScheduledTaskCheck";'
+  'apps/web/src/components/settings/ScheduledTasksSettings.tsx:<ScheduledTaskCheckControl environmentId=\{environmentId\} task=\{task\} />'
+  # WI-2.11: an agent changes a task's check only within the limits that editing the task needs.
+  'apps/server/src/mcp/OrchestratorMcpService.ts:readonly authorizeScheduledTaskChange: \( +scope: McpInvocationScope, +scheduledTaskId: ScheduledTask\["id"\], +\) => Effect\.Effect<ScheduledTask, OrchestratorMcpFailure>;'
+  'apps/server/src/mcp/OrchestratorMcpService.ts:authorizeScheduledTaskChange: Effect\.fn\("OrchestratorMcpService\.authorizeScheduledTaskChange"\)\( +function\* \(scope, scheduledTaskId\) \{ +const \{ parent, limits \} = yield\* loadCaller\(scope, \["runs"\]\); +const existing = yield\* loadScheduledTask\(scheduledTaskId, limits\); +yield\* assertLiveCallerForOtherProject\(scope, parent, existing\.projectId\);'
+  # WI-2.17: secrets at rest. The desktop app hands the key over in the bootstrap envelope.
+  'packages/contracts/src/desktopBootstrap.ts:cmdeckSecretsKey: Schema\.optionalKey\(Schema\.String\)'
+  'apps/server/src/config.ts:readonly cmdeckSecretsKey\?: Redacted\.Redacted<string> \| undefined;'
+  'apps/server/src/cli/config.ts:cmdeckSecretsKey: Redacted\.make\(bootstrap\.cmdeckSecretsKey\)'
+  'apps/server/src/auth/serverInternalPaths.ts:isWithinRoot\(path, file, path\.join\(path\.dirname\(stateDir\), "keys"\)\)'
+  'apps/desktop/src/main.ts:Layer\.provideMerge\(DesktopSecretsKey\.layer\)'
+  'apps/desktop/src/backend/DesktopBackendConfiguration.ts:const secretsKey = yield\* DesktopSecretsKey\.DesktopSecretsKey;'
+  'apps/desktop/src/backend/DesktopBackendConfiguration.ts:Effect\.flatMap\(DesktopSecretsKey\.withSecretsKey\(secretsKey, environment\.baseDir\)\)'
+  # WI-2.10: scheduled tasks start new threads on the decision service's routed model.
+  'apps/server/src/scheduledTasks/ScheduledTaskService.ts:modelSelection: yield\* Decisions\.routeScheduledTask\(active\),'
+  # WI-2.04: bots list in Settings > Threads, and a badge on bot threads in the sidebar.
+  'apps/web/src/components/settings/SettingsPanels.tsx:import \{ BotsSection \} from "~/fork/BotsSection";'
+  'apps/web/src/components/settings/SettingsPanels.tsx:<BotsSection />'
+  'apps/web/src/components/sidebar/SidebarThreadRow.tsx:import \{ BotThreadBadge \} from "\.\./\.\./fork/BotThreadBadge";'
+  'apps/web/src/components/sidebar/SidebarThreadRow.tsx:<BotThreadBadge environmentId=\{thread\.environmentId\} threadId=\{thread\.id\} />'
+  # WI-2.05: the right panel's fork surface, the composer's memory chip, /remember and Settings > Memory.
+  'apps/web/src/rightPanelStore.ts:"linked-thread", +"cmdeck", +\] as const;'
+  'apps/web/src/rightPanelStore.ts:\| \{ id: "cmdeck"; kind: "cmdeck" \}'
+  'apps/web/src/rightPanelStore.ts:case "cmdeck": +return \{ id: "cmdeck", kind \};'
+  'apps/web/src/closedViewStore.ts:case "pull-requests": +case "cmdeck":'
+  'apps/web/src/components/RightPanelTabs.tsx:case "cmdeck": +return forkPanelTitle\(resolve\);'
+  'apps/web/src/components/RightPanelTabs.tsx:case "cmdeck": +return <ForkPanelIcon />;'
+  'apps/web/src/components/chat/RightPanelSurfaceContent.tsx:case "cmdeck": +return <ForkPanel threadRef=\{threadRef\} />;'
+  'apps/web/src/components/chat/ChatComposer.tsx:<MemoryModeChip +environmentId=\{environmentId\}'
+  'apps/web/src/components/chat/ChatComposer.tsx:if \(item\.command === "remember"\)'
+  'apps/web/src/composer-logic.ts:ComposerSlashCommand = "model" \| "side" \| "btw" \| "clear" \| "remember";'
+  'apps/web/src/components/chat/composerSlashCommandSearch.ts:item\.command !== "remember"'
+  'apps/web/src/components/chat/useComposerMenuItems.ts:const forkSlashCommandItems = useForkSlashCommandItems\(environmentId\);'
+  'apps/web/src/components/chat/useComposerMenuItems.ts:\.\.\.forkSlashCommandItems,'
+  'apps/web/src/components/chat/useComposerSend.ts:const rememberFromComposer = useRememberCommand\(environmentId\);'
+  'apps/web/src/components/chat/useComposerSend.ts:rememberFromComposer\( +promptAtSend,'
+  'apps/web/src/components/settings/settingsSearch.ts:\| "/settings/memory";'
+  'apps/web/src/components/settings/settingsSearch.ts:"/settings/memory": msg\("Memory",'
+  'apps/web/src/components/settings/settingsSearch.ts:"/settings/scheduled-tasks", +"/settings/memory",'
+  'apps/web/src/components/settings/settingsSearch.ts:"/settings/memory": "environment",'
+  'apps/web/src/components/settings/SettingsSidebarNav.tsx:"/settings/memory": BrainIcon,'
+  'apps/web/src/routeTree.gen.ts:ChatSettingsMemoryRouteImport'
+  # WI-2.08: the memory search embedder picker shows in Settings > General.
+  'apps/web/src/components/settings/SettingsPanels.tsx:import \{ MemoryEmbeddingsSection \} from "~/fork/memory/MemoryEmbeddingsSection";'
+  'apps/web/src/components/settings/SettingsPanels.tsx:<MemoryEmbeddingsSection />'
+  # WI-2.21: design-critique eval cases load the repo skill they test.
+  'evals/mcp-tool-use/run.ts:skill: Schema\.optional\(Schema\.String\),'
+  'evals/mcp-tool-use/run.ts:: invokedSkillPrompt\('
+  # WI-2.18: sandboxed threads launch through the container AgentScope, and refuse providers that cannot.
+  'apps/server/src/server.ts:import \* as ContainerSandbox from "\./fork/sandbox/ContainerSandbox\.ts";'
+  'apps/server/src/server.ts:Layer\.provideMerge\(ContainerSandbox\.layer\.pipe\(Layer\.provide\(layerServerSettings\)\)\), +Layer\.provideMerge\(AgentScopeLive\.layer\)'
+  'apps/server/src/orchestration-v2/ProviderSessionManager.ts:import \{ sandboxLaunchGate \} from "\.\./fork/sandbox/launchGate\.ts";'
+  'apps/server/src/orchestration-v2/ProviderSessionManager.ts:yield\* sandboxLaunchGate\(input, registry\);'
+  'apps/server/src/persistence/ForkSchema.ts:yield\* ensureSandboxSchema\(\)'
+  'apps/web/src/components/settings/SettingsPanels.tsx:import \{ ContainerSandboxSection \} from "~/fork/ContainerSandboxSection";'
+  'apps/web/src/components/settings/SettingsPanels.tsx:<ContainerSandboxSection />'
+  # A sandboxed thread's Claude launches through the container scope even from a script entry.
+  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:import \* as ForkSandbox from "\.\./\.\./fork/sandbox/ContainerSandbox\.ts";'
+  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const inContainer = yield\* ForkSandbox\.sandboxedThreadCheck;'
+  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const sandboxed = yield\* inContainer\(input\.threadId\);'
+  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:command: binaryPath \?\? "claude",'
+  # ...and gets no MCP servers, so it holds no CMDeck credential, decided once with the scope's say.
+  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const mcpServers = ForkSandbox\.isContained\(sandboxed, unit\) \? undefined : requestedMcpServers;'
+  # Host git never runs the fsmonitor of a repository a container wrote into the worktree.
+  'apps/server/src/vcs/VcsProcess.ts:\["core\.fsmonitor", "false"\], // Fork \(WI-2\.18\)'
+  # WI-2.15: message pins. Pin buttons in message actions and the timeline's jump to a pin.
+  'apps/web/src/components/chat/TimelineAssistantRows.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{message\.id\} +text=\{message\.text\}'
+  'apps/web/src/components/chat/TimelineUserMessageRow.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{row\.message\.id\} +text=\{text\}'
+  'apps/web/src/components/chat/TimelineUserMessageRow.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{row\.message\.id\} +text=\{plainText\}'
+  'apps/web/src/components/chat/MessagesTimeline.tsx:useMessagePinJump\(\{ +threadKey: routeThreadKey,'
+  'apps/server/src/persistence/ForkSchema.ts:yield\* ensureMessagePinsSchema\(\)'
 )
+# 6. Only a person approves a workflow file: no MCP tool may reach the trust gate (WI-1.06).
+hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts)"
+[ -z "$hits" ] || bad "MCP code reaches the workflow trust gate: $hits"
+
+# 7. Only a person approves a check script: no MCP code may reach its approval (WI-2.11).
+hits="$(git grep -l -E '\.approve\(|checkScriptsApprove' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts apps/server/src/fork/checkScripts/mcpTools.ts)"
+[ -z "$hits" ] || bad "MCP code reaches check script approval: $hits"
+
+# 8. WI-2.17: a file that builds the secret store must build the encrypting one, or it reads and
+#    writes envelopes as raw bytes. Its `ServerSecretStore` import names the fork module instead.
+for file in $(git grep -l -E 'ServerSecretStore\.layer([^A-Za-z]|$)' -- apps/server/src ':!apps/server/src/fork/**' ':!**/*.test.ts' ':!**/*.testkit.ts' ':!**/testkit/**'); do
+  grep -q -E '^import \* as ServerSecretStore from "(\./|(\.\./)+)fork/secrets/EncryptedSecretStore\.ts";' "$file" ||
+    bad "$file builds ServerSecretStore.layer without fork/secrets/EncryptedSecretStore.ts"
+done
+
+# 8. Agents may only tighten the sandbox: no MCP tool turns a container off (WI-2.18).
+hits="$(git grep -l -E '"off"|mode: null' -- apps/server/src/fork/sandbox/mcpTools.ts)"
+[ -z "$hits" ] || bad "An MCP tool can turn a container off: $hits"
+
 for entry in "${required[@]}"; do
   file="${entry%%:*}"
   { tr '\r\n' '  ' <"$file" | grep -q -E "${entry#*:}"; } 2>/dev/null ||

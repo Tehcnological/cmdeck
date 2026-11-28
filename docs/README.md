@@ -2,38 +2,32 @@
 
 ## Using CMDeck
 
-- [Install CMDeck](./user/install.md)
-- [Messages and context](./user/composer.md)
-- [Working with threads](./user/thread-sidebar.md)
-- [Permission modes](./user/permission-modes.md)
-- [Terminal history](./user/terminal.md)
-- [Source control](./user/source-control.md)
-- [Project settings](./user/project-settings.md)
-- [Projects with several repositories](./user/multi-repo-projects.md)
-- [Appearance and themes](./user/appearance.md)
-- [Keyboard shortcuts](./user/keybindings.md)
-- [Voice input](./user/voice-input.md)
-- [Text generation models](./user/text-generation.md)
-- [SnapShots](./user/snap-shot.md)
-- [Visual replies](./user/html-renders.md)
-- [Import browser sessions](./user/browser-import.md)
-- [Use CMDeck as your default browser](./user/default-browser.md)
-- [Devices](./user/devices.md)
-- [Usage and limits](./user/usage.md)
-- [Secrets](./user/secrets.md)
-- [Telemetry and network calls](./user/telemetry.md)
-- [Remote access](./user/remote-access.md)
-- [Encrypted remote control](./user/encrypted-remote-control.md)
-- [Guest links (needs T3 Connect, removed)](./user/guest-links.md)
-- [Cloudflare Tunnel](./user/cloudflare-tunnel.md)
-- [T3 Connect troubleshooting (removed)](./user/t3-connect-troubleshooting.md)
-- [Outside agents (MCP)](./user/outside-agents.md)
-- [Remote MCP with a token](./user/remote-mcp.md)
-- [Running in the background](./user/background-service.md)
-- [Close to tray and launch at login](./user/close-to-tray.md)
-- [Updating CMDeck](./user/updating.md)
-- [Triage an issue](./user/triage.md)
-- Provider guides: [Local models](./user/local-models.md) · [Codex](./user/providers-codex.md) · [Claude](./user/providers-claude.md) · [OpenCode](./user/providers-opencode.md) · [Antigravity](./user/providers-antigravity.md) · [Kiro](./user/providers-kiro.md) · [Pi](./user/providers-pi.md) · [Oh My Pi](./user/providers-omp.md) · [Muse Code](./user/providers-muse.md) · [fx](./user/providers-fx.md)
+New to CMDeck? Start with the **[User Guide & Index](./user/README.md)** for how CMDeck works, prerequisites, expectations, and the complete directory of feature guides.
+
+### Essentials
+
+- [Install CMDeck](./user/install.md) · [Welcome page](./user/welcome-page.md) · [FAQ](./user/faq.md) · [Import from T3 Code](./user/import-from-t3-code.md)
+- [Working with threads](./user/thread-sidebar.md) · [Messages and context](./user/composer.md) · [Permission modes](./user/permission-modes.md)
+- [Diffs and workspace files](./user/diffs.md) · [Source control](./user/source-control.md) · [Subagents and delegation](./user/subagents.md)
+- [Settings and project overrides](./user/project-settings.md) · [Project config (`t3.json`)](./user/t3-json.md) · [Multi-repo projects](./user/multi-repo-projects.md)
+
+### Workspace tools & automation
+
+- [Built-in browser](./user/browser.md) ([import sessions](./user/browser-import.md) · [default browser](./user/default-browser.md)) · [Devices](./user/devices.md)
+- [Terminal](./user/terminal.md) · [Visual replies & MCP apps](./user/html-renders.md) · [SnapShots](./user/snap-shot.md) · [Voice input](./user/voice-input.md)
+- [Workflows](./user/workflows.md) · [Text generation models](./user/text-generation.md) · [Prompt links](./user/prompt-links.md)
+- [Activity log](./user/activity-log.md) · [Appearance and themes](./user/appearance.md) · [Keybindings](./user/keybindings.md) · [Keyboard focus](./user/keyboard-focus.md)
+
+### Remote, security & operations
+
+- [Remote access](./user/remote-access.md) · [Encrypted remote control](./user/encrypted-remote-control.md) · [Cloudflare Tunnel](./user/cloudflare-tunnel.md) · [T3 Connect troubleshooting (removed)](./user/t3-connect-troubleshooting.md) · [Mobile notifications (push needs T3 Connect, removed)](./user/mobile-notifications.md) · [Guest links (needs T3 Connect, removed)](./user/guest-links.md)
+- [Outside agents (MCP)](./user/outside-agents.md) · [Remote MCP with a token](./user/remote-mcp.md) · [Secrets](./user/secrets.md) ([1Password service account](./user/secrets-1password-service-account.md) · [1Password Connect](./user/secrets-1password-connect.md))
+- [Background service](./user/background-service.md) · [Close to tray and launch at login](./user/close-to-tray.md) · [Updating CMDeck](./user/updating.md) · [Usage and limits](./user/usage.md) · [Maintenance & diagnostics](./user/diagnostics.md)
+- [CLI reference (`t3`)](./user/cli.md) · [Telemetry and network calls](./user/telemetry.md) · [Managed policy](./user/managed-policy.md) · [Triage an issue](./user/triage.md) · [V1 migration](./user/thread-migration.md) · [Portable handoffs](./user/portable-handoffs.md) · [Question attachments](./user/question-attachments.md) · [Open source licenses](./user/open-source-licenses.md)
+
+### Providers
+
+[Local models](./user/local-models.md) · [Codex](./user/providers-codex.md) · [Claude](./user/providers-claude.md) · [Cursor](./user/cursor.md) · [Grok Build](./user/providers-grok.md) · [Antigravity](./user/providers-antigravity.md) · [OpenCode](./user/providers-opencode.md) · [Kiro](./user/providers-kiro.md) · [Pi](./user/providers-pi.md) · [Oh My Pi](./user/providers-omp.md) · [Muse Code](./user/providers-muse.md) · [fx](./user/providers-fx.md) · [ACP providers](./user/providers-acp.md)
 
 ---
 

@@ -1,14 +1,20 @@
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
+import {
+  APP_RELEASE_DOWNLOAD_BASE_URL,
+  APP_RELEASE_REPOSITORY,
+  appReleaseTag,
+} from "./appIdentity.ts";
 import { compareSemverVersions } from "./semver.ts";
 
-const CLI_RELEASE_REPOSITORY = "pingdotgg/t3code";
+// CMDeck installs and updates only from its own releases, never upstream's.
+const CLI_RELEASE_REPOSITORY = APP_RELEASE_REPOSITORY;
 export const CLI_RELEASES_PAGE_URL = `https://github.com/${CLI_RELEASE_REPOSITORY}/releases`;
 export const CLI_RELEASE_CHECKSUMS_FILE = "SHA256SUMS";
 export const CLI_RELEASE_BASE_URL_ENV = "T3CODE_RELEASE_BASE_URL";
 
-// Keep archive keys aligned with the Linux matrix, Windows ARM64 build, and cli_archive rows in release.yml,
+// Keep archive keys aligned with the cli-archives matrix and publish check in fork-release.yml,
 // and with the SSH runner's host check in packages/ssh/src/tunnel.ts.
 // Node single-executables do not support darwin-x64 and segfault at startup.
 const CLI_ARCHIVE_PLATFORM_KEYS = [
@@ -42,16 +48,19 @@ export function cliArchiveFileName(version: string, platformKey: CliArchivePlatf
   return `t3-${version}-${platformKey}.${platformKey.startsWith("win32") ? "zip" : "tar.gz"}`;
 }
 
-// Private fork: upstream's GitHub releases are upstream builds. With no T3CODE_RELEASE_BASE_URL or
-// managed mirror, every install path (service, SSH remote, self-update) fails closed here;
-// `.invalid` never resolves (RFC 6761). A version already installed locally is still reused.
-const CLI_RELEASE_DEFAULT_BASE_URL = "https://t3code-release-base-url-not-set.invalid";
+const CLI_RELEASE_DEFAULT_BASE_URL = APP_RELEASE_DOWNLOAD_BASE_URL;
 
-export function cliReleaseDownloadBaseUrl(
-  version: string,
-  baseUrl: string | undefined = CLI_RELEASE_DEFAULT_BASE_URL,
-): string {
-  return `${(baseUrl?.trim() || CLI_RELEASE_DEFAULT_BASE_URL).replace(/\/+$/, "")}/v${version}`;
+/** GitHub tags release N.0.0 `vN` (see `appReleaseTag`); a mirror is laid out as `<url>/v<version>`. */
+function cliReleaseDirectory(version: string, baseUrl: string): string {
+  return baseUrl.replace(/\/+$/, "") === CLI_RELEASE_DEFAULT_BASE_URL
+    ? appReleaseTag(version)
+    : `v${version}`;
+}
+
+/** The URL of the folder holding release `version`'s files. */
+export function cliReleaseDownloadBaseUrl(version: string, baseUrl?: string | undefined): string {
+  const base = (baseUrl?.trim() || CLI_RELEASE_DEFAULT_BASE_URL).replace(/\/+$/, "");
+  return `${base}/${cliReleaseDirectory(version, base)}`;
 }
 
 /** `segments` added to `baseUrl`'s path, keeping its query, such as a signed mirror URL's token. */
@@ -61,13 +70,14 @@ export function releaseAssetUrl(baseUrl: string, ...segments: ReadonlyArray<stri
   return url.toString();
 }
 
-/** A file of release `version`, from `baseUrl` laid out as GitHub's release downloads. */
+/** A file of release `version`, from CMDeck's GitHub releases or a mirror's `baseUrl`. */
 export function cliReleaseAssetUrl(
   version: string,
   fileName: string,
-  baseUrl: string | undefined = CLI_RELEASE_DEFAULT_BASE_URL,
+  baseUrl?: string | undefined,
 ): string {
-  return releaseAssetUrl(baseUrl?.trim() || CLI_RELEASE_DEFAULT_BASE_URL, `v${version}`, fileName);
+  const base = baseUrl?.trim() || CLI_RELEASE_DEFAULT_BASE_URL;
+  return releaseAssetUrl(base, cliReleaseDirectory(version, base), fileName);
 }
 
 export function parseChecksums(text: string): ReadonlyMap<string, string> {
@@ -166,7 +176,12 @@ export function newestCliReleaseVersion(
 ): string | undefined {
   for (const release of releases) {
     if (release.draft) continue;
-    const version = /^v(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/.exec(release.tag_name)?.[1];
+    // CMDeck tags release N.0.0 `vN`; its betas (`vN-beta.M`) belong to no CLI channel.
+    const major = /^v([1-9]\d*)$/.exec(release.tag_name)?.[1];
+    const version =
+      major === undefined
+        ? /^v(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/.exec(release.tag_name)?.[1]
+        : `${major}.0.0`;
     if (version === undefined) continue;
     if (cliReleaseChannelOf(version) === channel) return version;
   }
