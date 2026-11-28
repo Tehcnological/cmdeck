@@ -38,7 +38,6 @@ import { resolvePastedPath } from "@t3tools/shared/path";
 import { effectiveTextGenerationFallback } from "@t3tools/shared/serverSettings";
 import * as Equal from "effect/Equal";
 import * as Schema from "effect/Schema";
-import { HOSTED_APP_CHANNEL, HOSTED_APP_CHANNEL_LABEL } from "../../branding";
 import { AboutVersionTitle } from "./AboutVersionTitle";
 import { CliCommandSettingsRow } from "./CliCommandSettingsRow";
 import { UninstallSettingsSection } from "./UninstallSettingsSection";
@@ -59,7 +58,6 @@ import {
 import { ProviderModelPicker } from "../chat/ProviderModelPicker";
 import { TraitsPicker } from "../chat/TraitsPicker";
 import { isElectron } from "../../env";
-import { buildHostedChannelSelectionUrl, type HostedAppChannel } from "../../hostedPairing";
 import {
   readAppearanceModePreference,
   readThemeHalves,
@@ -204,7 +202,6 @@ function AboutVersionSection() {
     hasDesktopBridge && primaryPolicy?.limits?.updates?.allowNightly === false
       ? primaryPolicy.organization
       : undefined;
-  const selectedHostedAppChannel = hasDesktopBridge ? null : HOSTED_APP_CHANNEL;
   // This app switches on its own (a beta build on Stable waits for the next Stable release), so
   // only connected servers can still run the other track.
   const unswitchedMachines = environments.filter(
@@ -457,34 +454,6 @@ function AboutVersionSection() {
                   disabled={nightlyDeniedBy !== undefined && selectedUpdateChannel !== "nightly"}
                 >
                   <T>Beta</T>
-                </SelectItem>
-              </SelectPopup>
-            </Select>
-          }
-        />
-      ) : selectedHostedAppChannel ? (
-        <SettingsRow
-          {...setting("update-track")}
-          description={gt("Switches the hosted app release channel.")}
-          control={
-            <Select
-              value={selectedHostedAppChannel}
-              onValueChange={(value) => {
-                if (value === selectedHostedAppChannel) return;
-                window.location.assign(
-                  buildHostedChannelSelectionUrl({ channel: value as HostedAppChannel }),
-                );
-              }}
-            >
-              <SelectTrigger size="sm" className="w-full sm:w-40" aria-label={gt("Update track")}>
-                <SelectValue>{HOSTED_APP_CHANNEL_LABEL}</SelectValue>
-              </SelectTrigger>
-              <SelectPopup align="end" alignItemWithTrigger={false}>
-                <SelectItem hideIndicator value="latest">
-                  <T>Latest</T>
-                </SelectItem>
-                <SelectItem hideIndicator value="nightly">
-                  <T>Nightly</T>
                 </SelectItem>
               </SelectPopup>
             </Select>
@@ -2649,7 +2618,7 @@ export function AboutSettingsPanel() {
             }
           />
         ) : null}
-        {isElectron || HOSTED_APP_CHANNEL ? (
+        {isElectron ? (
           <AboutVersionSection />
         ) : (
           <>

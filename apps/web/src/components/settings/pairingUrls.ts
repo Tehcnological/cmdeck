@@ -1,4 +1,3 @@
-import { buildHostedPairingUrl } from "../../hostedPairing";
 import { setPairingServerKeyOnUrl, setPairingTokenOnUrl } from "@t3tools/shared/remote";
 
 export function resolveDesktopPairingUrl(
@@ -14,16 +13,4 @@ export function resolveDesktopPairingUrl(
   return serverIdentityKey
     ? setPairingServerKeyOnUrl(withToken, serverIdentityKey).toString()
     : withToken.toString();
-}
-
-export function resolveHostedPairingUrl(endpointUrl: string, credential: string): string | null {
-  const url = new URL(endpointUrl);
-  if (url.protocol !== "https:") {
-    return null;
-  }
-
-  return buildHostedPairingUrl({
-    host: endpointUrl,
-    token: credential,
-  });
 }

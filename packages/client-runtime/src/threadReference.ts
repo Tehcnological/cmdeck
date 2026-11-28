@@ -4,7 +4,7 @@ import type {
   ThreadPullRequestLink,
 } from "@t3tools/contracts";
 import { threadContextRecord } from "@t3tools/shared/composerContextReferences";
-import { hostedThreadLink } from "@t3tools/shared/threadLinks";
+import { formatThreadLink, hostedThreadLink } from "@t3tools/shared/threadLinks";
 
 import { resolveThreadCurrentPullRequestLink } from "./threadPullRequests.ts";
 import { mFallback, msg } from "gt-i18n";
@@ -12,7 +12,7 @@ import type { MFunctionType } from "gt-i18n/types";
 
 export interface ThreadReferenceCopyTarget {
   readonly kind: "pull-request" | "thread";
-  /** The plain text: a PR URL, or a link that opens the thread from anywhere. */
+  /** The plain text: a PR URL, or a link to the thread. */
   readonly value: string;
   /** What a toast or palette row shows for the copy. */
   readonly description: string;
@@ -24,19 +24,20 @@ export interface ThreadReferenceCopyTarget {
 }
 
 /**
- * A link that opens the thread from anywhere, through `hostedAppUrl`, this build's hosted app. It
- * pastes back as a chip into any composer whose agent reads that thread's machine.
+ * A link to the thread on `origin`, the web app this client is served from, or CMDeck's own
+ * `t3-thread://` link without one. It pastes back as a chip into any composer whose agent reads
+ * that thread's machine.
  */
 export function threadChipCopyTarget(
   threadRef: ScopedThreadRef,
   title: string,
-  hostedAppUrl?: string,
+  origin?: string,
   resolve: MFunctionType = mFallback,
 ): ThreadReferenceCopyTarget {
   const record = threadContextRecord(threadRef, title);
   return {
     kind: "thread",
-    value: hostedThreadLink(threadRef, hostedAppUrl),
+    value: origin === undefined ? formatThreadLink(threadRef) : hostedThreadLink(threadRef, origin),
     description: record.title,
     fragment: { version: 1, source: { environmentId: threadRef.environmentId }, records: [record] },
     clipboardTarget: "thread",
@@ -53,7 +54,7 @@ export function resolveThreadReferenceCopyTarget(
     readonly openPanelPullRequestUrl?: string | null | undefined;
     readonly pullRequests?: ReadonlyArray<ThreadPullRequestLink> | undefined;
     readonly linkedPullRequestUrl?: string | null;
-    readonly hostedAppUrl?: string;
+    readonly origin?: string | undefined;
   },
   resolve: MFunctionType = mFallback,
 ): ThreadReferenceCopyTarget | null {
@@ -71,5 +72,5 @@ export function resolveThreadReferenceCopyTarget(
         successTitle: resolve(msg("PR link copied")),
         failureTitle: resolve(msg("Failed to copy PR link")),
       }
-    : threadChipCopyTarget(input.threadRef, input.title, input.hostedAppUrl, resolve);
+    : threadChipCopyTarget(input.threadRef, input.title, input.origin, resolve);
 }

@@ -3,7 +3,6 @@
 The Welcome page runs on a fresh local installation to help you verify an agent and optionally import existing projects and conversations. Only one ready agent is required to start.
 
 - Reopen it anytime from **Settings → About → Welcome page → Open**.
-- Hosted `app.t3.codes` skips this page. Pair it with your host over Tailscale HTTPS ([Remote access](./remote-access.md#tailscale-https)).
 
 ## Agents
 

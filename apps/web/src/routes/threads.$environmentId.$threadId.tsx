@@ -1,6 +1,6 @@
 import { Navigate, createFileRoute } from "@tanstack/react-router";
 
-// A copied thread link. On the hosted app its chooser shows first; this opens the thread after it.
+// A copied thread link (`/threads/<environment>/<thread>` on this web origin) opens the thread.
 export const Route = createFileRoute("/threads/$environmentId/$threadId")({
   component: function ThreadLinkRedirect() {
     const params = Route.useParams();
