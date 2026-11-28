@@ -15,4 +15,5 @@ export * from "./sandbox.ts";
 export * from "./knowledge.ts";
 export * from "./eventTriggers.ts";
 export * from "./sessionState.ts";
+export * from "./lessons.ts";
 export * from "./monitoring.ts";

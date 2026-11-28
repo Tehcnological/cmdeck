@@ -13,6 +13,11 @@ export const handlers = Effect.gen(function* () {
     [CMDECK_WS_METHODS.decisionsStatus]: () =>
       Option.isSome(decisions) ? decisions.value.status : noDecisions,
     [CMDECK_WS_METHODS.decisionsSetConsent]: (input) =>
-      Option.isSome(decisions) ? decisions.value.setConsent(input) : noDecisions,
+      // Lessons opt a project in through `cmdeck.lessons.setProject`, which also starts its worker.
+      input.point === "lessons"
+        ? Effect.fail(new DecisionsError({ detail: "Turn lessons on per project instead." }))
+        : Option.isSome(decisions)
+          ? decisions.value.setConsent(input)
+          : noDecisions,
   } satisfies ForkRpcModuleHandlers<"decisions">;
 });

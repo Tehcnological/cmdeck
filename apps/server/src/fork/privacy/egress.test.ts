@@ -66,6 +66,8 @@ import { generators, LOCAL_GENERATOR } from "../decisions/decisions.testkit.ts";
 import { narrower } from "../decisions/points/memoryNarrowing.ts";
 import { annotateApproval } from "../decisions/points/riskAnnotation.ts";
 import { decideWake } from "../decisions/points/wakeSuppression.ts";
+import * as Lessons from "../lessons/Lessons.ts";
+import * as LessonsTestkit from "../lessons/lessons.testkit.ts";
 import * as UsageAlerts from "../usageAlerts/UsageAlerts.ts";
 import { claudeAtPercent, layerUsageAlertsTest } from "../usageAlerts/usageAlerts.testkit.ts";
 import { AgentScope } from "@t3tools/shared/AgentScope";
@@ -689,6 +691,36 @@ describe("decisions", () => {
       ),
     );
   });
+});
+
+it.effect("lessons subscribe to nothing and call no model until a project opts in", () => {
+  let subscriptions = 0;
+  const hub = Layer.mock(MilestoneHub.MilestoneHub)({
+    subscribe: () =>
+      Effect.sync(() => {
+        subscriptions += 1;
+        return Stream.never;
+      }),
+  });
+  const world = LessonsTestkit.makeWorld({ memoryEnabled: true, model: true, hub });
+  const { project, thread } = LessonsTestkit;
+  return Effect.gen(function* () {
+    world.chat.messages = LessonsTestkit.correctionChat();
+    const lessons = yield* Lessons.Lessons;
+    yield* TestClock.adjust("1 day");
+    expect(yield* lessons.consolidate(thread.id)).toBe(0);
+    expect(subscriptions).toBe(0);
+    expect(world.model.prompts).toEqual([]);
+
+    yield* lessons.setProject({ projectId: project, source: "local" });
+    yield* TestClock.adjust("1 millis");
+    expect(subscriptions).toBe(1);
+    // Opting the last project out stops the worker; opting in again subscribes afresh.
+    yield* lessons.setProject({ projectId: project, source: null });
+    yield* lessons.setProject({ projectId: project, source: "local" });
+    yield* TestClock.adjust("1 millis");
+    expect(subscriptions).toBe(2);
+  }).pipe(Effect.provide(world.layer));
 });
 
 it.effect("the container sandbox, unused, runs no container CLI and waits on nothing", () =>
