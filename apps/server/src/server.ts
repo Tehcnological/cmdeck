@@ -1175,7 +1175,11 @@ const layerMakeServer = Layer.unwrap(
                           unsupportedTarget(cause)
                             ? `Tailscale Serve left off; this Tailscale install can only proxy to localhost, not ${localHost}. Bind --host 127.0.0.1 or 0.0.0.0 to use Tailscale HTTPS.`
                             : "Failed to configure Tailscale Serve; retrying",
-                          { cause, localPort: configured.localPort, servePort: configured.servePort },
+                          {
+                            cause,
+                            localPort: configured.localPort,
+                            servePort: configured.servePort,
+                          },
                         ),
                       ),
                       Effect.retry({
@@ -1217,7 +1221,9 @@ const layerMakeServer = Layer.unwrap(
                           localPort: configured.localPort,
                           servePort: configured.servePort,
                         }).pipe(
-                          Effect.andThen(Effect.addFinalizer(() => releaseTailscaleServe(configured))),
+                          Effect.andThen(
+                            Effect.addFinalizer(() => releaseTailscaleServe(configured)),
+                          ),
                           Effect.andThen(restore(repair)),
                         )
                       : Effect.void,
