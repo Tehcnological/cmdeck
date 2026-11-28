@@ -652,7 +652,8 @@ const make = Effect.gen(function* () {
       }
     }
     // Each read-compare-write runs in one transaction, so a concurrent change cannot slip an
-    // opt-out past the audit.
+    // opt-out past the audit. The entry is written after the commit: AuditLog takes its own lock
+    // and then a transaction, so appending inside this one could deadlock against another append.
     const atomically = <A>(effect: Effect.Effect<A, SandboxError>) =>
       sql.withTransaction(effect).pipe(
         Effect.catchTags({
@@ -660,42 +661,32 @@ const make = Effect.gen(function* () {
             Effect.fail(new SandboxError({ detail: "Could not save the sandbox choice.", cause })),
         }),
       );
+    const optedOut = (subject: string, scope: "project" | "thread") =>
+      audit.append({ kind: "sandbox.opted_out", actor, subject, detail: { scope } });
     if (input.project !== undefined) {
       const { projectId, mode } = input.project;
-      yield* atomically(
+      const turnedOff = yield* atomically(
         Effect.gen(function* () {
           const before = (yield* modes).find(
             (row) => row.kind === "project" && row.target_id === projectId,
           )?.mode;
           yield* setMode("project", projectId, mode === "on" ? "on" : null);
-          if (before === "on" && mode === "off") {
-            yield* audit.append({
-              kind: "sandbox.opted_out",
-              actor,
-              subject: projectId,
-              detail: { scope: "project" },
-            });
-          }
+          return before === "on" && mode === "off";
         }),
       );
+      if (turnedOff) yield* optedOut(projectId, "project");
     }
     if (input.thread !== undefined) {
       const { threadId, mode } = input.thread;
-      yield* atomically(
+      const turnedOff = yield* atomically(
         Effect.gen(function* () {
           const before = yield* threadModes(threadId);
           yield* setMode("thread", threadId, mode);
           const after = yield* threadModes(threadId);
-          if (before.sandboxed && !after.sandboxed) {
-            yield* audit.append({
-              kind: "sandbox.opted_out",
-              actor,
-              subject: threadId,
-              detail: { scope: "thread" },
-            });
-          }
+          return before.sandboxed && !after.sandboxed;
         }),
       );
+      if (turnedOff) yield* optedOut(threadId, "thread");
     }
     return yield* status(input.thread === undefined ? {} : { threadId: input.thread.threadId });
   });

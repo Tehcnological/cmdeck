@@ -4,10 +4,11 @@ import { ProviderInstanceId, ProviderSessionId, type SandboxRecipe } from "@t3to
 import { AgentScope, type AgentScopeShape } from "@t3tools/shared/AgentScope";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
-import type * as SqlClient from "effect/sql/SqlClient";
+import * as SqlClient from "effect/sql/SqlClient";
 
 import * as AuditLog from "../audit/AuditLog.ts";
 import { ContainerSandbox, recipeRefusal, runtimeStatuses } from "./ContainerSandbox.ts";
@@ -191,6 +192,43 @@ describe("ContainerSandbox", () => {
         expect(yield* Deferred.await(host.removed)).toEqual([agent.unit]);
       }),
     ),
+  );
+});
+
+describe("audit ordering", () => {
+  // AuditLog takes its own lock and then a transaction. An entry appended while configure still
+  // holds its transaction waits on the writer that transaction holds, so a concurrent append or
+  // prune deadlocks the server's database. Entries must be written after the commit.
+  it.effect("writes opt-out entries only after its own transaction commits", () =>
+    Effect.gen(function* () {
+      const host = yield* makeHost;
+      const workspace = yield* makeWorkspace;
+      const appended: Array<string> = [];
+      const audit = Layer.effect(
+        AuditLog.AuditLog,
+        Effect.gen(function* () {
+          const sql = yield* SqlClient.SqlClient;
+          return AuditLog.AuditLog.of({
+            // An append inside a transaction is the deadlock: AuditLog would take its lock there.
+            append: (event) =>
+              Effect.serviceOption(sql.transactionService).pipe(
+                Effect.map((transaction) => {
+                  appended.push(`${event.kind}:${Option.isSome(transaction) ? "inside" : "after"}`);
+                }),
+              ),
+            list: () => Effect.die("unused"),
+            verify: Effect.die("unused"),
+            prune: Effect.succeed(0),
+          });
+        }),
+      );
+      yield* Effect.gen(function* () {
+        const sandbox = yield* ContainerSandbox;
+        yield* sandbox.configure({ thread: { threadId: THREAD, mode: "on" } }, "user");
+        yield* sandbox.configure({ thread: { threadId: THREAD, mode: "off" } }, "user");
+      }).pipe(Effect.provide(layerSandbox({ workspace, host, audit })));
+      expect(appended).toEqual(["sandbox.opted_out:after"]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });
 

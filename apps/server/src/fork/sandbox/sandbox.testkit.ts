@@ -63,6 +63,8 @@ export const layerSandbox = (options: {
   readonly env?: NodeJS.ProcessEnv;
   /** Threads already in containers before this start. */
   readonly sandboxedBefore?: ReadonlyArray<string>;
+  /** Replaces the audit log, for tests that watch how entries are written. */
+  readonly audit?: Layer.Layer<AuditLog.AuditLog, never, SqlClient.SqlClient>;
   /** The project's checkout; defaults to the workspace (a thread in the main checkout). */
   readonly projectRoot?: string;
   /** Runs the real container CLI on this host instead of the fake (the live test). */
@@ -120,7 +122,7 @@ export const layerSandbox = (options: {
               workspaceRoot: options.projectRoot ?? options.workspace,
             } as ProjectStore.ProjectRow),
         }),
-        AuditLog.layerService,
+        options.audit ?? AuditLog.layerService,
         ServerSettings.layerTest({
           cmdeck: { sandbox: { image: "acme/agent:1", ...options.recipe } },
         }),
