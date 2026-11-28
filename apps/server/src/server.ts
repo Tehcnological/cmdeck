@@ -1168,7 +1168,7 @@ const layerMakeServer = Layer.unwrap(
                   ? Effect.logWarning(
                       "Tailscale Serve left off; its port already serves another server or app",
                       { localPort: configured.localPort, servePort: configured.servePort },
-                    ).pipe(Effect.as(false))
+                    ).pipe(Effect.as("held" as const))
                   : ensure.pipe(
                       Effect.tapError((cause) =>
                         Effect.logWarning(
@@ -1186,8 +1186,8 @@ const layerMakeServer = Layer.unwrap(
                         schedule: TAILSCALE_SERVE_RETRY,
                         while: (cause) => !unsupportedTarget(cause),
                       }),
-                      Effect.as(true),
-                      Effect.orElseSucceed(() => false),
+                      Effect.as("set" as const),
+                      Effect.orElseSucceed(() => "off" as const),
                     ),
               ),
             );
@@ -1215,18 +1215,23 @@ const layerMakeServer = Layer.unwrap(
             yield* Effect.forkScoped(
               Effect.uninterruptibleMask((restore) =>
                 restore(claim).pipe(
-                  Effect.flatMap((set) =>
-                    set
-                      ? Effect.logInfo("Tailscale Serve configured", {
-                          localPort: configured.localPort,
-                          servePort: configured.servePort,
-                        }).pipe(
+                  Effect.flatMap((claimed) =>
+                    claimed === "off"
+                      ? Effect.void
+                      : (claimed === "set"
+                          ? Effect.logInfo("Tailscale Serve configured", {
+                              localPort: configured.localPort,
+                              servePort: configured.servePort,
+                            })
+                          : Effect.void
+                        ).pipe(
+                          // Removal only touches a route that is verifiably ours, and a port another
+                          // server holds now may be ours after the repair loop takes it back.
                           Effect.andThen(
                             Effect.addFinalizer(() => releaseTailscaleServe(configured)),
                           ),
                           Effect.andThen(restore(repair)),
-                        )
-                      : Effect.void,
+                        ),
                   ),
                 ),
               ),
