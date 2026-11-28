@@ -7284,7 +7284,9 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
             id: nodeId,
             threadId: context.input.threadId,
             runId: context.input.runId,
-            parentNodeId: context.input.rootNodeId,
+            // Under its tool call so the approval policy reads what it would change;
+            // tool call ids are unique only within a session.
+            parentNodeId: providerNodeId(`${params.sessionId}:tool:${nativeRequestId}`),
             rootNodeId: context.input.rootNodeId,
             kind: "approval_request",
             status: "waiting",

@@ -13524,6 +13524,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             nativeRequestId,
             requestKind,
             prompt,
+            appName: toolName,
             presentation: claudeApprovalPresentation({
               permissionMode: context.queryPolicy.permissionMode,
               prompt,
