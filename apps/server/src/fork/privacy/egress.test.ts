@@ -29,6 +29,7 @@ import * as Ref from "effect/Ref";
 import * as Sink from "effect/Sink";
 import * as SqlClient from "effect/sql/SqlClient";
 import * as Stream from "effect/Stream";
+import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as TestClock from "effect/testing/TestClock";
 import { McpServer } from "effect/ai";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
@@ -79,6 +80,8 @@ import { ContainerSandbox } from "../sandbox/ContainerSandbox.ts";
 import { layerSandbox, makeHost, makeWorkspace, THREAD } from "../sandbox/sandbox.testkit.ts";
 import * as Heartbeat from "../monitoring/Heartbeat.ts";
 import { layerHeartbeatTest } from "../monitoring/monitoring.testkit.ts";
+import * as LanFallback from "../lanFallback/LanFallback.ts";
+import { layerLanFallbackTest } from "../lanFallback/lanFallback.testkit.ts";
 
 vi.mock("@anthropic-ai/claude-agent-sdk", { spy: true });
 
@@ -917,4 +920,34 @@ it.effect(
         );
       }
     }),
+);
+
+it.effect("LAN fallback, off, opens no listener, makes no certificate and advertises nothing", () =>
+  Effect.gen(function* () {
+    const enabled = yield* SubscriptionRef.make(false);
+    const secrets = new Map<string, Uint8Array>();
+    let interfaceReads = 0;
+    yield* Effect.gen(function* () {
+      const lan = yield* LanFallback.LanFallback;
+      yield* TestClock.adjust("5 minutes");
+      expect(yield* lan.endpoints).toEqual([]);
+      expect(interfaceReads).toBe(0);
+      expect(secrets.size).toBe(0);
+    }).pipe(
+      Effect.provide(
+        layerLanFallbackTest({
+          enabled,
+          secrets,
+          lan: {
+            addresses: () => {
+              interfaceReads += 1;
+              return [];
+            },
+            acceptsPeer: () => false,
+            primaryServer: () => undefined,
+          },
+        }),
+      ),
+    );
+  }),
 );

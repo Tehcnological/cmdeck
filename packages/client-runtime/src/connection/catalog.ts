@@ -34,6 +34,8 @@ export class BearerConnectionProfile extends Schema.TaggedClass<BearerConnection
      * link. Set once at pairing; a changed key fails the handshake loudly.
      */
     serverIdentityKey: Schema.optionalKey(Schema.String),
+    /** Fork: LAN fallback. SHA-256 of the only certificate the desktop accepts at this address. */
+    certificateSha256: Schema.optionalKey(Schema.String),
   },
 ) {}
 

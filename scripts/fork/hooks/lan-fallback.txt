@@ -1,0 +1,21 @@
+# LAN fallback: the pinned LAN endpoint on the wire.
+packages/contracts/src/server.ts:import \{ CertificateSha256 \} from "./fork/lanFallback.ts";
+packages/contracts/src/server.ts:"lan", "tailnet", "lan-tls"
+packages/contracts/src/server.ts:certificateSha256: Schema.optionalKey\(CertificateSha256\)
+# The server hands LAN TLS connections to its HTTP server and advertises the endpoints live.
+apps/server/src/server.ts:LanFallback.adoptPrimaryServer\(server\);
+apps/server/src/ws.ts:import \* as LanFallback from "./fork/lanFallback/LanFallback.ts";
+apps/server/src/ws.ts:readonly changes\?: LanFallback.EndpointChanges;
+apps/server/src/ws.ts:directEndpoints.changes \?\? Stream.empty,
+apps/server/src/ws.ts:LanFallback.withLanFallback\(
+apps/server/src/ws.ts:changes: directEndpoints.changes \}
+# Clients: the pin on the saved route, pinned routes rank last, and only the desktop learns them.
+packages/client-runtime/src/connection/catalog.ts:certificateSha256: Schema.optionalKey\(Schema.String\),
+packages/client-runtime/src/connection/routes.ts:export function isPinnedLanRoute
+packages/client-runtime/src/connection/routes.ts:const pin = pinnedLanCertificate\(endpoint, url\);
+packages/client-runtime/src/connection/registry.ts:const pinsCertificates = yield\* ClientCapabilities.PinsLanCertificates;
+packages/client-runtime/src/linkRequest.ts:endpoint.kind !== "lan-tls"
+apps/web/src/connection/platform.ts:Context.add\(ClientCapabilities.PinsLanCertificates, window.desktopBridge !== undefined\)
+apps/web/src/components/settings/ConnectionsSettings.logic.ts:endpoint.kind !== "lan-tls"
+# Desktop main verifies the pins from the saved catalog.
+apps/desktop/src/ipc/methods/connectionCatalog.ts:yield\* syncLanPins\(catalog\);

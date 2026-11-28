@@ -13744,5 +13744,9 @@
   "864d7a1c3cb3f9d7": "Aktueller Zustand",
   "c4c80d7dc61a8f54": "Gerade gibt es nichts zu überwachen.",
   "1bf1e6950b4009d2": "Antwortet",
-  "dd614ca7497750f6": "Antwortet nicht"
+  "dd614ca7497750f6": "Antwortet nicht",
+  "96efb851cf3613d2": "LAN-Ausweichroute",
+  "26697a72990cee64": "lan lokales netzwerk ausweichroute fallback reserve route tailscale offline https zertifikat",
+  "58a20119173b8cf3": "LAN-Ausweichroute erlauben",
+  "39067899ffeb98e4": "Stellt diese Umgebung zusätzlich über verschlüsseltes HTTPS auf ihren Adressen im lokalen Netzwerk bereit, damit eine über Tailscale gekoppelte Desktop-App im selben Netzwerk weiterarbeitet, während Tailscale aus ist. Die Desktop-App vertraut nur dem eigenen Zertifikat dieser Umgebung. Solange dies aus ist, lauscht nichts im lokalen Netzwerk."
 }

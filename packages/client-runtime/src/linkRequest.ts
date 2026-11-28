@@ -122,9 +122,9 @@ export function linkableMachines(input: {
   const saved = input.environments
     .filter((environment) => environment.environmentId !== input.threadEnvironmentId)
     .map((environment) => {
-      const reported = (environment.serverConfig?.directEndpoints ?? []).map(
-        (endpoint) => endpoint.httpBaseUrl,
-      );
+      const reported = (environment.serverConfig?.directEndpoints ?? [])
+        .filter((endpoint) => endpoint.kind !== "lan-tls") // Fork: a peer server cannot pin it
+        .map((endpoint) => endpoint.httpBaseUrl);
       const routes = connectionRoutes(environment.entry).flatMap((route) => {
         const url = route.target._tag === "RelayConnectionTarget" ? null : routeHttpBaseUrl(route);
         return url === null ? [] : [url];

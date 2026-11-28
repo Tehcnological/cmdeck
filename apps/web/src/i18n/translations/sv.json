@@ -13751,5 +13751,9 @@
   "864d7a1c3cb3f9d7": "Aktuellt läge",
   "c4c80d7dc61a8f54": "Inget att bevaka just nu.",
   "1bf1e6950b4009d2": "Svarar",
-  "dd614ca7497750f6": "Svarar inte"
+  "dd614ca7497750f6": "Svarar inte",
+  "96efb851cf3613d2": "LAN-reserv",
+  "26697a72990cee64": "lan lokalt nätverk reserv reservväg rutt tailscale offline https certifikat",
+  "58a20119173b8cf3": "Tillåt LAN-reserv",
+  "39067899ffeb98e4": "Gör också den här miljön tillgänglig över krypterad HTTPS på dess adresser i det lokala nätverket, så att en skrivbordsapp som parkopplats via Tailscale fortsätter att fungera på samma nätverk medan Tailscale är avstängt. Skrivbordsappen litar bara på miljöns eget certifikat. Medan detta är avstängt lyssnar ingenting på det lokala nätverket."
 }
