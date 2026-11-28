@@ -220,6 +220,9 @@ required=(
   'apps/desktop/src/backend/DesktopBackendConfiguration.ts:Effect\.flatMap\(DesktopSecretsKey\.withSecretsKey\(secretsKey, environment\.baseDir\)\)'
   # WI-2.10: scheduled tasks start new threads on the decision service's routed model.
   'apps/server/src/scheduledTasks/ScheduledTaskService.ts:modelSelection: yield\* Decisions\.routeScheduledTask\(active\),'
+  # WI-2.08: the memory search embedder picker shows in Settings > General.
+  'apps/web/src/components/settings/SettingsPanels.tsx:import \{ MemoryEmbeddingsSection \} from "~/fork/memory/MemoryEmbeddingsSection";'
+  'apps/web/src/components/settings/SettingsPanels.tsx:<MemoryEmbeddingsSection />'
   # WI-2.21: design-critique eval cases load the repo skill they test.
   'evals/mcp-tool-use/run.ts:skill: Schema\.optional\(Schema\.String\),'
   'evals/mcp-tool-use/run.ts:: invokedSkillPrompt\('
