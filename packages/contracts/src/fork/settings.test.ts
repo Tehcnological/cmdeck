@@ -15,6 +15,7 @@ describe("cmdeck settings key", () => {
       memoryEnabled: false,
       decisionModel: null,
       routingTierModels: {},
+      memoryEmbedder: null,
       usageAlertPercents: [80],
       approvalPolicy: {
         denyCommands: [],

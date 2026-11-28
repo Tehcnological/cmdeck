@@ -3,6 +3,21 @@
     {
       "bundles": ["desktop"],
       "license": "Apache-2.0",
+      "name": "KiroCrew Research Lab briefs and stop rules (Research Lab preset)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/apps/builtins/auto_research",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "Ported to a CMDeck workflow preset (apps/server/src/fork/presets/research-lab.ts). Changes: briefs condensed and reworded for typed agent results, each cycle runs its questions as parallel agents, the workflow counts new findings itself for the stagnation stop, and the report is written by the run's last agent thread."
+          ]
+        }
+      ]
+    },
+    {
+      "bundles": ["desktop"],
+      "license": "Apache-2.0",
       "name": "KiroCrew task runner prompts (Task Runner preset)",
       "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd",
       "generatedNotices": [
@@ -51,6 +66,17 @@
           "preamble": [
             "Ported to TypeScript for CMDeck's usage alerts (apps/server/src/fork/usageAlerts). Changes: one reading per provider limit window instead of one plan-credit reading, a window period ends when its stored reset time passes, accounts come from provider and hub usage limits, and state is kept in SQLite instead of a JSON file."
           ]
+        }
+      ]
+    },
+    {
+      "license": "MIT",
+      "name": "OpenClaw memory search ranking (hybrid weights, BM25 score mapping, half-life decay)",
+      "sourceUrl": "https://github.com/openclaw/openclaw/tree/f57a32938b7b4b99e25f9d2343c6890978ba9f7d/extensions/memory-core/src/memory",
+      "generatedNotices": [
+        {
+          "licenseId": "MIT",
+          "copyrights": ["Copyright (c) 2026 OpenClaw Foundation"]
         }
       ]
     },
