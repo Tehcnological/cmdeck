@@ -52,6 +52,7 @@ import type { ComposerCommandItem } from "./ComposerCommandMenu";
 import { matchComposerModelItems } from "./composerModelMentions";
 import type { ModelEsque } from "./providerIconUtils";
 import type { ProviderInstanceEntry } from "../../providerInstances";
+import { useForkSlashCommandItems } from "../../fork/memory/useRememberCommand";
 import {
   searchSlashCommandItems,
   slashCommandItemsForPromptPosition,
@@ -109,6 +110,7 @@ export function useComposerMenuItems({
 }) {
   const gt = useGT();
   const messages = useMessages();
+  const forkSlashCommandItems = useForkSlashCommandItems(environmentId);
   // Thread mentions rank by recency as of when the composer mounted.
   const [now] = useState(() => Date.now());
   const composerTriggerKind = composerTrigger?.kind ?? null;
@@ -291,6 +293,7 @@ export function useComposerMenuItems({
               },
             ] as const)
           : []),
+        ...forkSlashCommandItems,
       ] satisfies ReadonlyArray<Extract<ComposerCommandItem, { type: "slash-command" }>>;
       const slashMenuSkills = getProviderSkillsForSlashMenu(
         selectedProviderSkills,

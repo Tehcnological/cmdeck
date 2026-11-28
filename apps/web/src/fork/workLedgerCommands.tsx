@@ -9,8 +9,8 @@ import { ITEM_ICON_CLASS, type CommandPaletteActionItem } from "../components/Co
 import { toastManager } from "../components/ui/toast";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { useThreadRouteTarget } from "../hooks/useThreadRouteTarget";
-import { useRightPanelStore } from "../rightPanelStore";
 import { useAtomCommand } from "../state/use-atom-command";
+import { openForkPanel } from "./panels";
 import { setConductor } from "./workLedger";
 import { type WorkLedgerCommandRow, workLedgerCommandRows } from "./workLedger.logic";
 
@@ -36,7 +36,7 @@ export function useWorkLedgerCommandItems(): ReadonlyArray<CommandPaletteActionI
   );
   const rows = workLedgerCommandRows({ hasThread: threadRef !== null, canChangeConductor });
   if (threadRef === null || rows.length === 0) return NO_COMMANDS;
-  const openLedger = () => useRightPanelStore.getState().openCmdeck(threadRef, "work-ledger");
+  const openLedger = () => openForkPanel(threadRef, "work-ledger");
   const items: Record<WorkLedgerCommandRow, CommandPaletteActionItem> = {
     "start-conductor": {
       kind: "action",

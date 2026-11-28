@@ -163,9 +163,6 @@ export async function reopenClosedView(
     case "linked-thread":
       panels.openLinkedThread(ref, surface);
       break;
-    case "cmdeck":
-      panels.openCmdeck(ref, surface.panel);
-      break;
     default:
       panels.open(ref, surface.kind);
   }

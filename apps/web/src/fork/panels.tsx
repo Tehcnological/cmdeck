@@ -1,37 +1,77 @@
 import type { ScopedThreadRef } from "@t3tools/contracts";
-import { msg } from "gt-react";
-import { ListChecksIcon } from "lucide-react";
+import { msg, useMessages } from "gt-react";
+import { BrainIcon } from "lucide-react";
 import type { ComponentType } from "react";
+import { create } from "zustand";
 
-import { m, type MessageResolver } from "../i18n/messages";
-import type { CmdeckPanelId, CmdeckSurface } from "./panelSurface";
+import { Toggle, ToggleGroup } from "../components/ui/toggle-group";
+import type { MessageResolver } from "../i18n/messages";
+import { useRightPanelStore } from "../rightPanelStore";
+import { MemoryUsedPanel } from "./memory/MemoryUsedPanel";
 import { WorkLedgerPanel } from "./WorkLedgerPanel";
 
-interface ForkPanel {
-  /** A `msg()` descriptor, resolved where the tab renders. */
+type ForkPanelTabId = "memory" | "work-ledger";
+
+interface ForkPanelTab {
+  readonly id: ForkPanelTabId;
   readonly title: string;
-  readonly Icon: ComponentType<{ readonly className?: string }>;
   readonly Content: ComponentType<{ readonly threadRef: ScopedThreadRef }>;
 }
 
-/** The fork panel registry: each fork panel's tab title, icon and content. Append entries. */
-const FORK_PANELS: Record<CmdeckPanelId, ForkPanel> = {
-  "work-ledger": { title: msg("Work ledger"), Icon: ListChecksIcon, Content: WorkLedgerPanel },
-};
+/**
+ * Tabs of the right panel's one fork surface (`cmdeck`). A module adds its tab here; the
+ * thread's memory first, then notes, pins and a conductor's work ledger as they land.
+ */
+const FORK_PANEL_TABS: ReadonlyArray<ForkPanelTab> = [
+  { id: "memory", title: msg("Memory used here"), Content: MemoryUsedPanel },
+  { id: "work-ledger", title: msg("Work ledger"), Content: WorkLedgerPanel },
+];
 
-export function cmdeckPanelTitle(surface: CmdeckSurface, resolve: MessageResolver = m): string {
-  return resolve(FORK_PANELS[surface.panel].title);
+const useActiveTab = create<{ readonly id: ForkPanelTabId | null }>(() => ({ id: null }));
+
+/** Opens the thread's fork surface on one tab. */
+export function openForkPanel(threadRef: ScopedThreadRef, tab: ForkPanelTabId) {
+  useActiveTab.setState({ id: tab });
+  useRightPanelStore.getState().open(threadRef, "cmdeck");
 }
 
-export function CmdeckPanelIcon({ surface }: { readonly surface: CmdeckSurface }) {
-  const { Icon } = FORK_PANELS[surface.panel];
-  return <Icon className="size-3 shrink-0" />;
+/** The surface's tab title: its only tab's, or CMDeck once there are several. */
+export function forkPanelTitle(resolve: MessageResolver): string {
+  const [only] = FORK_PANEL_TABS;
+  return FORK_PANEL_TABS.length === 1 && only !== undefined ? resolve(only.title) : "CMDeck";
 }
 
-export function CmdeckPanelContent(props: {
-  readonly surface: CmdeckSurface;
-  readonly threadRef: ScopedThreadRef;
-}) {
-  const { Content } = FORK_PANELS[props.surface.panel];
-  return <Content threadRef={props.threadRef} />;
+export function ForkPanelIcon() {
+  return <BrainIcon className="size-3 shrink-0" />;
+}
+
+export function ForkPanel({ threadRef }: { readonly threadRef: ScopedThreadRef }) {
+  const messages = useMessages();
+  const activeId = useActiveTab((state) => state.id);
+  const active = FORK_PANEL_TABS.find((tab) => tab.id === activeId) ?? FORK_PANEL_TABS[0];
+  if (active === undefined) return null;
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      {FORK_PANEL_TABS.length > 1 ? (
+        <div className="border-b px-3 py-2">
+          <ToggleGroup
+            value={[active.id]}
+            onValueChange={(value: ReadonlyArray<string>) => {
+              const [next] = value;
+              if (next !== undefined) useActiveTab.setState({ id: next as ForkPanelTabId });
+            }}
+          >
+            {FORK_PANEL_TABS.map((tab) => (
+              <Toggle key={tab.id} value={tab.id}>
+                {messages(tab.title)}
+              </Toggle>
+            ))}
+          </ToggleGroup>
+        </div>
+      ) : null}
+      <div className="min-h-0 flex-1">
+        <active.Content threadRef={threadRef} />
+      </div>
+    </div>
+  );
 }

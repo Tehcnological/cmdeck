@@ -41,6 +41,20 @@
     },
     {
       "license": "Apache-2.0",
+      "name": "Kiro Crew crew member rules (bot names, private memory ownership cases)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/members_parts",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "Ported to TypeScript for CMDeck's bot profiles (packages/contracts/src/fork/bots.ts, apps/server/src/fork/bots). Changes: the member name rules became a Schema check with a 100-character cap and no URL path rule, and member memory ownership became a bot:<id> scope in CMDeck's single memory table, with ownership test cases adapted to it."
+          ]
+        }
+      ]
+    },
+    {
+      "license": "Apache-2.0",
       "name": "Kiro Crew decision points (question shapes, routing tiers, memory recall, wake and tool-risk rubrics)",
       "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/decisions",
       "generatedNotices": [
@@ -146,6 +160,21 @@
         {
           "licenseId": "MIT",
           "copyrights": ["Copyright (c) 2015-present Drifty Co."]
+        }
+      ]
+    },
+    {
+      "bundles": ["desktop", "web"],
+      "license": "Apache-2.0",
+      "name": "Kiro Crew memory modes and memory editing",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "CMDeck's memory modes, fork inheritance and preview-then-apply memory edits are ported from KiroCrew (src/kiro_crew/execution_context.py, src/kiro_crew/dashboard/chat_fork_memory_mode.py, src/kiro_crew/memory_edit.py, website/src/components/MemoryModeChip.tsx).\n\nChanges: translated from Python to TypeScript and fitted to CMDeck's memory store; a fork copies its parent's mode the first time it is read; edit selections compare each item as shown instead of a revision digest; bulk operations are accept, retire, restore and literal text replacement; the chip uses CMDeck's menu components and copy."
+          ]
         }
       ]
     },

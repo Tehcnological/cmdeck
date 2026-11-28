@@ -1,7 +1,6 @@
 import { ThreadId, type WorkItem } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
-import { cmdeckSurface, decodeCmdeckSurface } from "./panelSurface";
 import {
   artifactEntries,
   openWorkerThreadIds,
@@ -65,12 +64,5 @@ describe("work ledger panel logic", () => {
       ["branch", "fix/x"],
       ["path", "a.ts"],
     ]);
-  });
-
-  it("restores a saved ledger tab and drops a panel this build does not have", () => {
-    expect(decodeCmdeckSurface({ kind: "cmdeck", panel: "work-ledger" })).toEqual([
-      cmdeckSurface("work-ledger"),
-    ]);
-    expect(decodeCmdeckSurface({ kind: "cmdeck", panel: "from-a-newer-build" })).toEqual([]);
   });
 });

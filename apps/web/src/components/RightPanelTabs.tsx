@@ -70,7 +70,6 @@ import {
 import { isElectron } from "~/env";
 import type { DesktopPreviewOverlay } from "~/previewStateStore";
 import { linkedThreadTitle } from "~/linkedThreadSurface";
-import { CmdeckPanelIcon, cmdeckPanelTitle } from "~/fork/panels";
 import type { RightPanelSurface } from "~/rightPanelStore";
 import { cn } from "~/lib/utils";
 import { issueStatePresentation } from "~/components/issue/issuePresentation";
@@ -118,6 +117,7 @@ import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
 import { observeResize } from "~/lib/observeResize";
 import { surfaceShortcutKey } from "~/lib/surfaceShortcutKey";
 import { SharedTooltipTrigger } from "~/components/ui/shared-tooltip";
+import { ForkPanelIcon, forkPanelTitle } from "~/fork/panels";
 
 export interface RightPanelTabsProps {
   mode: PreviewPanelMode;
@@ -615,6 +615,8 @@ function surfaceTitle(
       return `#${surface.number}`;
     case "pull-requests":
       return resolve(msg("Linked items"));
+    case "cmdeck":
+      return forkPanelTitle(resolve);
     case "issue":
       // A git host numbers its issues; a tracker with keys of its own, such as Linear, names them.
       return /^\d+$/.test(surface.key) ? `#${surface.key}` : surface.key;
@@ -623,8 +625,6 @@ function surfaceTitle(
     case "thread":
       // Until the thread's own title loads.
       return resolve(msg("Thread"));
-    case "cmdeck":
-      return cmdeckPanelTitle(surface, resolve);
     case "linked-thread":
       return linkedThreadTitle(
         surface,
@@ -719,14 +719,14 @@ function SurfaceIcon({
       );
     case "pull-requests":
       return <PullRequestGlyph.link className="size-3 shrink-0" />;
+    case "cmdeck":
+      return <ForkPanelIcon />;
     case "issue":
       return <IssueSurfaceIcon surface={surface} environmentId={environmentId} />;
     case "thread":
       return <SideChatTabIcon environmentId={environmentId} threadId={surface.threadId} />;
     case "linked-thread":
       return <MessagesSquare className="size-3 shrink-0" />;
-    case "cmdeck":
-      return <CmdeckPanelIcon surface={surface} />;
     case "device":
       return surface.target?.platform === "ios" ? (
         <AppleIcon className="size-3 shrink-0" />

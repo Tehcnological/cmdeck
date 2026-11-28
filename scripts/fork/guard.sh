@@ -210,18 +210,8 @@ required=(
   # and a thread hidden by a tag filter leaves the panel.
   'apps/web/src/components/ChatView.tsx:activeThread\?\.projectId !== panelHostShell\?\.projectId'
   'apps/web/src/components/chat/SideThreadPane.tsx:useCloseWhenHidden\(threadRef, props\.onClose\)'
-  # WI-2.02: the work ledger's table, the fork right-panel surface, and the archive offer.
+  # WI-2.02: the work ledger's table and the archive offer.
   'apps/server/src/persistence/ForkSchema.ts:yield\* ensureWorkLedgerSchema\(\)'
-  'apps/web/src/rightPanelStore.ts:decodeCmdeckSurface, +\} from "\./fork/panelSurface"'
-  'apps/web/src/rightPanelStore.ts:"linked-thread", +"cmdeck", +\] as const;'
-  'apps/web/src/rightPanelStore.ts:\| LinkedThreadSurface +\| CmdeckSurface;'
-  'apps/web/src/rightPanelStore.ts:if \(kind === "cmdeck"\) return decodeCmdeckSurface\(surface\);'
-  'apps/web/src/rightPanelStore.ts:upsertSurface\(current, cmdeckSurface\(panel\)\)'
-  'apps/web/src/components/chat/RightPanelSurfaceContent.tsx:return <CmdeckPanelContent surface=\{surface\} threadRef=\{threadRef\} />;'
-  'apps/web/src/components/RightPanelTabs.tsx:return cmdeckPanelTitle\(surface, resolve\);'
-  'apps/web/src/components/RightPanelTabs.tsx:return <CmdeckPanelIcon surface=\{surface\} />;'
-  'apps/web/src/closedViewStore.ts:return decodeCmdeckSurface\(surface\)\[0\]\?\.id === surface\.id;'
-  'apps/web/src/reopenClosedView.ts:panels\.openCmdeck\(ref, surface\.panel\);'
   'apps/web/src/hooks/useThreadActions.ts:await offerToStopConductorWorkers\(threadRef\);'
   # Lean tool profiles (Pi, auto on an inference server) keep the work ledger tools.
   'packages/provider-core/src/server/mcpToolProfile.ts:import \{ WORK_LEDGER_MCP_TOOL_NAMES \} from "@t3tools/contracts";'
@@ -236,6 +226,33 @@ required=(
   'apps/desktop/src/backend/DesktopBackendConfiguration.ts:Effect\.flatMap\(DesktopSecretsKey\.withSecretsKey\(secretsKey, environment\.baseDir\)\)'
   # WI-2.10: scheduled tasks start new threads on the decision service's routed model.
   'apps/server/src/scheduledTasks/ScheduledTaskService.ts:modelSelection: yield\* Decisions\.routeScheduledTask\(active\),'
+  # WI-2.04: bots list in Settings > Threads, and a badge on bot threads in the sidebar.
+  'apps/web/src/components/settings/SettingsPanels.tsx:import \{ BotsSection \} from "~/fork/BotsSection";'
+  'apps/web/src/components/settings/SettingsPanels.tsx:<BotsSection />'
+  'apps/web/src/components/sidebar/SidebarThreadRow.tsx:import \{ BotThreadBadge \} from "\.\./\.\./fork/BotThreadBadge";'
+  'apps/web/src/components/sidebar/SidebarThreadRow.tsx:<BotThreadBadge environmentId=\{thread\.environmentId\} threadId=\{thread\.id\} />'
+  # WI-2.05: the right panel's fork surface, the composer's memory chip, /remember and Settings > Memory.
+  'apps/web/src/rightPanelStore.ts:"linked-thread", +"cmdeck", +\] as const;'
+  'apps/web/src/rightPanelStore.ts:\| \{ id: "cmdeck"; kind: "cmdeck" \}'
+  'apps/web/src/rightPanelStore.ts:case "cmdeck": +return \{ id: "cmdeck", kind \};'
+  'apps/web/src/closedViewStore.ts:case "pull-requests": +case "cmdeck":'
+  'apps/web/src/components/RightPanelTabs.tsx:case "cmdeck": +return forkPanelTitle\(resolve\);'
+  'apps/web/src/components/RightPanelTabs.tsx:case "cmdeck": +return <ForkPanelIcon />;'
+  'apps/web/src/components/chat/RightPanelSurfaceContent.tsx:case "cmdeck": +return <ForkPanel threadRef=\{threadRef\} />;'
+  'apps/web/src/components/chat/ChatComposer.tsx:<MemoryModeChip +environmentId=\{environmentId\}'
+  'apps/web/src/components/chat/ChatComposer.tsx:if \(item\.command === "remember"\)'
+  'apps/web/src/composer-logic.ts:ComposerSlashCommand = "model" \| "side" \| "btw" \| "clear" \| "remember";'
+  'apps/web/src/components/chat/composerSlashCommandSearch.ts:item\.command !== "remember"'
+  'apps/web/src/components/chat/useComposerMenuItems.ts:const forkSlashCommandItems = useForkSlashCommandItems\(environmentId\);'
+  'apps/web/src/components/chat/useComposerMenuItems.ts:\.\.\.forkSlashCommandItems,'
+  'apps/web/src/components/chat/useComposerSend.ts:const rememberFromComposer = useRememberCommand\(environmentId\);'
+  'apps/web/src/components/chat/useComposerSend.ts:rememberFromComposer\( +promptAtSend,'
+  'apps/web/src/components/settings/settingsSearch.ts:\| "/settings/memory";'
+  'apps/web/src/components/settings/settingsSearch.ts:"/settings/memory": msg\("Memory",'
+  'apps/web/src/components/settings/settingsSearch.ts:"/settings/scheduled-tasks", +"/settings/memory",'
+  'apps/web/src/components/settings/settingsSearch.ts:"/settings/memory": "environment",'
+  'apps/web/src/components/settings/SettingsSidebarNav.tsx:"/settings/memory": BrainIcon,'
+  'apps/web/src/routeTree.gen.ts:ChatSettingsMemoryRouteImport'
   # WI-2.08: the memory search embedder picker shows in Settings > General.
   'apps/web/src/components/settings/SettingsPanels.tsx:import \{ MemoryEmbeddingsSection \} from "~/fork/memory/MemoryEmbeddingsSection";'
   'apps/web/src/components/settings/SettingsPanels.tsx:<MemoryEmbeddingsSection />'
