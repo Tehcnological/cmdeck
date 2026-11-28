@@ -374,6 +374,14 @@ Limits: the shell is simulated, so a CLI's output is the simulator's reading of 
 pnpm mcp-tool-use --cases mcp-tool-use/cases/check-scripts.ndjson --samples 3 --out runs/check-scripts
 ```
 
+## Event trigger cases
+
+`cases/event-triggers.ndjson` covers the `event` schedule type of `schedule_task` (CMDeck WI-2.13): a task that reacts to failed turns gets an event trigger rather than an interval; a note on approvals in any project leaves out the project filter; and a weekly task stays a timed schedule (control). All prompts and mocks are authored Acme data. Not yet run.
+
+```sh
+pnpm mcp-tool-use --cases mcp-tool-use/cases/event-triggers.ndjson --samples 3 --out runs/event-triggers
+```
+
 ## Where T3's text lives
 
 - `packages/provider-core/src/server/runtimeInstructions.ts`

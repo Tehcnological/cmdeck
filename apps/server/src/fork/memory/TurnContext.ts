@@ -14,6 +14,7 @@ import * as Option from "effect/Option";
 import * as AgentDiscipline from "../agentDiscipline/AgentDiscipline.ts";
 import { conductorContributor } from "../workLedger/conductorBrief.ts";
 import { botInstructionsContributor } from "../bots/instructions.ts";
+import { sessionStateContributor } from "../sessionState/turnContext.ts";
 import * as MemoryStore from "./MemoryStore.ts";
 import { factNarrowing } from "./retrieval.ts";
 
@@ -154,13 +155,15 @@ export class TurnContext extends Context.Service<
 >()("t3/fork/memory/TurnContext") {}
 
 const make = Effect.gen(function* () {
-  // Working rules, the conductor's role and a bot's instructions come first, so memory cannot crowd
-  // them out of the budget; the bot instructions' length cap leaves memory half the block. Notes and
-  // state cards append their contributors here, after memory.
+  // Working rules, the conductor's role and a bot's instructions come first, so nothing later can
+  // crowd them out. The state card (automated and post-compaction turns, 1,600 characters at most)
+  // precedes memory, which fills what is left: on a cold resume the card is the authority. Notes
+  // append their contributors here, after memory.
   const contributors: ReadonlyArray<Contributor> = [
     yield* disciplineContributor,
     yield* conductorContributor,
     yield* botInstructionsContributor,
+    yield* sessionStateContributor,
     yield* memoryContributor,
   ];
   return TurnContext.of({

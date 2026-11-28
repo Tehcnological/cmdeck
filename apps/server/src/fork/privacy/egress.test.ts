@@ -48,6 +48,8 @@ import * as ResetCreditCoordinator from "../../provider/resetCreditCoordinator.t
 import * as ServerSettings from "../../serverSettings.ts";
 import * as Notifications from "../notifications/Notifications.ts";
 import * as CheckScripts from "../checkScripts/CheckScripts.ts";
+import * as EventTriggers from "../eventTriggers/EventTriggers.ts";
+import * as ScheduledTaskService from "../../scheduledTasks/ScheduledTaskService.ts";
 import {
   layerTest as layerCheckScriptsTest,
   makeFakeRunner,
@@ -482,6 +484,47 @@ it.effect("a scheduled task without a check script starts no process", () =>
     }).pipe(
       Effect.provide(
         layerCheckScriptsTest(fake.runner).pipe(Layer.provideMerge(SqlitePersistence.layerMemory)),
+      ),
+    );
+  }),
+);
+
+it.effect("event triggers with no event task run nothing when a milestone happens", () =>
+  Effect.gen(function* () {
+    let runs = 0;
+    const scheduler = Layer.mock(ScheduledTaskService.ScheduledTaskService)({
+      runNow: () =>
+        Effect.sync(() => {
+          runs += 1;
+          return { threadId: null } as never;
+        }),
+    });
+    yield* Effect.gen(function* () {
+      const triggers = yield* EventTriggers.EventTriggers;
+      const hub = yield* MilestoneHub.MilestoneHub;
+      const event = {
+        id: "settled:1",
+        occurredAt: "2026-11-28T10:00:00.000Z",
+        projectId: "project:test",
+        threadId: "thread:1",
+        parentThreadId: null,
+        actor: { type: "agent" },
+        isSubagentChild: false,
+        type: "thread.run_settled",
+        runId: "run:1",
+        outcome: "failed",
+      } as never;
+      yield* hub.publish(event);
+      expect(yield* triggers.handle(event)).toEqual([]);
+      yield* TestClock.adjust("1 hour");
+      expect(runs).toBe(0);
+    }).pipe(
+      Effect.provide(
+        EventTriggers.layer.pipe(
+          Layer.provideMerge(scheduler),
+          Layer.provideMerge(MilestoneHub.layer),
+          Layer.provideMerge(SqlitePersistence.layerMemory),
+        ),
       ),
     );
   }),

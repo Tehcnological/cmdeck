@@ -55,6 +55,7 @@ import { OrchestratorDispatchError } from "../orchestration-v2/Orchestrator.ts";
 import { userFacingDispatchErrorMessage } from "../orchestration-v2/UserFacingErrors.ts";
 import * as SecretRequests from "../secrets/SecretRequests.ts";
 import * as CheckScripts from "../fork/checkScripts/CheckScripts.ts";
+import * as EventTriggers from "../fork/eventTriggers/currentEvents.ts";
 import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
 import * as DueHint from "../scheduling/DueHint.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
@@ -1055,7 +1056,7 @@ export const layer = Layer.effect(
       const startedAtIso = iso(startedAt);
       const run = Effect.gen(function* () {
         // Re-read stale poll snapshots so deleted, paused or postponed tasks cannot fire.
-        const active = yield* findTask(task.id);
+        const active = yield* EventTriggers.withEvents(yield* findTask(task.id));
         if (active === null) {
           if (webhook !== undefined) {
             return yield* new WebhookDeliverySkipped({

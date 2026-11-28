@@ -8,5 +8,6 @@ export * as memory from "../memory/rpc.ts";
 export * as messagePins from "../messagePins/rpc.ts";
 export * as notifications from "../notifications/rpc.ts";
 export * as sandbox from "../sandbox/rpc.ts";
+export * as sessionState from "../sessionState/rpc.ts";
 export * as workflowTrust from "../workflowTrust/rpc.ts";
 export * as workLedger from "../workLedger/rpc.ts";
