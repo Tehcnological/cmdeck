@@ -101,6 +101,13 @@ export const make = Effect.gen(function* () {
       outputSchema: LessonsReply,
       modelSelection: { instanceId: choice.model.instanceId, model: choice.model.model },
     }).pipe(Effect.timeout(MODEL_TIMEOUT));
+    // Memory may have been turned off, or the thread made private, during the model call.
+    if (!(yield* memory.enabled)) return 0;
+    const writeContext = yield* memory.threadContext({
+      id: thread.id,
+      projectId: thread.projectId,
+    });
+    if (!MemoryAccess.allows(writeContext, "write", scope)) return 0;
     const known = new Set(
       (yield* memory.list({ scopeKind: "project" }))
         .filter((item) => item.scope === scope)
@@ -110,7 +117,13 @@ export const make = Effect.gen(function* () {
     for (const lesson of proposedLessons(reply)) {
       if (known.has(normalized(lesson))) continue;
       // An agent's write: a pending, agent-inferred fact until a person accepts it.
-      yield* memory.remember({ context, scope, kind: "fact", content: lesson, actor: "agent" });
+      yield* memory.remember({
+        context: writeContext,
+        scope,
+        kind: "fact",
+        content: lesson,
+        actor: "agent",
+      });
       proposed += 1;
     }
     const at = DateTime.formatIso(yield* DateTime.now);

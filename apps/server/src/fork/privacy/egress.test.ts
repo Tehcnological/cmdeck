@@ -1,9 +1,13 @@
+// @effect-diagnostics nodeBuiltinImport:off -- A real redirecting HTTP server proves the embedder refuses redirects.
+import * as NodeHttp from "node:http";
+
 import * as ClaudeSdk from "@anthropic-ai/claude-agent-sdk";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import {
   EnvironmentId,
+  InferenceServerId,
   ProviderDriverKind,
   ProjectId,
   ProviderInstanceId,
@@ -27,7 +31,7 @@ import * as SqlClient from "effect/sql/SqlClient";
 import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
 import { McpServer } from "effect/ai";
-import { HttpClient, HttpClientResponse } from "effect/http";
+import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { vi } from "vite-plus/test";
 
@@ -568,6 +572,82 @@ describe("memory embeddings", () => {
         expect(result.isError).toBe(false);
         expect(requests).toEqual([]);
       }),
+    );
+  });
+});
+
+/** A local HTTP server that records each request's path and body; closed with the scope. */
+const listen = (answer: (response: NodeHttp.ServerResponse) => void) =>
+  Effect.acquireRelease(
+    Effect.callback<{
+      readonly port: number;
+      readonly bodies: Array<string>;
+      readonly server: NodeHttp.Server;
+    }>((resume) => {
+      const bodies: Array<string> = [];
+      const server = NodeHttp.createServer((request, response) => {
+        let body = "";
+        request.on("data", (chunk) => (body += chunk));
+        request.on("end", () => {
+          bodies.push(body);
+          answer(response);
+        });
+      });
+      server.listen(0, "127.0.0.1", () => {
+        const address = server.address();
+        resume(
+          Effect.succeed({
+            port: typeof address === "object" && address !== null ? address.port : 0,
+            bodies,
+            server,
+          }),
+        );
+      });
+    }),
+    ({ server }) => Effect.callback<void>((resume) => void server.close(() => resume(Effect.void))),
+  );
+
+describe("memory embeddings through a redirecting embedder", () => {
+  // The production client, so fetch's own redirect handling is what the test sees.
+  const fetchClient = HttpClient.make((request) =>
+    HttpClient.HttpClient.pipe(
+      Effect.flatMap((client) => client.execute(request)),
+      Effect.provide(FetchHttpClient.layer),
+    ),
+  );
+  it.layer(layerMemoryToolsTest({ memoryEnabled: true, embedder: fetchClient }))((it) => {
+    it.effect("refuses the redirect, so memory never reaches the other host", () =>
+      Effect.gen(function* () {
+        const elsewhere = yield* listen((response) =>
+          response.writeHead(200, { "content-type": "application/json" }).end('{"data":[]}'),
+        );
+        const local = yield* listen((response) =>
+          response
+            .writeHead(307, { location: `http://127.0.0.1:${elsewhere.port}/v1/embeddings` })
+            .end(),
+        );
+        const server = InferenceServerId.make("local");
+        yield* (yield* ServerSettings.ServerSettingsService).updateSettings({
+          inferenceServers: {
+            [server]: { baseUrl: `http://127.0.0.1:${local.port}/v1`, apiKey: "", enabled: true },
+          },
+          cmdeck: { memoryEmbedder: { serverId: server, model: "nomic-embed" } },
+        });
+        const store = yield* MemoryStore.MemoryStore;
+        const context = yield* store.threadContext(threads.main);
+        yield* store.remember({
+          context,
+          scope: "global",
+          kind: "fact",
+          content: "Use pnpm, not npm",
+          actor: "user",
+        });
+        const found = yield* store.search({ context, query: "pnpm please", limit: 5 });
+
+        expect(found.map((item) => item.content)).toEqual(["Use pnpm, not npm"]);
+        expect(local.bodies.join()).toContain("Use pnpm, not npm");
+        expect(elsewhere.bodies).toEqual([]);
+      }).pipe(Effect.scoped),
     );
   });
 });
