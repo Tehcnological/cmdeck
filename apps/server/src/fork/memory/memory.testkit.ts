@@ -93,6 +93,8 @@ export const layerMemoryTest = (options: {
   readonly memoryEnabled: boolean;
   readonly settings?: Parameters<typeof ServerSettings.layerTest>[0];
   readonly embedder?: HttpClient.HttpClient;
+  /** Runs inside each thread lookup, to interleave another client's write with a read. */
+  readonly duringFindThread?: (threadId: ThreadId) => Effect.Effect<void>;
 }) =>
   TurnContext.layer.pipe(
     Layer.provideMerge(MemoryStore.layer),
@@ -118,10 +120,12 @@ export const layerMemoryTest = (options: {
     Layer.provide(
       Layer.mock(ProjectionStore.ProjectionStoreV2)({
         findThread: (threadId) =>
-          Effect.succeed(
-            (Object.values(threads).find((thread) => thread.id === threadId) as
-              | OrchestrationV2AppThread
-              | undefined) ?? null,
+          (options.duringFindThread?.(threadId) ?? Effect.void).pipe(
+            Effect.as(
+              (Object.values(threads).find((thread) => thread.id === threadId) as
+                | OrchestrationV2AppThread
+                | undefined) ?? null,
+            ),
           ),
       }),
     ),

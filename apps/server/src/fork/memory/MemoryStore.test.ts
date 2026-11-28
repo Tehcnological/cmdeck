@@ -435,3 +435,34 @@ describe("MemoryStore: a person's edits and thread modes", () => {
     );
   });
 });
+
+describe("MemoryStore: a privacy choice made while a fork's mode is first read", () => {
+  let race: (threadId: ThreadId) => Effect.Effect<void> = () => Effect.void;
+  it.layer(
+    layerMemoryTest({
+      memoryEnabled: true,
+      duringFindThread: (id) => Effect.suspend(() => race(id)),
+    }),
+  )((it) => {
+    it.effect("wins over the inherited mode", () =>
+      Effect.gen(function* () {
+        const store = yield* MemoryStore.MemoryStore;
+        yield* store.remember({
+          context: yield* store.threadContext(threads.parent),
+          scope: "global",
+          kind: "fact",
+          content: "Use pnpm, not npm",
+          actor: "user",
+        });
+        // Another client makes the fork temporary after its first read found no stored mode.
+        race = (id) => {
+          if (id !== threads.fork.id) return Effect.void;
+          race = () => Effect.void;
+          return store.setThreadMode(id, "temporary").pipe(Effect.orDie);
+        };
+        expect((yield* store.threadContext(threads.fork)).mode).toBe("temporary");
+        expect(yield* contentsForTurn(threads.fork, "pnpm")).toEqual([]);
+      }),
+    );
+  });
+});
