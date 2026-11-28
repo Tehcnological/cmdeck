@@ -8,3 +8,6 @@ packages/source-control-github/schema/** linguist-generated
 packages/issue-tracker-linear/schema/** linguist-generated
 apps/server/schema/** linguist-generated
 **/*.graphql.ts linguist-generated
+# Fork: GT catalogs merge entry by entry, so branches that each add strings merge cleanly.
+# The driver is scripts/fork/merge-json-catalog.ts; `vp i` (prepare) writes its local git config.
+apps/*/src/i18n/translations/*.json merge=cmdeck-json-catalog
