@@ -315,6 +315,7 @@ import { ComposerControlsBar } from "./ComposerControlsBar";
 import { composerCommandKeyHandler } from "./composerCommandKey";
 import { promptSuggestionToAccept, usePromptSuggestion } from "./usePromptSuggestion";
 import { useFreshSessionArmed } from "./freshSessionArms";
+import { MemoryModeChip } from "../../fork/memory/MemoryModeChip";
 
 function consumePasteAsTextShortcut(deadline: { current: number }): boolean {
   const armed = Date.now() <= deadline.current;
@@ -2123,6 +2124,15 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
           setComposerHighlightedItemId(null);
           props.onFreshSession?.();
         }
+        return;
+      }
+      if (item.command === "remember") {
+        if (
+          applyPromptReplacement(trigger.rangeStart, trigger.rangeEnd, "/remember ", {
+            expectedText: snapshot.value.slice(trigger.rangeStart, trigger.rangeEnd),
+          })
+        )
+          setComposerHighlightedItemId(null);
         return;
       }
       if (item.command === "side" || item.command === "btw") {
@@ -4107,6 +4117,13 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                 {composerAttachButton && !dictationTakesFooter ? (
                   <div className="me-2">{composerAttachButton}</div>
                 ) : null}
+                {dictationTakesFooter ? null : (
+                  <MemoryModeChip
+                    environmentId={environmentId}
+                    threadId={routeThreadRef.threadId}
+                    isServerThread={activeThread !== undefined}
+                  />
+                )}
                 <div
                   data-chat-composer-actions="right"
                   data-chat-composer-transition-actions="true"

@@ -3,6 +3,21 @@
     {
       "bundles": ["desktop"],
       "license": "Apache-2.0",
+      "name": "KiroCrew Research Lab briefs and stop rules (Research Lab preset)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/apps/builtins/auto_research",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "Ported to a CMDeck workflow preset (apps/server/src/fork/presets/research-lab.ts). Changes: briefs condensed and reworded for typed agent results, each cycle runs its questions as parallel agents, the workflow counts new findings itself for the stagnation stop, and the report is written by the run's last agent thread."
+          ]
+        }
+      ]
+    },
+    {
+      "bundles": ["desktop"],
+      "license": "Apache-2.0",
       "name": "KiroCrew task runner prompts (Task Runner preset)",
       "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd",
       "generatedNotices": [
@@ -37,6 +52,31 @@
           "preamble": [
             "Adapted for CMDeck's skills/design-critique. Changes: evidence comes from CMDeck's preview tools (three widths, light and dark, computed contrast, the accessibility tree) instead of the bundled Playwright scripts; Figma, widget and script steps removed; a responsive-layout and an appearance item added to the checklist; wording condensed."
           ]
+        }
+      ]
+    },
+    {
+      "license": "Apache-2.0",
+      "name": "Kiro Crew plan credit alerts (threshold crossing rules)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/blob/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/dashboard/handlers/plan_credit_alerts.py",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "Ported to TypeScript for CMDeck's usage alerts (apps/server/src/fork/usageAlerts). Changes: one reading per provider limit window instead of one plan-credit reading, a window period ends when its stored reset time passes, accounts come from provider and hub usage limits, and state is kept in SQLite instead of a JSON file."
+          ]
+        }
+      ]
+    },
+    {
+      "license": "MIT",
+      "name": "OpenClaw memory search ranking (hybrid weights, BM25 score mapping, half-life decay)",
+      "sourceUrl": "https://github.com/openclaw/openclaw/tree/f57a32938b7b4b99e25f9d2343c6890978ba9f7d/extensions/memory-core/src/memory",
+      "generatedNotices": [
+        {
+          "licenseId": "MIT",
+          "copyrights": ["Copyright (c) 2026 OpenClaw Foundation"]
         }
       ]
     },
@@ -105,6 +145,21 @@
         {
           "licenseId": "MIT",
           "copyrights": ["Copyright (c) 2015-present Drifty Co."]
+        }
+      ]
+    },
+    {
+      "bundles": ["desktop", "web"],
+      "license": "Apache-2.0",
+      "name": "Kiro Crew memory modes and memory editing",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "CMDeck's memory modes, fork inheritance and preview-then-apply memory edits are ported from KiroCrew (src/kiro_crew/execution_context.py, src/kiro_crew/dashboard/chat_fork_memory_mode.py, src/kiro_crew/memory_edit.py, website/src/components/MemoryModeChip.tsx).\n\nChanges: translated from Python to TypeScript and fitted to CMDeck's memory store; a fork copies its parent's mode the first time it is read; edit selections compare each item as shown instead of a revision digest; bulk operations are accept, retire, restore and literal text replacement; the chip uses CMDeck's menu components and copy."
+          ]
         }
       ]
     },

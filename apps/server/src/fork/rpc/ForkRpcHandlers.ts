@@ -15,10 +15,12 @@ import * as Stream from "effect/Stream";
 import { WorkflowDefinitions } from "../../workflows/WorkflowRuntime.ts";
 import * as AuditLog from "../audit/AuditLog.ts";
 import { Decisions } from "../decisions/Decisions.ts";
+import { MemoryEmbeddings } from "../memory/MemoryEmbeddings.ts";
 import { installPreset } from "../presets/install.ts";
 import { ContainerSandbox } from "../sandbox/ContainerSandbox.ts";
 import { WorkflowTrust } from "../workflowTrust/WorkflowTrust.ts";
 import * as Notifications from "../notifications/Notifications.ts";
+import * as MemoryRpc from "../memory/MemoryRpc.ts";
 
 /** Spread into the server's WS handlers; each fork module adds its methods here. */
 export const make = Effect.gen(function* () {
@@ -34,6 +36,8 @@ export const make = Effect.gen(function* () {
   const noDecisions = Effect.fail(
     new DecisionsError({ detail: "The decision service is not available." }),
   );
+  const memory = yield* MemoryRpc.make;
+  const embeddings = yield* Effect.serviceOption(MemoryEmbeddings);
   const sandbox = yield* Effect.serviceOption(ContainerSandbox);
   const noSandbox = Effect.fail(
     new SandboxError({ detail: "Containers are not available on this server." }),
@@ -68,6 +72,26 @@ export const make = Effect.gen(function* () {
       Option.isSome(decisions) ? decisions.value.status : noDecisions,
     [CMDECK_WS_METHODS.decisionsSetConsent]: (input) =>
       Option.isSome(decisions) ? decisions.value.setConsent(input) : noDecisions,
+    [CMDECK_WS_METHODS.memoryList]: memory.list,
+    [CMDECK_WS_METHODS.memoryRevisions]: (input) => memory.revisions(input.itemId),
+    [CMDECK_WS_METHODS.memoryEdit]: memory.edit,
+    [CMDECK_WS_METHODS.memoryRevert]: memory.revert,
+    [CMDECK_WS_METHODS.memoryPreviewEdit]: memory.previewEdit,
+    [CMDECK_WS_METHODS.memoryApplyEdit]: memory.applyEdit,
+    [CMDECK_WS_METHODS.memoryRemember]: memory.remember,
+    [CMDECK_WS_METHODS.memoryThreadMode]: (input) => memory.threadMode(input.threadId),
+    [CMDECK_WS_METHODS.memorySetThreadMode]: memory.setThreadMode,
+    [CMDECK_WS_METHODS.memoryInjections]: (input) => memory.injections(input.threadId),
+    [CMDECK_WS_METHODS.memoryEmbeddingsStatus]: () =>
+      Option.isSome(embeddings)
+        ? embeddings.value.status
+        : Effect.succeed({
+            mode: "keyword" as const,
+            embedder: null,
+            embedded: 0,
+            total: 0,
+            checkedAt: null,
+          }),
     [CMDECK_WS_METHODS.sandboxStatus]: (input) =>
       Option.isSome(sandbox) ? sandbox.value.status(input) : noSandbox,
     [CMDECK_WS_METHODS.sandboxConfigure]: (input) =>

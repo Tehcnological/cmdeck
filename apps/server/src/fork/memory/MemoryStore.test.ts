@@ -1,7 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
-import { ThreadId } from "@t3tools/contracts";
+import { type MemoryItem, ThreadId } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as TestClock from "effect/testing/TestClock";
 
 import type * as MemoryAccess from "./MemoryAccess.ts";
 import * as MemoryStore from "./MemoryStore.ts";
@@ -216,6 +217,220 @@ describe("MemoryStore", () => {
           "temporary",
         );
         expect((yield* store.resolveThread(threads.main.id)).repoKey).toBe("github.com/acme/app");
+      }),
+    );
+  });
+});
+
+describe("MemoryStore: a person's edits and thread modes", () => {
+  it.layer(layerMemoryTest({ memoryEnabled: true }))((it) => {
+    const save = Effect.fn("save")(function* (
+      content: string,
+      options: { readonly actor?: MemoryStore.MemoryActor; readonly scope?: string } = {},
+    ) {
+      const store = yield* MemoryStore.MemoryStore;
+      return yield* store.remember({
+        context: yield* store.threadContext(threads.parent),
+        scope: options.scope ?? "project:project-app",
+        kind: "fact",
+        content,
+        actor: options.actor ?? "user",
+      });
+    });
+
+    it.effect("lists by scope kind and status", () =>
+      Effect.gen(function* () {
+        const store = yield* MemoryStore.MemoryStore;
+        const everywhere = yield* save("Lists: answer briefly", { scope: "global" });
+        const proposal = yield* save("Lists: the API lives in api/", { actor: "agent" });
+
+        const ids = (items: ReadonlyArray<MemoryItem>) => items.map((item) => item.id);
+        expect(ids(yield* store.list({ scopeKind: "global" }))).toContain(everywhere.id);
+        expect(ids(yield* store.list({ scopeKind: "global" }))).not.toContain(proposal.id);
+        expect(ids(yield* store.list({ scopeKind: "project", status: "pending" }))).toEqual(
+          expect.arrayContaining([proposal.id]),
+        );
+        expect(ids(yield* store.list({ status: "active" }))).not.toContain(proposal.id);
+      }),
+    );
+
+    it.effect("an edit is a revision, keeps scope and provenance, and can be reverted", () =>
+      Effect.gen(function* () {
+        const store = yield* MemoryStore.MemoryStore;
+        const item = yield* save("Edit: deploys go out on Tuesdays", { actor: "agent" });
+
+        expect(yield* store.edit({ itemId: item.id, content: item.content })).toEqual(item);
+        expect(yield* store.revisions(item.id)).toHaveLength(1);
+
+        const edited = yield* store.edit({
+          itemId: item.id,
+          content: "  Edit: deploys go out on Thursdays ",
+          kind: "rule",
+        });
+        expect(edited).toMatchObject({
+          content: "Edit: deploys go out on Thursdays",
+          kind: "rule",
+          scope: item.scope,
+          provenance: "agent_inferred",
+          status: "pending",
+        });
+        expect(
+          (yield* store.edit({ itemId: item.id, content: "   " }).pipe(Effect.flip))._tag,
+        ).toBe("MemoryStoreError");
+
+        yield* store.revert({ itemId: item.id, revision: 1, actor: "user" });
+        expect(Option.getOrThrow(yield* store.get(item.id)).content).toBe(
+          "Edit: deploys go out on Tuesdays",
+        );
+      }),
+    );
+
+    it.effect("a bulk preview writes nothing and applying writes exactly what it showed", () =>
+      Effect.gen(function* () {
+        const store = yield* MemoryStore.MemoryStore;
+        const first = yield* save("Bulk: use vitest", { actor: "agent" });
+        const second = yield* save("Bulk: use oxlint", { actor: "agent" });
+        const accepted = yield* save("Bulk: already active");
+        const input = {
+          items: [first, second, accepted],
+          operation: { type: "accept" as const },
+        };
+
+        const preview = yield* store.bulkEdit({ ...input, apply: false });
+        expect(preview.matchedCount).toBe(3);
+        expect(preview.changes.map(({ before, after }) => [before.id, after.status])).toEqual([
+          [first.id, "active"],
+          [second.id, "active"],
+        ]);
+        expect(Option.getOrThrow(yield* store.get(first.id)).status).toBe("pending");
+
+        const applied = yield* store.bulkEdit({ ...input, apply: true });
+        expect(applied.changes.map(({ after }) => after.provenance)).toEqual([
+          "user_confirmed",
+          "user_confirmed",
+        ]);
+        expect(Option.getOrThrow(yield* store.get(second.id)).status).toBe("active");
+
+        // The same selection is now stale: applying it again changes nothing.
+        const stale = yield* store.bulkEdit({ ...input, apply: true }).pipe(Effect.flip);
+        expect(stale).toBeInstanceOf(MemoryStore.MemorySelectionStaleError);
+      }),
+    );
+
+    it.effect("a stale item refuses the whole edit", () =>
+      Effect.gen(function* () {
+        const store = yield* MemoryStore.MemoryStore;
+        const kept = yield* save("Stale: keep me", { actor: "agent" });
+        const changed = yield* save("Stale: change me", { actor: "agent" });
+        yield* store.edit({ itemId: changed.id, content: "Stale: changed elsewhere" });
+
+        const error = yield* store
+          .bulkEdit({
+            items: [kept, changed],
+            operation: { type: "retire" },
+            apply: true,
+          })
+          .pipe(Effect.flip);
+        expect(error).toEqual(new MemoryStore.MemorySelectionStaleError({ itemIds: [changed.id] }));
+        expect(Option.getOrThrow(yield* store.get(kept.id)).status).toBe("pending");
+      }),
+    );
+
+    it.effect("restoring a retired item brings back the status it had", () =>
+      Effect.gen(function* () {
+        const store = yield* MemoryStore.MemoryStore;
+        const proposal = yield* save("Restore: a rejected proposal", { actor: "agent" });
+        const active = yield* save("Restore: an active item");
+        const apply = (items: ReadonlyArray<MemoryItem>, type: "retire" | "restore") =>
+          store.bulkEdit({ items, operation: { type }, apply: true });
+
+        const retired = (yield* apply([proposal, active], "retire")).changes.map(
+          ({ after }) => after,
+        );
+        const restored = (yield* apply(retired, "restore")).changes.map(({ after }) => [
+          after.id,
+          after.status,
+        ]);
+        expect(restored).toEqual([
+          [proposal.id, "pending"],
+          [active.id, "active"],
+        ]);
+      }),
+    );
+
+    it.effect("replace text is literal and follows the case setting", () =>
+      Effect.gen(function* () {
+        const store = yield* MemoryStore.MemoryStore;
+        const item = yield* save("Replace: run (npm) test, then NPM build");
+        const replace = (find: string, matchCase: boolean) =>
+          store.bulkEdit({
+            items: [item],
+            operation: { type: "replace_text", find, replacement: "pnpm", matchCase },
+            apply: false,
+          });
+
+        expect((yield* replace("(npm)", true)).changes[0]?.after.content).toBe(
+          "Replace: run pnpm test, then NPM build",
+        );
+        expect((yield* replace("npm", true)).changes[0]?.after.content).toBe(
+          "Replace: run (pnpm) test, then NPM build",
+        );
+        expect((yield* replace("npm", false)).changes[0]?.after.content).toBe(
+          "Replace: run (pnpm) test, then pnpm build",
+        );
+        expect((yield* replace("yarn", false)).changes).toEqual([]);
+      }),
+    );
+
+    it.effect("a fork takes a copy of its parent's mode", () =>
+      Effect.gen(function* () {
+        const store = yield* MemoryStore.MemoryStore;
+        expect(yield* store.threadMode(threads.parent.id)).toBe("persistent");
+        yield* store.setThreadMode(threads.parent.id, "incognito");
+
+        expect(yield* store.threadMode(threads.forkOfFork.id)).toBe("incognito");
+        expect((yield* store.threadContext(threads.fork)).mode).toBe("incognito");
+
+        // A copy: promoting the parent later leaves its forks as they were.
+        yield* store.setThreadMode(threads.parent.id, "persistent");
+        expect(yield* store.threadMode(threads.fork.id)).toBe("incognito");
+        expect(yield* store.threadMode(threads.forkOfFork.id)).toBe("incognito");
+      }),
+    );
+
+    it.effect("an agent can only make a thread's memory more private", () =>
+      Effect.gen(function* () {
+        const store = yield* MemoryStore.MemoryStore;
+        expect(yield* store.restrictThreadMode(threads.other.id, "incognito")).toBe("incognito");
+        expect(yield* store.restrictThreadMode(threads.other.id, "temporary")).toBe("temporary");
+        expect(yield* store.restrictThreadMode(threads.other.id, "incognito")).toBe("temporary");
+        expect(yield* store.threadMode(threads.other.id)).toBe("temporary");
+      }),
+    );
+
+    it.effect("lists what each turn was given, newest first", () =>
+      Effect.gen(function* () {
+        const store = yield* MemoryStore.MemoryStore;
+        const rule = yield* save("Injections: answer in English");
+        yield* store.recordInjections({
+          threadId: threads.clone.id,
+          runId: "run-1",
+          itemIds: [rule.id],
+        });
+        yield* TestClock.adjust("1 minute");
+        yield* store.recordInjections({
+          threadId: threads.clone.id,
+          runId: "run-2",
+          itemIds: [rule.id],
+        });
+
+        expect(
+          (yield* store.injections(threads.clone.id)).map(({ runId, item }) => [runId, item.id]),
+        ).toEqual([
+          ["run-2", rule.id],
+          ["run-1", rule.id],
+        ]);
+        expect(yield* store.injections(threads.worktree.id)).toEqual([]);
       }),
     );
   });

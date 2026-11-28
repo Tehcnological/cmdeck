@@ -2,7 +2,7 @@
 
 CMDeck keeps a local record of security-relevant actions on each machine:
 
-- approvals an agent asked for, once answered or expired
+- approvals an agent asked for, once answered or expired, and the rule behind each one the [approval policy](./approval-policy.md) declined
 - device pairing approvals
 - remote MCP tokens created, revoked or used (use is recorded at most once an hour per token)
 - secrets handed to an agent, as a one-use reference's value or a file
