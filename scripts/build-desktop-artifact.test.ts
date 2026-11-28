@@ -73,6 +73,7 @@ import {
 } from "./update-release-package-versions.ts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import { symlinksSupported } from "@t3tools/shared/testing/symlinks";
+import { hasMacDeveloperIdCredentials } from "./fork/macos-signing.ts";
 
 const encodeModuleUrl = Schema.encodeEffect(Schema.fromJsonString(Schema.String));
 const decodePackageVersion = Schema.decodeUnknownEffect(
@@ -541,6 +542,42 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         ),
       ),
     ),
+  );
+
+  it.effect("uses Developer ID and notarization only with the complete credential set", () =>
+    Effect.gen(function* () {
+      const credentials = {
+        CSC_LINK: "certificate.p12",
+        CSC_KEY_PASSWORD: "fixture-certificate-password",
+        APPLE_ID: "packaging@example.test",
+        APPLE_TEAM_ID: "EXAMPLE123",
+        APPLE_APP_SPECIFIC_PASSWORD: "fixture-notary-password",
+      };
+      const config = (env: Record<string, string>) =>
+        createBuildConfig(
+          "mac",
+          "dmg",
+          "3.0.0",
+          false,
+          false,
+          undefined,
+          undefined,
+          false,
+          "arm64",
+          hasMacDeveloperIdCredentials(env),
+        );
+
+      const adHoc = yield* config({ ...credentials, APPLE_APP_SPECIFIC_PASSWORD: "" });
+      assert.include(adHoc.mac, { identity: "-", hardenedRuntime: true, notarize: false });
+      const developerId = yield* config(credentials);
+      assert.include(developerId.mac, {
+        forceCodeSigning: true,
+        hardenedRuntime: true,
+        notarize: true,
+      });
+      assert.notProperty(developerId.mac, "identity");
+      assert.include(developerId.dmg, { sign: true });
+    }),
   );
 
   it.effect("names the Electron window class in the Linux desktop entry", () =>
@@ -1969,4 +2006,28 @@ it.effect.skipIf(!symlinksSupported)("preserves relative links when replacing di
     assert.equal(yield* fs.readLink(path.join(output, app, "Current")), "New.plist");
     assert.equal(yield* fs.readFileString(path.join(output, app, "Current")), "rebuilt-app");
   }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+);
+
+// Ad-hoc builds run with the hardened runtime too, so a runtime entitlement missing here (camera,
+// microphone, Apple events) is silently denied. Profile-bound com.apple.developer.* keys are exempt.
+it.effect("ad-hoc macOS builds keep every runtime entitlement the signed build has", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const signed = renderMacPasskeyEntitlements(
+      resolveMacPasskeySigningConfiguration({
+        T3CODE_APPLE_TEAM_ID: "ABC1234567",
+        T3CODE_MACOS_PROVISIONING_PROFILE: "/tmp/t3code.provisionprofile",
+        T3CODE_CLERK_PASSKEY_RP_DOMAINS: "example.clerk.accounts.dev",
+      }),
+      { touchIdKeychainAccessGroup: undefined, browserPasskeys: false },
+    );
+    const adHoc = yield* fs.readFileString(
+      NodePath.join(import.meta.dirname, "fork", "entitlements.adhoc.plist"),
+    );
+    const runtimeKeys = [...signed.matchAll(/<key>(com\.apple\.security\.[^<]+)<\/key>/gu)].map(
+      (match) => match[1],
+    );
+    assert.isAbove(runtimeKeys.length, 3);
+    for (const key of runtimeKeys) assert.include(adHoc, `<key>${key}</key>`);
+  }).pipe(Effect.provide(NodeServices.layer)),
 );
