@@ -16,4 +16,10 @@ export const FORK_SETTINGS_SEARCH_ITEMS = [
     to: "/settings/memory",
     searchTerms: [msg("remember incognito temporary proposals rules facts revisions")],
   },
+  {
+    id: "usage-alerts",
+    title: msg("Alert thresholds"),
+    to: "/settings/providers",
+    searchTerms: [msg("usage limit quota percent threshold notify notification channel warning")],
+  },
 ] as const satisfies ReadonlyArray<SettingsSearchItem>;

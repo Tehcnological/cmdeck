@@ -1,42 +1,33 @@
-import { requestGuarded } from "@t3tools/client-runtime/rpc";
 import {
-  createEnvironmentQueryAtomFamily,
+  createEnvironmentRpcQueryAtomFamily,
   createEnvironmentRpcCommand,
 } from "@t3tools/client-runtime/state/runtime";
-import {
-  CMDECK_WS_METHODS,
-  type MemoryBulkEditInput,
-  type MemoryItemIdInput,
-  type MemoryListInput,
-  type ThreadMemoryModeInput,
-} from "@t3tools/contracts";
+import { CMDECK_WS_METHODS } from "@t3tools/contracts";
 
 import { connectionAtomRuntime } from "../../connection/runtime";
 
-export const memoryList = createEnvironmentQueryAtomFamily(connectionAtomRuntime, {
+export const memoryList = createEnvironmentRpcQueryAtomFamily(connectionAtomRuntime, {
   label: "environment-data:cmdeck:memory-list",
+  tag: CMDECK_WS_METHODS.memoryList,
   staleTimeMs: 0,
-  execute: (input: MemoryListInput) => requestGuarded(CMDECK_WS_METHODS.memoryList, input),
 });
 
-export const memoryRevisions = createEnvironmentQueryAtomFamily(connectionAtomRuntime, {
+export const memoryRevisions = createEnvironmentRpcQueryAtomFamily(connectionAtomRuntime, {
   label: "environment-data:cmdeck:memory-revisions",
+  tag: CMDECK_WS_METHODS.memoryRevisions,
   staleTimeMs: 0,
-  execute: (input: MemoryItemIdInput) => requestGuarded(CMDECK_WS_METHODS.memoryRevisions, input),
 });
 
-export const threadMemoryMode = createEnvironmentQueryAtomFamily(connectionAtomRuntime, {
+export const threadMemoryMode = createEnvironmentRpcQueryAtomFamily(connectionAtomRuntime, {
   label: "environment-data:cmdeck:memory-thread-mode",
+  tag: CMDECK_WS_METHODS.memoryThreadMode,
   staleTimeMs: 0,
-  execute: (input: ThreadMemoryModeInput) =>
-    requestGuarded(CMDECK_WS_METHODS.memoryThreadMode, input),
 });
 
-export const threadMemoryInjections = createEnvironmentQueryAtomFamily(connectionAtomRuntime, {
+export const threadMemoryInjections = createEnvironmentRpcQueryAtomFamily(connectionAtomRuntime, {
   label: "environment-data:cmdeck:memory-injections",
+  tag: CMDECK_WS_METHODS.memoryInjections,
   staleTimeMs: 0,
-  execute: (input: ThreadMemoryModeInput) =>
-    requestGuarded(CMDECK_WS_METHODS.memoryInjections, input),
 });
 
 export const editMemory = createEnvironmentRpcCommand(connectionAtomRuntime, {
@@ -50,11 +41,10 @@ export const revertMemory = createEnvironmentRpcCommand(connectionAtomRuntime, {
 });
 
 /** A bulk edit's preview: it writes nothing, so it is read like any other query. */
-export const memoryEditPreview = createEnvironmentQueryAtomFamily(connectionAtomRuntime, {
+export const memoryEditPreview = createEnvironmentRpcQueryAtomFamily(connectionAtomRuntime, {
   label: "environment-data:cmdeck:memory-preview-edit",
+  tag: CMDECK_WS_METHODS.memoryPreviewEdit,
   staleTimeMs: 0,
-  execute: (input: MemoryBulkEditInput) =>
-    requestGuarded(CMDECK_WS_METHODS.memoryPreviewEdit, input),
 });
 
 export const applyMemoryEdit = createEnvironmentRpcCommand(connectionAtomRuntime, {

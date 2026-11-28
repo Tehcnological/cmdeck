@@ -242,9 +242,26 @@ export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckMemoryInjectionsRpc,
 );
 
-/** Spread into `CLIENT_GUARDED_RPC_SCOPES`; every fork method needs one. */
-export const FORK_RPC_SCOPES = {
+/**
+ * Reads: only the server checks these (spread into `RPC_REQUIRED_SCOPES`), like upstream reads, so
+ * clients read them with `request` from query atoms. A client-guarded method needs a command
+ * boundary, so a guarded read made from a query atom is refused on the client.
+ */
+export const FORK_RPC_READ_SCOPES = {
   [CMDECK_WS_METHODS.status]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.notificationChannelsList]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.decisionsStatus]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryList]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryRevisions]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryPreviewEdit]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryThreadMode]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryInjections]: AuthOrchestrationReadScope,
+} as const;
+
+type ForkRpcTag = RpcGroup.Rpcs<typeof ForkWsRpcGroup>["_tag"];
+
+/** Spread into `CLIENT_GUARDED_RPC_SCOPES`; every fork method not in the read map needs one. */
+export const FORK_RPC_SCOPES = {
   // Entries are access records (pairings, tokens, secret reveals), so they need access scope.
   [CMDECK_WS_METHODS.auditList]: AuthAccessReadScope,
   [CMDECK_WS_METHODS.auditVerify]: AuthAccessReadScope,
@@ -253,23 +270,19 @@ export const FORK_RPC_SCOPES = {
   // Approving or installing a file lets the server run it, as saving one in the editor does.
   [CMDECK_WS_METHODS.workflowTrustApprove]: AuthTerminalOperateScope,
   [CMDECK_WS_METHODS.workflowPresetInstall]: AuthTerminalOperateScope,
-  [CMDECK_WS_METHODS.notificationChannelsList]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.notificationChannelsSetEnabled]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.notificationChannelsRemove]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.notificationsSubscribeAlerts]: AuthOrchestrationReadScope,
-  [CMDECK_WS_METHODS.decisionsStatus]: AuthOrchestrationReadScope,
   // Consent decides whether turn text may reach a model API, so only a settings writer grants it.
   [CMDECK_WS_METHODS.decisionsSetConsent]: AuthSettingsWriteScope,
   // Memory is what agents are told every turn, so changing it is a settings write.
-  [CMDECK_WS_METHODS.memoryList]: AuthOrchestrationReadScope,
-  [CMDECK_WS_METHODS.memoryRevisions]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.memoryEdit]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.memoryRevert]: AuthSettingsWriteScope,
-  [CMDECK_WS_METHODS.memoryPreviewEdit]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.memoryApplyEdit]: AuthSettingsWriteScope,
   // Acting in one thread, as sending it a message does.
   [CMDECK_WS_METHODS.memoryRemember]: AuthOrchestrationOperateScope,
-  [CMDECK_WS_METHODS.memoryThreadMode]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.memorySetThreadMode]: AuthOrchestrationOperateScope,
-  [CMDECK_WS_METHODS.memoryInjections]: AuthOrchestrationReadScope,
-} as const satisfies Record<RpcGroup.Rpcs<typeof ForkWsRpcGroup>["_tag"], AuthEnvironmentScope>;
+} as const satisfies Record<
+  Exclude<ForkRpcTag, keyof typeof FORK_RPC_READ_SCOPES>,
+  AuthEnvironmentScope
+>;
