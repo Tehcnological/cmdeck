@@ -12,16 +12,14 @@ import * as AgentDiscipline from "./AgentDiscipline.ts";
 class SeenByAdapters extends Context.Service<
   SeenByAdapters,
   AgentDiscipline.AgentDiscipline["Service"]
->()("test/SeenByAdapters") {}
+>()("t3/fork/agentDiscipline/belowProviders.test/SeenByAdapters") {}
 class SeenByOrchestration extends Context.Service<
   SeenByOrchestration,
   AgentDiscipline.AgentDiscipline["Service"]
->()("test/SeenByOrchestration") {}
+>()("t3/fork/agentDiscipline/belowProviders.test/SeenByOrchestration") {}
 
 const settings = ServerSettings.layerTest({});
-const discipline = Effect.gen(function* () {
-  return yield* AgentDiscipline.AgentDiscipline;
-});
+const discipline = Effect.service(AgentDiscipline.AgentDiscipline);
 
 // Provider hydration builds the Claude adapters below orchestration. Their subagent hooks and
 // delegate_task must count against one budget, so both levels must get the same instance.
