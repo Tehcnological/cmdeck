@@ -1,6 +1,13 @@
 import * as Schema from "effect/Schema";
 
-import { IsoDateTime, PositiveInt, ThreadId, TrimmedNonEmptyString } from "../baseSchemas.ts";
+import {
+  IsoDateTime,
+  NonNegativeInt,
+  PositiveInt,
+  ThreadId,
+  TrimmedNonEmptyString,
+} from "../baseSchemas.ts";
+import { InferenceServerId } from "../inference.ts";
 
 /**
  * Who may read an item: everyone (`global`), one project, every project on one repository
@@ -54,3 +61,29 @@ export const MemoryRevision = Schema.Struct({
   createdAt: IsoDateTime,
 });
 export type MemoryRevision = typeof MemoryRevision.Type;
+
+/** The registered inference server and model memory search embeds with (`cmdeck.memoryEmbedder`). */
+export const MemoryEmbedderSetting = Schema.Struct({
+  serverId: InferenceServerId,
+  model: TrimmedNonEmptyString,
+});
+export type MemoryEmbedderSetting = typeof MemoryEmbedderSetting.Type;
+
+/**
+ * How memory search ranks right now. `keyword`: no embedder is set, so full-text search only.
+ * `hybrid`: meaning and keywords. `unavailable`: the embedder failed, so keyword search stands in.
+ */
+export const MemorySearchMode = Schema.Literals(["keyword", "hybrid", "unavailable"]);
+export type MemorySearchMode = typeof MemorySearchMode.Type;
+
+export const MemoryEmbeddingsStatus = Schema.Struct({
+  mode: MemorySearchMode,
+  embedder: Schema.NullOr(MemoryEmbedderSetting),
+  /** Active items embedded with the current embedder, out of all active items. */
+  embedded: NonNegativeInt,
+  total: NonNegativeInt,
+  /** Why the embedder is unavailable, when it is. */
+  message: Schema.optional(TrimmedNonEmptyString),
+  checkedAt: Schema.NullOr(IsoDateTime),
+});
+export type MemoryEmbeddingsStatus = typeof MemoryEmbeddingsStatus.Type;

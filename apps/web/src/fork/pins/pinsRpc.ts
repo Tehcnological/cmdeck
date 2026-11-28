@@ -1,17 +1,15 @@
-import { requestGuarded } from "@t3tools/client-runtime/rpc";
 import {
-  createEnvironmentQueryAtomFamily,
   createEnvironmentRpcCommand,
+  createEnvironmentRpcQueryAtomFamily,
 } from "@t3tools/client-runtime/state/runtime";
-import { CMDECK_WS_METHODS, type MessagePinsListInput } from "@t3tools/contracts";
+import { CMDECK_WS_METHODS } from "@t3tools/contracts";
 
 import { connectionAtomRuntime } from "../../connection/runtime";
 
 /** One thread's pins; every message row and the Pinned tab of that thread share it. */
-export const threadMessagePins = createEnvironmentQueryAtomFamily(connectionAtomRuntime, {
+export const threadMessagePins = createEnvironmentRpcQueryAtomFamily(connectionAtomRuntime, {
   label: "environment-data:cmdeck:message-pins",
-  execute: (input: MessagePinsListInput) =>
-    requestGuarded(CMDECK_WS_METHODS.messagePinsList, input),
+  tag: CMDECK_WS_METHODS.messagePinsList,
 });
 
 export const pinMessage = createEnvironmentRpcCommand(connectionAtomRuntime, {

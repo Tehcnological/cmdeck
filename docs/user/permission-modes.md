@@ -11,6 +11,8 @@ Configure the default for new threads in **Settings → Threads → New threads 
 | **Auto**              | Uses the provider's automatic review to approve routine actions and ask about risky ones. |
 | **Full access**       | Runs commands and edits without approval prompts.                                         |
 
+To decline some requests before they reach you, whatever the agent says, set an [approval policy](./approval-policy.md).
+
 Permission modes never stop an agent from asking clarifying questions. Subagent approval requests appear in the parent conversation with the subagent's name so you can approve without switching threads.
 
 ## Git push hooks below Full access

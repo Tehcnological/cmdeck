@@ -1,3 +1,4 @@
+import { RESEARCH_LAB } from "./research-lab.ts";
 import { TASK_RUNNER } from "./task-runner.ts";
 
 export interface WorkflowPreset {
@@ -10,4 +11,4 @@ export interface WorkflowPreset {
 }
 
 /** Workflow files CMDeck ships. A new one gets a row here and a case in `presets.test.ts`. */
-export const PRESETS: ReadonlyArray<WorkflowPreset> = [TASK_RUNNER];
+export const PRESETS: ReadonlyArray<WorkflowPreset> = [TASK_RUNNER, RESEARCH_LAB];

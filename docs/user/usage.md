@@ -47,6 +47,14 @@ Below Cost and Tokens, **Local compute** shows the requests CMDeck's gateway sen
   - Pure API-key accounts generally do not report subscription limits.
 - **Mobile widget**: Add the **Subscription usage** widget on iOS or Android to monitor Codex and Claude quotas from your home screen.
 
+## Usage alerts
+
+CMDeck can message your notification channels when an account's limit window passes a percentage you choose. Set the percentages under **Settings → Providers → Usage alerts → Alert thresholds** (default `80`; for example `50, 80, 95`). Clear the field to turn alerts off.
+
+- Each threshold alerts once per window: crossing several at once sends one alert for the highest. A window that resets, or usage that falls back under a threshold, can alert again.
+- Alerts cover every account CMDeck already reads limits for: signed-in providers, hub accounts, and HTTP quota sources. They use the readings CMDeck already fetches and make no extra requests.
+- Nothing is sent until a notification channel is enabled. A Codex team or enterprise seat's credit cap does not alert while its session and weekly windows apply.
+
 ## Connect a CLIProxyAPI hub
 
 Open **Settings → Providers → Usage providers → Add hub**, choose the environment, and enter the hub URL and management key. Pools Codex, Claude, and Grok accounts under **Usage → Limits** (including Codex **Use reset**). Configure the provider's endpoint to the same URL if you want threads to display that hub's limits.

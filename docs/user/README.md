@@ -47,6 +47,7 @@ T3 Code is an open-source control plane for coding agents. It gives the coding a
 - [Message pins](./message-pins.md) — Pin messages and jump back to them from the thread's Pinned messages tab.
 - [Messages and context](./composer.md) — Composer formatting, attachments, queueing/steering, `@` threads/models, `#` PRs, `/goal`, stash, and rewind.
 - [Permission modes](./permission-modes.md) — Supervised, Auto-accept edits, Auto, Full access, push-hook prompts, and provider differences.
+- [Approval policy](./approval-policy.md) — Rules that decline approval requests for protected paths, banned commands and tools, before you see them.
 - [Diffs and workspace files](./diffs.md) — Turn diffs, branch comparisons, commits view, file editor, and inline review comments.
 - [Source control](./source-control.md) — GitHub, GitLab, Forgejo/Gitea, Bitbucket, Azure DevOps, GitCafe, Cursor Origin, Linear issues, PR review guides, stacks, and PR watching.
 - [Activity log](./activity-log.md) — Inspecting tool calls, hiding work logs / Zen mode, and screen reader announcements.
@@ -73,8 +74,10 @@ T3 Code is an open-source control plane for coding agents. It gives the coding a
 - [Projects with several repositories](./multi-repo-projects.md) — Multi-repo folders, external folders, submodules, and custom worktree layouts.
 - [Workflows](./workflows.md) — Durable multi-stage TypeScript workflows (Labs) with schedules, webhooks, and approvals.
 - [Task Runner](./task-runner.md) — A ready-made workflow that plans, runs, checks and reviews a change task by task.
+- [Research Lab](./research-lab.md) — A ready-made workflow that researches a question in parallel cycles and writes a report.
 - [Text generation models](./text-generation.md) — Fast/cheap API models for titles, commits, PR descriptions, and voice cleanup.
 - [Decision service](./decisions.md) — How scheduled tasks pick a model under usage limits, and opt-in local models for small decisions.
+- [Memory search by meaning](./memory-search.md) — Optional embeddings from a local inference server, keyword fallback, and how older facts rank.
 - [Appearance and themes](./appearance.md) — Built-in themes, custom palettes/CSS, background images, LaTeX math, and environment themes.
 - [Keybindings](./keybindings.md) — Shortcuts, `keybindings.json` syntax, `when` conditions, and hardware keyboards.
 - [Keyboard focus](./keyboard-focus.md) — Full keyboard workspace navigation (`F6`, sidebar, and settings).

@@ -28,6 +28,7 @@ import {
   NotificationChannelSetEnabledInput,
 } from "./notifications.ts";
 import { DecisionConsentSetInput, DecisionsError, DecisionsStatus } from "./decisions.ts";
+import { MemoryEmbeddingsStatus } from "./memory.ts";
 import {
   MessagePin,
   MessagePinInput,
@@ -50,6 +51,7 @@ export const CMDECK_WS_METHODS = {
   notificationsSubscribeAlerts: "cmdeck.notifications.subscribeAlerts",
   decisionsStatus: "cmdeck.decisions.status",
   decisionsSetConsent: "cmdeck.decisions.setConsent",
+  memoryEmbeddingsStatus: "cmdeck.memory.embeddingsStatus",
   messagePinsList: "cmdeck.messagePins.list",
   messagePinsPin: "cmdeck.messagePins.pin",
   messagePinsUnpin: "cmdeck.messagePins.unpin",
@@ -138,6 +140,12 @@ const CmdeckDecisionsSetConsentRpc = Rpc.make(CMDECK_WS_METHODS.decisionsSetCons
   error: Schema.Union([DecisionsError, EnvironmentAuthorizationError]),
 });
 
+const CmdeckMemoryEmbeddingsStatusRpc = Rpc.make(CMDECK_WS_METHODS.memoryEmbeddingsStatus, {
+  payload: Schema.Struct({}),
+  success: MemoryEmbeddingsStatus,
+  error: EnvironmentAuthorizationError,
+});
+
 const MessagePinsFailure = Schema.Union([MessagePinsError, EnvironmentAuthorizationError]);
 
 const CmdeckMessagePinsListRpc = Rpc.make(CMDECK_WS_METHODS.messagePinsList, {
@@ -171,14 +179,29 @@ export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckNotificationsSubscribeAlertsRpc,
   CmdeckDecisionsStatusRpc,
   CmdeckDecisionsSetConsentRpc,
+  CmdeckMemoryEmbeddingsStatusRpc,
   CmdeckMessagePinsListRpc,
   CmdeckMessagePinsPinRpc,
   CmdeckMessagePinsUnpinRpc,
 );
 
-/** Spread into `CLIENT_GUARDED_RPC_SCOPES`; every fork method needs one. */
-export const FORK_RPC_SCOPES = {
+/**
+ * Reads: only the server checks these (spread into `RPC_REQUIRED_SCOPES`), like upstream reads, so
+ * clients read them with `request` from query atoms. A client-guarded method needs a command
+ * boundary, so a guarded read made from a query atom is refused on the client.
+ */
+export const FORK_RPC_READ_SCOPES = {
   [CMDECK_WS_METHODS.status]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.notificationChannelsList]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.decisionsStatus]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryEmbeddingsStatus]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.messagePinsList]: AuthOrchestrationReadScope,
+} as const;
+
+type ForkRpcTag = RpcGroup.Rpcs<typeof ForkWsRpcGroup>["_tag"];
+
+/** Spread into `CLIENT_GUARDED_RPC_SCOPES`; every fork method not in the read map needs one. */
+export const FORK_RPC_SCOPES = {
   // Entries are access records (pairings, tokens, secret reveals), so they need access scope.
   [CMDECK_WS_METHODS.auditList]: AuthAccessReadScope,
   [CMDECK_WS_METHODS.auditVerify]: AuthAccessReadScope,
@@ -187,15 +210,15 @@ export const FORK_RPC_SCOPES = {
   // Approving or installing a file lets the server run it, as saving one in the editor does.
   [CMDECK_WS_METHODS.workflowTrustApprove]: AuthTerminalOperateScope,
   [CMDECK_WS_METHODS.workflowPresetInstall]: AuthTerminalOperateScope,
-  [CMDECK_WS_METHODS.notificationChannelsList]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.notificationChannelsSetEnabled]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.notificationChannelsRemove]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.notificationsSubscribeAlerts]: AuthOrchestrationReadScope,
-  [CMDECK_WS_METHODS.decisionsStatus]: AuthOrchestrationReadScope,
   // Consent decides whether turn text may reach a model API, so only a settings writer grants it.
   [CMDECK_WS_METHODS.decisionsSetConsent]: AuthSettingsWriteScope,
-  [CMDECK_WS_METHODS.messagePinsList]: AuthOrchestrationReadScope,
   // A pin marks a thread for everyone on the server, as other thread changes do.
   [CMDECK_WS_METHODS.messagePinsPin]: AuthOrchestrationOperateScope,
   [CMDECK_WS_METHODS.messagePinsUnpin]: AuthOrchestrationOperateScope,
-} as const satisfies Record<RpcGroup.Rpcs<typeof ForkWsRpcGroup>["_tag"], AuthEnvironmentScope>;
+} as const satisfies Record<
+  Exclude<ForkRpcTag, keyof typeof FORK_RPC_READ_SCOPES>,
+  AuthEnvironmentScope
+>;

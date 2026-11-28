@@ -11,13 +11,39 @@ const decodeUpstreamSettings = Schema.decodeSync(ServerSettings.mapFields(Struct
 
 describe("cmdeck settings key", () => {
   it("decodes settings without a cmdeck key to the fork defaults", () => {
-    const defaults = { memoryEnabled: false, decisionModel: null, routingTierModels: {} };
+    const defaults = {
+      memoryEnabled: false,
+      decisionModel: null,
+      routingTierModels: {},
+      memoryEmbedder: null,
+      usageAlertPercents: [80],
+      approvalPolicy: {
+        denyCommands: [],
+        denyTools: [],
+        protectedPaths: [],
+        denyWritesOutsideWorkspace: false,
+      },
+    };
     expect(decodeServerSettings({}).cmdeck).toEqual(defaults);
     expect(decodeServerSettings({ cmdeck: {} }).cmdeck).toEqual(defaults);
     expect(decodeServerSettingsPatch({ cmdeck: {} })).toEqual({ cmdeck: {} });
     expect(decodeServerSettings({ cmdeck: { memoryEnabled: true } }).cmdeck.memoryEnabled).toBe(
       true,
     );
+  });
+
+  it("keeps usage alert thresholds whole percentages from 1 to 100", () => {
+    expect(
+      decodeServerSettings({ cmdeck: { usageAlertPercents: [] } }).cmdeck.usageAlertPercents,
+    ).toEqual([]);
+    expect(decodeServerSettingsPatch({ cmdeck: { usageAlertPercents: [50, 100] } })).toEqual({
+      cmdeck: { usageAlertPercents: [50, 100] },
+    });
+    for (const invalid of [0, 101, 79.5]) {
+      expect(() =>
+        decodeServerSettingsPatch({ cmdeck: { usageAlertPercents: [invalid] } }),
+      ).toThrow();
+    }
   });
 
   it("leaves CMDeck settings decodable by a client built from upstream's schema", () => {

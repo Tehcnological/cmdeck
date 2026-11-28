@@ -15,6 +15,7 @@ import * as Stream from "effect/Stream";
 import { WorkflowDefinitions } from "../../workflows/WorkflowRuntime.ts";
 import * as AuditLog from "../audit/AuditLog.ts";
 import { Decisions } from "../decisions/Decisions.ts";
+import { MemoryEmbeddings } from "../memory/MemoryEmbeddings.ts";
 import { installPreset } from "../presets/install.ts";
 import { WorkflowTrust } from "../workflowTrust/WorkflowTrust.ts";
 import * as Notifications from "../notifications/Notifications.ts";
@@ -34,6 +35,7 @@ export const make = Effect.gen(function* () {
   const noDecisions = Effect.fail(
     new DecisionsError({ detail: "The decision service is not available." }),
   );
+  const embeddings = yield* Effect.serviceOption(MemoryEmbeddings);
   const pins = yield* Effect.serviceOption(MessagePins);
   const noPins = Effect.fail(new MessagePinsError({ reason: "unavailable" }));
   return ForkWsRpcGroup.of({
@@ -66,6 +68,16 @@ export const make = Effect.gen(function* () {
       Option.isSome(decisions) ? decisions.value.status : noDecisions,
     [CMDECK_WS_METHODS.decisionsSetConsent]: (input) =>
       Option.isSome(decisions) ? decisions.value.setConsent(input) : noDecisions,
+    [CMDECK_WS_METHODS.memoryEmbeddingsStatus]: () =>
+      Option.isSome(embeddings)
+        ? embeddings.value.status
+        : Effect.succeed({
+            mode: "keyword" as const,
+            embedder: null,
+            embedded: 0,
+            total: 0,
+            checkedAt: null,
+          }),
     [CMDECK_WS_METHODS.messagePinsList]: (input) =>
       Option.isSome(pins) ? pins.value.list(input.threadId) : noPins,
     [CMDECK_WS_METHODS.messagePinsPin]: (input) =>

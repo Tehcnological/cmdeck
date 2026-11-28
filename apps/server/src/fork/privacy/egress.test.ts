@@ -21,6 +21,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 import * as Sink from "effect/Sink";
 import * as SqlClient from "effect/sql/SqlClient";
 import * as Stream from "effect/Stream";
@@ -56,6 +57,8 @@ import { generators, LOCAL_GENERATOR } from "../decisions/decisions.testkit.ts";
 import { narrower } from "../decisions/points/memoryNarrowing.ts";
 import { annotateApproval } from "../decisions/points/riskAnnotation.ts";
 import { decideWake } from "../decisions/points/wakeSuppression.ts";
+import * as UsageAlerts from "../usageAlerts/UsageAlerts.ts";
+import { claudeAtPercent, layerUsageAlertsTest } from "../usageAlerts/usageAlerts.testkit.ts";
 
 vi.mock("@anthropic-ai/claude-agent-sdk", { spy: true });
 
@@ -385,6 +388,27 @@ it.effect("notifications start no milestone subscription or timer without an ena
     );
   }),
 );
+it.effect("usage alerts raise nothing and keep no state without an enabled channel", () =>
+  Effect.gen(function* () {
+    const providers = yield* Ref.make<ReadonlyArray<ServerProvider>>([claudeAtPercent(99)]);
+    let sends = 0;
+    const channel: Notifications.NotificationChannelDriver = {
+      kind: "test",
+      send: () => Effect.sync(() => void (sends += 1)),
+    };
+    yield* Effect.gen(function* () {
+      const notifications = yield* Notifications.Notifications;
+      const sql = yield* SqlClient.SqlClient;
+      yield* notifications.addChannel({ kind: "test", name: "Off", enabled: false });
+      expect(yield* (yield* UsageAlerts.UsageAlerts).check).toBe(0);
+      const rows = yield* sql<{
+        readonly n: number;
+      }>`SELECT COUNT(*) AS n FROM usage_alert_windows`;
+      expect(rows[0]?.n).toBe(0);
+      expect(sends).toBe(0);
+    }).pipe(Effect.provide(layerUsageAlertsTest({ providers, drivers: [channel] })));
+  }),
+);
 describe("memory", () => {
   it.layer(layerMemoryToolsTest({ memoryEnabled: false }))((it) => {
     it.effect("disabled means inert: no injection, no turn records, and its tools refuse", () =>
@@ -420,6 +444,44 @@ describe("memory", () => {
           expect(result.isError).toBe(true);
           expect(JSON.stringify(result.content)).toContain("Memory is off");
         }
+      }),
+    );
+  });
+});
+
+describe("memory embeddings", () => {
+  const requests: Array<string> = [];
+  const recording = HttpClient.make((request) => {
+    requests.push(request.url);
+    return Effect.succeed(HttpClientResponse.fromWeb(request, Response.json({ data: [] })));
+  });
+  it.layer(layerMemoryToolsTest({ memoryEnabled: true, embedder: recording }))((it) => {
+    it.effect("with no embedder chosen, search and turn context stay on keywords offline", () =>
+      Effect.gen(function* () {
+        const store = yield* MemoryStore.MemoryStore;
+        const turnContext = yield* TurnContext.TurnContext;
+        yield* store.remember({
+          context: yield* store.threadContext(threads.main),
+          scope: "global",
+          kind: "fact",
+          content: "Use pnpm, not npm",
+          actor: "user",
+        });
+        const block = yield* turnContext.contribute({
+          thread: threads.main,
+          runId: RunId.make("run-memory-keywords"),
+          message: { text: "Use pnpm?", createdBy: "user" },
+          inject: true,
+        });
+        expect(block).toContain("Use pnpm, not npm");
+        const result = yield* McpServer.McpServer.pipe(
+          Effect.flatMap((server) =>
+            server.callTool({ name: "memory_search", arguments: { query: "pnpm" } }),
+          ),
+          asAgentIn(),
+        );
+        expect(result.isError).toBe(false);
+        expect(requests).toEqual([]);
       }),
     );
   });
