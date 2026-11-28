@@ -1,17 +1,16 @@
-import { requestGuarded } from "@t3tools/client-runtime/rpc";
 import {
-  createEnvironmentQueryAtomFamily,
   createEnvironmentRpcCommand,
+  createEnvironmentRpcQueryAtomFamily,
 } from "@t3tools/client-runtime/state/runtime";
 import { CMDECK_WS_METHODS } from "@t3tools/contracts";
 
 import { connectionAtomRuntime } from "../connection/runtime";
 
 /** One list per environment, shared by the settings section and every sidebar badge. */
-export const botList = createEnvironmentQueryAtomFamily(connectionAtomRuntime, {
+export const botList = createEnvironmentRpcQueryAtomFamily(connectionAtomRuntime, {
   label: "environment-data:cmdeck:bots",
+  tag: CMDECK_WS_METHODS.botsList,
   staleTimeMs: 60_000,
-  execute: () => requestGuarded(CMDECK_WS_METHODS.botsList, {}),
 });
 
 export const createBot = createEnvironmentRpcCommand(connectionAtomRuntime, {

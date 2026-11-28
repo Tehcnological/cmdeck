@@ -220,6 +220,7 @@ export const FORK_RPC_READ_SCOPES = {
   [CMDECK_WS_METHODS.status]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.notificationChannelsList]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.decisionsStatus]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.botsList]: AuthOrchestrationReadScope,
 } as const;
 
 type ForkRpcTag = RpcGroup.Rpcs<typeof ForkWsRpcGroup>["_tag"];
@@ -239,7 +240,6 @@ export const FORK_RPC_SCOPES = {
   [CMDECK_WS_METHODS.notificationsSubscribeAlerts]: AuthOrchestrationReadScope,
   // Consent decides whether turn text may reach a model API, so only a settings writer grants it.
   [CMDECK_WS_METHODS.decisionsSetConsent]: AuthSettingsWriteScope,
-  [CMDECK_WS_METHODS.botsList]: AuthOrchestrationReadScope,
   // A bot is a thread plus scheduled tasks, so changing one needs what those commands need.
   [CMDECK_WS_METHODS.botsCreate]: AuthOrchestrationOperateScope,
   [CMDECK_WS_METHODS.botsUpdate]: AuthOrchestrationOperateScope,
