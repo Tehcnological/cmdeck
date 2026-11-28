@@ -1,0 +1,3 @@
+# WI-3.10: provider processes get only the AWS variables their instance declares.
+packages/provider-core/src/server/instanceEnvironment.ts:for \(const name of Object\.keys\(hostEnv\)\) if \(/\^aws_/i\.test\(name\)\) hostEnv\[name\] = undefined;
+packages/provider-core/src/server/instanceEnvironment.ts:if \(inherited\.toUpperCase\(\) === name\) next\[inherited\] = undefined;
