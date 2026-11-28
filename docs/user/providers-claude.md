@@ -64,7 +64,7 @@ Rows you leave empty are not saved, and Claude Code uses its own default for the
 - **Expiring sign-ins**: set `awsAuthRefresh` in Claude Code's settings to a command such as `aws sso login --profile <name>` and Claude Code runs it when the credentials expire.
 - **Bedrock API keys** work too: put a short-term key in `AWS_BEARER_TOKEN_BEDROCK` and mark it **Sensitive**. Short-term keys last up to 12 hours and work in one Region.
 - **More options**, such as application inference profiles, service tiers and Guardrails, are set the same way; see [Claude Code on Amazon Bedrock](https://code.claude.com/docs/en/amazon-bedrock). Its `/setup-bedrock` wizard also works.
-- **Keep AWS out of other agents**: agents inherit the environment CMDeck was started with, so don't export AWS credentials or `AWS_PROFILE` in that shell. Give AWS settings only to the instances that need them.
+- **AWS settings stay with the instance**: agents get no `AWS_*` variable (including `AWS_BEARER_TOKEN_BEDROCK`) from the environment CMDeck was started with, only the ones their instance declares. If your Bedrock setup relied on `AWS_PROFILE`, `AWS_REGION` or keys exported in that shell, add them to the instance's **Environment → Variables**. Other variables such as `CLAUDE_CODE_USE_BEDROCK` are still inherited; with no AWS variables of its own, Claude Code then falls back to your default AWS profile and Region.
 
 The instance's status then shows **Amazon Bedrock**. For AWS tools, costs and remote machines, see [AWS](./aws.md).
 

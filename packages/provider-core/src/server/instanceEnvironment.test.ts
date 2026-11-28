@@ -165,6 +165,63 @@ describe("mergeProviderInstanceEnvironment", () => {
     }),
   );
 
+  describe("AWS variables", () => {
+    const inherited = {
+      AWS_PROFILE: "admin",
+      aws_profile: "admin-lower",
+      AWS_SECRET_ACCESS_KEY: "secret",
+      AWS_BEARER_TOKEN_BEDROCK: "bearer",
+      CLAUDE_CODE_USE_BEDROCK: "1",
+      PATH: "/bin",
+    };
+    // What a spawn that extends the parent environment would pass on.
+    const spawned = (env: NodeJS.ProcessEnv) =>
+      Object.fromEntries(
+        Object.entries({ ...inherited, ...env }).filter(([, value]) => value !== undefined),
+      );
+
+    it.effect.each(["linux", "win32"] as const)(
+      "drops inherited AWS variables, in any casing, from an instance that declares none on %s",
+      (platform) =>
+        Effect.gen(function* () {
+          for (const environment of [
+            undefined,
+            [{ name: "CUSTOM_VALUE", value: "set", sensitive: false }],
+          ]) {
+            const merged = yield* mergeProviderInstanceEnvironment(environment, inherited);
+            expect(spawned(merged)).toEqual({
+              ...TELEMETRY_OPT_OUT_ENV,
+              CLAUDE_CODE_USE_BEDROCK: "1",
+              PATH: "/bin",
+              ...(environment ? { CUSTOM_VALUE: "set" } : {}),
+            });
+          }
+        }).pipe(Effect.provideService(HostProcess.Platform, platform)),
+    );
+
+    it.effect.each(["linux", "win32"] as const)(
+      "gives a Bedrock instance exactly its declared AWS variables on %s",
+      (platform) =>
+        Effect.gen(function* () {
+          const merged = yield* mergeProviderInstanceEnvironment(
+            [
+              { name: "AWS_PROFILE", value: "bedrock", sensitive: false },
+              { name: "AWS_REGION", value: "us-west-2", sensitive: false },
+            ],
+            inherited,
+          );
+          const aws = Object.entries(spawned(merged)).filter(([name]) =>
+            name.toUpperCase().startsWith("AWS_"),
+          );
+          expect(Object.fromEntries(aws)).toEqual({
+            AWS_PROFILE: "bedrock",
+            AWS_REGION: "us-west-2",
+          });
+          expect(spawned(merged)).toMatchObject({ CLAUDE_CODE_USE_BEDROCK: "1", PATH: "/bin" });
+        }).pipe(Effect.provideService(HostProcess.Platform, platform)),
+    );
+  });
+
   it.effect.each([
     { label: "process.env", baseEnv: undefined },
     { label: "a passed base environment", baseEnv: { PATH: "/bin" } },
