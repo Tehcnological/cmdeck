@@ -1,3 +1,7 @@
+// @effect-diagnostics nodeBuiltinImport:off -- the code review test builds a repository with the git CLI.
+import * as NodeChildProcess from "node:child_process";
+import * as NodeURL from "node:url";
+
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
@@ -15,10 +19,12 @@ import WorkflowMailSenderMigration from "../../persistence/Migrations/117_Workfl
 import WorkflowPoolsMigration from "../../persistence/Migrations/118_WorkflowPools.ts";
 import WorkflowRunSubjectMigration from "../../persistence/Migrations/119_WorkflowRunSubject.ts";
 import { type AgentResult, WorkflowAgents } from "../../workflows/WorkflowAgents.ts";
+import { unavailable, WorkflowForge } from "../../workflows/WorkflowForge.ts";
 import * as WorkflowEngine from "../../workflows/WorkflowEngine.ts";
 import { loadDefinitions } from "../../workflows/WorkflowRuntime.ts";
 import * as Workflows from "../../workflows/Workflows.ts";
 import type { WorkflowRun } from "../../workflows/WorkflowStore.ts";
+import { CODE_REVIEW, CODE_REVIEW_LIB } from "./code-review.ts";
 import { PRESETS, type WorkflowPreset } from "./manifest.ts";
 import { RESEARCH_LAB } from "./research-lab.ts";
 import { TASK_RUNNER } from "./task-runner.ts";
@@ -35,6 +41,7 @@ let loads = 0;
 const presetServer = Effect.fnUntraced(function* (
   preset: WorkflowPreset,
   agent: (turn: Turn) => Effect.Effect<Partial<AgentResult>>,
+  forge?: WorkflowForge["Service"],
 ) {
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -79,6 +86,9 @@ const presetServer = Effect.fnUntraced(function* (
               Effect.flatMap(Workflows.Workflows, use),
               WorkflowEngine.layer(definitions).pipe(
                 Layer.provide(Layer.succeed(WorkflowAgents, agents)),
+                Layer.provide(
+                  forge === undefined ? Layer.empty : Layer.succeed(WorkflowForge, forge),
+                ),
                 Layer.provide(database),
                 Layer.provide(NodeCrypto.layer),
               ),
@@ -504,5 +514,414 @@ it.effect(
         "source",
         "follow",
       ]);
+    }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+);
+
+interface RiskFile {
+  readonly path: string;
+  readonly added: number;
+  readonly removed: number;
+  readonly binary: boolean;
+  readonly guardRemovals: number;
+  readonly importFanout: number;
+}
+interface Risk {
+  readonly rating: "SMALL" | "MEDIUM" | "LARGE";
+  readonly flags: ReadonlyArray<{ readonly path: string; readonly kind: string }>;
+}
+interface CodeReviewLib {
+  readonly riskOf: (files: ReadonlyArray<RiskFile>) => Risk;
+  readonly fileSignals: (patch: string) => { guardRemovals: number; importFanout: number };
+  readonly pickReviewer: (
+    reviewers: ReadonlyArray<{ instanceId: string; model: string }>,
+    writer: string,
+  ) => { instanceId: string; model: string } | undefined;
+}
+
+/** The code review preset's own rules, loaded from the text that ships. */
+const codeReviewLib = Effect.fnUntraced(function* () {
+  const fileSystem = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-code-review-" });
+  const file = path.join(directory, "lib.mjs");
+  yield* fileSystem.writeFileString(
+    file,
+    `${CODE_REVIEW_LIB}\nexport { riskOf, fileSignals, pickReviewer };\n`,
+  );
+  return yield* Effect.promise(
+    () => import(NodeURL.pathToFileURL(file).href) as Promise<CodeReviewLib>,
+  );
+});
+
+const file = (path: string, lines = 10, extra: Partial<RiskFile> = {}): RiskFile => ({
+  path,
+  added: lines,
+  removed: 0,
+  binary: false,
+  guardRemovals: 0,
+  importFanout: 0,
+  ...extra,
+});
+
+it.effect("the code review risk rules rate a change from its files alone", () =>
+  Effect.gen(function* () {
+    const { riskOf, fileSignals } = yield* codeReviewLib();
+    const table: ReadonlyArray<
+      readonly [string, ReadonlyArray<RiskFile>, Risk["rating"], ReadonlyArray<string>]
+    > = [
+      ["a small ordinary change", [file("src/math.ts", 20)], "SMALL", []],
+      ["80 lines of ordinary code", [file("src/a.ts", 40), file("src/b.ts", 40)], "MEDIUM", []],
+      ["300 lines of ordinary code", [file("src/a.ts", 300)], "LARGE", []],
+      ["a sensitive path, small", [file("src/auth/login.ts", 5)], "MEDIUM", ["sensitive"]],
+      ["a sensitive path with churn", [file("src/session.ts", 30)], "LARGE", ["sensitive"]],
+      [
+        "a sensitive path losing a guard",
+        [file("db/migrations/7.sql", 2, { guardRemovals: 1 })],
+        "LARGE",
+        ["sensitive"],
+      ],
+      ["CI configuration", [file(".github/workflows/ci.yml", 3)], "MEDIUM", ["ci"]],
+      [
+        "a lockfile's churn is not lines",
+        [file("package-lock.json", 5000), file("src/a.ts", 2)],
+        "MEDIUM",
+        ["lockfile"],
+      ],
+      ["a binary file", [file("assets/logo.png", 0, { binary: true })], "MEDIUM", ["binary"]],
+      ["one very large file", [file("src/generated.ts", 600)], "LARGE", ["large"]],
+      ["three removed guards", [file("src/a.ts", 6, { guardRemovals: 3 })], "LARGE", []],
+      ["six new imports", [file("src/a.ts", 6, { importFanout: 6 })], "MEDIUM", []],
+    ];
+    for (const [name, files, rating, kinds] of table) {
+      const risk = riskOf(files);
+      assert.equal(risk.rating, rating, name);
+      assert.deepStrictEqual(
+        [...new Set(risk.flags.map((flag) => flag.kind))],
+        [...kinds],
+        `${name}: flags`,
+      );
+    }
+    assert.deepStrictEqual(
+      fileSignals(
+        [
+          "--- a/x.ts",
+          "+++ b/x.ts",
+          "@@ -1,3 +1,3 @@",
+          "-  if (user === null) return;",
+          "-  throw new Error('no');",
+          "-  const a = 1;",
+          '+import { b } from "./b";',
+          "+const c = 2;",
+        ].join("\n"),
+      ),
+      { guardRemovals: 2, importFanout: 1 },
+    );
+  }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+);
+
+it.effect("the code review picks a reviewer from another provider than the writer's", () =>
+  Effect.gen(function* () {
+    const { pickReviewer } = yield* codeReviewLib();
+    const claude = { instanceId: "claudeAgent", model: "claude-opus-5-5" };
+    const codex = { instanceId: "codex", model: "gpt-6.1-terra" };
+    assert.deepStrictEqual(pickReviewer([claude, codex], "Made with Claude Code"), codex);
+    assert.deepStrictEqual(pickReviewer([claude, codex], "t3/fix-login\nWritten by Codex"), claude);
+    // Nothing says who wrote it: the first choice.
+    assert.deepStrictEqual(pickReviewer([claude, codex], "Fix the login."), claude);
+    // Only the writer's provider is listed: better a review than none.
+    assert.deepStrictEqual(pickReviewer([claude], "Made with Claude Code"), claude);
+    assert.equal(pickReviewer([], "anything"), undefined);
+  }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+);
+
+it.effect(
+  "the code review drafts a review a person posts, then reviews only the commits after it",
+  () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-code-review-git-" });
+      const git = (cwd: string, ...args: ReadonlyArray<string>) =>
+        NodeChildProcess.execFileSync(
+          "git",
+          [
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "commit.gpgsign=false",
+            ...args,
+          ],
+          { cwd, encoding: "utf8" },
+        ).trim();
+      const write = (cwd: string, name: string, text: string) =>
+        fileSystem
+          .makeDirectory(path.dirname(path.join(cwd, name)), { recursive: true })
+          .pipe(Effect.andThen(fileSystem.writeFileString(path.join(cwd, name), text)));
+      // The host's copy of the repository, and the project's checkout of it.
+      const host = path.join(root, "host");
+      const checkout = path.join(root, "app");
+      yield* fileSystem.makeDirectory(host);
+      git(host, "init", "-q", "-b", "main");
+      yield* write(host, "README.md", "app\n");
+      git(host, "add", ".");
+      git(host, "commit", "-q", "-m", "start");
+      git(host, "checkout", "-q", "-b", "feature");
+      yield* write(host, "src/auth/login.ts", "export const login = (user) => user.name;\n");
+      yield* write(host, "package-lock.json", '{ "lockfileVersion": 3 }\n');
+      git(host, "add", ".");
+      git(host, "commit", "-q", "-m", "login");
+      const first = git(host, "rev-parse", "HEAD");
+      git(root, "clone", "-q", host, checkout);
+
+      let headSha = first;
+      const posted: Array<string> = [];
+      const url = "https://github.com/acme/app/pull/7";
+      const forge = WorkflowForge.of({
+        ...unavailable,
+        pullRequests: {
+          ...unavailable.pullRequests,
+          read: () =>
+            Effect.sync(
+              () =>
+                ({
+                  number: 7,
+                  title: "Add login",
+                  body: `Made with Claude Code. ${injected("body")}`,
+                  url,
+                  state: "open",
+                  headSha,
+                  headBranch: "feature",
+                  baseBranch: "main",
+                  author: { login: "someone", name: null, avatarUrl: null },
+                  workspaceRoot: checkout,
+                  checks: [
+                    { name: "unit", status: "failure", description: null, url: null },
+                    { name: "lint", status: "success", description: null, url: null },
+                  ],
+                }) as never,
+            ),
+          comment: (_pullRequest, body) => Effect.sync(() => void posted.push(body)),
+        },
+      });
+      const review = {
+        summary: "Adds a login helper. Ask @someone about it.",
+        findings: [
+          {
+            path: "src/auth/login.ts",
+            line: 1,
+            severity: "must-fix",
+            title: "login crashes without a user",
+            detail: "user is undefined -> reading name throws -> the page fails.",
+          },
+        ],
+      };
+      const { turns, boot } = yield* presetServer(
+        CODE_REVIEW,
+        () => Effect.succeed({ output: review }),
+        forge,
+      );
+      const input = {
+        project: "/home/user/app",
+        url,
+        reviewers: [
+          { instanceId: "claudeAgent", model: "claude-opus-5-5" },
+          { instanceId: "codex", model: "gpt-6.1-terra" },
+        ],
+      };
+      const finished = (run: WorkflowRun) => ended(run) || run.status === "skipped";
+
+      const discarded = yield* boot((workflows) =>
+        Effect.gen(function* () {
+          const { runId } = yield* workflows.start("code-review", input, { idempotencyKey: "1" });
+          yield* workflows.waitFor(runId, askedAt("approve"));
+          const [question] = (yield* workflows.questions).filter((asked) => asked.runId === runId);
+          const body = String(
+            (question?.request as { data?: { body?: unknown } } | undefined)?.data?.body,
+          );
+          // Clients show only data.body: it is exactly what would be posted.
+          assert.include(body, "login crashes without a user");
+          assert.include(body, "src/auth/login.ts:1");
+          assert.include(body, "@\u2060someone");
+          assert.include(body, "Risk: medium (1 lockfile, 1 sensitive)");
+          yield* workflows.answer(runId, "approve", { choice: "discard" });
+          return yield* workflows.waitFor(runId, finished);
+        }),
+      );
+      assert.equal(discarded.status, "completed");
+      assert.deepStrictEqual(posted, []);
+      const [firstTurn] = turns;
+      // Another provider than the writer's, on its own checkout of the head, asking before acting.
+      assert.deepStrictEqual(firstTurn?.model, input.reviewers[1]);
+      assert.deepStrictEqual(firstTurn?.launch?.workspace, { type: "worktree", baseRef: first });
+      assert.equal(firstTurn?.launch?.runtimeMode, "approval-required");
+      assert.include(firstTurn?.prompt, "Review the whole change");
+      assert.include(firstTurn?.prompt, "export const login");
+      assert.include(firstTurn?.prompt, "(lockfile diff left out)");
+      assert.include(firstTurn?.prompt, "ci_logs");
+      assertDefused(firstTurn?.prompt, ["body"]);
+
+      // A new commit: only it is reviewed, and a person approves posting the review.
+      yield* write(host, "src/util.ts", "export const twice = (n) => n * 2;\n");
+      git(host, "add", ".");
+      git(host, "commit", "-q", "-m", "util");
+      headSha = git(host, "rev-parse", "HEAD");
+      const approved = yield* boot((workflows) =>
+        Effect.gen(function* () {
+          const { runId } = yield* workflows.start("code-review", input, { idempotencyKey: "2" });
+          yield* workflows.waitFor(runId, askedAt("approve"));
+          yield* workflows.answer(runId, "approve", { choice: "post" });
+          return yield* workflows.waitFor(runId, finished);
+        }),
+      );
+      assert.equal(approved.status, "completed");
+      assert.equal(posted.length, 1);
+      assert.include(posted[0], `<!-- cmdeck-code-review ${headSha} -->`);
+      assert.include(posted[0], `the commits after ${first.slice(0, 7)}`);
+      const secondTurn = turns[1];
+      assert.include(secondTurn?.prompt, "Review ONLY what the new commits");
+      assert.include(secondTurn?.prompt, "export const twice");
+      assert.notInclude(secondTurn?.prompt, "export const login");
+
+      // The same head again is not reviewed twice.
+      const again = yield* boot((workflows) =>
+        Effect.gen(function* () {
+          const { runId } = yield* workflows.start("code-review", input, { idempotencyKey: "3" });
+          return yield* workflows.waitFor(runId, finished);
+        }),
+      );
+      assert.equal(again.status, "skipped");
+      assert.equal(turns.length, 2);
+
+      // With auto-post on, the review is posted unasked.
+      yield* write(host, "src/util.ts", "export const twice = (n) => n + n;\n");
+      git(host, "add", ".");
+      git(host, "commit", "-q", "-m", "util again");
+      headSha = git(host, "rev-parse", "HEAD");
+      const auto = yield* boot((workflows) =>
+        Effect.gen(function* () {
+          const { runId } = yield* workflows.start(
+            "code-review",
+            { ...input, autoPost: true },
+            { idempotencyKey: "4" },
+          );
+          return yield* workflows.waitFor(runId, finished);
+        }),
+      );
+      assert.equal(auto.status, "completed");
+      assert.equal(posted.length, 2);
+      assert.include(posted[1], `<!-- cmdeck-code-review ${headSha} -->`);
+    }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+);
+
+it.effect(
+  "the code review sweep starts reviews for new pull requests and ones reviewed before, once per head",
+  () =>
+    Effect.gen(function* () {
+      // After any sweep this test runs, so the pull request counts as opened after the setup.
+      const later = "2999-01-01T00:00:00Z";
+      const row = (number: number, createdAt: string, isDraft = false) => ({
+        projectId: "project-1",
+        host: "github.com",
+        repository: "acme/app",
+        number,
+        title: `PR ${number}`,
+        url: `https://github.com/acme/app/pull/${number}`,
+        isDraft,
+        createdAt,
+        updatedAt: createdAt,
+      });
+      const rows = [
+        row(1, "2020-01-01T00:00:00Z"),
+        row(2, "2020-01-01T00:00:00Z"),
+        row(3, later, true),
+        row(4, later),
+      ];
+      const reads: Array<number> = [];
+      const forge = WorkflowForge.of({
+        ...unavailable,
+        pullRequests: {
+          ...unavailable.pullRequests,
+          list: () => Effect.succeed(rows as never),
+          read: (pullRequest) =>
+            Effect.sync(() => {
+              // The sweep reads listing rows; the reviews it starts read by address.
+              const number = "number" in pullRequest ? pullRequest.number : 0;
+              if (number !== 0) reads.push(number);
+              // Those reviews find the pull request closed and end there.
+              return { number, headSha: `sha${number}`, state: "closed" } as never;
+            }),
+        },
+      });
+      const { boot } = yield* presetServer(
+        CODE_REVIEW,
+        () => Effect.die("no review runs here"),
+        forge,
+      );
+      const finished = (run: WorkflowRun) => ended(run) || run.status === "skipped";
+      const sweep = (key: string) =>
+        boot((workflows) =>
+          Effect.gen(function* () {
+            const { runId } = yield* workflows.start(
+              "code-review-sweep",
+              { scheduledAt: "2026-01-01T00:00:00Z" },
+              { idempotencyKey: key },
+            );
+            return yield* workflows.waitFor(runId, finished);
+          }),
+        );
+
+      // Nothing set up: nothing asked of the host.
+      const idle = yield* sweep("idle");
+      assert.equal(idle.status, "skipped");
+      assert.deepStrictEqual(reads, []);
+
+      yield* boot((workflows) =>
+        Effect.gen(function* () {
+          yield* workflows.storeSet("code-review/project/app", {
+            project: "/home/user/app",
+            autoPost: true,
+          });
+          yield* workflows.storeSet("code-review/project/typo", { projekt: "/home/user/app" });
+          yield* workflows.storeSet(`code-review/reviewed/${rows[1]!.url}`, {
+            sha: "old",
+            at: "2020-01-02T00:00:00Z",
+          });
+        }),
+      );
+      const first = yield* sweep("first");
+      assert.equal(first.status, "completed");
+      const swept = first.result as {
+        readonly started: ReadonlyArray<string>;
+        readonly failed: ReadonlyArray<string>;
+      };
+      // #1 predates the setup, #3 is a draft; #2 was reviewed before and #4 is new.
+      assert.deepStrictEqual(swept.started, [rows[1]!.url, rows[3]!.url]);
+      assert.equal(swept.failed.length, 1);
+      assert.include(swept.failed[0], "code-review/project/typo");
+      assert.deepStrictEqual(reads.toSorted(), [2, 4]);
+
+      // Nothing moved: the host is listed, but no pull request is read again.
+      const second = yield* boot((workflows) =>
+        Effect.gen(function* () {
+          yield* workflows.storeDelete("code-review/project/typo");
+          const { runId } = yield* workflows.start(
+            "code-review-sweep",
+            { scheduledAt: "2026-01-01T00:05:00Z" },
+            { idempotencyKey: "second" },
+          );
+          const run = yield* workflows.waitFor(runId, finished);
+          const reviews = (yield* workflows.list()).filter(
+            (listed) => listed.workflow === "code-review",
+          );
+          return { run, reviews };
+        }),
+      );
+      assert.equal(second.run.status, "skipped");
+      assert.deepStrictEqual(reads.toSorted(), [2, 4]);
+      assert.equal(second.reviews.length, 2);
+      const autoPosted = second.reviews.every((run) => JSON.stringify(run).includes("auto-post"));
+      assert.isTrue(autoPosted);
     }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
 );

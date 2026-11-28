@@ -13711,5 +13711,7 @@
   "cece6bf3062fedd8": "Un dossier ou un fichier sur la machine qui exécute CMDeck, absolu ou relatif au projet. Votre dossier personnel, les racines de disque et les dossiers système sont refusés.",
   "121a95b8ac4d0e6f": "Utiliser ce dossier",
   "d67c9ee138a6cca4": "Réindexer",
-  "a9056ad2ee413a15": "connaissances notes bibliothèque sources index documents dossiers recherche"
+  "a9056ad2ee413a15": "connaissances notes bibliothèque sources index documents dossiers recherche",
+  "a56c0d90f899c01a": "Ajouter le workflow Code Review",
+  "65de79404a954a40": "Impossible d’ajouter le workflow Code Review"
 }

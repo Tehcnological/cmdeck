@@ -79,6 +79,7 @@ T3 Code is an open-source control plane for coding agents. It gives the coding a
 - [Workflows](./workflows.md) — Durable multi-stage TypeScript workflows (Labs) with schedules, webhooks, and approvals.
 - [Task Runner](./task-runner.md) — A ready-made workflow that plans, runs, checks and reviews a change task by task.
 - [Research Lab](./research-lab.md) — A ready-made workflow that researches a question in parallel cycles and writes a report.
+- [Code Review](./code-review.md) — A ready-made workflow that reviews pull requests with another model and drafts the review for you to post.
 - [Text generation models](./text-generation.md) — Fast/cheap API models for titles, commits, PR descriptions, and voice cleanup.
 - [Bots](./bots.md) — Persistent agents with a pinned thread, standing instructions, private memory, and schedules.
 - [Decision service](./decisions.md) — How scheduled tasks pick a model under usage limits, and opt-in local models for small decisions.

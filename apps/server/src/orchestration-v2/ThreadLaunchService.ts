@@ -354,10 +354,11 @@ const make = Effect.gen(function* () {
 
   // Who sent a run's message asked for the run; preparing it again asks for the same run.
   const askedByAgent = (
-    thread: Pick<OrchestrationV2ThreadProjection["thread"], "createdBy">,
+    thread: Pick<OrchestrationV2ThreadProjection["thread"], "createdBy" | "workflowRun">,
     message: OrchestrationV2ThreadProjection["messages"][number] | undefined,
   ): Pick<PreparationInput, "askedByAgent"> =>
-    (message?.createdBy ?? thread.createdBy) === "agent"
+    // Workflow steps often check out unreviewed refs (a PR head): project code needs Full access.
+    (message?.createdBy ?? thread.createdBy) === "agent" || thread.workflowRun !== undefined
       ? { askedByAgent: { threadId: message?.senderThreadId } }
       : {};
 
@@ -1711,7 +1712,7 @@ const make = Effect.gen(function* () {
                     .pipe(Effect.mapError(mapError(input, "update-thread", threadId)))).messages;
             const askedBy =
               current === null || acceptedRun === undefined || acceptedMessages === null
-                ? input.createdBy === "agent"
+                ? input.createdBy === "agent" || input.workflowRun !== undefined
                   ? { askedByAgent: { threadId: input.initialMessage?.senderThreadId } }
                   : {}
                 : askedByAgent(

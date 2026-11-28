@@ -13711,5 +13711,7 @@
   "cece6bf3062fedd8": "Ein Ordner oder eine Datei auf dem Rechner, auf dem CMDeck läuft, absolut oder relativ zum Projekt. Dein Home-Ordner, Laufwerkswurzeln und Systemordner werden abgelehnt.",
   "121a95b8ac4d0e6f": "Ordner verwenden",
   "d67c9ee138a6cca4": "Neu indizieren",
-  "a9056ad2ee413a15": "wissen notizen bibliothek quellen index dokumente ordner suche"
+  "a9056ad2ee413a15": "wissen notizen bibliothek quellen index dokumente ordner suche",
+  "a56c0d90f899c01a": "Code-Review-Workflow hinzufügen",
+  "65de79404a954a40": "Code-Review-Workflow konnte nicht hinzugefügt werden"
 }

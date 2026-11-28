@@ -13720,5 +13720,7 @@
   "cece6bf3062fedd8": "A folder or file on the machine running CMDeck, absolute or relative to the project. Your home folder, drive roots and system folders are refused.",
   "121a95b8ac4d0e6f": "Use folder",
   "d67c9ee138a6cca4": "Reindex",
-  "a9056ad2ee413a15": "knowledge notes library sources index documents folders search"
+  "a9056ad2ee413a15": "knowledge notes library sources index documents folders search",
+  "a56c0d90f899c01a": "Add the Code Review workflow",
+  "65de79404a954a40": "Could not add the Code Review workflow"
 }

@@ -2309,6 +2309,43 @@ it.effect("replays an accepted launch after the project disables the instance", 
   }).pipe(Effect.provide(harness.layer));
 });
 
+it.effect("a workflow step below Full access never runs the project's setup script", () => {
+  const harness = makeHarness();
+  return Effect.gen(function* () {
+    const launches = yield* ThreadLaunch.ThreadLaunchService;
+    const launch = Effect.fnUntraced(function* (
+      name: string,
+      runtimeMode: "full-access" | "approval-required",
+    ) {
+      const launched = yield* launches.launch({
+        ...launchInput({
+          command: `command:workflow:${name}`,
+          thread: `thread:workflow:${name}`,
+          message: "Review this",
+          workspace: { type: "worktree", baseRef: "pr-head-sha" },
+        }),
+        runtimeMode,
+        createdBy: "system",
+        creationSource: "server",
+        workflowRun: {
+          environmentId: EnvironmentId.make("environment:local"),
+          runId: `run:${name}`,
+          workflow: "code-review",
+          step: "review",
+        },
+      });
+      return yield* preparationSettled(launched.threadId);
+    });
+
+    const review = yield* launch("review", "approval-required");
+    assert.equal(review.runs[0]?.status, "starting");
+    assert.equal(harness.runSetup.mock.calls.length, 0);
+
+    yield* launch("trusted", "full-access");
+    assert.equal(harness.runSetup.mock.calls.length, 1);
+  }).pipe(Effect.provide(harness.layer));
+});
+
 it.effect("an agent's launch never starts work above the modes it asks for", () => {
   const harness = makeHarness();
   return Effect.gen(function* () {

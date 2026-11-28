@@ -13711,5 +13711,7 @@
   "cece6bf3062fedd8": "Uma pasta ou arquivo na máquina que executa o CMDeck, absoluto ou relativo ao projeto. Sua pasta pessoal, raízes de unidade e pastas do sistema são recusadas.",
   "121a95b8ac4d0e6f": "Usar pasta",
   "d67c9ee138a6cca4": "Reindexar",
-  "a9056ad2ee413a15": "conhecimento notas biblioteca fontes índice documentos pastas pesquisa"
+  "a9056ad2ee413a15": "conhecimento notas biblioteca fontes índice documentos pastas pesquisa",
+  "a56c0d90f899c01a": "Adicionar o fluxo de trabalho Code Review",
+  "65de79404a954a40": "Não foi possível adicionar o fluxo de trabalho Code Review"
 }
