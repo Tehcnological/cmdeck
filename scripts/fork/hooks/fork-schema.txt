@@ -1,0 +1,3 @@
+# Fork tables are created from upstream's migrator; taking upstream's file drops them silently.
+apps/server/src/persistence/Migrations.ts:import \{ ensureForkSchema \} from "\./ForkSchema\.ts"
+apps/server/src/persistence/Migrations.ts:yield\* ensureForkSchema\(\)

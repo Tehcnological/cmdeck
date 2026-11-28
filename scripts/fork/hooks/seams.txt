@@ -1,0 +1,20 @@
+# Fork extension seams (docs/operations/fork-upstream-sync.md#where-fork-code-goes).
+apps/server/src/server.ts:Layer\.provideMerge\(ForkLayer\.layer\)
+apps/server/src/ws.ts:\.\.\.\(yield\* ForkRpcHandlers\.make\)
+apps/server/src/mcp/McpHttpServer.ts:ForkMcpToolkits\.layer\(toolkitRegistration\)
+packages/contracts/src/rpc.ts:\.merge\(ForkWsRpcGroup\)
+packages/contracts/src/clientRpcPermissions.ts:\.\.\.FORK_RPC_SCOPES,
+# Fork reads are checked by the server only, so query atoms can read them with `request`.
+apps/server/src/auth/RpcAuthorization.ts:\.\.\.FORK_RPC_READ_SCOPES,
+packages/contracts/src/index.ts:export \* from "\./fork/index\.ts";
+packages/contracts/src/settings.ts:cmdeck: CmdeckSettings\.pipe\(Schema\.withDecodingDefault
+packages/contracts/src/settings.ts:cmdeck: Schema\.optionalKey\(CmdeckSettingsPatch\)
+apps/web/src/components/CommandPalette.tsx:const forkCommandItems = useForkCommandItems\(\);
+apps/web/src/components/CommandPalette.tsx:actionItems\.push\(\.\.\.forkCommandItems\);
+# Fork sections on Settings pages come from apps/web/src/fork/settingsSectionModules.ts.
+apps/web/src/components/settings/SettingsPanels.tsx:import \{ ForkSettingsSections \} from "~/fork/settingsSections";
+apps/web/src/components/settings/SettingsPanels.tsx:<ForkSettingsSections page="general" />
+apps/web/src/components/settings/SettingsPanels.tsx:<ForkSettingsSections page="threads" />
+# Translation catalogs merge entry by entry (scripts/fork/merge-json-catalog.ts).
+.gitattributes:merge=cmdeck-json-catalog
+package.json:node scripts/fork/merge-json-catalog\.ts --install

@@ -1,0 +1,17 @@
+# WI-2.11: a scheduled task's check script decides whether its run wakes the agent.
+apps/server/src/scheduledTasks/webhookTemplate.ts:export const MENTION = 
+apps/server/src/scheduledTasks/ScheduledTaskService.ts:import \* as CheckScripts from "\.\./fork/checkScripts/CheckScripts\.ts";
+apps/server/src/scheduledTasks/ScheduledTaskService.ts:const checkScripts = yield\* CheckScripts\.CheckScripts;
+apps/server/src/scheduledTasks/ScheduledTaskService.ts:const checked = yield\* checkScripts\.gate\(
+apps/server/src/scheduledTasks/ScheduledTaskService.ts:checked\?\._tag === "Wake" \? checked\.prompt : \(webhook\?\.prompt \?\? active\.prompt\)
+apps/server/src/scheduledTasks/ScheduledTaskService.ts:const dispatchExit = CheckScripts\.exitAfter\(checked\);
+apps/server/src/scheduledTasks/ScheduledTaskService.ts:\? yield\* dispatchExit\( +threadLaunch
+apps/server/src/scheduledTasks/ScheduledTaskService.ts:: yield\* dispatchExit\( +// The stored selection
+apps/server/src/scheduledTasks/ScheduledTaskService.ts:\(checked\?\._tag !== "Failed" \|\| checked\.counts\) &&
+apps/server/src/scheduledTasks/ScheduledTaskService.ts:runTask\(task, "scheduled"\)\.pipe\(checkScripts\.runsAside\(task\.id, serviceScope\)\)
+apps/server/src/fork/schemas.ts:export \{ ensureCheckScriptsSchema \}
+apps/web/src/components/settings/ScheduledTasksSettings.tsx:import \{ ScheduledTaskCheckControl \} from "~/fork/ScheduledTaskCheck";
+apps/web/src/components/settings/ScheduledTasksSettings.tsx:<ScheduledTaskCheckControl environmentId=\{environmentId\} task=\{task\} />
+# WI-2.11: an agent changes a task's check only within the limits that editing the task needs.
+apps/server/src/mcp/OrchestratorMcpService.ts:readonly authorizeScheduledTaskChange: \( +scope: McpInvocationScope, +scheduledTaskId: ScheduledTask\["id"\], +\) => Effect\.Effect<ScheduledTask, OrchestratorMcpFailure>;
+apps/server/src/mcp/OrchestratorMcpService.ts:authorizeScheduledTaskChange: Effect\.fn\("OrchestratorMcpService\.authorizeScheduledTaskChange"\)\( +function\* \(scope, scheduledTaskId\) \{ +const \{ parent, limits \} = yield\* loadCaller\(scope, \["runs"\]\); +const existing = yield\* loadScheduledTask\(scheduledTaskId, limits\); +yield\* assertLiveCallerForOtherProject\(scope, parent, existing\.projectId\);

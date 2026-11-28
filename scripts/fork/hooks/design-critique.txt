@@ -1,0 +1,3 @@
+# WI-2.21: design-critique eval cases load the repo skill they test.
+evals/mcp-tool-use/run.ts:skill: Schema\.optional\(Schema\.String\),
+evals/mcp-tool-use/run.ts:: invokedSkillPrompt\(

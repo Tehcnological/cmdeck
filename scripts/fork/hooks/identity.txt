@@ -1,0 +1,23 @@
+apps/server/src/cloud/pinnedRuntime.ts:FORK_RUNTIME_MARKER_FILE
+apps/server/src/serviceLauncher.ts:FORK_RUNTIME_MARKER_FILE
+scripts/install.sh:\.cmdeck"
+scripts/install.ps1:"\.cmdeck"
+packages/ssh/src/tunnel.ts:T3_STAGING/\.cmdeck
+apps/server/src/server.ts:ForkAlerts\.layer
+apps/server/src/ws.ts:ForkAlerts\.configIssues
+packages/contracts/src/server.ts:fork\.shared-data
+apps/web/src/appInit.tsx:startForkSharedDataToasts
+apps/server/src/binCli.ts:importCommand,
+apps/server/src/ws.ts:T3Import\.importOfferIssues
+packages/contracts/src/server.ts:fork\.import-available
+apps/web/src/appInit.tsx:startForkImportOfferToast
+packages/shared/src/appIdentity.ts:APP_DISPLAY_NAME = "CMDeck"
+apps/server/src/os-jank.ts:APP_HOME_DIR_NAME
+apps/desktop/src/app/DesktopStatePaths.ts:APP_HOME_DIR_NAME
+apps/desktop/src/app/DesktopUserData.ts:DESKTOP_USER_DATA_DIR_NAME
+apps/server/src/cloud/bootService.ts:SERVICE_LAUNCHD_LABEL
+scripts/build-desktop-artifact.ts:com\.tehcnological\.cmdeck
+scripts/build-desktop-artifact.ts:owner: APP_RELEASE_OWNER, +repo: APP_RELEASE_REPO,
+apps/server/src/bin.ts:applyAppHomeEnv
+# The star prompt stars CMDeck's repository, not upstream's.
+apps/web/src/components/GitHubStarPrompt.tsx:const REPOSITORY = APP_RELEASE_REPOSITORY;

@@ -23,8 +23,10 @@ const MODE_FOR: Record<ThreadContainerAction, SandboxMode | null> = {
   "follow-project": null,
 };
 
+export const commandOrder = 60;
+
 /** Palette rows that move the open thread into or out of a container, once an image is set. */
-export function useContainerCommandItems(): ReadonlyArray<CommandPaletteActionItem> {
+export function useCommandItems(): ReadonlyArray<CommandPaletteActionItem> {
   const gt = useGT();
   const { activeThread } = useHandleNewThread();
   const statusAtom: StatusAtom =

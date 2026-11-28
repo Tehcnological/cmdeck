@@ -21,6 +21,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { McpSchema, Tool, Toolkit } from "effect/ai";
 
+import type { toolkitRegistration } from "../../mcp/McpHttpServer.ts";
 import * as McpInvocationContext from "../../mcp/McpInvocationContext.ts";
 import * as McpToolAccess from "../../mcp/McpToolAccess.ts";
 import * as ThreadManagementService from "../../orchestration-v2/ThreadManagementService.ts";
@@ -164,7 +165,7 @@ const WorkLedgerRecordTool = Tool.make("work_ledger_record", {
   .annotate(Tool.OpenWorld, false)
   .annotate(McpSchema.EnabledWhen, McpInvocationContext.hiddenFromOutsideClients);
 
-export const WorkLedgerToolkit = Toolkit.make(
+export const toolkit = Toolkit.make(
   WorkBriefTool,
   WorkReportTool,
   WorkLedgerReadTool,
@@ -212,7 +213,7 @@ const defined = (fields: Record<string, unknown>) =>
 
 // Built with the server's context: a runtime without WorkLedger (a tool-list test) refuses calls.
 export const layer = McpToolAccess.toLayer(
-  WorkLedgerToolkit,
+  toolkit,
   Effect.gen(function* () {
     const ledger = yield* Effect.serviceOption(WorkLedger.WorkLedger);
     const withCaller = Effect.fn("WorkLedgerTools.withCaller")(
@@ -299,6 +300,8 @@ export const layer = McpToolAccess.toLayer(
             .pipe(Effect.map((item) => ({ item: toLedgerItem(item) }))),
         ),
       ),
-    } satisfies McpToolAccess.Handlers<typeof WorkLedgerToolkit.tools>;
+    } satisfies McpToolAccess.Handlers<typeof toolkit.tools>;
   }),
 );
+
+export const register = (registration: typeof toolkitRegistration) => registration(toolkit, layer);

@@ -1,0 +1,3 @@
+# WI-2.04: bots list in Settings > Threads, and a badge on bot threads in the sidebar.
+apps/web/src/components/sidebar/SidebarThreadRow.tsx:import \{ BotThreadBadge \} from "\.\./\.\./fork/BotThreadBadge";
+apps/web/src/components/sidebar/SidebarThreadRow.tsx:<BotThreadBadge environmentId=\{thread\.environmentId\} threadId=\{thread\.id\} />

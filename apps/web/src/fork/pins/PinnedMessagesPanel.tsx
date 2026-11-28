@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react";
 import type { ScopedThreadRef } from "@t3tools/contracts";
-import { T, useGT } from "gt-react";
+import { msg, T, useGT } from "gt-react";
 import { PinOffIcon } from "lucide-react";
 import { useEffect } from "react";
 
@@ -99,3 +99,10 @@ export function PinnedMessagesPanel({ threadRef }: { readonly threadRef: ScopedT
     </ol>
   );
 }
+
+export const panelTab = {
+  id: "pins",
+  order: 30,
+  title: msg("Pinned messages"),
+  Content: PinnedMessagesPanel,
+} as const;

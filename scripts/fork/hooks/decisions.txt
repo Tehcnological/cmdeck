@@ -1,0 +1,2 @@
+# WI-2.10: scheduled tasks start new threads on the decision service's routed model.
+apps/server/src/scheduledTasks/ScheduledTaskService.ts:modelSelection: yield\* Decisions\.routeScheduledTask\(active\),

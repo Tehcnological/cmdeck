@@ -15,7 +15,7 @@ import * as McpInvocationContext from "../../mcp/McpInvocationContext.ts";
 import { idleThreadProjection, liveThreadShell } from "../../mcp/McpToolAccess.testkit.ts";
 import * as ThreadManagementService from "../../orchestration-v2/ThreadManagementService.ts";
 import { MessagePins } from "./MessagePins.ts";
-import { MessagePinsToolkit, layer as pinsToolLayer } from "./mcpTools.ts";
+import { toolkit as MessagePinsToolkit, layer as pinsToolLayer } from "./mcpTools.ts";
 
 const narrowCaller = ThreadId.make("thread:approval-required");
 const broadThread = ThreadId.make("thread:full-access");
