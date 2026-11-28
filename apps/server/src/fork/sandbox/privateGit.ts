@@ -117,7 +117,7 @@ export const make = Effect.gen(function* () {
   const hostRepository = Effect.fn("PrivateGit.hostRepository")(function* (paths: PrivateGitPaths) {
     if (yield* caseInsensitive(paths.workspace)) {
       return yield* refuse(
-        "This worktree is on a case-insensitive volume, so a container could reach its .git. Put the project on a case-sensitive volume to run it in a container.",
+        "This worktree is on a case-insensitive volume, so a container could reach its .git. To run it in a container, move the project into a case-sensitive folder (Windows: `fsutil file setCaseSensitiveInfo` on an empty folder, then clone into it; macOS: a case-sensitive APFS volume).",
       );
     }
     const dotGit = yield* lstat(path.join(paths.workspace, ".git"));

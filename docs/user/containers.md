@@ -62,8 +62,21 @@ is and the agent's commits wait under `refs/cmdeck/sandbox/<thread>` for you to 
 cherry-pick.
 
 A thread can run in a container only from the root of a git repository or worktree with at least
-one commit and no submodules, on a case-sensitive volume (on Windows, a folder made
-case-sensitive with `fsutil file setCaseSensitiveInfo`).
+one commit and no submodules, on a case-sensitive volume.
+
+### Case-sensitive folders on Windows and macOS
+
+Windows and macOS disks ignore letter case by default, which would let a container write to
+`.GIT` and reach the repository's real `.git`, so CMDeck refuses them. Set up a case-sensitive
+place for sandboxed projects once:
+
+- **Windows:** case sensitivity is set per folder and only new subfolders inherit it, so make an
+  empty folder case-sensitive, then clone or move the project into it. It needs the Windows
+  Subsystem for Linux feature turned on. In an administrator terminal:
+  `mkdir C:\work-cs` then `fsutil file setCaseSensitiveInfo C:\work-cs enable`.
+  A project kept inside WSL (its Linux file system) also works.
+- **macOS:** create a case-sensitive APFS volume in Disk Utility (Format: APFS (Case-sensitive))
+  and keep sandboxed projects there.
 
 ## Limits
 
