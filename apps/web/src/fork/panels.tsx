@@ -5,6 +5,7 @@ import { type ComponentType, useState } from "react";
 
 import { Toggle, ToggleGroup } from "../components/ui/toggle-group";
 import type { MessageResolver } from "../i18n/messages";
+import { MemoryUsedPanel } from "./memory/MemoryUsedPanel";
 import { PinnedMessagesPanel } from "./pins/PinnedMessagesPanel";
 
 interface ForkPanelTab {
@@ -18,6 +19,7 @@ interface ForkPanelTab {
  * thread's memory first, then notes, pins and a conductor's work ledger as they land.
  */
 const FORK_PANEL_TABS: ReadonlyArray<ForkPanelTab> = [
+  { id: "memory", title: msg("Memory used here"), Content: MemoryUsedPanel },
   { id: "pins", title: msg("Pinned messages"), Content: PinnedMessagesPanel },
 ];
 

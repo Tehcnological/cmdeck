@@ -220,13 +220,7 @@ required=(
   'apps/desktop/src/backend/DesktopBackendConfiguration.ts:Effect\.flatMap\(DesktopSecretsKey\.withSecretsKey\(secretsKey, environment\.baseDir\)\)'
   # WI-2.10: scheduled tasks start new threads on the decision service's routed model.
   'apps/server/src/scheduledTasks/ScheduledTaskService.ts:modelSelection: yield\* Decisions\.routeScheduledTask\(active\),'
-  # WI-2.08: the memory search embedder picker shows in Settings > General.
-  'apps/web/src/components/settings/SettingsPanels.tsx:import \{ MemoryEmbeddingsSection \} from "~/fork/memory/MemoryEmbeddingsSection";'
-  'apps/web/src/components/settings/SettingsPanels.tsx:<MemoryEmbeddingsSection />'
-  # WI-2.21: design-critique eval cases load the repo skill they test.
-  'evals/mcp-tool-use/run.ts:skill: Schema\.optional\(Schema\.String\),'
-  'evals/mcp-tool-use/run.ts:: invokedSkillPrompt\('
-  # WI-2.15: message pins. The right panel's fork surface (shared with WI-2.05), pin buttons, jumps.
+  # WI-2.05: the right panel's fork surface, the composer's memory chip, /remember and Settings > Memory.
   'apps/web/src/rightPanelStore.ts:"linked-thread", +"cmdeck", +\] as const;'
   'apps/web/src/rightPanelStore.ts:\| \{ id: "cmdeck"; kind: "cmdeck" \}'
   'apps/web/src/rightPanelStore.ts:case "cmdeck": +return \{ id: "cmdeck", kind \};'
@@ -234,6 +228,27 @@ required=(
   'apps/web/src/components/RightPanelTabs.tsx:case "cmdeck": +return forkPanelTitle\(resolve\);'
   'apps/web/src/components/RightPanelTabs.tsx:case "cmdeck": +return <ForkPanelIcon />;'
   'apps/web/src/components/chat/RightPanelSurfaceContent.tsx:case "cmdeck": +return <ForkPanel threadRef=\{threadRef\} />;'
+  'apps/web/src/components/chat/ChatComposer.tsx:<MemoryModeChip +environmentId=\{environmentId\}'
+  'apps/web/src/components/chat/ChatComposer.tsx:if \(item\.command === "remember"\)'
+  'apps/web/src/composer-logic.ts:ComposerSlashCommand = "model" \| "side" \| "btw" \| "clear" \| "remember";'
+  'apps/web/src/components/chat/composerSlashCommandSearch.ts:item\.command !== "remember"'
+  'apps/web/src/components/chat/useComposerMenuItems.ts:const forkSlashCommandItems = useForkSlashCommandItems\(environmentId\);'
+  'apps/web/src/components/chat/useComposerMenuItems.ts:\.\.\.forkSlashCommandItems,'
+  'apps/web/src/components/chat/useComposerSend.ts:const rememberFromComposer = useRememberCommand\(environmentId\);'
+  'apps/web/src/components/chat/useComposerSend.ts:rememberFromComposer\( +promptAtSend,'
+  'apps/web/src/components/settings/settingsSearch.ts:\| "/settings/memory";'
+  'apps/web/src/components/settings/settingsSearch.ts:"/settings/memory": msg\("Memory",'
+  'apps/web/src/components/settings/settingsSearch.ts:"/settings/scheduled-tasks", +"/settings/memory",'
+  'apps/web/src/components/settings/settingsSearch.ts:"/settings/memory": "environment",'
+  'apps/web/src/components/settings/SettingsSidebarNav.tsx:"/settings/memory": BrainIcon,'
+  'apps/web/src/routeTree.gen.ts:ChatSettingsMemoryRouteImport'
+  # WI-2.08: the memory search embedder picker shows in Settings > General.
+  'apps/web/src/components/settings/SettingsPanels.tsx:import \{ MemoryEmbeddingsSection \} from "~/fork/memory/MemoryEmbeddingsSection";'
+  'apps/web/src/components/settings/SettingsPanels.tsx:<MemoryEmbeddingsSection />'
+  # WI-2.21: design-critique eval cases load the repo skill they test.
+  'evals/mcp-tool-use/run.ts:skill: Schema\.optional\(Schema\.String\),'
+  'evals/mcp-tool-use/run.ts:: invokedSkillPrompt\('
+  # WI-2.15: message pins. Pin buttons in message actions and the timeline's jump to a pin.
   'apps/web/src/components/chat/TimelineAssistantRows.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{message\.id\} +text=\{message\.text\}'
   'apps/web/src/components/chat/TimelineUserMessageRow.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{row\.message\.id\} +text=\{text\}'
   'apps/web/src/components/chat/TimelineUserMessageRow.tsx:<MessagePinButton +threadRef=\{ctx\.threadRef\} +messageId=\{row\.message\.id\} +text=\{plainText\}'

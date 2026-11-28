@@ -1,4 +1,4 @@
-import { MemoryKind, OrchestratorMcpFailure, type MemoryScope } from "@t3tools/contracts";
+import { MemoryKind, OrchestratorMcpFailure, ThreadMemoryMode } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -7,7 +7,7 @@ import { McpSchema, Tool, Toolkit } from "effect/ai";
 import * as McpInvocationContext from "../../mcp/McpInvocationContext.ts";
 import * as McpToolAccess from "../../mcp/McpToolAccess.ts";
 import * as ThreadManagementService from "../../orchestration-v2/ThreadManagementService.ts";
-import type { MemoryThreadContext } from "./MemoryAccess.ts";
+import { type MemoryThreadContext, targetScope } from "./MemoryAccess.ts";
 import * as MemoryStore from "./MemoryStore.ts";
 
 const shared = {
@@ -92,7 +92,36 @@ const MemoryForgetTool = Tool.make("memory_forget", {
   .annotate(Tool.OpenWorld, false)
   .annotate(McpSchema.EnabledWhen, McpInvocationContext.hiddenFromOutsideClients);
 
-export const MemoryToolkit = Toolkit.make(MemorySearchTool, MemoryRememberTool, MemoryForgetTool);
+const MemoryModeTool = Tool.make("memory_mode", {
+  ...shared,
+  description:
+    "Read this thread's memory mode, or make it more private when the user asks: incognito uses saved memory but saves nothing new; temporary uses no memory and saves nothing. Only the user can make it less private again.",
+  parameters: Schema.Struct({
+    mode: Schema.optionalKey(Schema.Literals(["incognito", "temporary"])).annotate({
+      description: "Leave out to only read the mode.",
+    }),
+  }),
+  success: Schema.Struct({ mode: ThreadMemoryMode, message: Schema.String }),
+})
+  .annotate(Tool.Title, "Memory mode")
+  .annotate(Tool.Readonly, false)
+  .annotate(Tool.Destructive, false)
+  .annotate(Tool.Idempotent, true)
+  .annotate(Tool.OpenWorld, false)
+  .annotate(McpSchema.EnabledWhen, McpInvocationContext.hiddenFromOutsideClients);
+
+export const MemoryToolkit = Toolkit.make(
+  MemorySearchTool,
+  MemoryRememberTool,
+  MemoryForgetTool,
+  MemoryModeTool,
+);
+
+const MODE_MESSAGES = {
+  persistent: "Persistent: this thread uses saved memory and can save new items.",
+  incognito: "Incognito: this thread uses saved memory but saves nothing new.",
+  temporary: "Temporary: this thread uses no saved memory and saves nothing.",
+} as const;
 
 const memoryOff = new OrchestratorMcpFailure({
   code: "capability_denied",
@@ -114,22 +143,6 @@ const toFailure = (
           : "orchestration_error",
     message: error.message,
   });
-
-const scopeFor = (
-  context: MemoryThreadContext,
-  scope: "project" | "repo" | "thread" | "global",
-): MemoryScope | undefined => {
-  switch (scope) {
-    case "global":
-      return "global";
-    case "thread":
-      return `thread:${context.threadId}`;
-    case "project":
-      return context.projectId === null ? undefined : `project:${context.projectId}`;
-    case "repo":
-      return context.repoKey === null ? undefined : `repo:${context.repoKey}`;
-  }
-};
 
 // Built with the server's context: a runtime without MemoryStore (a tool-list test) refuses calls.
 export const layer = McpToolAccess.toLayer(
@@ -175,7 +188,7 @@ export const layer = McpToolAccess.toLayer(
       memory_remember: McpToolAccess.actsAsCaller(({ content, kind, scope }) =>
         withCaller((store, context) =>
           Effect.gen(function* () {
-            const target = scopeFor(context, scope ?? "project");
+            const target = targetScope(context, scope ?? "project");
             if (target === undefined) {
               return yield* new OrchestratorMcpFailure({
                 code: "invalid_request",
@@ -206,6 +219,22 @@ export const layer = McpToolAccess.toLayer(
           store
             .forget({ context, itemId: id })
             .pipe(Effect.as({ id, message: "Retired. The user can restore it." })),
+        ),
+      ),
+      memory_mode: McpToolAccess.actsAsCaller(({ mode }) =>
+        withCaller((store, context) =>
+          (mode === undefined
+            ? Effect.succeed(context.mode)
+            : store.restrictThreadMode(context.threadId, mode)
+          ).pipe(
+            Effect.map((current) => ({
+              mode: current,
+              message:
+                mode !== undefined && current !== mode
+                  ? `${MODE_MESSAGES[current]} It is already more private than ${mode}.`
+                  : MODE_MESSAGES[current],
+            })),
+          ),
         ),
       ),
     } satisfies McpToolAccess.Handlers<typeof MemoryToolkit.tools>;

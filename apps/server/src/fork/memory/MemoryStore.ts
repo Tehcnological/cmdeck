@@ -1,10 +1,15 @@
 import {
+  type MemoryBulkEditInput,
+  type MemoryBulkEditResult,
+  type MemoryInjection,
   MemoryItem,
   type MemoryKind,
+  type MemoryListInput,
   type MemoryRevision,
   type MemoryScope,
   type ProjectId,
   repositoryGroupingKeyOf,
+  stricterMemoryMode,
   type ThreadId,
   ThreadMemoryMode,
 } from "@t3tools/contracts";
@@ -17,6 +22,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/sql/SqlClient";
+import type * as SqlError from "effect/sql/SqlError";
 
 import * as ProjectionStore from "../../orchestration-v2/ProjectionStore.ts";
 import * as ProjectStore from "../../orchestration-v2/ProjectStore.ts";
@@ -69,7 +75,29 @@ export class MemoryItemNotFoundError extends Schema.TaggedError<MemoryItemNotFou
   }
 }
 
+/** A bulk edit names items that changed after they were shown, so it would not do what was previewed. */
+export class MemorySelectionStaleError extends Schema.TaggedError<MemorySelectionStaleError>()(
+  "MemorySelectionStaleError",
+  { itemIds: Schema.Array(Schema.String) },
+) {
+  override get message(): string {
+    return "Some selected memories changed since they were shown. Refresh and select them again.";
+  }
+}
+
 export type MemoryActor = "user" | "agent";
+
+const LIST_LIMIT = 1_000;
+const INJECTION_LIMIT = 200;
+// A thread's parent chain is short; the cap only stops a corrupt cycle.
+const LINEAGE_DEPTH_LIMIT = 16;
+
+const sameItem = (left: MemoryItem, right: MemoryItem) =>
+  (Object.keys(MemoryItem.fields) as ReadonlyArray<keyof MemoryItem>).every(
+    (field) => left[field] === right[field],
+  );
+
+const escapeRegExp = (text: string) => text.replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 
 const decodeItem = Schema.decodeUnknownSync(MemoryItem);
 const decodeMode = Schema.decodeUnknownOption(ThreadMemoryMode);
@@ -150,6 +178,37 @@ export class MemoryStore extends Context.Service<
     readonly revisions: (
       itemId: string,
     ) => Effect.Effect<ReadonlyArray<MemoryRevision>, MemoryStoreError>;
+    /** Items in one scope kind and status, newest change first. */
+    readonly list: (
+      input: MemoryListInput,
+    ) => Effect.Effect<ReadonlyArray<MemoryItem>, MemoryStoreError>;
+    /** A person's edit of content or kind. An unchanged edit writes no revision. */
+    readonly edit: (input: {
+      readonly itemId: string;
+      readonly content?: string | undefined;
+      readonly kind?: MemoryKind | undefined;
+    }) => Effect.Effect<MemoryItem, MemoryItemNotFoundError | MemoryStoreError>;
+    /**
+     * A person's edit of many items at once. `apply: false` previews it and writes nothing;
+     * applying the same input writes the previewed changes, one revision each, or nothing.
+     */
+    readonly bulkEdit: (
+      input: MemoryBulkEditInput & { readonly apply: boolean },
+    ) => Effect.Effect<
+      MemoryBulkEditResult,
+      MemoryItemNotFoundError | MemorySelectionStaleError | MemoryStoreError
+    >;
+    /** The thread's mode; a fork or subagent without its own takes a copy of its parent's. */
+    readonly threadMode: (threadId: ThreadId) => Effect.Effect<ThreadMemoryMode, MemoryStoreError>;
+    /** Makes the thread's memory at least as private as `mode`; only a person loosens it. */
+    readonly restrictThreadMode: (
+      threadId: ThreadId,
+      mode: ThreadMemoryMode,
+    ) => Effect.Effect<ThreadMemoryMode, MemoryStoreError>;
+    /** What the thread's turns were given, newest first, as each item is now. */
+    readonly injections: (
+      threadId: ThreadId,
+    ) => Effect.Effect<ReadonlyArray<MemoryInjection>, MemoryStoreError>;
     readonly recordInjections: (input: {
       readonly threadId: ThreadId;
       readonly runId: string;
@@ -209,16 +268,49 @@ const make = Effect.gen(function* () {
       ),
     );
 
-  const threadMode = (threadId: ThreadId) =>
+  const storedMode = (threadId: ThreadId) =>
     sql<{
       readonly mode: string;
     }>`SELECT mode FROM thread_memory_mode WHERE thread_id = ${threadId}`.pipe(
       Effect.map((rows) =>
         rows[0] === undefined
-          ? "persistent"
-          : Option.getOrElse(decodeMode(rows[0].mode), () => "temporary" as const),
+          ? Option.none<ThreadMemoryMode>()
+          : // A mode this build cannot read is a boundary it cannot honour: the strictest one.
+            Option.some(Option.getOrElse(decodeMode(rows[0].mode), () => "temporary" as const)),
       ),
     );
+
+  // Ported from KiroCrew@b75544f0 src/kiro_crew/dashboard/chat_fork_memory_mode.py (Apache-2.0):
+  // a fork is born with its parent's memory boundary. Kiro copies it when the fork is made;
+  // here the copy is taken the first time the child's mode is read, before its first turn.
+  const resolveMode: (
+    threadId: ThreadId,
+    depth: number,
+  ) => Effect.Effect<ThreadMemoryMode, SqlError.SqlError | ProjectionStore.ProjectionStoreV2Error> =
+    Effect.fn("MemoryStore.resolveMode")(function* (threadId, depth) {
+      const stored = yield* storedMode(threadId);
+      if (Option.isSome(stored)) return stored.value;
+      const thread = yield* projections.findThread(threadId);
+      const parentId = thread?.lineage.parentThreadId ?? null;
+      if (parentId === null || depth >= LINEAGE_DEPTH_LIMIT) return "persistent";
+      const inherited = yield* resolveMode(parentId, depth + 1);
+      const at = yield* now;
+      yield* sql`INSERT OR IGNORE INTO thread_memory_mode (thread_id, mode, updated_at)
+      VALUES (${threadId}, ${inherited}, ${at})`;
+      return inherited;
+    });
+
+  const threadMode = (threadId: ThreadId) => resolveMode(threadId, 0);
+
+  const writeMode = Effect.fn("MemoryStore.writeMode")(function* (
+    threadId: ThreadId,
+    mode: ThreadMemoryMode,
+  ) {
+    const at = yield* now;
+    yield* sql`INSERT INTO thread_memory_mode (thread_id, mode, updated_at)
+        VALUES (${threadId}, ${mode}, ${at})
+        ON CONFLICT (thread_id) DO UPDATE SET mode = excluded.mode, updated_at = excluded.updated_at`;
+  });
 
   const threadContext: MemoryStore["Service"]["threadContext"] = Effect.fn(
     "MemoryStore.threadContext",
@@ -468,6 +560,152 @@ const make = Effect.gen(function* () {
     },
   );
 
+  const list: MemoryStore["Service"]["list"] = Effect.fn("MemoryStore.list")(function* (input) {
+    const rows = yield* sql<ItemRow>`${selectItems}
+        WHERE 1 = 1
+          ${input.scopeKind === undefined ? sql`` : input.scopeKind === "global" ? sql`AND scope = 'global'` : sql`AND scope LIKE ${`${input.scopeKind}:%`}`}
+          ${input.status === undefined ? sql`` : sql`AND status = ${input.status}`}
+        ORDER BY updated_at DESC, seq DESC LIMIT ${LIST_LIMIT}`;
+    return rows.map(toItem);
+  }, failsTo("list items"));
+
+  const cleanContent = Effect.fn("MemoryStore.cleanContent")(function* (content: string) {
+    // Saved memory reaches later provider prompts, so secrets never enter it.
+    const cleaned = redactSecrets(content.trim());
+    if (cleaned === "") {
+      return yield* new MemoryStoreError({
+        operation: "save an empty item",
+        cause: "the content is blank",
+      });
+    }
+    return cleaned;
+  });
+
+  const edit: MemoryStore["Service"]["edit"] = Effect.fn("MemoryStore.edit")(function* (input) {
+    const before = yield* requireItem(input.itemId).pipe(
+      Effect.catchTags({
+        SqlError: (cause) =>
+          Effect.fail(new MemoryStoreError({ operation: "read the item", cause })),
+      }),
+    );
+    const content =
+      input.content === undefined ? before.content : yield* cleanContent(input.content);
+    const kind = input.kind ?? before.kind;
+    if (content === before.content && kind === before.kind) return before;
+    return yield* saveItem(
+      before,
+      { ...before, content, kind, updatedAt: yield* now },
+      "user",
+    ).pipe(failsTo("edit the item"));
+  });
+
+  // The status an item had before it was last retired, so restoring a rejected proposal
+  // brings it back as a proposal, not as an accepted item.
+  const statusBeforeRetiring = Effect.fn("MemoryStore.statusBeforeRetiring")(function* (
+    item: MemoryItem,
+  ) {
+    const history = yield* revisions(item.id);
+    const retiring = history.findLast(
+      (entry) => entry.after.status === "retired" && entry.before !== null,
+    );
+    const previous = retiring?.before?.status;
+    if (previous !== undefined && previous !== "retired") return previous;
+    return item.provenance === "user_explicit" || item.provenance === "user_confirmed"
+      ? ("active" as const)
+      : ("pending" as const);
+  });
+
+  // Ported from KiroCrew@b75544f0 src/kiro_crew/memory_edit.py `_after` and `_replace`
+  // (Apache-2.0); changed to this store's items, statuses and operations.
+  const planChange = Effect.fn("MemoryStore.planChange")(function* (
+    before: MemoryItem,
+    operation: MemoryBulkEditInput["operation"],
+    at: string,
+  ) {
+    switch (operation.type) {
+      case "accept":
+        return before.status === "pending"
+          ? ({ ...before, status: "active", provenance: "user_confirmed", updatedAt: at } as const)
+          : null;
+      case "retire":
+        return before.status === "retired"
+          ? null
+          : ({ ...before, status: "retired", updatedAt: at } as const);
+      case "restore":
+        return before.status === "retired"
+          ? { ...before, status: yield* statusBeforeRetiring(before), updatedAt: at }
+          : null;
+      case "replace_text": {
+        const pattern = new RegExp(
+          escapeRegExp(operation.find),
+          operation.matchCase ? "gu" : "giu",
+        );
+        const replaced = before.content.replace(pattern, () => operation.replacement);
+        if (replaced === before.content) return null;
+        const content = yield* cleanContent(replaced);
+        return content === before.content ? null : { ...before, content, updatedAt: at };
+      }
+    }
+  });
+
+  const bulkEdit: MemoryStore["Service"]["bulkEdit"] = Effect.fn("MemoryStore.bulkEdit")(
+    function* (input) {
+      const plan = Effect.gen(function* () {
+        const at = yield* now;
+        const stale: Array<string> = [];
+        const changes: Array<{ readonly before: MemoryItem; readonly after: MemoryItem }> = [];
+        for (const shown of input.items) {
+          const before = yield* findItem(shown.id).pipe(failsTo("read the item"));
+          if (Option.isNone(before)) {
+            return yield* new MemoryItemNotFoundError({ itemId: shown.id });
+          }
+          if (!sameItem(before.value, shown)) {
+            stale.push(shown.id);
+            continue;
+          }
+          const after = yield* planChange(before.value, input.operation, at);
+          if (after !== null) changes.push({ before: before.value, after });
+        }
+        if (stale.length > 0) return yield* new MemorySelectionStaleError({ itemIds: stale });
+        if (input.apply) {
+          for (const change of changes) {
+            yield* saveItem(change.before, change.after, "user").pipe(failsTo("save the edit"));
+          }
+        }
+        return { matchedCount: input.items.length, changes };
+      });
+      // Applying re-reads every item inside the write, so nothing changes between check and save.
+      return yield* input.apply
+        ? sql.withTransaction(plan).pipe(
+            Effect.catchTags({
+              SqlError: (cause) =>
+                Effect.fail(new MemoryStoreError({ operation: "save the edit", cause })),
+            }),
+          )
+        : plan;
+    },
+  );
+
+  const injections: MemoryStore["Service"]["injections"] = Effect.fn("MemoryStore.injections")(
+    function* (threadId) {
+      const rows = yield* sql<ItemRow & { readonly runId: string; readonly injectedAt: string }>`
+        SELECT injections.run_id AS "runId", injections.injected_at AS "injectedAt",
+          items.id, items.scope, items.kind, items.content, items.provenance, items.status,
+          items.origin_thread_id AS "originThreadId", items.created_at AS "createdAt",
+          items.updated_at AS "updatedAt"
+        FROM memory_injections AS injections
+          INNER JOIN memory_items AS items ON items.id = injections.item_id
+        WHERE injections.thread_id = ${threadId}
+        ORDER BY injections.injected_at DESC, items.seq ASC LIMIT ${INJECTION_LIMIT}`;
+      return rows.map(({ runId, injectedAt, ...item }) => ({
+        runId,
+        injectedAt,
+        item: toItem(item),
+      }));
+    },
+    failsTo("read what the thread was given"),
+  );
+
   return MemoryStore.of({
     enabled: settings.getSettings.pipe(
       Effect.map((current) => current.cmdeck.memoryEnabled),
@@ -475,12 +713,10 @@ const make = Effect.gen(function* () {
     ),
     threadContext,
     resolveThread,
-    setThreadMode: Effect.fn("MemoryStore.setThreadMode")(function* (threadId, mode) {
-      const at = yield* now;
-      yield* sql`INSERT INTO thread_memory_mode (thread_id, mode, updated_at)
-          VALUES (${threadId}, ${mode}, ${at})
-          ON CONFLICT (thread_id) DO UPDATE SET mode = excluded.mode, updated_at = excluded.updated_at`;
-    }, failsTo("set the thread's memory mode")),
+    setThreadMode: Effect.fn("MemoryStore.setThreadMode")(
+      (threadId, mode) => writeMode(threadId, mode),
+      failsTo("set the thread's memory mode"),
+    ),
     remember,
     search,
     forTurn,
@@ -489,6 +725,20 @@ const make = Effect.gen(function* () {
     revert,
     get: Effect.fn("MemoryStore.get")((itemId) => findItem(itemId), failsTo("read the item")),
     revisions,
+    list,
+    edit,
+    bulkEdit,
+    threadMode: Effect.fn("MemoryStore.threadMode")(
+      (threadId) => threadMode(threadId),
+      failsTo("read the thread's memory mode"),
+    ),
+    restrictThreadMode: Effect.fn("MemoryStore.restrictThreadMode")(function* (threadId, mode) {
+      const current = yield* threadMode(threadId);
+      const next = stricterMemoryMode(current, mode);
+      if (next !== current) yield* writeMode(threadId, next);
+      return next;
+    }, failsTo("set the thread's memory mode")),
+    injections,
     recordInjections: Effect.fn("MemoryStore.recordInjections")(function* (input) {
       const at = yield* now;
       for (const itemId of input.itemIds) {
