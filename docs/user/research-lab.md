@@ -3,7 +3,7 @@
 The Research Lab is a ready-made [workflow](./workflows.md) that researches a question in rounds and ends with a report:
 
 1. An agent splits your question into a few focused sub-questions. It changes nothing.
-2. You approve the list, edit it, or stop. To edit, choose **edit** and send the questions you want, one per line. They replace the list, and you are asked again.
+2. You approve the list, ask for changes, or stop. To change it, choose **change** and say what you want, such as "drop the second one and add one about cost". The agent revises the list and you are asked again.
 3. Each cycle runs several agents side by side, one per open question. Each reports what it found, with sources, and may suggest follow-up questions, which join the list.
 4. Research stops when no questions are left, when a number of cycles in a row find nothing new, or at the cycle limit.
 5. A last agent always writes the report, whichever way the research stopped. Its thread is the run's last one, and the report is in it.
