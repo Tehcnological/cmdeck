@@ -17,6 +17,10 @@ describe("fork read scopes", () => {
       [CMDECK_WS_METHODS.notificationChannelsList],
       AuthOrchestrationReadScope,
     );
+    expect(RpcAuthorization.RPC_REQUIRED_SCOPES).toHaveProperty(
+      [CMDECK_WS_METHODS.botsList],
+      AuthOrchestrationReadScope,
+    );
     for (const method of [
       CMDECK_WS_METHODS.memoryList,
       CMDECK_WS_METHODS.memoryRevisions,

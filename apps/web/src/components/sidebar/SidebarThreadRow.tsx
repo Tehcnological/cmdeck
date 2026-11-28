@@ -139,6 +139,7 @@ import { MiddleTruncate } from "../ui/middle-truncate";
 import { ActivityShimmerOverlay } from "../chat/TimelineRowParts";
 import { observeVisibleAnimation } from "~/lib/visibleAnimation";
 import { useThreadHasUnsentDraft } from "../../composerDraftStore";
+import { BotThreadBadge } from "../../fork/BotThreadBadge";
 import { ThreadDetailsIssueRows } from "../chat/ThreadDetailsIssueRows";
 import { IssueGlyph, issueStatePresentation } from "../issue/issuePresentation";
 import { useThreadIntentPrefetch } from "./useThreadIntentPrefetch";
@@ -1143,6 +1144,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
       )}
       dir={textDirection(thread.title)}
     >
+      <BotThreadBadge environmentId={thread.environmentId} threadId={thread.id} />
       {thread.title}
       {isRegeneratingTitle ? (
         <ActivityShimmerOverlay className="truncate">{thread.title}</ActivityShimmerOverlay>
