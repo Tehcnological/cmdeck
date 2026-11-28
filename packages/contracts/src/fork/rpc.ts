@@ -35,6 +35,7 @@ import {
   WorkLedgerThreadInput,
 } from "./workLedger.ts";
 import { DecisionConsentSetInput, DecisionsError, DecisionsStatus } from "./decisions.ts";
+import { MemoryEmbeddingsStatus } from "./memory.ts";
 
 // The `cmdeck.` prefix keeps fork methods clear of upstream's names. Append new methods here.
 export const CMDECK_WS_METHODS = {
@@ -53,6 +54,7 @@ export const CMDECK_WS_METHODS = {
   workLedgerStopWorkers: "cmdeck.workLedger.stopWorkers",
   decisionsStatus: "cmdeck.decisions.status",
   decisionsSetConsent: "cmdeck.decisions.setConsent",
+  memoryEmbeddingsStatus: "cmdeck.memory.embeddingsStatus",
 } as const;
 
 /** Fork stream methods the client runtime subscribes to like upstream's. */
@@ -157,6 +159,12 @@ const CmdeckDecisionsSetConsentRpc = Rpc.make(CMDECK_WS_METHODS.decisionsSetCons
   error: Schema.Union([DecisionsError, EnvironmentAuthorizationError]),
 });
 
+const CmdeckMemoryEmbeddingsStatusRpc = Rpc.make(CMDECK_WS_METHODS.memoryEmbeddingsStatus, {
+  payload: Schema.Struct({}),
+  success: MemoryEmbeddingsStatus,
+  error: EnvironmentAuthorizationError,
+});
+
 /** Merged into `WsRpcGroup`, so fork methods share its scope middleware. */
 export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckStatusRpc,
@@ -174,11 +182,26 @@ export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckWorkLedgerStopWorkersRpc,
   CmdeckDecisionsStatusRpc,
   CmdeckDecisionsSetConsentRpc,
+  CmdeckMemoryEmbeddingsStatusRpc,
 );
 
-/** Spread into `CLIENT_GUARDED_RPC_SCOPES`; every fork method needs one. */
-export const FORK_RPC_SCOPES = {
+/**
+ * Reads: only the server checks these (spread into `RPC_REQUIRED_SCOPES`), like upstream reads, so
+ * clients read them with `request` from query atoms. A client-guarded method needs a command
+ * boundary, so a guarded read made from a query atom is refused on the client.
+ */
+export const FORK_RPC_READ_SCOPES = {
   [CMDECK_WS_METHODS.status]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.notificationChannelsList]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.decisionsStatus]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryEmbeddingsStatus]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.workLedgerList]: AuthOrchestrationReadScope,
+} as const;
+
+type ForkRpcTag = RpcGroup.Rpcs<typeof ForkWsRpcGroup>["_tag"];
+
+/** Spread into `CLIENT_GUARDED_RPC_SCOPES`; every fork method not in the read map needs one. */
+export const FORK_RPC_SCOPES = {
   // Entries are access records (pairings, tokens, secret reveals), so they need access scope.
   [CMDECK_WS_METHODS.auditList]: AuthAccessReadScope,
   [CMDECK_WS_METHODS.auditVerify]: AuthAccessReadScope,
@@ -187,15 +210,15 @@ export const FORK_RPC_SCOPES = {
   // Approving or installing a file lets the server run it, as saving one in the editor does.
   [CMDECK_WS_METHODS.workflowTrustApprove]: AuthTerminalOperateScope,
   [CMDECK_WS_METHODS.workflowPresetInstall]: AuthTerminalOperateScope,
-  [CMDECK_WS_METHODS.notificationChannelsList]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.notificationChannelsSetEnabled]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.notificationChannelsRemove]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.notificationsSubscribeAlerts]: AuthOrchestrationReadScope,
-  [CMDECK_WS_METHODS.workLedgerList]: AuthOrchestrationReadScope,
   // Starting or ending a conductor changes what its agent is told on each turn.
   [CMDECK_WS_METHODS.workLedgerSetConductor]: AuthOrchestrationOperateScope,
   [CMDECK_WS_METHODS.workLedgerStopWorkers]: AuthOrchestrationOperateScope,
-  [CMDECK_WS_METHODS.decisionsStatus]: AuthOrchestrationReadScope,
   // Consent decides whether turn text may reach a model API, so only a settings writer grants it.
   [CMDECK_WS_METHODS.decisionsSetConsent]: AuthSettingsWriteScope,
-} as const satisfies Record<RpcGroup.Rpcs<typeof ForkWsRpcGroup>["_tag"], AuthEnvironmentScope>;
+} as const satisfies Record<
+  Exclude<ForkRpcTag, keyof typeof FORK_RPC_READ_SCOPES>,
+  AuthEnvironmentScope
+>;

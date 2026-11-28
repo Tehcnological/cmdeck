@@ -1,4 +1,4 @@
-import { requestGuarded } from "@t3tools/client-runtime/rpc";
+import { request } from "@t3tools/client-runtime/rpc";
 import { CMDECK_WS_METHODS, type ScopedThreadRef, type ThreadId } from "@t3tools/contracts";
 import {
   createEnvironmentQueryAtomFamily,
@@ -13,7 +13,7 @@ import { readLocalApi } from "../localApi";
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { openWorkerThreadIds } from "./workLedger.logic";
 
-export const listWorkLedger = createEnvironmentRpcCommand(connectionAtomRuntime, {
+const listWorkLedger = createEnvironmentRpcCommand(connectionAtomRuntime, {
   label: "environment-data:cmdeck:work-ledger-list",
   tag: CMDECK_WS_METHODS.workLedgerList,
 });
@@ -26,7 +26,7 @@ export const workLedgerQuery = createEnvironmentQueryAtomFamily(connectionAtomRu
   label: "environment-data:cmdeck:work-ledger",
   staleTimeMs: 0,
   execute: (input: { readonly threadId: ThreadId; readonly revision: string }) =>
-    requestGuarded(CMDECK_WS_METHODS.workLedgerList, { threadId: input.threadId }),
+    request(CMDECK_WS_METHODS.workLedgerList, { threadId: input.threadId }),
 });
 
 export const setConductor = createEnvironmentRpcCommand(connectionAtomRuntime, {

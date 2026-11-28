@@ -11,7 +11,7 @@ import { useRightPanelStore } from "../rightPanelStore";
 import { useQuietThreadShell } from "../state/entities";
 import { useAtomCommand } from "../state/use-atom-command";
 import { artifactEntries, orderForDisplay, stateTone, statusTone } from "./workLedger.logic";
-import { listWorkLedger, setConductor, workLedgerQuery } from "./workLedger";
+import { setConductor, workLedgerQuery } from "./workLedger";
 
 const STATE_LABELS = {
   open: msg("open", { $context: "work item state" }),
@@ -35,7 +35,6 @@ export function WorkLedgerPanel({ threadRef }: { readonly threadRef: ScopedThrea
   const gt = useGT();
   const messages = useMessages();
   const { environmentId, threadId } = threadRef;
-  const canRead = useAtomValue(listWorkLedger.permissionAtom(environmentId));
   const canChange = useAtomValue(setConductor.permissionAtom(environmentId));
   const change = useAtomCommand(setConductor);
   const runtime = useQuietThreadShell(threadRef)?.runtime;
@@ -55,14 +54,6 @@ export function WorkLedgerPanel({ threadRef }: { readonly threadRef: ScopedThrea
     setBusy(false);
     refresh();
   };
-
-  if (!canRead) {
-    return (
-      <p className="p-4 text-muted-foreground text-sm">
-        <T>Reading the work ledger needs access to this server&apos;s threads.</T>
-      </p>
-    );
-  }
 
   const items = orderForDisplay(ledger?.items ?? []);
   return (

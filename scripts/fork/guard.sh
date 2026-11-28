@@ -122,6 +122,8 @@ required=(
   'apps/server/src/mcp/McpHttpServer.ts:ForkMcpToolkits\.layer\(toolkitRegistration\)'
   'packages/contracts/src/rpc.ts:\.merge\(ForkWsRpcGroup\)'
   'packages/contracts/src/clientRpcPermissions.ts:\.\.\.FORK_RPC_SCOPES,'
+  # Fork reads are checked by the server only, so query atoms can read them with `request`.
+  'apps/server/src/auth/RpcAuthorization.ts:\.\.\.FORK_RPC_READ_SCOPES,'
   'packages/contracts/src/index.ts:export \* from "\./fork/index\.ts";'
   'packages/contracts/src/settings.ts:cmdeck: CmdeckSettings\.pipe\(Schema\.withDecodingDefault'
   'packages/contracts/src/settings.ts:cmdeck: Schema\.optionalKey\(CmdeckSettingsPatch\)'
@@ -189,6 +191,10 @@ required=(
   # WI-1.03: a pairing approved from the CLI without a server is audited too.
   'apps/server/src/cli/auth.ts:Effect\.tap\(AuditLog\.notePairingApprovedLocally\(flags\.id\)\)'
   'apps/server/src/cli/auth.ts:Effect\.tap\(AuditLog\.notePairingApprovedLocally\(pairingLinkId\)\)'
+  # WI-2.16: an accept the approval policy denies is turned into a decline where it is dispatched.
+  'apps/server/src/orchestration-v2/Orchestrator.ts:import \* as ApprovalGate from "\.\./fork/approvalPolicy/ApprovalGate\.ts";'
+  'apps/server/src/orchestration-v2/Orchestrator.ts:const forkApprovalGate = yield\* ApprovalGate\.forRuntimeResponse;'
+  'apps/server/src/orchestration-v2/Orchestrator.ts:command = yield\* forkApprovalGate\(command, context\);'
   # Memory (WI-1.07): fork services orchestration reads, and the turn-context block in the provider prompt.
   'apps/server/src/server.ts:Layer\.provideMerge\(ForkLayer\.layerBeneathOrchestration\)'
   'apps/server/src/orchestration-v2/ProviderTurnStartService.ts:import \* as TurnContext from "\.\./fork/memory/TurnContext\.ts";'
@@ -196,6 +202,10 @@ required=(
   'apps/server/src/orchestration-v2/ProviderTurnStartService.ts:const forkContext = yield\* forkTurnContext\('
   'apps/server/src/orchestration-v2/ProviderTurnStartService.ts:const carriesPendingContext = +forkContext !== "" \|\|'
   'apps/server/src/orchestration-v2/ProviderTurnStartService.ts:const context = \[ +compact \? "" : forkContext,'
+  # WI-2.14: usage alert state table, and the thresholds row beside Usage providers.
+  'apps/server/src/persistence/ForkSchema.ts:yield\* ensureUsageAlertsSchema\(\)'
+  'apps/web/src/components/settings/ProviderSettingsPanel.tsx:import \{ UsageAlertsSection \} from "~/fork/UsageAlertsSection";'
+  'apps/web/src/components/settings/ProviderSettingsPanel.tsx:<UsageAlertsSection environmentId=\{environmentId\} settings=\{settings\} readOnly=\{readOnly\} />'
   # Open beside: an unrelated project's thread never runs code blocks in the host's terminal,
   # and a thread hidden by a tag filter leaves the panel.
   'apps/web/src/components/ChatView.tsx:activeThread\?\.projectId !== panelHostShell\?\.projectId'
@@ -226,6 +236,9 @@ required=(
   'apps/desktop/src/backend/DesktopBackendConfiguration.ts:Effect\.flatMap\(DesktopSecretsKey\.withSecretsKey\(secretsKey, environment\.baseDir\)\)'
   # WI-2.10: scheduled tasks start new threads on the decision service's routed model.
   'apps/server/src/scheduledTasks/ScheduledTaskService.ts:modelSelection: yield\* Decisions\.routeScheduledTask\(active\),'
+  # WI-2.08: the memory search embedder picker shows in Settings > General.
+  'apps/web/src/components/settings/SettingsPanels.tsx:import \{ MemoryEmbeddingsSection \} from "~/fork/memory/MemoryEmbeddingsSection";'
+  'apps/web/src/components/settings/SettingsPanels.tsx:<MemoryEmbeddingsSection />'
   # WI-2.21: design-critique eval cases load the repo skill they test.
   'evals/mcp-tool-use/run.ts:skill: Schema\.optional\(Schema\.String\),'
   'evals/mcp-tool-use/run.ts:: invokedSkillPrompt\('

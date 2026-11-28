@@ -16,6 +16,7 @@ import * as Stream from "effect/Stream";
 import { WorkflowDefinitions } from "../../workflows/WorkflowRuntime.ts";
 import * as AuditLog from "../audit/AuditLog.ts";
 import { Decisions } from "../decisions/Decisions.ts";
+import { MemoryEmbeddings } from "../memory/MemoryEmbeddings.ts";
 import { installPreset } from "../presets/install.ts";
 import { WorkflowTrust } from "../workflowTrust/WorkflowTrust.ts";
 import * as Notifications from "../notifications/Notifications.ts";
@@ -45,6 +46,7 @@ export const make = Effect.gen(function* () {
   const noDecisions = Effect.fail(
     new DecisionsError({ detail: "The decision service is not available." }),
   );
+  const embeddings = yield* Effect.serviceOption(MemoryEmbeddings);
   return ForkWsRpcGroup.of({
     [CMDECK_WS_METHODS.status]: () => Effect.succeed({ version: CMDECK_RPC_VERSION }),
     [CMDECK_WS_METHODS.auditList]: (input) =>
@@ -92,5 +94,15 @@ export const make = Effect.gen(function* () {
       Option.isSome(decisions) ? decisions.value.status : noDecisions,
     [CMDECK_WS_METHODS.decisionsSetConsent]: (input) =>
       Option.isSome(decisions) ? decisions.value.setConsent(input) : noDecisions,
+    [CMDECK_WS_METHODS.memoryEmbeddingsStatus]: () =>
+      Option.isSome(embeddings)
+        ? embeddings.value.status
+        : Effect.succeed({
+            mode: "keyword" as const,
+            embedder: null,
+            embedded: 0,
+            total: 0,
+            checkedAt: null,
+          }),
   });
 });
