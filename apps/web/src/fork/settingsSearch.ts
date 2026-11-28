@@ -23,6 +23,12 @@ export const FORK_SETTINGS_SEARCH_ITEMS = [
     searchTerms: [msg("usage limit quota percent threshold notify notification channel warning")],
   },
   {
+    id: "bots",
+    title: msg("Bots"),
+    to: "/settings/threads",
+    searchTerms: [msg("bot persistent agent schedule wake private memory crew")],
+  },
+  {
     id: "containers",
     title: msg("Containers"),
     to: "/settings/general",

@@ -366,6 +366,14 @@ Errored samples are left out.
 
 Limits: the shell is simulated, so a CLI's output is the simulator's reading of the world and of the error texts the cases copy from real sessions. Polling never really waits, so these runs measure what polling decides, not the wall-clock time it takes. The simulator also sees the whole world, and early runs leaked it into invented files, such as an AGENTS.md naming `cafe` or a Forgejo API on git.cafe. The git.cafe worlds now rule both out. Read failing and passing transcripts before you trust a new case.
 
+## Check script cases
+
+`cases/check-scripts.ndjson` covers CMDeck's `set_scheduled_task_check` tool (WI-2.11): a frequent task that should wake the agent only on a change gets a check script and the agent tells the user it needs approval; an agent asked to approve its own script points the user to Settings instead; and a plain daily task gets no check (control). All prompts and mocks are authored Acme data. Not yet run.
+
+```sh
+pnpm mcp-tool-use --cases mcp-tool-use/cases/check-scripts.ndjson --samples 3 --out runs/check-scripts
+```
+
 ## Where T3's text lives
 
 - `packages/provider-core/src/server/runtimeInstructions.ts`

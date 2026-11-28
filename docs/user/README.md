@@ -52,6 +52,7 @@ T3 Code is an open-source control plane for coding agents. It gives the coding a
 - [Source control](./source-control.md) — GitHub, GitLab, Forgejo/Gitea, Bitbucket, Azure DevOps, GitCafe, Cursor Origin, Linear issues, PR review guides, stacks, and PR watching.
 - [Activity log](./activity-log.md) — Inspecting tool calls, hiding work logs / Zen mode, and screen reader announcements.
 - [Subagents and delegation](./subagents.md) — Parallel T3-delegated and provider-native subagents.
+- [Conductor and work ledger](./conductor.md) — A thread that splits a goal into work items and checks what its workers report.
 - [Context in portable handoffs](./portable-handoffs.md) — How conversation context transfers across provider switches and forks.
 - [Files in question answers](./question-attachments.md) — Attaching files and images when answering agent questions.
 - [Terminal](./terminal.md) — Integrated host terminals, scrollback limits, custom shells, and fish config.
@@ -76,6 +77,7 @@ T3 Code is an open-source control plane for coding agents. It gives the coding a
 - [Task Runner](./task-runner.md) — A ready-made workflow that plans, runs, checks and reviews a change task by task.
 - [Research Lab](./research-lab.md) — A ready-made workflow that researches a question in parallel cycles and writes a report.
 - [Text generation models](./text-generation.md) — Fast/cheap API models for titles, commits, PR descriptions, and voice cleanup.
+- [Bots](./bots.md) — Persistent agents with a pinned thread, standing instructions, private memory, and schedules.
 - [Decision service](./decisions.md) — How scheduled tasks pick a model under usage limits, and opt-in local models for small decisions.
 - [Memory search by meaning](./memory-search.md) — Optional embeddings from a local inference server, keyword fallback, and how older facts rank.
 - [Containers](./containers.md) — Run a thread's agent and terminals in a Docker or Apple container, with networking off by default.

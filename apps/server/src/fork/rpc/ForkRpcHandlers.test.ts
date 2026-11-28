@@ -4,11 +4,13 @@ import {
   AuthDiagnosticsReadScope,
   AuthOrchestrationReadScope,
   AuthSettingsWriteScope,
+  AuthTerminalOperateScope,
   AuthTerminalReadScope,
   CMDECK_RPC_VERSION,
   CMDECK_WS_METHODS,
   ForkWsRpcGroup,
   RpcScopeAuthorization,
+  ScheduledTaskId,
 } from "@t3tools/contracts";
 import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -114,5 +116,32 @@ it.effect("lets readers list notification channels and only settings writers cha
     ]);
     yield* writer[CMDECK_WS_METHODS.notificationChannelsRemove]({ channelId });
     expect(yield* writer[CMDECK_WS_METHODS.notificationChannelsList]({})).toEqual([]);
+  }).pipe(Effect.scoped),
+);
+
+it.effect("only clients that may run commands save or approve a check script", () =>
+  Effect.gen(function* () {
+    const group = ForkWsRpcGroup.middleware(RpcScopeAuthorization);
+    const handlers = group.toLayer(ForkRpcHandlers.make);
+    const client = (scopes: Parameters<typeof RpcAuthorization.layer>[0]) =>
+      RpcTest.makeClient(group).pipe(
+        Effect.provide(Layer.merge(handlers, RpcAuthorization.layer(scopes))),
+      );
+    const input = { taskId: ScheduledTaskId.make("scheduled-task:a"), sha256: "00" };
+
+    const reader = yield* client([AuthOrchestrationReadScope]);
+    expect(yield* reader[CMDECK_WS_METHODS.checkScriptsList]({})).toEqual({ checks: [] });
+    expect(
+      yield* reader[CMDECK_WS_METHODS.checkScriptsApprove](input).pipe(Effect.flip),
+    ).toMatchObject({
+      _tag: "EnvironmentAuthorizationError",
+      requiredPermission: AuthTerminalOperateScope,
+    });
+
+    // Without the scheduler's check service, an allowed client gets a plain refusal.
+    const operator = yield* client([AuthOrchestrationReadScope, AuthTerminalOperateScope]);
+    expect(
+      yield* operator[CMDECK_WS_METHODS.checkScriptsApprove](input).pipe(Effect.flip),
+    ).toMatchObject({ _tag: "CheckScriptError" });
   }).pipe(Effect.scoped),
 );

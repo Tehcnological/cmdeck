@@ -54,6 +54,7 @@ import * as ThreadManagementService from "../orchestration-v2/ThreadManagementSe
 import { OrchestratorDispatchError } from "../orchestration-v2/Orchestrator.ts";
 import { userFacingDispatchErrorMessage } from "../orchestration-v2/UserFacingErrors.ts";
 import * as SecretRequests from "../secrets/SecretRequests.ts";
+import * as CheckScripts from "../fork/checkScripts/CheckScripts.ts";
 import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
 import * as DueHint from "../scheduling/DueHint.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
@@ -499,6 +500,7 @@ export const layer = Layer.effect(
     const secretRequests = yield* SecretRequests.SecretRequests;
     const scheduler = yield* Scheduler.Scheduler;
     const readWebhookOrigin = yield* ScheduledTaskWebhookOrigin;
+    const checkScripts = yield* CheckScripts.CheckScripts;
     const managedPolicy = yield* ManagedPolicy.ManagedPolicy;
     const webhookPolicyOrganization = ManagedPolicy.deniedBy(managedPolicy, "webhookTasks");
     // Existing webhook tasks stay stored but report why they do not run.
@@ -1139,6 +1141,11 @@ export const layer = Layer.effect(
             );
 
         yield* notifyChanged;
+        const checked = yield* checkScripts.gate({
+          task: active,
+          prompt: webhook?.prompt ?? active.prompt,
+          trigger,
+        });
 
         const fireKey =
           webhook === undefined
@@ -1146,7 +1153,8 @@ export const layer = Layer.effect(
             : `${active.id}:webhook:${webhook.deliveryId}`;
         const commandId = CommandId.make(`scheduled-task:${fireKey}`);
         const messageId = MessageId.make(`scheduled-task-message:${fireKey}`);
-        const prompt = webhook?.prompt ?? active.prompt;
+        const prompt =
+          checked?._tag === "Wake" ? checked.prompt : (webhook?.prompt ?? active.prompt);
         const threadMode = scheduledTaskThreadMode(active);
 
         // A bound thread can move to another project (No project to a project) while
@@ -1187,9 +1195,10 @@ export const layer = Layer.effect(
             );
 
         // Capture defects and interrupts too so dispatch failures still reach markCompleted.
+        const dispatchExit = CheckScripts.exitAfter(checked);
         const result =
           active.threadId === null
-            ? yield* Effect.exit(
+            ? yield* dispatchExit(
                 threadLaunch
                   .launch({
                     commandId,
@@ -1215,7 +1224,7 @@ export const layer = Layer.effect(
                     ),
                   ),
               )
-            : yield* Effect.exit(
+            : yield* dispatchExit(
                 // The stored selection only seeds fresh threads. A bound run
                 // follows the thread's current provider, so it passes none.
                 sendBound(ThreadId.make(active.threadId), active.projectId, 2).pipe(
@@ -1279,6 +1288,7 @@ export const layer = Layer.effect(
             written &&
             trigger === "scheduled" &&
             lastRunError !== null &&
+            (checked?._tag !== "Failed" || checked.counts) &&
             (yield* countFailedRun(task.id, active.createdAt, startedAtIso, lastRunError))
           ) {
             const paused = {
@@ -1439,7 +1449,7 @@ export const layer = Layer.effect(
                     "missed",
                     "Missed a scheduled run because the server was not running at that time.",
                   )
-                : runTask(task, "scheduled"),
+                : runTask(task, "scheduled").pipe(checkScripts.runsAside(task.id, serviceScope)),
             ).pipe(
               Effect.catch((cause) =>
                 Effect.logWarning("Scheduled task run failed", { taskId: task.id, cause }),

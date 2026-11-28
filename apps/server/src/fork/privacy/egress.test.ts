@@ -47,6 +47,11 @@ import * as ProviderOrchestrationAdapterInfrastructure from "../../provider/Prov
 import * as ResetCreditCoordinator from "../../provider/resetCreditCoordinator.ts";
 import * as ServerSettings from "../../serverSettings.ts";
 import * as Notifications from "../notifications/Notifications.ts";
+import * as CheckScripts from "../checkScripts/CheckScripts.ts";
+import {
+  layerTest as layerCheckScriptsTest,
+  makeFakeRunner,
+} from "../checkScripts/checkScripts.testkit.ts";
 import * as MemoryStore from "../memory/MemoryStore.ts";
 import { asAgentIn, layerMemoryToolsTest, threads } from "../memory/memory.testkit.ts";
 import * as TurnContext from "../memory/TurnContext.ts";
@@ -452,6 +457,33 @@ describe("memory", () => {
     );
   });
 });
+
+it.effect("a scheduled task without a check script starts no process", () =>
+  Effect.gen(function* () {
+    const fake = yield* makeFakeRunner;
+    yield* Effect.gen(function* () {
+      const checks = yield* CheckScripts.CheckScripts;
+      const gated = yield* checks.gate({
+        task: {
+          id: "scheduled-task:none" as never,
+          createdAt: "2026-11-02T08:00:00.000Z",
+          projectId: "project:test" as never,
+          title: "No check",
+          lastRunAt: null,
+          lastRunStatus: "never",
+        },
+        prompt: "Run as usual.",
+        trigger: "scheduled",
+      });
+      expect(gated).toBeNull();
+      expect(yield* Ref.get(fake.calls)).toEqual([]);
+    }).pipe(
+      Effect.provide(
+        layerCheckScriptsTest(fake.runner).pipe(Layer.provideMerge(SqlitePersistence.layerMemory)),
+      ),
+    );
+  }),
+);
 
 describe("memory embeddings", () => {
   const requests: Array<string> = [];

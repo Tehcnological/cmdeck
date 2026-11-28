@@ -1,6 +1,18 @@
 {
   "customNotices": [
     {
+      "bundles": ["desktop", "web"],
+      "license": "Apache-2.0",
+      "name": "KiroCrew work ledger (adapted)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."]
+        }
+      ]
+    },
+    {
       "bundles": ["desktop"],
       "license": "Apache-2.0",
       "name": "KiroCrew Research Lab briefs and stop rules (Research Lab preset)",
@@ -24,6 +36,20 @@
         {
           "licenseId": "Apache-2.0",
           "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."]
+        }
+      ]
+    },
+    {
+      "license": "Apache-2.0",
+      "name": "Kiro Crew crew member rules (bot names, private memory ownership cases)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/members_parts",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "Ported to TypeScript for CMDeck's bot profiles (packages/contracts/src/fork/bots.ts, apps/server/src/fork/bots). Changes: the member name rules became a Schema check with a 100-character cap and no URL path rule, and member memory ownership became a bot:<id> scope in CMDeck's single memory table, with ownership test cases adapted to it."
+          ]
         }
       ]
     },
@@ -382,6 +408,21 @@
           "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
           "preamble": [
             "The AES-256-GCM envelope and its name-bound AAD in apps/server/src/fork/secrets/envelope.ts are adapted from Kiro Crew's vault: one binary envelope per secret file instead of a JSON map, a \"cmdeck\" AAD scope, and no item types."
+          ]
+        }
+      ]
+    },
+    {
+      "bundles": ["desktop", "web"],
+      "license": "MIT",
+      "name": "Sillage check-script gate",
+      "sourceUrl": "https://github.com/MarlBurroW/sillage/tree/14483e3dfda61e536e5e3673aed28fac9b5b4b15/apps/server/src/scheduler",
+      "generatedNotices": [
+        {
+          "licenseId": "MIT",
+          "copyrights": ["Copyright (c) 2026 MarlBurroW"],
+          "preamble": [
+            "CMDeck's scheduled-task check scripts follow Sillage's check gate: its exit-code contract, limits, verdicts, output placement and agent tool text, adapted to an explicit interpreter reading the script on stdin."
           ]
         }
       ]

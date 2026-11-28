@@ -4,7 +4,7 @@ import { CMDECK_WS_METHODS, type EnvironmentId } from "@t3tools/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import * as Cause from "effect/Cause";
 import { useGT } from "gt-react";
-import { FlaskConicalIcon, ListChecksIcon } from "lucide-react";
+import { BotIcon, FlaskConicalIcon, ListChecksIcon } from "lucide-react";
 import { createElement } from "react";
 
 import { type CommandPaletteActionItem, ITEM_ICON_CLASS } from "../components/CommandPalette.logic";
@@ -13,9 +13,11 @@ import { useWorkflowEnvironmentIds } from "../components/workflows/useWorkflowEn
 import { connectionAtomRuntime } from "../connection/runtime";
 import { useAtomCommand } from "../state/use-atom-command";
 import { usePrimaryEnvironmentId } from "../state/environments";
+import { NEW_BOT_TARGET } from "./BotsSection";
 import { workflowEnvironmentFor } from "./commands.logic";
 import { useContainerCommandItems } from "./containerCommands";
 import { useDesignCritiqueCommandItem } from "./designCritiqueCommand";
+import { useWorkLedgerCommandItems } from "./workLedgerCommands";
 
 const installPreset = createEnvironmentRpcCommand(connectionAtomRuntime, {
   label: "environment-data:cmdeck:workflow-preset-install",
@@ -67,8 +69,21 @@ export function useForkCommandItems(): ReadonlyArray<CommandPaletteActionItem> {
     },
   });
   const designCritique = useDesignCritiqueCommandItem();
+  const workLedger = useWorkLedgerCommandItems();
   const containerItems = useContainerCommandItems();
-  const items: Array<CommandPaletteActionItem> = [];
+  const items: Array<CommandPaletteActionItem> = [
+    {
+      kind: "action",
+      value: "action:cmdeck:new-bot",
+      searchTerms: ["bot", "agent", "persistent", "crew", "schedule"],
+      title: gt("New bot"),
+      description: gt("A persistent agent with its own pinned thread and private memory"),
+      icon: createElement(BotIcon, { className: ITEM_ICON_CLASS }),
+      run: async () => {
+        await navigate({ to: "/settings/threads", hash: NEW_BOT_TARGET });
+      },
+    },
+  ];
   if (environmentId !== null && canInstall) {
     items.push(
       presetRow(environmentId, {
@@ -88,6 +103,7 @@ export function useForkCommandItems(): ReadonlyArray<CommandPaletteActionItem> {
     );
   }
   if (designCritique !== null) items.push(designCritique);
+  items.push(...workLedger);
   items.push(...containerItems);
   return items;
 }
