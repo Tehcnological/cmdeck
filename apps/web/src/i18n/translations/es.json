@@ -13739,5 +13739,9 @@
   "864d7a1c3cb3f9d7": "Estado actual",
   "c4c80d7dc61a8f54": "Ahora mismo no hay nada que vigilar.",
   "1bf1e6950b4009d2": "Responde",
-  "dd614ca7497750f6": "No responde"
+  "dd614ca7497750f6": "No responde",
+  "96efb851cf3613d2": "Respaldo por LAN",
+  "26697a72990cee64": "lan red local respaldo alternativa ruta tailscale sin conexión https certificado",
+  "58a20119173b8cf3": "Permitir respaldo por LAN",
+  "39067899ffeb98e4": "Sirve también este entorno por HTTPS cifrado en sus direcciones de la red local, para que una app de escritorio vinculada mediante Tailscale siga funcionando en la misma red mientras Tailscale está desactivado. La app de escritorio solo confía en el certificado propio de este entorno. Mientras esto está desactivado, nada escucha en la red local."
 }

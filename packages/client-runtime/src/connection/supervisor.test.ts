@@ -3015,3 +3015,75 @@ describe("EnvironmentSupervisor background fibers", () => {
     }).pipe(Effect.provide(TestClock.layer())),
   );
 });
+
+// Fork: LAN fallback.
+describe("EnvironmentSupervisor LAN fallback", () => {
+  it.effect("fails over to the pinned LAN route and moves back once Tailscale answers", () =>
+    Effect.gen(function* () {
+      const tailnetTarget = new BearerConnectionTarget({
+        environmentId: TARGET.environmentId,
+        label: TARGET.label,
+        connectionId: "bearer:tailnet",
+      });
+      const tailnetRoute = {
+        target: tailnetTarget,
+        profile: Option.some(
+          new BearerConnectionProfile({
+            connectionId: tailnetTarget.connectionId,
+            environmentId: TARGET.environmentId,
+            label: TARGET.label,
+            httpBaseUrl: "https://box.example.ts.net/",
+            wsBaseUrl: "wss://box.example.ts.net/",
+          }),
+        ),
+      } satisfies ConnectionRoute;
+      const paired: ConnectionCatalogEntry = { ...tailnetRoute, enabled: true };
+      const routes = mergeLearnedRoutes({
+        entry: paired,
+        activeRoute: tailnetRoute,
+        reported: [
+          {
+            kind: "lan-tls",
+            httpBaseUrl: "https://192.168.1.10:4000/",
+            certificateSha256: "a".repeat(64),
+          },
+        ],
+        allowInsecure: true,
+        pinsCertificates: true,
+      });
+      const entry = entryWithRoutes(paired, routes!);
+      const tailscaleUp = yield* Ref.make(false);
+      const harness = yield* makeHarness({
+        checkRoute: (route) =>
+          connectionRouteId(route.target) === tailnetTarget.connectionId
+            ? Ref.get(tailscaleUp).pipe(Effect.map((up) => (up ? "answered" : "silent")))
+            : Effect.succeed("answered"),
+        prepare: (_attempt, target) => Effect.succeed(preparedFor(target)),
+      });
+      const supervisor = yield* EnvironmentSupervisor.make(entry, {
+        initiallyDesired: true,
+      }).pipe(Effect.provide(harness.dependencies));
+
+      yield* awaitState(
+        supervisor.state,
+        (state) => state.phase === "connected" && state.generation === 1,
+      );
+      const fallback = Option.getOrThrow(yield* SubscriptionRef.get(supervisor.prepared)).target;
+      expect(fallback._tag === "BearerConnectionTarget" && fallback.connectionId).toMatch(
+        /^learned:.*https:\/\/192\.168\.1\.10:4000@bearer:tailnet$/,
+      );
+
+      yield* Ref.set(tailscaleUp, true);
+      yield* harness.setNetworkStatus("unknown");
+      yield* harness.setNetworkStatus("online");
+
+      yield* awaitState(
+        supervisor.state,
+        (state) => state.phase === "connected" && state.generation === 2,
+      );
+      expect(Option.getOrThrow(yield* SubscriptionRef.get(supervisor.prepared)).target).toEqual(
+        tailnetTarget,
+      );
+    }),
+  );
+});

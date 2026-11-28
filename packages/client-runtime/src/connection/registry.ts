@@ -222,6 +222,7 @@ export const make = Effect.gen(function* () {
   const driver = yield* ConnectionDriver.ConnectionDriver;
   const wakeups = yield* ConnectionWakeups.ConnectionWakeups;
   const ssh = yield* ClientCapabilities.SshEnvironmentGateway;
+  const pinsCertificates = yield* ClientCapabilities.PinsLanCertificates; // Fork: LAN fallback
   const persistedTargets = yield* storage.list;
   const disabledEnvironmentIds = new Set(yield* storage.listDisabled);
   const loadRoute = Effect.fn("EnvironmentRegistry.loadRoute")(function* (
@@ -948,6 +949,7 @@ export const make = Effect.gen(function* () {
           activeRoute: input.activeRoute,
           reported: input.reported,
           allowInsecure: allowInsecureRoutes,
+          pinsCertificates, // Fork: LAN fallback
         });
         if (routes === null) return Option.none<ConnectionCatalogEntry>();
         const next = entryWithRoutes(entry, routes);

@@ -25,6 +25,11 @@ server; they do not introduce a different execution model. T3 Connect is removed
   and never let a token paired over HTTPS downgrade to plain HTTP.
 - Pull request routing trust covers the saved route set: adding or changing a route revokes trust;
   reordering does not.
+- **Pinned LAN fallback (fork, opt-in).** A `lan-tls` direct endpoint carries the SHA-256 of the
+  server's self-signed certificate. Only a client that enforces the pin itself (desktop main's
+  certificate verify proc, fed from the saved catalog) learns it; it ranks behind every paired route,
+  and a pin never makes a plain HTTP, tailnet or public address usable. The listener hands its TLS
+  sockets to the primary HTTP server, so auth and transport classification see an ordinary LAN peer.
 
 ## Peer links
 

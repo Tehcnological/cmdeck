@@ -82,3 +82,12 @@ export class SshEnvironmentGateway extends Context.Service<
     ) => Effect.Effect<void, ConnectionAttemptError>;
   }
 >()("@t3tools/client-runtime/platform/capabilities/SshEnvironmentGateway") {}
+
+/**
+ * Fork: LAN fallback. True where the platform verifies a route's pinned certificate itself (the
+ * desktop app). Elsewhere a self-signed LAN route would never connect, so it is not learned.
+ */
+export class PinsLanCertificates extends Context.Reference<boolean>(
+  "@t3tools/client-runtime/platform/capabilities/PinsLanCertificates",
+  { defaultValue: () => false },
+) {}

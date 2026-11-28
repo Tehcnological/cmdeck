@@ -35,6 +35,7 @@ import {
 import { ServerProviderUsageLimits, UsageLimitSourceSnapshots } from "./providerUsageLimits.ts";
 import { ServerSettings } from "./settings.ts";
 import { DesktopUpdateChannelSchema } from "./ipc.ts";
+import { CertificateSha256 } from "./fork/lanFallback.ts"; // Fork: LAN fallback
 
 const KeybindingsMalformedConfigIssue = Schema.Struct({
   kind: Schema.Literal("keybindings.malformed-config"),
@@ -625,12 +626,13 @@ export function environmentThemeFileHasColors(file: EnvironmentThemeFile): boole
 }
 
 /** tailnet means this machine's Tailscale interface; other private addresses are lan. */
-export const ServerDirectEndpointKind = Schema.Literals(["lan", "tailnet"]);
+export const ServerDirectEndpointKind = Schema.Literals(["lan", "tailnet", "lan-tls"]); // Fork: LAN fallback
 export type ServerDirectEndpointKind = typeof ServerDirectEndpointKind.Type;
 
 export const ServerDirectEndpoint = Schema.Struct({
   kind: ServerDirectEndpointKind,
   httpBaseUrl: TrimmedNonEmptyString,
+  certificateSha256: Schema.optionalKey(CertificateSha256), // Fork: LAN fallback pin
 });
 export type ServerDirectEndpoint = typeof ServerDirectEndpoint.Type;
 
