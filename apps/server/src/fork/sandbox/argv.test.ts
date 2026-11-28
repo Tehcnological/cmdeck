@@ -242,6 +242,11 @@ describe("runtime probes", () => {
     expect(isLocalDockerEndpoint("unix:///var/run/docker.sock")).toBe(true);
     expect(isLocalDockerEndpoint("npipe:////./pipe/docker_engine")).toBe(true);
     expect(isLocalDockerEndpoint("ssh://user@host")).toBe(false);
+    expect(isLocalDockerEndpoint("npipe:////./pipe/dockerDesktopLinuxEngine")).toBe(true);
+    // A pipe on another machine is reached over SMB.
+    expect(isLocalDockerEndpoint("npipe:////server/pipe/docker_engine")).toBe(false);
+    expect(isLocalDockerEndpoint("npipe://\\\\server\\pipe\\docker_engine")).toBe(false);
+    expect(isLocalDockerEndpoint("npipe:////./pipe/../../server/pipe/x")).toBe(false);
     expect(isLocalDockerEndpoint("")).toBe(false);
   });
 

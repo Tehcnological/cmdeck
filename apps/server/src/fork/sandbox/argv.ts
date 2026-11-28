@@ -255,7 +255,8 @@ export function containerCommand(
 
 /** Only the local socket or named pipe; a TCP endpoint would run the agent on another machine. */
 export function isLocalDockerEndpoint(host: string): boolean {
-  return host.startsWith("unix://") || host.startsWith("npipe://");
+  // A pipe on host `.` only: `npipe:////server/pipe/x` reaches another machine over SMB.
+  return host.startsWith("unix://") || /^npipe:\/\/[\\/]*\.[\\/]pipe[\\/][^\\/]+$/.test(host);
 }
 
 /** Docker's OCI runtime names from `docker info --format '{{json .Runtimes}}'`. */
