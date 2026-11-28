@@ -583,7 +583,7 @@ const codeReview = workflow(
     if (review.findings.length === 0) return { ...result, posted: false };
     const body = formatReview(pr, change, risk, review);
     if (!autoPost) {
-      const answer = yield* ask("post", {
+      const answer = yield* ask("approve", {
         kind: "post",
         title:
           "Post this review on #" + pr.number + "? " + review.findings.length +

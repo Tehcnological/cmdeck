@@ -735,7 +735,7 @@ it.effect(
       const discarded = yield* boot((workflows) =>
         Effect.gen(function* () {
           const { runId } = yield* workflows.start("code-review", input, { idempotencyKey: "1" });
-          yield* workflows.waitFor(runId, askedAt("post"));
+          yield* workflows.waitFor(runId, askedAt("approve"));
           const [question] = (yield* workflows.questions).filter((asked) => asked.runId === runId);
           const body = String(
             (question?.request as { data?: { body?: unknown } } | undefined)?.data?.body,
@@ -745,7 +745,7 @@ it.effect(
           assert.include(body, "src/auth/login.ts:1");
           assert.include(body, "@\u2060someone");
           assert.include(body, "Risk: medium (1 lockfile, 1 sensitive)");
-          yield* workflows.answer(runId, "post", { choice: "discard" });
+          yield* workflows.answer(runId, "approve", { choice: "discard" });
           return yield* workflows.waitFor(runId, finished);
         }),
       );
@@ -762,22 +762,20 @@ it.effect(
       assert.include(firstTurn?.prompt, "ci_logs");
       assertDefused(firstTurn?.prompt, ["body"]);
 
-      // A new commit: with auto-post on, only it is reviewed, and the review is posted unasked.
+      // A new commit: only it is reviewed, and a person approves posting the review.
       yield* write(host, "src/util.ts", "export const twice = (n) => n * 2;\n");
       git(host, "add", ".");
       git(host, "commit", "-q", "-m", "util");
       headSha = git(host, "rev-parse", "HEAD");
-      const auto = yield* boot((workflows) =>
+      const approved = yield* boot((workflows) =>
         Effect.gen(function* () {
-          const { runId } = yield* workflows.start(
-            "code-review",
-            { ...input, autoPost: true },
-            { idempotencyKey: "2" },
-          );
+          const { runId } = yield* workflows.start("code-review", input, { idempotencyKey: "2" });
+          yield* workflows.waitFor(runId, askedAt("approve"));
+          yield* workflows.answer(runId, "approve", { choice: "post" });
           return yield* workflows.waitFor(runId, finished);
         }),
       );
-      assert.equal(auto.status, "completed");
+      assert.equal(approved.status, "completed");
       assert.equal(posted.length, 1);
       assert.include(posted[0], `<!-- cmdeck-code-review ${headSha} -->`);
       assert.include(posted[0], `the commits after ${first.slice(0, 7)}`);
@@ -795,6 +793,25 @@ it.effect(
       );
       assert.equal(again.status, "skipped");
       assert.equal(turns.length, 2);
+
+      // With auto-post on, the review is posted unasked.
+      yield* write(host, "src/util.ts", "export const twice = (n) => n + n;\n");
+      git(host, "add", ".");
+      git(host, "commit", "-q", "-m", "util again");
+      headSha = git(host, "rev-parse", "HEAD");
+      const auto = yield* boot((workflows) =>
+        Effect.gen(function* () {
+          const { runId } = yield* workflows.start(
+            "code-review",
+            { ...input, autoPost: true },
+            { idempotencyKey: "4" },
+          );
+          return yield* workflows.waitFor(runId, finished);
+        }),
+      );
+      assert.equal(auto.status, "completed");
+      assert.equal(posted.length, 2);
+      assert.include(posted[1], `<!-- cmdeck-code-review ${headSha} -->`);
     }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
 );
 

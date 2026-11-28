@@ -12,3 +12,6 @@ apps/server/src/fork/schemas.ts:export \{ ensureWorkflowTrustSchema \}
 packages/contracts/src/settings.ts:workflowsEnabled: Schema\.Boolean\.pipe\(Schema\.withDecodingDefault\(Effect\.succeed\(true\)\)\)
 apps/web/src/components/workflows/WorkflowsPage.tsx:import \{ WorkflowApprovals \} from "~/fork/WorkflowApprovals";
 apps/web/src/components/workflows/WorkflowsPage.tsx:<WorkflowApprovals key=\{environmentId\} environmentId=\{environmentId\} />
+# #157: workflow agent steps run project setup/layout commands only in Full access, like an agent's request.
+apps/server/src/orchestration-v2/ThreadLaunchService.ts:\(message\?\.createdBy \?\? thread\.createdBy\) === "agent" \|\| thread\.workflowRun !== undefined
+apps/server/src/orchestration-v2/ThreadLaunchService.ts:input\.createdBy === "agent" \|\| input\.workflowRun !== undefined
