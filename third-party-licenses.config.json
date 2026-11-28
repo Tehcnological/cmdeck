@@ -3,6 +3,21 @@
     {
       "bundles": ["desktop"],
       "license": "Apache-2.0",
+      "name": "KiroCrew Research Lab briefs and stop rules (Research Lab preset)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/apps/builtins/auto_research",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "Ported to a CMDeck workflow preset (apps/server/src/fork/presets/research-lab.ts). Changes: briefs condensed and reworded for typed agent results, each cycle runs its questions as parallel agents, the workflow counts new findings itself for the stagnation stop, and the report is written by the run's last agent thread."
+          ]
+        }
+      ]
+    },
+    {
+      "bundles": ["desktop"],
+      "license": "Apache-2.0",
       "name": "KiroCrew task runner prompts (Task Runner preset)",
       "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd",
       "generatedNotices": [

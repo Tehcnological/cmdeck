@@ -3067,6 +3067,8 @@
   "e88cdcbf63966b96": "拥有自己固定线程和私有记忆的常驻代理",
   "cdbeeaaa0371bb84": "添加 Task Runner 工作流",
   "d11c0fe527862ae6": "无法添加 Task Runner",
+  "e9fdf016f1a52848": "添加 Research Lab 工作流",
+  "dba121f5fe884dd7": "无法添加 Research Lab",
   "9b2f6da5bd526fb2": "默认环境未连接",
   "b52720786b8d772e": "{environment} 未连接",
   "b8c9370425928547": "此会话将在 {environment} 上开始。",

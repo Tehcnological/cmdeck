@@ -16,7 +16,10 @@ Approval covers the file itself, not other modules it imports. Approving needs t
 
 ## Ready-made workflows
 
-The [Task Runner](./task-runner.md) plans a change, runs it task by task with a check after each, and has another model review it. Add it from the command palette.
+Add these from the command palette:
+
+- The [Task Runner](./task-runner.md) plans a change, runs it task by task with a check after each, and has another model review it.
+- The [Research Lab](./research-lab.md) researches a question in cycles of parallel agents and writes a report.
 
 ## Create a workflow
 

@@ -3062,6 +3062,8 @@
   "e88cdcbf63966b96": "고정된 전용 스레드와 비공개 메모리를 가진 지속형 에이전트",
   "cdbeeaaa0371bb84": "Task Runner 워크플로 추가",
   "d11c0fe527862ae6": "Task Runner를 추가할 수 없습니다",
+  "e9fdf016f1a52848": "Research Lab 워크플로 추가",
+  "dba121f5fe884dd7": "Research Lab을 추가할 수 없습니다",
   "9b2f6da5bd526fb2": "기본 환경이 연결되어 있지 않습니다",
   "b52720786b8d772e": "{environment}이(가) 연결되어 있지 않습니다",
   "b8c9370425928547": "이 스레드는 {environment}에서 시작합니다.",
