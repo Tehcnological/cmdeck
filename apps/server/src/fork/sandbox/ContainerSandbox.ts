@@ -740,6 +740,16 @@ const make = Effect.gen(function* () {
   };
 });
 
+/**
+ * For a provider adapter, read at its build: whether a thread runs in a container. Absent the
+ * service (tests, upstream builds), no thread does.
+ */
+export const sandboxedThreadCheck = Effect.map(
+  Effect.serviceOption(ContainerSandbox),
+  (sandbox) => (threadId: string) =>
+    Option.isSome(sandbox) ? sandbox.value.isSandboxed(threadId) : Effect.succeed(false),
+);
+
 /** The service and the AgentScope it wraps, without the stores it reads (tests provide fakes). */
 export const layerCore = Layer.effectContext(
   make.pipe(

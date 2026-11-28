@@ -27,6 +27,7 @@ import { AgentScope } from "@t3tools/shared/AgentScope";
 import { ProviderEventLoggers } from "@t3tools/provider-core/server/ProviderEventLoggers";
 import { makeProviderFailure } from "@t3tools/provider-core/server/failure";
 import { signalProcessGroup } from "@t3tools/provider-core/server/processGroup";
+import { ContainerSandbox } from "../../fork/sandbox/ContainerSandbox.ts";
 import * as PortScanner from "../../preview/PortScanner.ts";
 import {
   ClaudeAgentSdkQueryRunner,
@@ -260,6 +261,44 @@ it.effect("resumes a session whose history exceeds the status-probe output limit
     assert.equal(querySpy.mock.calls.length, 1);
     assert.equal(querySpy.mock.calls[0]?.[0].options?.resume, FORK_SESSION_ID);
   }).pipe(Effect.provide(Layer.merge(realQueryRunner, NodeServices.layer))),
+);
+
+// Fork (WI-2.18): a script entry (npm's cli.js) would run through node on the host, so a thread
+// that runs in a container must still launch through the AgentScope, as the image's `claude`.
+it.effect.each([true, false])(
+  "a script executable goes through the container scope only when the thread is sandboxed: %s",
+  (sandboxed) =>
+    Effect.gen(function* () {
+      const wraps: Array<string> = [];
+      const querySpy = vi
+        .spyOn(ClaudeSdk, "query")
+        .mockImplementation(() => ({ close: vi.fn() }) as unknown as ClaudeSdk.Query);
+      yield* Effect.addFinalizer(() => Effect.sync(() => querySpy.mockRestore()));
+      const cli = "/usr/lib/node_modules/@anthropic-ai/claude-code/cli.js";
+      const session = yield* openFakeCli(cli).pipe(
+        Effect.provide(
+          realQueryRunner.pipe(
+            Layer.provide(
+              Layer.mergeAll(
+                Layer.succeed(AgentScope, {
+                  ...AgentScope.defaultValue(),
+                  wrap: ({ command }) =>
+                    Effect.sync(() => {
+                      wraps.push(command);
+                      return { command: "docker", args: ["run", "--rm", "-i", "image", "claude"] };
+                    }),
+                }),
+                Layer.mock(ContainerSandbox)({ isSandboxed: () => Effect.succeed(sandboxed) }),
+              ),
+            ),
+          ),
+        ),
+      );
+      yield* Effect.addFinalizer(() => session.close.pipe(Effect.orDie));
+      const launched = querySpy.mock.calls[0]?.[0].options?.pathToClaudeCodeExecutable;
+      assert.deepEqual(wraps, sandboxed ? [cli] : []);
+      assert.equal(launched, sandboxed ? "docker" : cli);
+    }),
 );
 
 it.effect("reopens a stalled MCP registration before delivering the resumed prompt", () =>

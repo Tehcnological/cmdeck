@@ -195,6 +195,7 @@ import {
 } from "../../claudeModelOptions.ts";
 import * as ServerConfig from "../../config.ts";
 import { NativeTelemetryClient } from "../../resourceTelemetry/NativeTelemetryClient.ts";
+import * as ForkSandbox from "../../fork/sandbox/ContainerSandbox.ts";
 import * as PortScanner from "../../preview/PortScanner.ts";
 import * as ProcessRunner from "../../processRunner.ts";
 import * as ServerSettings from "../../serverSettings.ts";
@@ -1662,6 +1663,7 @@ export const layerQueryRunner: Layer.Layer<
     const path = yield* Path.Path;
     const { native: nativeEventLogger } = yield* ProviderEventLoggers.ProviderEventLoggers;
     const agentScope = yield* AgentScope;
+    const inContainer = yield* ForkSandbox.sandboxedThreadCheck;
     const providerProcesses = yield* ProviderProcesses.ProviderProcesses;
     const platform = yield* HostProcess.Platform;
     const runFork = Effect.runForkWith(yield* Effect.context<never>());
@@ -1798,10 +1800,12 @@ export const layerQueryRunner: Layer.Layer<
       // The SDK can prepend a scope wrapper to native binaries; script entries run through node.
       const binaryPath = queryOptions.pathToClaudeCodeExecutable;
       const launch =
-        binaryPath === undefined || CLAUDE_SCRIPT_EXTENSIONS.some((ext) => binaryPath.endsWith(ext))
+        (binaryPath === undefined ||
+          CLAUDE_SCRIPT_EXTENSIONS.some((ext) => binaryPath.endsWith(ext))) &&
+        !(yield* inContainer(input.threadId))
           ? undefined
           : yield* agentScope.wrap({
-              command: binaryPath,
+              command: binaryPath ?? "claude",
               args: [],
               name: "claude",
               threadId: input.threadId,

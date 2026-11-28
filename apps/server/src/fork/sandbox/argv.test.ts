@@ -204,6 +204,8 @@ describe("containerCommand", () => {
     ["claude", "/usr/local/bin/claude", ["-p"], "claude", ["-p"]],
     ["claude", "C:\\Tools\\claude.exe", [], "claude", []],
     ["claude", "claude", [], "claude", []],
+    ["claude", "/usr/lib/node_modules/@anthropic-ai/claude-code/cli.js", [], "claude", []],
+    ["agent", "/opt/tools/agent.exe", ["-x"], "agent", ["-x"]],
   ] as const)("%s from %s", (name, command, args, expectedCommand, expectedArgs) => {
     expect(containerCommand(name, command, args)).toEqual({
       command: expectedCommand,

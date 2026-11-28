@@ -245,6 +245,8 @@ export function containerCommand(
   args: ReadonlyArray<string>,
 ): { readonly command: string; readonly args: ReadonlyArray<string> } {
   if (name === "terminal") return { command: "/bin/sh", args: ["-c", LOGIN_SHELL] };
+  // The host may run Claude from a script (npm's cli.js) or a Windows exe; the image has `claude`.
+  if (name === "claude") return { command: "claude", args };
   const base = command.split(/[\\/]/).at(-1) ?? command;
   return { command: base.replace(/\.(exe|cmd|bat)$/i, ""), args };
 }

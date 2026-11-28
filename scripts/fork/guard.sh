@@ -256,6 +256,11 @@ required=(
   'apps/server/src/persistence/ForkSchema.ts:yield\* ensureSandboxSchema\(\)'
   'apps/web/src/components/settings/SettingsPanels.tsx:import \{ ContainerSandboxSection \} from "~/fork/ContainerSandboxSection";'
   'apps/web/src/components/settings/SettingsPanels.tsx:<ContainerSandboxSection />'
+  # A sandboxed thread's Claude launches through the container scope even from a script entry.
+  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:import \* as ForkSandbox from "\.\./\.\./fork/sandbox/ContainerSandbox\.ts";'
+  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const inContainer = yield\* ForkSandbox\.sandboxedThreadCheck;'
+  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:!\(yield\* inContainer\(input\.threadId\)\)'
+  'apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:command: binaryPath \?\? "claude",'
 )
 # 6. Only a person approves a workflow file: no MCP tool may reach the trust gate (WI-1.06).
 hits="$(git grep -l -E 'WorkflowTrust|workflowTrust' -- apps/server/src/mcp apps/server/src/fork/mcpToolkits.ts)"
