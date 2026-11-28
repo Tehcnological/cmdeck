@@ -4,7 +4,9 @@ import { ProviderInstanceId, ProviderSessionId, type SandboxRecipe } from "@t3to
 import { AgentScope, type AgentScopeShape } from "@t3tools/shared/AgentScope";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Path from "effect/Path";
 import type * as SqlClient from "effect/sql/SqlClient";
 
 import * as AuditLog from "../audit/AuditLog.ts";
@@ -189,6 +191,81 @@ describe("ContainerSandbox", () => {
         expect(yield* Deferred.await(host.removed)).toEqual([agent.unit]);
       }),
     ),
+  );
+});
+
+describe("git layout", () => {
+  const launchIn = (options: { readonly projectRoot: string; readonly workspace: string }) =>
+    Effect.gen(function* () {
+      const host = yield* makeHost;
+      return yield* Effect.gen(function* () {
+        yield* (yield* ContainerSandbox).configure(
+          { thread: { threadId: THREAD, mode: "on" } },
+          "user",
+        );
+        return yield* Effect.exit(wrapAs("claude", {}, THREAD));
+      }).pipe(Effect.provide(layerSandbox({ ...options, host })));
+    });
+
+  /** A repository at `root` with a linked worktree at `worktree`, as `git worktree add` leaves it. */
+  const linkedWorktree = Effect.fn(function* (root: string, worktree: string) {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const admin = path.join(root, ".git", "worktrees", "wt");
+    yield* fileSystem.makeDirectory(path.join(root, ".git", "objects"), { recursive: true });
+    yield* fileSystem.writeFileString(path.join(root, ".git", "HEAD"), "ref: refs/heads/main\n");
+    yield* fileSystem.writeFileString(path.join(root, ".git", "config"), "[core]\n");
+    yield* fileSystem.makeDirectory(admin, { recursive: true });
+    yield* fileSystem.writeFileString(path.join(admin, "commondir"), "../..\n");
+    yield* fileSystem.writeFileString(
+      path.join(admin, "gitdir"),
+      `${path.join(worktree, ".git")}\n`,
+    );
+    yield* fileSystem.writeFileString(path.join(worktree, ".git"), `gitdir: ${admin}\n`);
+  });
+
+  it.effect("mounts a linked worktree's own repository", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fileSystem.makeTempDirectoryScoped({ prefix: "cmdeck-root-" });
+      const worktree = yield* fileSystem.makeTempDirectoryScoped({ prefix: "cmdeck-wt-" });
+      yield* linkedWorktree(root, worktree);
+      const exit = yield* launchIn({ projectRoot: root, workspace: worktree });
+      expect(exit._tag).toBe("Success");
+      if (exit._tag !== "Success") return;
+      expect(valuesOf(exit.value.args, "--mount")).toContain(
+        `type=bind,source=${path.join(root, ".git")},target=${path.join(root, ".git")}`,
+      );
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("refuses a .git file that points anywhere but the project's repository", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fileSystem.makeTempDirectoryScoped({ prefix: "cmdeck-root-" });
+      const worktree = yield* fileSystem.makeTempDirectoryScoped({ prefix: "cmdeck-wt-" });
+      const victim = yield* fileSystem.makeTempDirectoryScoped({ prefix: "cmdeck-home-" });
+      yield* linkedWorktree(root, worktree);
+      // What code in a container could write into its worktree before the next start.
+      yield* fileSystem.writeFileString(path.join(worktree, ".git"), `gitdir: ${victim}\n`);
+      const exit = yield* launchIn({ projectRoot: root, workspace: worktree });
+      expect(exit._tag).toBe("Failure");
+      expect(yield* fileSystem.exists(path.join(victim, "hooks"))).toBe(false);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("refuses a main checkout whose .git directory was replaced by a file", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fileSystem.makeTempDirectoryScoped({ prefix: "cmdeck-root-" });
+      const victim = yield* fileSystem.makeTempDirectoryScoped({ prefix: "cmdeck-home-" });
+      yield* fileSystem.writeFileString(path.join(root, ".git"), `gitdir: ${victim}\n`);
+      const exit = yield* launchIn({ projectRoot: root, workspace: root });
+      expect(exit._tag).toBe("Failure");
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });
 

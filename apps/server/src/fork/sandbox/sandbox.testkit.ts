@@ -63,6 +63,8 @@ export const layerSandbox = (options: {
   readonly env?: NodeJS.ProcessEnv;
   /** Threads already in containers before this start. */
   readonly sandboxedBefore?: ReadonlyArray<string>;
+  /** The project's checkout; defaults to the workspace (a thread in the main checkout). */
+  readonly projectRoot?: string;
   /** Runs the real container CLI on this host instead of the fake (the live test). */
   readonly realHost?: boolean;
   /** A fixed server home, so two starts share one owner label. */
@@ -112,7 +114,12 @@ export const layerSandbox = (options: {
                 : null,
             ),
         }),
-        Layer.mock(ProjectStore.ProjectStoreV2)({ get: () => Effect.succeedNone }),
+        Layer.mock(ProjectStore.ProjectStoreV2)({
+          get: () =>
+            Effect.succeedSome({
+              workspaceRoot: options.projectRoot ?? options.workspace,
+            } as ProjectStore.ProjectRow),
+        }),
         AuditLog.layerService,
         ServerSettings.layerTest({
           cmdeck: { sandbox: { image: "acme/agent:1", ...options.recipe } },

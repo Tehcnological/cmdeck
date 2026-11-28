@@ -339,30 +339,86 @@ const make = Effect.gen(function* () {
       .findThread(ThreadId.make(threadId))
       .pipe(Effect.orElseSucceed(() => null));
     if (thread === null) return null;
-    if (thread.worktreePath) return thread.worktreePath;
     const project = yield* projects
       .get(thread.projectId)
       .pipe(Effect.orElseSucceed(() => Option.none()));
-    return Option.isSome(project) ? project.value.workspaceRoot : null;
+    if (Option.isNone(project)) return null;
+    const projectRoot = project.value.workspaceRoot;
+    return { workspace: thread.worktreePath || projectRoot, projectRoot };
   });
 
-  const gitLayout = Effect.fn("ContainerSandbox.gitLayout")(function* (workspace: string) {
+  // A path is "real" when no link along it leads elsewhere; compared after resolving its parent.
+  const isReal = (target: string) =>
+    Effect.all([fileSystem.realPath(target), fileSystem.realPath(path.dirname(target))]).pipe(
+      Effect.map(([resolved, parent]) => resolved === path.join(parent, path.basename(target))),
+      Effect.orElseSucceed(() => false),
+    );
+  const readPointer = (file: string) =>
+    fileSystem.readFileString(file).pipe(
+      Effect.map((text) => text.trim()),
+      Effect.option,
+    );
+  const refuseLayout = (detail: string) =>
+    Effect.fail(
+      new SandboxError({ detail: `The thread's git layout cannot be trusted: ${detail}` }),
+    );
+
+  /**
+   * The workspace's git layout, anchored on the project's own `.git` directory on the host. Files
+   * inside the workspace are the container's to write, so a `.git` file or pointer is believed only
+   * when it leads back to that repository; anything else refuses the launch.
+   */
+  const gitLayout = Effect.fn("ContainerSandbox.gitLayout")(function* (
+    workspace: string,
+    projectRoot: string,
+  ) {
     const dotGit = path.join(workspace, ".git");
     const info = yield* fileSystem.stat(dotGit).pipe(Effect.option);
     if (Option.isNone(info)) return null;
+    if (!(yield* isReal(dotGit))) return yield* refuseLayout(".git is a link.");
+    const projectGit = path.join(projectRoot, ".git");
+    const projectGitReal = yield* fileSystem.realPath(projectGit).pipe(Effect.option);
+    const sameAsProject =
+      (yield* fileSystem.realPath(workspace).pipe(Effect.option)).pipe(Option.getOrUndefined) ===
+      (yield* fileSystem.realPath(projectRoot).pipe(Effect.option)).pipe(Option.getOrUndefined);
     if (info.value.type === "Directory") {
+      if (!sameAsProject) return yield* refuseLayout(".git is a directory in a linked worktree.");
       return { commonDir: dotGit, adminDir: dotGit, dotGitFile: null } satisfies GitLayout;
     }
-    const pointer = /^gitdir:\s*(.+)$/m.exec(yield* fileSystem.readFileString(dotGit));
-    if (pointer?.[1] === undefined) return null;
-    const adminDir = path.resolve(workspace, pointer[1].trim());
-    const commonPointer = yield* fileSystem
-      .readFileString(path.join(adminDir, "commondir"))
+    if (sameAsProject || Option.isNone(projectGitReal)) {
+      return yield* refuseLayout(".git is not the project's repository directory.");
+    }
+    const commonDir = projectGitReal.value;
+    const pointer = /^gitdir:\s*(.+)$/m.exec(
+      (yield* readPointer(dotGit)).pipe(Option.getOrElse(() => "")),
+    );
+    const adminDir = yield* fileSystem
+      .realPath(path.resolve(workspace, pointer?.[1]?.trim() ?? ""))
       .pipe(Effect.option);
-    const commonDir = Option.isSome(commonPointer)
-      ? path.resolve(adminDir, commonPointer.value.trim())
-      : adminDir;
-    return { commonDir, adminDir, dotGitFile: dotGit } satisfies GitLayout;
+    if (pointer === null || Option.isNone(adminDir)) return yield* refuseLayout("no gitdir.");
+    if (path.dirname(adminDir.value) !== path.join(commonDir, "worktrees")) {
+      return yield* refuseLayout("gitdir is outside the project's worktrees.");
+    }
+    const backPointer = yield* readPointer(path.join(adminDir.value, "gitdir"));
+    const backReal = Option.isSome(backPointer)
+      ? yield* fileSystem
+          .realPath(path.resolve(adminDir.value, backPointer.value))
+          .pipe(Effect.option)
+      : Option.none<string>();
+    const dotGitReal = yield* fileSystem.realPath(dotGit);
+    if (Option.getOrUndefined(backReal) !== dotGitReal) {
+      return yield* refuseLayout("the worktree's gitdir does not point back to it.");
+    }
+    const commonPointer = yield* readPointer(path.join(adminDir.value, "commondir"));
+    const commonReal = Option.isSome(commonPointer)
+      ? yield* fileSystem
+          .realPath(path.resolve(adminDir.value, commonPointer.value))
+          .pipe(Effect.option)
+      : Option.none<string>();
+    if (Option.getOrUndefined(commonReal) !== commonDir) {
+      return yield* refuseLayout("commondir is not the project's repository.");
+    }
+    return { commonDir, adminDir: adminDir.value, dotGitFile: dotGit } satisfies GitLayout;
   });
 
   const inside = (child: string, parent: string) => {
@@ -377,6 +433,7 @@ const make = Effect.gen(function* () {
 
   const mountsFor = Effect.fn("ContainerSandbox.mountsFor")(function* (
     workspace: string,
+    projectRoot: string,
     current: SandboxRecipe,
     name: string,
   ) {
@@ -386,7 +443,7 @@ const make = Effect.gen(function* () {
       readOnly,
     });
     const mounts: Array<ContainerMount> = [at(workspace, false)];
-    const layout = yield* gitLayout(workspace).pipe(Effect.orElseSucceed(() => null));
+    const layout = yield* gitLayout(workspace, projectRoot);
     if (layout !== null) {
       // A linked worktree's objects and refs live in the main checkout's git dir.
       if (!inside(layout.commonDir, workspace)) mounts.push(at(layout.commonDir, false));
@@ -396,6 +453,9 @@ const make = Effect.gen(function* () {
         const exists = yield* fileSystem
           .exists(target.path)
           .pipe(Effect.orElseSucceed(() => false));
+        if (exists && !(yield* isReal(target.path))) {
+          return yield* refuseLayout(`${path.basename(target.path)} is a link.`);
+        }
         if (!exists) {
           if (!target.create) continue;
           yield* target.kind === "dir"
@@ -409,7 +469,10 @@ const make = Effect.gen(function* () {
         // Apple cannot mount read-only: the container gets a copy, and its writes stay in the copy.
         const copied = path.join(copiesDir, name, `${index++}-${path.basename(target.path)}`);
         yield* fileSystem.makeDirectory(path.dirname(copied), { recursive: true });
-        yield* fileSystem.copy(target.path, copied);
+        // Hooks only matter to git on the host, and a copied link could read any host file.
+        yield* target.kind === "dir"
+          ? fileSystem.makeDirectory(copied)
+          : fileSystem.copyFile(target.path, copied);
         mounts.push({
           hostPath: copied,
           containerPath: containerPathFor(target.path, platform),
@@ -441,13 +504,19 @@ const make = Effect.gen(function* () {
           "This launch's environment points Docker at another engine. CMDeck only uses the local one.",
       });
     }
-    const workspace = yield* workspaceOf(threadId);
-    if (workspace === null) {
+    const located = yield* workspaceOf(threadId);
+    if (located === null) {
       return yield* new SandboxError({ detail: "The thread has no workspace to mount." });
     }
+    const { workspace, projectRoot } = located;
     const name = `cmdeck-${input.name}-${NodeCrypto.randomUUID().slice(0, 12)}`;
-    const mounts = yield* mountsFor(workspace, current, name).pipe(
-      Effect.mapError(toError("Could not prepare the container's mounts.")),
+    const mounts = yield* mountsFor(workspace, projectRoot, current, name).pipe(
+      Effect.catchTags({
+        PlatformError: (cause) =>
+          Effect.fail(
+            new SandboxError({ detail: "Could not prepare the container's mounts.", cause }),
+          ),
+      }),
     );
     const inContainer = containerCommand(input.name, input.command, input.args);
     const binary = RUNTIME_TRAITS[current.runtime].binary;
