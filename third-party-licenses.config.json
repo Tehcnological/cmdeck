@@ -45,6 +45,21 @@
     {
       "bundles": ["desktop"],
       "license": "Apache-2.0",
+      "name": "KiroCrew Code Review Sage risk rules and review rules (Code Review preset)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/apps/builtins/code_review_sage",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "Ported to a CMDeck workflow preset (apps/server/src/fork/presets/code-review.ts). Changes: the blast-radius signals translated from Python to workflow JavaScript, `throw` and `catch` counted as guards, lockfile, CI configuration, binary and large-file flags added, the sage-review rules condensed into one brief, and findings drafted as a workflow question that a person posts unless auto-post is on."
+          ]
+        }
+      ]
+    },
+    {
+      "bundles": ["desktop"],
+      "license": "Apache-2.0",
       "name": "KiroCrew task runner prompts (Task Runner preset)",
       "sourceUrl": "https://github.com/kirodotdev/KiroCrew/tree/b75544f0dbef43b7340800819b36ae6cf9fbc2bd",
       "generatedNotices": [
