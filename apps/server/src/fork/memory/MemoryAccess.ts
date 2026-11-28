@@ -1,4 +1,9 @@
-import type { MemoryScope, ThreadId, ThreadMemoryMode } from "@t3tools/contracts";
+import type {
+  MemoryScope,
+  MemoryTargetScope,
+  ThreadId,
+  ThreadMemoryMode,
+} from "@t3tools/contracts";
 
 /** What a thread may see: its own scopes and its memory mode. */
 export interface MemoryThreadContext {
@@ -45,3 +50,20 @@ export const allows = (
 /** The scopes a thread may read, or none. Queries filter on exactly these. */
 export const readableScopes = (context: MemoryThreadContext): ReadonlyArray<MemoryScope> =>
   allows(context, "read") ? scopesOf(context) : [];
+
+/** The scope a write aimed at "this project" (or repo, thread, everything) means for the thread. */
+export const targetScope = (
+  context: MemoryThreadContext,
+  target: MemoryTargetScope,
+): MemoryScope | undefined => {
+  switch (target) {
+    case "global":
+      return "global";
+    case "thread":
+      return `thread:${context.threadId}`;
+    case "project":
+      return context.projectId === null ? undefined : `project:${context.projectId}`;
+    case "repo":
+      return context.repoKey === null ? undefined : `repo:${context.repoKey}`;
+  }
+};

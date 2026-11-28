@@ -16,9 +16,11 @@ import { WorkflowDefinitions } from "../../workflows/WorkflowRuntime.ts";
 import * as AuditLog from "../audit/AuditLog.ts";
 import { Bots, type BotActor } from "../bots/Bots.ts";
 import { Decisions } from "../decisions/Decisions.ts";
+import { MemoryEmbeddings } from "../memory/MemoryEmbeddings.ts";
 import { installPreset } from "../presets/install.ts";
 import { WorkflowTrust } from "../workflowTrust/WorkflowTrust.ts";
 import * as Notifications from "../notifications/Notifications.ts";
+import * as MemoryRpc from "../memory/MemoryRpc.ts";
 
 /** Spread into the server's WS handlers; each fork module adds its methods here. */
 export const make = Effect.gen(function* () {
@@ -37,6 +39,8 @@ export const make = Effect.gen(function* () {
   const bots = yield* Effect.serviceOption(Bots);
   const noBots = Effect.fail(new BotsError({ reason: "Bots are not available." }));
   const asPerson: BotActor = { createdBy: "user", creationSource: "web" };
+  const memory = yield* MemoryRpc.make;
+  const embeddings = yield* Effect.serviceOption(MemoryEmbeddings);
   return ForkWsRpcGroup.of({
     [CMDECK_WS_METHODS.status]: () => Effect.succeed({ version: CMDECK_RPC_VERSION }),
     [CMDECK_WS_METHODS.auditList]: (input) =>
@@ -80,5 +84,25 @@ export const make = Effect.gen(function* () {
       Option.isSome(bots) ? bots.value.schedule(input, asPerson) : noBots,
     [CMDECK_WS_METHODS.botsWake]: (input) =>
       Option.isSome(bots) ? bots.value.wake(input.id) : noBots,
+    [CMDECK_WS_METHODS.memoryList]: memory.list,
+    [CMDECK_WS_METHODS.memoryRevisions]: (input) => memory.revisions(input.itemId),
+    [CMDECK_WS_METHODS.memoryEdit]: memory.edit,
+    [CMDECK_WS_METHODS.memoryRevert]: memory.revert,
+    [CMDECK_WS_METHODS.memoryPreviewEdit]: memory.previewEdit,
+    [CMDECK_WS_METHODS.memoryApplyEdit]: memory.applyEdit,
+    [CMDECK_WS_METHODS.memoryRemember]: memory.remember,
+    [CMDECK_WS_METHODS.memoryThreadMode]: (input) => memory.threadMode(input.threadId),
+    [CMDECK_WS_METHODS.memorySetThreadMode]: memory.setThreadMode,
+    [CMDECK_WS_METHODS.memoryInjections]: (input) => memory.injections(input.threadId),
+    [CMDECK_WS_METHODS.memoryEmbeddingsStatus]: () =>
+      Option.isSome(embeddings)
+        ? embeddings.value.status
+        : Effect.succeed({
+            mode: "keyword" as const,
+            embedder: null,
+            embedded: 0,
+            total: 0,
+            checkedAt: null,
+          }),
   });
 });
