@@ -4,5 +4,6 @@ export * as containers from "./ContainerSandboxSection";
 export * as knowledge from "./knowledge/KnowledgeSection";
 export * as lanFallback from "./LanFallbackSection";
 export * as memoryEmbeddings from "./memory/MemoryEmbeddingsSection";
+export * as messaging from "./messaging/TelegramSection";
 export * as monitoring from "./monitoring/HeartbeatSection";
 export * as notificationChannels from "./NotificationChannelsSection";

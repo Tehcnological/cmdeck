@@ -19,6 +19,7 @@ apps/server/src/fork/rpc/modules.ts merge=union
 apps/server/src/fork/layers.ts merge=union
 apps/server/src/fork/schemas.ts merge=union
 apps/server/src/fork/mcpToolModules.ts merge=union
+apps/server/src/fork/notifications/drivers.ts merge=union
 apps/web/src/fork/commandModules.ts merge=union
 apps/web/src/fork/settingsSearchModules.ts merge=union
 apps/web/src/fork/panelModules.ts merge=union

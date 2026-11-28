@@ -8,6 +8,7 @@ export { ensureEventTriggersSchema } from "./eventTriggers/schema.ts";
 export { ensureLessonsSchema } from "./lessons/schema.ts";
 export { ensureMemorySchema } from "./memory/schema.ts";
 export { ensureMessagePinsSchema } from "./messagePins/schema.ts";
+export { ensureMessagingSchema } from "./messaging/schema.ts";
 export { ensureMonitoringSchema } from "./monitoring/schema.ts";
 export { ensureNotificationsSchema } from "./notifications/schema.ts";
 export { ensureSandboxSchema } from "./sandbox/schema.ts";

@@ -14,7 +14,7 @@ import { Switch } from "../components/ui/switch";
 import { connectionAtomRuntime } from "../connection/runtime";
 import { useAtomCommand } from "../state/use-atom-command";
 
-const channelList = createEnvironmentRpcQueryAtomFamily(connectionAtomRuntime, {
+export const channelList = createEnvironmentRpcQueryAtomFamily(connectionAtomRuntime, {
   label: "environment-data:cmdeck:notification-channels",
   tag: CMDECK_WS_METHODS.notificationChannelsList,
   staleTimeMs: 0,
