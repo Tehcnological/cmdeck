@@ -221,6 +221,18 @@ describe("ContainerSandbox", () => {
   );
 });
 
+describe("unreadable projection", () => {
+  it.effect("keeps a thread in its project's container when the thread cannot be read", () =>
+    withSandbox({ projectionFails: true }, () =>
+      Effect.gen(function* () {
+        const sandbox = yield* ContainerSandbox;
+        yield* sandbox.configure({ project: { projectId: PROJECT, mode: "on" } }, "user");
+        expect(yield* sandbox.isSandboxed(THREAD)).toBe(true);
+      }),
+    ).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+});
+
 describe("stored recipe", () => {
   it.effect("is checked again at launch, so a row written around configure cannot reach argv", () =>
     withSandbox({ recipe: { network: "host" } }, () =>

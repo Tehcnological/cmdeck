@@ -192,9 +192,10 @@ const make = Effect.gen(function* () {
   );
 
   const threadModes = Effect.fn("ContainerSandbox.threadModes")(function* (threadId: string) {
+    // An unreadable thread fails, so isSandboxed keeps it in a container rather than guess.
     const thread = yield* projections
       .findThread(ThreadId.make(threadId))
-      .pipe(Effect.orElseSucceed(() => null));
+      .pipe(Effect.mapError(toError("Could not read the thread.")));
     const rows = yield* modes;
     const own = rows.find((row) => row.kind === "thread" && row.target_id === threadId)?.mode;
     const projectMode =

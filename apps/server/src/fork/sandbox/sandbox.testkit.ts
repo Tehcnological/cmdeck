@@ -83,6 +83,8 @@ export const layerSandbox = (options: {
   readonly baseDir?: string;
   /** Use this host's real case check; by default a worktree counts as case-sensitive. */
   readonly realCaseCheck?: boolean;
+  /** The projection cannot be read, as when its database is busy or broken. */
+  readonly projectionFails?: boolean;
 }) => {
   const fakeDocker = (input: ProcessRunner.ProcessRunInput) => {
     options.host.calls.push([input.command, ...input.args]);
@@ -133,14 +135,16 @@ export const layerSandbox = (options: {
           : Layer.succeed(CaseInsensitiveWorkspace, () => Effect.succeed(false)),
         Layer.mock(ProjectionStore.ProjectionStoreV2)({
           findThread: (threadId) =>
-            Effect.succeed(
-              threadId === THREAD
-                ? ({ projectId: PROJECT, worktreePath: options.workspace } as Pick<
-                    OrchestrationV2AppThread,
-                    "projectId" | "worktreePath"
-                  > as OrchestrationV2AppThread)
-                : null,
-            ),
+            options.projectionFails === true
+              ? Effect.fail(new ProjectionStore.ProjectionStoreReadError({ threadId }))
+              : Effect.succeed(
+                  threadId === THREAD
+                    ? ({ projectId: PROJECT, worktreePath: options.workspace } as Pick<
+                        OrchestrationV2AppThread,
+                        "projectId" | "worktreePath"
+                      > as OrchestrationV2AppThread)
+                    : null,
+                ),
         }),
         Layer.mock(ProjectStore.ProjectStoreV2)({
           get: () =>
