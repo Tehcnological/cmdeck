@@ -2007,3 +2007,27 @@ it.effect.skipIf(!symlinksSupported)("preserves relative links when replacing di
     assert.equal(yield* fs.readFileString(path.join(output, app, "Current")), "rebuilt-app");
   }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
 );
+
+// Ad-hoc builds run with the hardened runtime too, so a runtime entitlement missing here (camera,
+// microphone, Apple events) is silently denied. Profile-bound com.apple.developer.* keys are exempt.
+it.effect("ad-hoc macOS builds keep every runtime entitlement the signed build has", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const signed = renderMacPasskeyEntitlements(
+      resolveMacPasskeySigningConfiguration({
+        T3CODE_APPLE_TEAM_ID: "ABC1234567",
+        T3CODE_MACOS_PROVISIONING_PROFILE: "/tmp/t3code.provisionprofile",
+        T3CODE_CLERK_PASSKEY_RP_DOMAINS: "example.clerk.accounts.dev",
+      }),
+      { touchIdKeychainAccessGroup: undefined, browserPasskeys: false },
+    );
+    const adHoc = yield* fs.readFileString(
+      NodePath.join(import.meta.dirname, "fork", "entitlements.adhoc.plist"),
+    );
+    const runtimeKeys = [...signed.matchAll(/<key>(com\.apple\.security\.[^<]+)<\/key>/gu)].map(
+      (match) => match[1],
+    );
+    assert.isAbove(runtimeKeys.length, 3);
+    for (const key of runtimeKeys) assert.include(adHoc, `<key>${key}</key>`);
+  }).pipe(Effect.provide(NodeServices.layer)),
+);
