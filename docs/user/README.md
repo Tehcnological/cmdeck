@@ -4,7 +4,7 @@ Welcome to T3 Code. This guide explains how T3 Code works, what you need before 
 
 ## How T3 Code works
 
-T3 Code is an open-source control plane for coding agents. It gives the coding agents already installed on your computer (or server) one fast, unified interface across **desktop**, **web** (`app.t3.codes` or local), and **mobile** (iOS and Android).
+T3 Code is an open-source control plane for coding agents. It gives the coding agents already installed on your computer (or server) one fast, unified interface across **desktop**, **web** (served by your host), and **mobile** (iOS and Android).
 
 ### Core concepts
 
@@ -18,7 +18,7 @@ T3 Code is an open-source control plane for coding agents. It gives the coding a
 
 - **Bring your own subscription or API keys**: T3 Code is free and does not resell tokens. You need at least **one installed, authenticated provider** on the host machine before starting a thread (Codex via ChatGPT and Google Antigravity can install and sign in directly from T3 Code).
 - **Code stays on your machine**: Your code and prompts go directly from your host machine to your chosen provider—never through T3 Code servers.
-- **Your host must stay awake**: Your phone and `app.t3.codes` are remote controls. If the host machine sleeps or shuts down, agents pause until it wakes. Use the [background service](./background-service.md) for always-on hosts.
+- **Your host must stay awake**: Your phone and browser are remote controls. If the host machine sleeps or shuts down, agents pause until it wakes. Use the [background service](./background-service.md) for always-on hosts.
 - **Git is optional but unlocks the best features**: Branching, isolated worktrees, turn diffs, and one-click PRs require a Git repository (and a signed-in host CLI or token for PRs/issues).
 - **No local-model focus**: T3 Code is designed for frontier coding agents (though OpenAI-compatible local endpoints like Ollama can be used for lightweight [text generation](./text-generation.md) like thread titles).
 - **Device vs. server settings**: Appearance, keybinding preferences, and saved PR views live per device; provider configs, thread rules, worktree cleanup, and scheduled tasks live on each server environment (with per-project overrides).

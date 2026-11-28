@@ -5481,7 +5481,7 @@ describe("OrchestratorMcpService thread lookup", () => {
         for (const link of [
           `t3-thread://v2/${ref.environmentId}/${ref.threadId}`,
           formatThreadLink(ref, "Delegated task"),
-          hostedThreadLink(ref),
+          hostedThreadLink(ref, "https://app.t3.codes"),
         ]) {
           const read = yield* mcp
             .readThread(client, { threadId: ThreadId.make(link) })

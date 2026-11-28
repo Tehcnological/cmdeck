@@ -1,4 +1,4 @@
-import { DEFAULT_HOSTED_APP_URL } from "./connectAuth.ts";
+import { LEGACY_HOSTED_APP_URL } from "./connectAuth.ts";
 import { parseUrl } from "./url.ts";
 
 export const PROMPT_LINK_MAX_PROMPT_LENGTH = 8_000;
@@ -194,9 +194,9 @@ export function buildNewThreadLink(input: {
   readonly repository?: PromptLinkRepository | null;
   readonly provider?: string | null;
   readonly model?: string | null;
-  readonly origin?: string;
+  readonly origin: string;
 }): string {
-  const url = new URL("/new", input.origin ?? DEFAULT_HOSTED_APP_URL);
+  const url = new URL("/new", input.origin);
   url.searchParams.set("prompt", input.prompt);
   if (input.repository) {
     url.searchParams.set("repo", `${input.repository.owner}/${input.repository.name}`);
@@ -211,7 +211,7 @@ const THREAD_PATH = /^\/([^/]+)\/([^/]+)\/?$/;
 
 export function promptLinkAppPath(
   value: string,
-  hostedAppUrl: string = DEFAULT_HOSTED_APP_URL,
+  hostedAppUrl: string = LEGACY_HOSTED_APP_URL,
 ): string | null {
   const url = parseUrl(value);
   if (!url) return null;

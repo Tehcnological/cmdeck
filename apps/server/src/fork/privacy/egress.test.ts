@@ -716,6 +716,42 @@ it.effect("the container sandbox, unused, runs no container CLI and waits on not
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
 
+describe("upstream hosted app", () => {
+  // The client, desktop and shared code this server serves or runs, minus shelved native mobile.
+  const SHIPPED_SOURCES = [
+    "apps/server/src",
+    "apps/web/src",
+    "apps/desktop/src",
+    "packages/shared/src",
+    "packages/client-runtime/src",
+    "packages/contracts/src",
+  ];
+  const isRuntimeSource = (file: string) =>
+    /\.tsx?$/.test(file) && !/\.test\.tsx?$|\/testkit\//.test(file);
+
+  it.effect("no shipped code requests, redirects to or links app.t3.codes", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = path.resolve(
+        path.dirname(yield* path.fromFileUrl(new URL(import.meta.url))),
+        "../../../../..",
+      );
+      const mentions: string[] = [];
+      for (const dir of SHIPPED_SOURCES) {
+        for (const entry of yield* fs.readDirectory(path.join(root, dir), { recursive: true })) {
+          const file = entry.replaceAll("\\", "/");
+          if (!isRuntimeSource(file)) continue;
+          const text = yield* fs.readFileString(path.join(root, dir, file));
+          if (/app\.t3\.codes/i.test(text)) mentions.push(`${dir}/${file}`);
+        }
+      }
+      // Only the read-only constant: links written for the hosted app open in CMDeck instead.
+      expect(mentions).toEqual(["packages/shared/src/connectAuth.ts"]);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+});
+
 it.effect("the knowledge library, with no embedder chosen, indexes and searches offline", () =>
   Effect.gen(function* () {
     const requests: Array<string> = [];

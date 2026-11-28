@@ -6,7 +6,6 @@ import {
 } from "@t3tools/shared/connectAuth";
 import { clerkFrontendApiUrlFromPublishableKey } from "@t3tools/shared/relayAuth";
 
-import { isHostedStaticApp } from "../hostedPairing";
 import { hasCloudPublicConfig, resolveCloudPublicConfig, trimNonEmpty } from "./publicConfig";
 
 function resolveConnectCliOAuthClientId(): string | null {
@@ -20,7 +19,7 @@ function hasConnectCliAuthConfig(): boolean {
 }
 
 export function connectCliAuthRoutesEnabled(): boolean {
-  return isHostedStaticApp() && hasCloudPublicConfig() && hasConnectCliAuthConfig();
+  return hasCloudPublicConfig() && hasConnectCliAuthConfig();
 }
 
 export function buildConnectCliClerkAuthorizeUrl(request: ConnectAuthorizeRequest): string | null {

@@ -52,11 +52,23 @@ forbidden=(
   't3\.codes/install'
   # Link icons come from the site itself (opt-in), never a third-party icon service.
   'google\.com/s2/favicons'
+  # Upstream's hosted app is removed: pairing, copied links and agent approval use this environment's own origin.
+  'DEFAULT_HOSTED_APP_URL'
+  'T3CODE_HOSTED_APP_URL'
+  'VITE_HOSTED_APP_'
+  'nightly\.app\.t3\.codes'
+  'approve-agent'
+  'isHostedStaticApp'
 )
 for pattern in "${forbidden[@]}"; do
   hits="$(git grep -n -i -E "$pattern" -- apps packages scripts ':!scripts/fork/**' ':!**/*.md' ':!apps/marketing/**' ':!**/*.graphql' ':!**/*.test.ts' ':!**/*.test.tsx' ':!**/testkit/fixtures/**' ':!packages/contracts/src/relay.ts' | head -5)"
   [ -z "$hits" ] || bad "forbidden pattern '$pattern' is back:"$'\n'"$hits"
 done
+
+# app.t3.codes is only read (old links open in CMDeck), from the one constant in connectAuth.ts.
+hits="$(git grep -n -i 'app\.t3\.codes' -- apps packages ':!apps/mobile/**' ':!apps/marketing/**' ':!**/*.md' ':!**/*.test.ts' ':!**/*.test.tsx' ':!packages/shared/src/connectAuth.ts' | head -5)"
+[ -z "$hits" ] || bad "upstream's hosted app (app.t3.codes) is referenced again:"$'
+'"$hits"
 
 # Code that must not come back in one file.
 forbidden_in=(

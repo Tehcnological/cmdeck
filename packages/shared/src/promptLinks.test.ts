@@ -93,14 +93,18 @@ describe("thread links", () => {
 });
 
 describe("link round trips", () => {
-  it("builds a link that parses back to the same prompt", () => {
+  const origin = "https://box.tail1234.ts.net";
+
+  it("builds a link on the given origin that parses back to the same prompt", () => {
     const link = buildNewThreadLink({
       prompt: "Swear count & rating?",
       repository: { owner: "pingdotgg", name: "t3code" },
       provider: "claudeAgent",
       model: "opus",
+      origin,
     });
-    const path = promptLinkAppPath(link);
+    expect(new URL(link).origin).toBe(origin);
+    const path = promptLinkAppPath(link, origin);
     expect(path).toBe(new URL(link).pathname + new URL(link).search);
     const parsed = parseNewThreadLink(new URL(link).search);
     expect(parsed.ok && parsed.value.kind === "new" && parsed.value.prompt.text).toBe(
@@ -109,15 +113,15 @@ describe("link round trips", () => {
   });
 
   it("opens a copied thread link in the app at that thread", () => {
-    const link = hostedThreadLink({
-      environmentId: EnvironmentId.make("env-1"),
-      threadId: ThreadId.make("mcp:1"),
-    });
-    const path = promptLinkAppPath(link);
+    const link = hostedThreadLink(
+      { environmentId: EnvironmentId.make("env-1"), threadId: ThreadId.make("mcp:1") },
+      origin,
+    );
+    const path = promptLinkAppPath(link, origin);
     expect(path).toBe("/env-1/mcp%3A1");
     const deepLink = promptLinkDeepLink(path!);
     expect(deepLink).toBe("t3code://threads/env-1/mcp%3A1");
-    expect(promptLinkAppPath(deepLink)).toBe(path);
+    expect(promptLinkAppPath(deepLink, origin)).toBe(path);
   });
 
   it("maps app scheme and hosted links to in-app paths, and nothing else", () => {

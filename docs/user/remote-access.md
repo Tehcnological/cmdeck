@@ -75,7 +75,7 @@ they are open and connected to the host.
 - **Desktop host**: Enable **Settings → Sharing & access → Network access** (restarts desktop) and create a one-time pairing link.
 - **CLI host**: Run `t3 up --lan` (background service) or `t3 serve --lan` (foreground), then run `t3 pair` to generate a QR code / pairing URL (`t3code://pair` opens directly in the desktop app).
 - **Direct mesh**: Besides the local network and Tailscale, the desktop app lists an address for each WireGuard or mesh VPN interface on the host (`wg*`, `tun*`, `tap*`, `nebula*`, ZeroTier `zt*`, and macOS `utun*`). On macOS, `utun` also names other VPN clients' tunnels, so pick the one that matches the other device's network. These are plain `http` addresses; only use them over a network you trust.
-- **Hosted web app (`app.t3.codes`)**: Run by T3, not by this build. It requires an HTTPS endpoint, such as Tailscale HTTPS. For plain HTTP on a LAN, open the direct pairing URL in a local browser or pair from the desktop/mobile app. For custom CAs on Android, install the CA certificate in Android security settings.
+- **Browser**: Every pairing link opens your host's own web app at the address you picked (LAN, Tailscale IP, or Tailscale HTTPS). CMDeck never sends a device to T3's hosted app (`app.t3.codes`). Phone browsers need the Tailscale HTTPS address for clipboard and other secure-context features. For custom CAs on Android, install the CA certificate in Android security settings.
 - **Session lifetime**: Paired devices stay signed in while active; sessions unused for 30 days must re-pair.
 
 ### Reach one machine several ways
@@ -89,6 +89,7 @@ Join both devices to a tailnet with [MagicDNS and HTTPS certificates](https://ta
 - **Desktop**: Enable **Settings → Sharing & access → Tailscale HTTPS**.
 - **CLI**: Run `t3 serve --tailscale-serve` or `t3 pair --tailscale` (use `--tailscale-serve-port` if 443 is taken; remove with `tailscale serve --https=443 --set-path=/ off`).
 - **Phone**: Install Tailscale and join the same tailnet, then scan the QR code in the app's **Add environment**, or enter the `https://machine.tailnet.ts.net/` address and the pairing code.
+- **Any browser on the tailnet**: Create a pairing link and pick **Tailscale HTTPS** ("Opens this machine's web app in a browser"). Scanning its QR code or opening the link loads `https://machine.tailnet.ts.net/pair` and signs that browser in.
 
 ### Balance new threads across machines
 

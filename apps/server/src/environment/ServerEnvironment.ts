@@ -303,7 +303,6 @@ export const make = Effect.gen(function* () {
       linkPairingForLink: true,
       mcpApprovalCodes: true,
       peerLinkPairingCodes: true,
-      mcpHostedApproval: true,
       shellThreadFamilies: true,
       shellOlderSettled: true,
       agentFeedback: true,
