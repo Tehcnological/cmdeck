@@ -91,14 +91,17 @@ const make = Effect.gen(function* () {
     now: number,
   ) {
     // shortcut: scans runs by status (no status-only index); fine at a pass a minute, index it if slow.
+    // A running run's events are the newest in its thread, so the backward stream walk stops early.
     const runs = yield* sql<{
       readonly run_id: string;
       readonly title: string;
       readonly requested_at: string;
       readonly last_event_at: string | null;
     }>`SELECT r.run_id, t.title, r.requested_at,
-        (SELECT e.occurred_at FROM orchestration_v2_events e
-          WHERE e.run_id = r.run_id ORDER BY e.sequence DESC LIMIT 1) AS last_event_at
+        (SELECT e.occurred_at FROM orchestration_events e
+          WHERE e.aggregate_kind = 'thread' AND e.stream_id = r.thread_id
+            AND json_extract(e.metadata_json, '$.runId') = r.run_id
+          ORDER BY e.sequence DESC LIMIT 1) AS last_event_at
       FROM orchestration_v2_projection_runs r
       JOIN orchestration_v2_projection_threads t ON t.thread_id = r.thread_id
       WHERE r.status IN ('starting', 'running') AND t.deleted_at IS NULL`;

@@ -1,10 +1,20 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as NodeNet from "node:net";
+import {
+  EventId,
+  MessageId,
+  NodeId,
+  ProjectId,
+  ProviderInstanceId,
+  RunId,
+  ThreadId,
+} from "@t3tools/contracts";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
-import * as SqlClient from "effect/sql/SqlClient";
 import * as TestClock from "effect/testing/TestClock";
 
+import * as EventSink from "../../orchestration-v2/EventSink.ts";
 import type * as Notifications from "../notifications/Notifications.ts";
 import * as Heartbeat from "./Heartbeat.ts";
 import { layerHeartbeatTest } from "./monitoring.testkit.ts";
@@ -14,7 +24,7 @@ const withHeartbeat = <A, E>(
   body: (refs: {
     readonly httpStatus: Ref.Ref<number>;
     readonly alerts: Ref.Ref<ReadonlyArray<Notifications.AlertInput>>;
-  }) => Effect.Effect<A, E, Heartbeat.Heartbeat | SqlClient.SqlClient>,
+  }) => Effect.Effect<A, E, Heartbeat.Heartbeat | EventSink.EventSinkV2>,
 ) =>
   Effect.gen(function* () {
     const httpStatus = yield* Ref.make(503);
@@ -50,31 +60,130 @@ describe("heartbeat", () => {
   it.effect("a running turn silent past the stall time alerts once; its end is the recovery", () =>
     withHeartbeat({ enabled: true, sessionStallMinutes: 15 }, ({ alerts }) =>
       Effect.gen(function* () {
-        const sql = yield* SqlClient.SqlClient;
+        const sink = yield* EventSink.EventSinkV2;
         const heartbeat = yield* Heartbeat.Heartbeat;
-        const start = "1970-01-01T00:00:00.000Z";
-        yield* sql`INSERT INTO orchestration_v2_projection_threads
-          (thread_id, project_id, title, default_provider, runtime_mode, interaction_mode,
-            created_at, updated_at, payload_json)
-          VALUES ('thread:ci', 'project:test', 'Fix CI', 'codex', 'full-access', 'default',
-            ${start}, ${start}, '{}')`;
-        yield* sql`INSERT INTO orchestration_v2_projection_runs
-          (run_id, thread_id, ordinal, provider, status, requested_at, payload_json)
-          VALUES ('run:ci', 'thread:ci', 1, 'codex', 'running', ${start}, '{}')`;
-        yield* sql`INSERT INTO orchestration_v2_events
-          (event_id, thread_id, run_id, event_type, occurred_at, payload_json)
-          VALUES ('event:1', 'thread:ci', 'run:ci', 'run.started', ${start}, '{}')`;
+        const at = (minutes: number) => DateTime.makeUnsafe(minutes * 60_000);
+        const threadId = ThreadId.make("thread:ci");
+        const runId = RunId.make("run:ci");
+        const nodeId = NodeId.make("node:ci");
+        const instanceId = ProviderInstanceId.make("codex");
+        const modelSelection = { instanceId, model: "gpt-5" };
+        const run = {
+          id: runId,
+          threadId,
+          ordinal: 1,
+          providerInstanceId: instanceId,
+          modelSelection,
+          providerThreadId: null,
+          userMessageId: MessageId.make("message:ci"),
+          rootNodeId: nodeId,
+          activeAttemptId: null,
+          status: "running" as const,
+          requestedAt: at(0),
+          startedAt: at(0),
+          completedAt: null,
+          checkpointId: null,
+          contextHandoffId: null,
+        };
+        const providerActivity = (minutes: number) =>
+          sink.write({
+            events: [
+              {
+                id: EventId.make(`node:ci:${minutes}`),
+                type: "node.updated",
+                threadId,
+                runId,
+                occurredAt: at(minutes),
+                payload: {
+                  id: nodeId,
+                  threadId,
+                  runId,
+                  parentNodeId: null,
+                  rootNodeId: nodeId,
+                  kind: "root_turn",
+                  status: "running",
+                  countsForRun: true,
+                  providerThreadId: null,
+                  providerTurnId: null,
+                  nativeItemRef: null,
+                  runtimeRequestId: null,
+                  checkpointScopeId: null,
+                  startedAt: at(0),
+                  completedAt: null,
+                },
+              },
+            ],
+          });
+        yield* sink.write({
+          events: [
+            {
+              id: EventId.make("thread:ci"),
+              type: "thread.created",
+              threadId,
+              occurredAt: at(0),
+              payload: {
+                id: threadId,
+                projectId: ProjectId.make("project:test"),
+                title: "Fix CI",
+                createdBy: "user",
+                creationSource: "web",
+                providerInstanceId: instanceId,
+                modelSelection,
+                runtimeMode: "full-access",
+                interactionMode: "default",
+                branch: null,
+                worktreePath: null,
+                activeProviderThreadId: null,
+                lineage: {
+                  rootThreadId: threadId,
+                  parentThreadId: null,
+                  relationshipToParent: null,
+                },
+                forkedFrom: null,
+                createdAt: at(0),
+                updatedAt: at(0),
+                archivedAt: null,
+                deletedAt: null,
+                settledOverride: null,
+                settledAt: null,
+                snoozedUntil: null,
+                snoozedAt: null,
+                lastVisitedAt: null,
+              },
+            },
+            {
+              id: EventId.make("run:ci"),
+              type: "run.created",
+              threadId,
+              occurredAt: at(0),
+              payload: run,
+            },
+          ],
+        });
 
+        // The provider keeps talking: no alert even though the turn started 20 minutes ago.
+        yield* TestClock.adjust("10 minutes");
+        yield* providerActivity(10);
         yield* TestClock.adjust("10 minutes");
         yield* heartbeat.check;
         expect(yield* titles(alerts)).toEqual([]);
 
-        yield* TestClock.adjust("10 minutes");
+        yield* TestClock.adjust("6 minutes");
         yield* heartbeat.check;
         yield* heartbeat.check;
         expect(yield* titles(alerts)).toEqual(["Not responding: Turn in “Fix CI”"]);
 
-        yield* sql`UPDATE orchestration_v2_projection_runs SET status = 'completed'`;
+        yield* sink.write({
+          events: [
+            {
+              id: EventId.make("run:ci:done"),
+              type: "run.updated",
+              threadId,
+              occurredAt: at(26),
+              payload: { ...run, status: "completed", completedAt: at(26) },
+            },
+          ],
+        });
         yield* heartbeat.check;
         expect(yield* titles(alerts)).toEqual([
           "Not responding: Turn in “Fix CI”",
