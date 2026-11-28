@@ -71,6 +71,17 @@
     },
     {
       "license": "MIT",
+      "name": "OpenClaw memory search ranking (hybrid weights, BM25 score mapping, half-life decay)",
+      "sourceUrl": "https://github.com/openclaw/openclaw/tree/f57a32938b7b4b99e25f9d2343c6890978ba9f7d/extensions/memory-core/src/memory",
+      "generatedNotices": [
+        {
+          "licenseId": "MIT",
+          "copyrights": ["Copyright (c) 2026 OpenClaw Foundation"]
+        }
+      ]
+    },
+    {
+      "license": "MIT",
       "name": "LiteLLM complexity router heuristic",
       "sourceUrl": "https://github.com/BerriAI/litellm/tree/7351177434c7b9d19e0a53cd3e9bc63706af2ab2/litellm/router_strategy/complexity_router",
       "generatedNotices": [

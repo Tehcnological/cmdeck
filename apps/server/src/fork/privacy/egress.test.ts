@@ -450,6 +450,44 @@ describe("memory", () => {
   });
 });
 
+describe("memory embeddings", () => {
+  const requests: Array<string> = [];
+  const recording = HttpClient.make((request) => {
+    requests.push(request.url);
+    return Effect.succeed(HttpClientResponse.fromWeb(request, Response.json({ data: [] })));
+  });
+  it.layer(layerMemoryToolsTest({ memoryEnabled: true, embedder: recording }))((it) => {
+    it.effect("with no embedder chosen, search and turn context stay on keywords offline", () =>
+      Effect.gen(function* () {
+        const store = yield* MemoryStore.MemoryStore;
+        const turnContext = yield* TurnContext.TurnContext;
+        yield* store.remember({
+          context: yield* store.threadContext(threads.main),
+          scope: "global",
+          kind: "fact",
+          content: "Use pnpm, not npm",
+          actor: "user",
+        });
+        const block = yield* turnContext.contribute({
+          thread: threads.main,
+          runId: RunId.make("run-memory-keywords"),
+          message: { text: "Use pnpm?", createdBy: "user" },
+          inject: true,
+        });
+        expect(block).toContain("Use pnpm, not npm");
+        const result = yield* McpServer.McpServer.pipe(
+          Effect.flatMap((server) =>
+            server.callTool({ name: "memory_search", arguments: { query: "pnpm" } }),
+          ),
+          asAgentIn(),
+        );
+        expect(result.isError).toBe(false);
+        expect(requests).toEqual([]);
+      }),
+    );
+  });
+});
+
 describe("decisions", () => {
   const layerDecisions = (
     requests: Array<string>,

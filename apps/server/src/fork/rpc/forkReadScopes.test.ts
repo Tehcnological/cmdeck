@@ -30,6 +30,10 @@ describe("fork read scopes", () => {
       );
       expect(clientRpcRequiredScopes(method, {})).toEqual([]);
     }
+    expect(RpcAuthorization.RPC_REQUIRED_SCOPES).toHaveProperty(
+      [CMDECK_WS_METHODS.memoryEmbeddingsStatus],
+      AuthOrchestrationReadScope,
+    );
   });
 
   // A client-guarded method needs a command boundary; query atoms read with `request`.

@@ -42,6 +42,21 @@ export const ensureMemorySchema = Effect.fn("ensureMemorySchema")(function* () {
   )`;
   yield* sql`CREATE INDEX IF NOT EXISTS idx_memory_injections_thread
     ON memory_injections(thread_id, injected_at)`;
+  // One vector per item, kept apart so items never carry a stale one. `signature` names the
+  // embedder; a row with another signature is re-embedded before it is used.
+  yield* sql`CREATE TABLE IF NOT EXISTS memory_embeddings (
+    item_id TEXT PRIMARY KEY,
+    signature TEXT NOT NULL,
+    vector BLOB NOT NULL,
+    embedded_at TEXT NOT NULL
+  )`;
+  yield* sql`CREATE TRIGGER IF NOT EXISTS memory_embeddings_stale
+    AFTER UPDATE OF content ON memory_items BEGIN
+    DELETE FROM memory_embeddings WHERE item_id = old.id;
+  END`;
+  yield* sql`CREATE TRIGGER IF NOT EXISTS memory_embeddings_delete AFTER DELETE ON memory_items BEGIN
+    DELETE FROM memory_embeddings WHERE item_id = old.id;
+  END`;
   // As in migration 069: a SQLite build without FTS5 leaves search empty instead of failing startup.
   const created = yield* sql`CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(
     content,

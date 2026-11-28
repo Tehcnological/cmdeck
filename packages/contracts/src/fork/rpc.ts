@@ -30,6 +30,7 @@ import {
 import { DecisionConsentSetInput, DecisionsError, DecisionsStatus } from "./decisions.ts";
 import {
   MemoryEditInput,
+  MemoryEmbeddingsStatus,
   MemoryInjection,
   MemoryItem,
   MemoryBulkEditInput,
@@ -69,6 +70,7 @@ export const CMDECK_WS_METHODS = {
   memoryThreadMode: "cmdeck.memory.threadMode",
   memorySetThreadMode: "cmdeck.memory.setThreadMode",
   memoryInjections: "cmdeck.memory.injections",
+  memoryEmbeddingsStatus: "cmdeck.memory.embeddingsStatus",
 } as const;
 
 /** Fork stream methods the client runtime subscribes to like upstream's. */
@@ -216,6 +218,12 @@ const CmdeckMemoryInjectionsRpc = Rpc.make(CMDECK_WS_METHODS.memoryInjections, {
   error: MemoryError,
 });
 
+const CmdeckMemoryEmbeddingsStatusRpc = Rpc.make(CMDECK_WS_METHODS.memoryEmbeddingsStatus, {
+  payload: Schema.Struct({}),
+  success: MemoryEmbeddingsStatus,
+  error: EnvironmentAuthorizationError,
+});
+
 /** Merged into `WsRpcGroup`, so fork methods share its scope middleware. */
 export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckStatusRpc,
@@ -240,6 +248,7 @@ export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckMemoryThreadModeRpc,
   CmdeckMemorySetThreadModeRpc,
   CmdeckMemoryInjectionsRpc,
+  CmdeckMemoryEmbeddingsStatusRpc,
 );
 
 /**
@@ -256,6 +265,7 @@ export const FORK_RPC_READ_SCOPES = {
   [CMDECK_WS_METHODS.memoryPreviewEdit]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.memoryThreadMode]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.memoryInjections]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryEmbeddingsStatus]: AuthOrchestrationReadScope,
 } as const;
 
 type ForkRpcTag = RpcGroup.Rpcs<typeof ForkWsRpcGroup>["_tag"];

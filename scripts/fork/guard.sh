@@ -242,6 +242,9 @@ required=(
   'apps/web/src/components/settings/settingsSearch.ts:"/settings/memory": "environment",'
   'apps/web/src/components/settings/SettingsSidebarNav.tsx:"/settings/memory": BrainIcon,'
   'apps/web/src/routeTree.gen.ts:ChatSettingsMemoryRouteImport'
+  # WI-2.08: the memory search embedder picker shows in Settings > General.
+  'apps/web/src/components/settings/SettingsPanels.tsx:import \{ MemoryEmbeddingsSection \} from "~/fork/memory/MemoryEmbeddingsSection";'
+  'apps/web/src/components/settings/SettingsPanels.tsx:<MemoryEmbeddingsSection />'
   # WI-2.21: design-critique eval cases load the repo skill they test.
   'evals/mcp-tool-use/run.ts:skill: Schema\.optional\(Schema\.String\),'
   'evals/mcp-tool-use/run.ts:: invokedSkillPrompt\('
