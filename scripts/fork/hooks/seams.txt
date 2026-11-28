@@ -11,3 +11,10 @@ packages/contracts/src/settings.ts:cmdeck: CmdeckSettings\.pipe\(Schema\.withDec
 packages/contracts/src/settings.ts:cmdeck: Schema\.optionalKey\(CmdeckSettingsPatch\)
 apps/web/src/components/CommandPalette.tsx:const forkCommandItems = useForkCommandItems\(\);
 apps/web/src/components/CommandPalette.tsx:actionItems\.push\(\.\.\.forkCommandItems\);
+# Fork sections on Settings pages come from apps/web/src/fork/settingsSectionModules.ts.
+apps/web/src/components/settings/SettingsPanels.tsx:import \{ ForkSettingsSections \} from "~/fork/settingsSections";
+apps/web/src/components/settings/SettingsPanels.tsx:<ForkSettingsSections page="general" />
+apps/web/src/components/settings/SettingsPanels.tsx:<ForkSettingsSections page="threads" />
+# Translation catalogs merge entry by entry (scripts/fork/merge-json-catalog.ts).
+.gitattributes:merge=cmdeck-json-catalog
+package.json:node scripts/fork/merge-json-catalog\.ts --install

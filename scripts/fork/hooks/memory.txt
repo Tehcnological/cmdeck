@@ -28,5 +28,3 @@ apps/web/src/components/settings/settingsSearch.ts:"/settings/memory": "environm
 apps/web/src/components/settings/SettingsSidebarNav.tsx:"/settings/memory": BrainIcon,
 apps/web/src/routeTree.gen.ts:ChatSettingsMemoryRouteImport
 # WI-2.08: the memory search embedder picker shows in Settings > General.
-apps/web/src/components/settings/SettingsPanels.tsx:import \{ MemoryEmbeddingsSection \} from "~/fork/memory/MemoryEmbeddingsSection";
-apps/web/src/components/settings/SettingsPanels.tsx:<MemoryEmbeddingsSection />

@@ -123,3 +123,9 @@ function MemoryEmbeddings({ environmentId }: { readonly environmentId: Environme
     </SettingsSection>
   );
 }
+
+export const settingsSection = {
+  page: "general",
+  order: 20,
+  Component: MemoryEmbeddingsSection,
+} as const;

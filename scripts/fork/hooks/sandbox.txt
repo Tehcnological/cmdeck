@@ -4,8 +4,6 @@ apps/server/src/server.ts:Layer\.provideMerge\(ContainerSandbox\.layer\.pipe\(La
 apps/server/src/orchestration-v2/ProviderSessionManager.ts:import \{ sandboxLaunchGate \} from "\.\./fork/sandbox/launchGate\.ts";
 apps/server/src/orchestration-v2/ProviderSessionManager.ts:yield\* sandboxLaunchGate\(input, registry\);
 apps/server/src/fork/schemas.ts:export \{ ensureSandboxSchema \}
-apps/web/src/components/settings/SettingsPanels.tsx:import \{ ContainerSandboxSection \} from "~/fork/ContainerSandboxSection";
-apps/web/src/components/settings/SettingsPanels.tsx:<ContainerSandboxSection />
 # A sandboxed thread's Claude launches through the container scope even from a script entry.
 apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:import \* as ForkSandbox from "\.\./\.\./fork/sandbox/ContainerSandbox\.ts";
 apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const inContainer = yield\* ForkSandbox\.sandboxedThreadCheck;
