@@ -20,6 +20,8 @@ import * as NodePath from "node:path";
 
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { approvalFacts } from "../../fork/approvalPolicy/ApprovalGate.ts";
+import { evaluate } from "../../fork/approvalPolicy/rules.ts";
 import * as DocumentText from "../../provider/DocumentText.ts";
 import { assert, beforeAll, describe, it } from "@effect/vitest";
 import {
@@ -7845,6 +7847,62 @@ describe("AcpAdapterV2", () => {
         content: { type: "diff", changes: [{ operation: "modify", path: outside }] },
       },
     ]),
+  );
+
+  it.effect("puts an approval under its tool call so the approval policy sees its writes", () =>
+    Effect.gen(function* () {
+      const turn = yield* startAutoAcceptEditsTurn("edit-approval-parent");
+      // The first request waits for the turn, so the tool call below lands in it.
+      const first = yield* turn
+        .requestEdit("edit-first", { target: turn.path.join(turn.workspace, "src", "a.ts") })
+        .pipe(Effect.flatMap(Fiber.join));
+      yield* turn.acknowledge("edit-first-request");
+      assert.deepEqual(first.outcome, { outcome: "selected", optionId: "allow-once" });
+      yield* turn.sessionUpdate({
+        sessionId: "mock-session-1",
+        update: {
+          sessionUpdate: "tool_call",
+          toolCallId: "edit-tracked",
+          title: "Edit file",
+          kind: "edit",
+          status: "pending",
+          locations: [{ path: turn.path.join(turn.elsewhere, "b.ts") }],
+        },
+      } as EffectAcpSchema.SessionNotification);
+      const fiber = yield* turn.requestEdit("edit-tracked");
+      const events = yield* turn.runtime.events.pipe(
+        Stream.takeUntil(
+          (event) => event.type === "node.updated" && event.node.kind === "approval_request",
+        ),
+        Stream.runCollect,
+      );
+      const approval = events.at(-1);
+      const toolNodeId = approval?.type === "node.updated" ? approval.node.parentNodeId : null;
+      const facts = approvalFacts(
+        "file-change",
+        undefined,
+        events.flatMap((event) =>
+          event.type === "turn_item.updated" && event.turnItem.nodeId === toolNodeId
+            ? [event.turnItem]
+            : [],
+        ),
+        turn.workspace,
+      );
+      assert.deepInclude(
+        evaluate(
+          {
+            denyCommands: [],
+            denyTools: [],
+            protectedPaths: [],
+            denyWritesOutsideWorkspace: true,
+          },
+          facts,
+          { home: turn.elsewhere, platform: turn.path.sep === "\\" ? "win32" : "linux" },
+        ),
+        { decision: "deny", rule: "denyWritesOutsideWorkspace" },
+      );
+      yield* turn.declinePendingAndStop("edit-tracked-request", fiber);
+    }).pipe(Effect.provide(layerTest)),
   );
 
   it.effect("auto-accepts an edit named by id whose updates from the agent were all read", () =>

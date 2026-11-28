@@ -102,6 +102,8 @@ import { WorktreeToolkit } from "../../mcp/toolkits/worktree/tools.ts";
 import { ThreadToolkit } from "../../mcp/toolkits/thread/tools.ts";
 import { OrchestratorToolkit } from "../../mcp/toolkits/orchestrator/tools.ts";
 import { ClaudeExecutableFileCheck } from "../../provider/Drivers/ClaudeExecutable.ts";
+import { approvalFacts } from "../../fork/approvalPolicy/ApprovalGate.ts";
+import { evaluate } from "../../fork/approvalPolicy/rules.ts";
 import {
   BUNDLED_CLAUDE_MODEL_CATALOG,
   type ClaudeModelCatalog,
@@ -6034,6 +6036,60 @@ describe("ClaudeAdapterV2 background wake turns", () => {
         assert.equal(permission.first.type, "decision", "Never raised an approval request");
         if (permission.first.type !== "decision") return;
         assert.equal(permission.first.result?.behavior, "deny");
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(
+          Layer.mergeAll(
+            IdAllocator.layer,
+            McpProviderSessions.layer,
+            NodeServices.layer,
+            NodeCrypto.layer,
+          ),
+        ),
+      ),
+    );
+
+    it.effect("names the tool on its approval so a denyTools rule for WebFetch declines it", () =>
+      Effect.gen(function* () {
+        const turn = yield* openPlanTurn("auto");
+        const permission = yield* requestWrite(turn, "WebFetch", {
+          url: "https://example.com",
+          prompt: "Summarize the page",
+        });
+        assert.equal(permission.first.type, "request");
+        if (permission.first.type !== "request") return;
+        const request = permission.first.event.runtimeRequest;
+        yield* turn.runtime.respondToRuntimeRequest({ requestId: request.id, decision: "decline" });
+        yield* Fiber.join(permission.decision);
+
+        const items = turn.events.flatMap((event) =>
+          event.type === "turn_item.updated" ? [event.turnItem] : [],
+        );
+        const card = items.findLast((item) => item.nodeId === request.nodeId);
+        const approvalNode = turn.events.findLast(
+          (event) => event.type === "node.updated" && event.node.id === request.nodeId,
+        );
+        const toolNodeId =
+          approvalNode?.type === "node.updated" ? approvalNode.node.parentNodeId : null;
+        const facts = approvalFacts(
+          request.kind,
+          card?.type === "approval_request" ? card : undefined,
+          items.filter((item) => item.nodeId === toolNodeId),
+          "/workspace",
+        );
+        assert.deepInclude(
+          evaluate(
+            {
+              denyCommands: [],
+              denyTools: ["WebFetch"],
+              protectedPaths: [],
+              denyWritesOutsideWorkspace: false,
+            },
+            facts,
+            { home: "/home/user", platform: "linux" },
+          ),
+          { decision: "deny", rule: "denyTools: WebFetch" },
+        );
       }).pipe(
         Effect.scoped,
         Effect.provide(
