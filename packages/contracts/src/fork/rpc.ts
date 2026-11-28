@@ -8,6 +8,7 @@ import {
   AuthOrchestrationReadScope,
   AuthTerminalOperateScope,
   AuthSettingsWriteScope,
+  AuthOrchestrationOperateScope,
   type AuthEnvironmentScope,
   EnvironmentAuthorizationError,
 } from "../auth.ts";
@@ -27,7 +28,23 @@ import {
   NotificationChannelSetEnabledInput,
 } from "./notifications.ts";
 import { DecisionConsentSetInput, DecisionsError, DecisionsStatus } from "./decisions.ts";
-import { MemoryEmbeddingsStatus } from "./memory.ts";
+import {
+  MemoryEditInput,
+  MemoryEmbeddingsStatus,
+  MemoryInjection,
+  MemoryItem,
+  MemoryBulkEditInput,
+  MemoryBulkEditResult,
+  MemoryItemIdInput,
+  MemoryListInput,
+  MemoryRememberInput,
+  MemoryRevertInput,
+  MemoryRevision,
+  MemoryRpcError,
+  SetThreadMemoryModeInput,
+  ThreadMemoryMode,
+  ThreadMemoryModeInput,
+} from "./memory.ts";
 
 // The `cmdeck.` prefix keeps fork methods clear of upstream's names. Append new methods here.
 export const CMDECK_WS_METHODS = {
@@ -43,6 +60,16 @@ export const CMDECK_WS_METHODS = {
   notificationsSubscribeAlerts: "cmdeck.notifications.subscribeAlerts",
   decisionsStatus: "cmdeck.decisions.status",
   decisionsSetConsent: "cmdeck.decisions.setConsent",
+  memoryList: "cmdeck.memory.list",
+  memoryRevisions: "cmdeck.memory.revisions",
+  memoryEdit: "cmdeck.memory.edit",
+  memoryRevert: "cmdeck.memory.revert",
+  memoryPreviewEdit: "cmdeck.memory.previewEdit",
+  memoryApplyEdit: "cmdeck.memory.applyEdit",
+  memoryRemember: "cmdeck.memory.remember",
+  memoryThreadMode: "cmdeck.memory.threadMode",
+  memorySetThreadMode: "cmdeck.memory.setThreadMode",
+  memoryInjections: "cmdeck.memory.injections",
   memoryEmbeddingsStatus: "cmdeck.memory.embeddingsStatus",
 } as const;
 
@@ -129,6 +156,68 @@ const CmdeckDecisionsSetConsentRpc = Rpc.make(CMDECK_WS_METHODS.decisionsSetCons
   error: Schema.Union([DecisionsError, EnvironmentAuthorizationError]),
 });
 
+const MemoryError = Schema.Union([MemoryRpcError, EnvironmentAuthorizationError]);
+
+const CmdeckMemoryListRpc = Rpc.make(CMDECK_WS_METHODS.memoryList, {
+  payload: MemoryListInput,
+  success: Schema.Array(MemoryItem),
+  error: MemoryError,
+});
+
+const CmdeckMemoryRevisionsRpc = Rpc.make(CMDECK_WS_METHODS.memoryRevisions, {
+  payload: MemoryItemIdInput,
+  success: Schema.Array(MemoryRevision),
+  error: MemoryError,
+});
+
+const CmdeckMemoryEditRpc = Rpc.make(CMDECK_WS_METHODS.memoryEdit, {
+  payload: MemoryEditInput,
+  success: MemoryItem,
+  error: MemoryError,
+});
+
+const CmdeckMemoryRevertRpc = Rpc.make(CMDECK_WS_METHODS.memoryRevert, {
+  payload: MemoryRevertInput,
+  success: MemoryItem,
+  error: MemoryError,
+});
+
+const CmdeckMemoryPreviewEditRpc = Rpc.make(CMDECK_WS_METHODS.memoryPreviewEdit, {
+  payload: MemoryBulkEditInput,
+  success: MemoryBulkEditResult,
+  error: MemoryError,
+});
+
+const CmdeckMemoryApplyEditRpc = Rpc.make(CMDECK_WS_METHODS.memoryApplyEdit, {
+  payload: MemoryBulkEditInput,
+  success: MemoryBulkEditResult,
+  error: MemoryError,
+});
+
+const CmdeckMemoryRememberRpc = Rpc.make(CMDECK_WS_METHODS.memoryRemember, {
+  payload: MemoryRememberInput,
+  success: MemoryItem,
+  error: MemoryError,
+});
+
+const CmdeckMemoryThreadModeRpc = Rpc.make(CMDECK_WS_METHODS.memoryThreadMode, {
+  payload: ThreadMemoryModeInput,
+  success: Schema.Struct({ mode: ThreadMemoryMode }),
+  error: MemoryError,
+});
+
+const CmdeckMemorySetThreadModeRpc = Rpc.make(CMDECK_WS_METHODS.memorySetThreadMode, {
+  payload: SetThreadMemoryModeInput,
+  success: Schema.Struct({ mode: ThreadMemoryMode }),
+  error: MemoryError,
+});
+
+const CmdeckMemoryInjectionsRpc = Rpc.make(CMDECK_WS_METHODS.memoryInjections, {
+  payload: ThreadMemoryModeInput,
+  success: Schema.Array(MemoryInjection),
+  error: MemoryError,
+});
+
 const CmdeckMemoryEmbeddingsStatusRpc = Rpc.make(CMDECK_WS_METHODS.memoryEmbeddingsStatus, {
   payload: Schema.Struct({}),
   success: MemoryEmbeddingsStatus,
@@ -149,6 +238,16 @@ export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckNotificationsSubscribeAlertsRpc,
   CmdeckDecisionsStatusRpc,
   CmdeckDecisionsSetConsentRpc,
+  CmdeckMemoryListRpc,
+  CmdeckMemoryRevisionsRpc,
+  CmdeckMemoryEditRpc,
+  CmdeckMemoryRevertRpc,
+  CmdeckMemoryPreviewEditRpc,
+  CmdeckMemoryApplyEditRpc,
+  CmdeckMemoryRememberRpc,
+  CmdeckMemoryThreadModeRpc,
+  CmdeckMemorySetThreadModeRpc,
+  CmdeckMemoryInjectionsRpc,
   CmdeckMemoryEmbeddingsStatusRpc,
 );
 
@@ -161,6 +260,11 @@ export const FORK_RPC_READ_SCOPES = {
   [CMDECK_WS_METHODS.status]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.notificationChannelsList]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.decisionsStatus]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryList]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryRevisions]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryPreviewEdit]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryThreadMode]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.memoryInjections]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.memoryEmbeddingsStatus]: AuthOrchestrationReadScope,
 } as const;
 
@@ -181,6 +285,13 @@ export const FORK_RPC_SCOPES = {
   [CMDECK_WS_METHODS.notificationsSubscribeAlerts]: AuthOrchestrationReadScope,
   // Consent decides whether turn text may reach a model API, so only a settings writer grants it.
   [CMDECK_WS_METHODS.decisionsSetConsent]: AuthSettingsWriteScope,
+  // Memory is what agents are told every turn, so changing it is a settings write.
+  [CMDECK_WS_METHODS.memoryEdit]: AuthSettingsWriteScope,
+  [CMDECK_WS_METHODS.memoryRevert]: AuthSettingsWriteScope,
+  [CMDECK_WS_METHODS.memoryApplyEdit]: AuthSettingsWriteScope,
+  // Acting in one thread, as sending it a message does.
+  [CMDECK_WS_METHODS.memoryRemember]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.memorySetThreadMode]: AuthOrchestrationOperateScope,
 } as const satisfies Record<
   Exclude<ForkRpcTag, keyof typeof FORK_RPC_READ_SCOPES>,
   AuthEnvironmentScope

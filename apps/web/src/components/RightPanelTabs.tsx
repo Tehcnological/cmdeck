@@ -117,6 +117,7 @@ import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
 import { observeResize } from "~/lib/observeResize";
 import { surfaceShortcutKey } from "~/lib/surfaceShortcutKey";
 import { SharedTooltipTrigger } from "~/components/ui/shared-tooltip";
+import { ForkPanelIcon, forkPanelTitle } from "~/fork/panels";
 
 export interface RightPanelTabsProps {
   mode: PreviewPanelMode;
@@ -614,6 +615,8 @@ function surfaceTitle(
       return `#${surface.number}`;
     case "pull-requests":
       return resolve(msg("Linked items"));
+    case "cmdeck":
+      return forkPanelTitle(resolve);
     case "issue":
       // A git host numbers its issues; a tracker with keys of its own, such as Linear, names them.
       return /^\d+$/.test(surface.key) ? `#${surface.key}` : surface.key;
@@ -716,6 +719,8 @@ function SurfaceIcon({
       );
     case "pull-requests":
       return <PullRequestGlyph.link className="size-3 shrink-0" />;
+    case "cmdeck":
+      return <ForkPanelIcon />;
     case "issue":
       return <IssueSurfaceIcon surface={surface} environmentId={environmentId} />;
     case "thread":

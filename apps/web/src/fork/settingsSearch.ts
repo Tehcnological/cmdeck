@@ -11,6 +11,12 @@ export const FORK_SETTINGS_SEARCH_ITEMS = [
     searchTerms: [msg("new threads machine server host start remote local")],
   },
   {
+    id: "memory",
+    title: msg("Memory", { $context: "what CMDeck remembers for agents" }),
+    to: "/settings/memory",
+    searchTerms: [msg("remember incognito temporary proposals rules facts revisions")],
+  },
+  {
     id: "usage-alerts",
     title: msg("Alert thresholds"),
     to: "/settings/providers",
