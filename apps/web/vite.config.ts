@@ -37,26 +37,12 @@ const configuredRelayUrl = "";
 const configuredClerkPublishableKey = "";
 const configuredClerkJwtTemplate = "";
 const configuredClerkCliOAuthClientId = "";
-const configuredHostedAppChannel = process.env.VITE_HOSTED_APP_CHANNEL?.trim() || "";
 const configuredReleaseChannel =
   process.env.T3CODE_BUILT_DEV === "1" ? "dev" : process.env.VITE_RELEASE_CHANNEL?.trim() || "";
 const configuredDesktopUpdateRepository =
   process.env.T3CODE_DESKTOP_UPDATE_REPOSITORY?.trim() ||
   process.env.GITHUB_REPOSITORY?.trim() ||
   "";
-const configuredHostedAppUrl = (() => {
-  const explicitHostedAppUrl = process.env.VITE_HOSTED_APP_URL?.trim();
-  if (explicitHostedAppUrl) {
-    return explicitHostedAppUrl;
-  }
-  if (process.env.VERCEL_ENV === "production" && process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
-  }
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
-  }
-  return undefined;
-})();
 const sourcemapEnv = process.env.T3CODE_WEB_SOURCEMAP?.trim().toLowerCase();
 
 // `vp run dev --share --built` rebuilds on every change. The license manifest
@@ -256,7 +242,6 @@ function bootstrapTitlePlugin(): Plugin {
     },
     transformIndexHtml(html) {
       const stageLabel = resolveWebAppStageLabel({
-        hostedAppChannel: configuredHostedAppChannel,
         development,
       });
       const title = formatAppDisplayName({ baseName: "CMDeck", stageLabel });
@@ -335,8 +320,6 @@ export default defineConfig(({ command }) => {
       "import.meta.env.VITE_CLERK_CLI_OAUTH_CLIENT_ID": JSON.stringify(
         configuredClerkCliOAuthClientId,
       ),
-      "import.meta.env.VITE_HOSTED_APP_URL": JSON.stringify(configuredHostedAppUrl ?? ""),
-      "import.meta.env.VITE_HOSTED_APP_CHANNEL": JSON.stringify(configuredHostedAppChannel),
       "import.meta.env.T3CODE_DESKTOP_UPDATE_REPOSITORY": JSON.stringify(
         configuredDesktopUpdateRepository,
       ),

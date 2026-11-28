@@ -1,10 +1,12 @@
-import { type DesktopWslState, EnvironmentId } from "@t3tools/contracts";
+import { type AdvertisedEndpoint, type DesktopWslState, EnvironmentId } from "@t3tools/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 import {
   applyWslEnableSelection,
+  endpointShareHint,
   isServerNetworkAccessible,
   parseManualDesktopSshTarget,
   resolveAccessEnvironmentId,
+  resolveAdvertisedEndpointPairingUrl,
   resolveCurrentOriginPairingUrl,
   resolveTailscaleServeBaseUrl,
   selectQrEndpointOption,
@@ -63,6 +65,41 @@ describe("resolveCurrentOriginPairingUrl", () => {
     ["http://192.168.1.20:3773/", "http://192.168.1.20:3773/pair#token=abc"],
   ])("from %s", (href, expected) => {
     expect(resolveCurrentOriginPairingUrl("abc", href)).toBe(expected);
+  });
+});
+
+describe("resolveAdvertisedEndpointPairingUrl", () => {
+  const endpoint = (
+    id: string,
+    httpBaseUrl: string,
+    hostedHttpsApp: AdvertisedEndpoint["compatibility"]["hostedHttpsApp"],
+  ): AdvertisedEndpoint => ({
+    id,
+    label: id,
+    provider: { id: "tailscale", label: "Tailscale", kind: "private-network", isAddon: true },
+    httpBaseUrl,
+    wsBaseUrl: httpBaseUrl.replace(/^http/u, "ws"),
+    reachability: "private-network",
+    compatibility: { hostedHttpsApp, desktopApp: "compatible" },
+    source: "desktop-addon",
+    status: "available",
+    isDefault: false,
+  });
+
+  it("pairs Tailscale HTTPS on this machine's own /pair route, never a hosted app", () => {
+    const https = endpoint("tailscale-magicdns:box", "https://box.tail1234.ts.net/", "compatible");
+    expect(resolveAdvertisedEndpointPairingUrl(https, "PAIRCODE", "KEY")).toBe(
+      "https://box.tail1234.ts.net/pair#token=PAIRCODE&pk=KEY",
+    );
+    expect(endpointShareHint(https)).toBe("Opens this machine's web app in a browser");
+  });
+
+  it("keeps the Tailscale IP route on its own address", () => {
+    const ip = endpoint("tailscale-ip:box", "http://100.64.1.2:3773/", "mixed-content-blocked");
+    expect(resolveAdvertisedEndpointPairingUrl(ip, "PAIRCODE")).toBe(
+      "http://100.64.1.2:3773/pair#token=PAIRCODE",
+    );
+    expect(endpointShareHint(ip)).toBe("Devices on your private network");
   });
 });
 

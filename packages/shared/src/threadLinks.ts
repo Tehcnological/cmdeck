@@ -2,12 +2,12 @@ import { EnvironmentId, ThreadId, type ScopedThreadRef } from "@t3tools/contract
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { DEFAULT_HOSTED_APP_URL } from "./connectAuth.ts";
+import { LEGACY_HOSTED_APP_URL } from "./connectAuth.ts";
 
 export const THREAD_LINK_PROTOCOL = "t3-thread";
 const V1_PREFIX = `${THREAD_LINK_PROTOCOL}://v1/`;
 const V2_PREFIX = `${THREAD_LINK_PROTOCOL}://v2/`;
-const HOSTED_PREFIX = `${DEFAULT_HOSTED_APP_URL}/threads/`;
+const HOSTED_PREFIX = `${LEGACY_HOSTED_APP_URL}/threads/`;
 const HOSTED_SEGMENT = "[A-Za-z0-9_%-]+";
 const HOSTED_LINK = `${HOSTED_PREFIX.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}${HOSTED_SEGMENT}/${HOSTED_SEGMENT}`;
 const THREAD_HREF = String.raw`t3-thread:\/\/v[12]\/`;
@@ -157,8 +157,8 @@ const hostedSegment = (id: string) =>
     (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
   );
 
-/** Opens the thread from anywhere: the hosted app offers the desktop app, the mobile app, or itself. */
-export function hostedThreadLink(ref: ScopedThreadRef, origin = DEFAULT_HOSTED_APP_URL): string {
+/** Opens the thread in the web app served at `origin` (its `/threads/...` route). */
+export function hostedThreadLink(ref: ScopedThreadRef, origin: string): string {
   const path = `/threads/${hostedSegment(ref.environmentId)}/${hostedSegment(ref.threadId)}`;
   return new URL(path, origin).toString();
 }
@@ -255,12 +255,16 @@ export function formatThreadLink(ref: ThreadLink, label?: string): string {
   return cleaned ? `[${cleaned}](${destination})` : `<${href}>`;
 }
 
-/** What a person copies out of CMDeck: a Markdown link that opens the thread anywhere. */
+/**
+ * What a person copies out of CMDeck: a Markdown link to the thread on this web origin, or a
+ * `t3-thread://` link where there is none (the desktop window), which CMDeck itself opens.
+ */
 export function formatHostedThreadLink(
   ref: ScopedThreadRef,
   label: string,
   origin?: string,
 ): string {
+  if (origin === undefined) return formatThreadLink(ref, label);
   const href = hostedThreadLink(ref, origin);
   const cleaned = linkLabel(label);
   return cleaned ? `[${cleaned}](${href})` : href;

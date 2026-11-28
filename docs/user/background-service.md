@@ -22,7 +22,7 @@ Install the `t3` CLI first ([Command line](./install.md#command-line)), then run
 
 ## Local network access
 
-New services bind to localhost only. Run `t3 up --lan` (sets `T3CODE_LAN=true` in `service.env`) to listen on LAN and Tailscale addresses for direct desktop/mobile connections, or `t3 up --no-lan` to disable it. Anyone on that network can reach the port (gated by pairing). `T3CODE_HOST` overrides `T3CODE_LAN`. Other devices can also reach the host through Tailscale HTTPS (`t3 pair --tailscale`) or your own [Cloudflare Tunnel](./cloudflare-tunnel.md). The hosted `app.t3.codes` needs HTTPS (browsers block plain HTTP from an HTTPS page), so use Tailscale HTTPS for it.
+New services bind to localhost only. Run `t3 up --lan` (sets `T3CODE_LAN=true` in `service.env`) to listen on LAN and Tailscale addresses for direct desktop/mobile connections, or `t3 up --no-lan` to disable it. Anyone on that network can reach the port (gated by pairing). `T3CODE_HOST` overrides `T3CODE_LAN`. Other devices can also reach the host through Tailscale HTTPS (`t3 pair --tailscale`) or your own [Cloudflare Tunnel](./cloudflare-tunnel.md).
 
 ## Configure the service environment
 

@@ -1,4 +1,4 @@
-import { DEFAULT_HOSTED_APP_URL } from "@t3tools/shared/connectAuth";
+import { LEGACY_HOSTED_APP_URL } from "@t3tools/shared/connectAuth";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import appleAppSiteAssociation from "../web/public/.well-known/apple-app-site-association.json";
@@ -35,7 +35,7 @@ it.each([
   expect(config.ios?.bundleIdentifier).toBe(identifier);
   expect(config.android?.package).toBe(identifier);
   // Copied thread links open this app only while app.t3.codes lists it.
-  const host = new URL(DEFAULT_HOSTED_APP_URL).host;
+  const host = new URL(LEGACY_HOSTED_APP_URL).host;
   expect(config.ios?.associatedDomains).toContain(`applinks:${host}`);
   expect(appleAppSiteAssociation.applinks.details[0]?.appIDs).toContain(
     `${config.ios?.appleTeamId}.${identifier}`,

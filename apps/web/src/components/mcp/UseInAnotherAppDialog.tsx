@@ -113,7 +113,6 @@ const STEPS = [
   msg("Access", { $context: "wizard step: choose the access level" }),
   msg("Connect", { $context: "wizard step: connect the app" }),
 ] as const;
-const HOSTED_APPROVAL_STEPS = [STEPS[0], STEPS[2]] as const;
 type Step = 0 | 1 | 2;
 type Choice = McpApp | "other";
 
@@ -133,12 +132,7 @@ function Wizard({
   const [picked, setPicked] = useState<AuthMcpClientAccess | null>(null);
   const access = picked ?? DEFAULT_LEVELS.find((level) => levels.get(level) === undefined) ?? null;
   const open = gate.gate.kind === "open";
-  // The level is picked on the sign-in page, so the wizard neither asks for it nor needs a code.
-  const hostedApproval =
-    !gate.direct && environment.serverConfig?.environment.capabilities.mcpHostedApproval === true;
-  const steps = hostedApproval ? HOSTED_APPROVAL_STEPS : STEPS;
-  const shownStep = hostedApproval && step === 2 ? 1 : step;
-  const next = () => setStep(step === 0 ? (hostedApproval ? 2 : 1) : 2);
+  const next = () => setStep(step === 0 ? 1 : 2);
   const levelsHeading =
     choice === null || choice === "other"
       ? gt("What can the app do?")
@@ -148,10 +142,10 @@ function Wizard({
       <WizardHeader title={title}>
         {open ? (
           <WizardSteps
-            steps={steps.map((label) => m(label))}
-            currentStep={shownStep}
-            isStepDisabled={(index) => index > shownStep}
-            onStepChange={(index) => setStep(hostedApproval && index === 1 ? 2 : (index as Step))}
+            steps={STEPS.map((label) => m(label))}
+            currentStep={step}
+            isStepDisabled={(index) => index > step}
+            onStepChange={(index) => setStep(index as Step)}
           />
         ) : null}
       </WizardHeader>
@@ -183,12 +177,12 @@ function Wizard({
               ))}
             </RadioGroup>
           </section>
-        ) : choice !== null && (hostedApproval || access !== null) ? (
+        ) : choice !== null && access !== null ? (
           <ConnectStep
             environment={environment}
             mcpUrl={gate.gate.mcpUrl}
             choice={choice}
-            access={hostedApproval ? null : access}
+            access={access}
           />
         ) : null}
       </WizardPanel>
@@ -377,7 +371,6 @@ function useGate(environment: EnvironmentPresentation) {
   }, [connecting]);
   return {
     gate,
-    direct: directMcpUrl !== null,
     connecting: connecting && gate.kind !== "open",
     check: runReachabilityCheck,
     // A disconnected machine cannot be checked; its list entry says when it is back.
@@ -609,33 +602,20 @@ function ConnectStep({
   readonly environment: EnvironmentPresentation;
   readonly mcpUrl: string;
   readonly choice: Choice;
-  /** Null when the sign-in page asks for the level, so no code is needed. */
-  readonly access: AuthMcpClientAccess | null;
+  readonly access: AuthMcpClientAccess;
 }) {
   const [anotherWay, setAnotherWay] = useState(choice === "other");
   const gt = useGT();
   const m = useMessages();
   const app = choice === "other" ? null : choice;
-  const code =
-    access === null ? (
-      <p className="text-sm text-muted-foreground">
-        {app === null
-          ? gt(
-              "When the app opens the sign-in page, choose what it may do and approve with your T3 Connect account.",
-            )
-          : gt(
-              "When {app} opens the sign-in page, choose what it may do and approve with your T3 Connect account.",
-              { app: app.name },
-            )}
-      </p>
-    ) : (
-      <ApprovalCode
-        key={access}
-        environmentId={environment.environmentId}
-        name={environment.label}
-        access={access}
-      />
-    );
+  const code = (
+    <ApprovalCode
+      key={access}
+      environmentId={environment.environmentId}
+      name={environment.label}
+      access={access}
+    />
+  );
   if (anotherWay || app === null) {
     const message = app?.handoff.kind === "copy-message" ? app.handoff.message(mcpUrl) : null;
     return (

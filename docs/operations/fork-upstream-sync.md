@@ -37,9 +37,13 @@ The script stops and lists the files it could not resolve. Resolve them, `git ad
 --no-edit`, then run `scripts/fork/sync-upstream.sh --verify <upstream-ref>` (guard plus typecheck). The
 usual conflicts:
 
-- **Telemetry, Antigravity quota probing, T3 Connect/relay.** The fork deleted these. If upstream
-  edited a deleted file, keep it deleted (`git rm <file>`). If upstream added a new call site, remove
-  it. The guard's forbidden-pattern list catches the common ones.
+- **Telemetry, Antigravity quota probing, T3 Connect/relay, the hosted app (`app.t3.codes`).** The
+  fork deleted these. If upstream edited a deleted file, keep it deleted (`git rm <file>`). If
+  upstream added a new call site, remove it. The guard's forbidden-pattern list catches the common
+  ones. For the hosted app: pairing links, copied thread and prompt links and MCP agent approval use
+  the environment's own origin (`shareableAppOrigin()` in `apps/web/src/hostedPairing.ts`, the
+  server's `/connect-agent` page); `LEGACY_HOSTED_APP_URL` is kept only to read old links; the
+  hosted static-app mode, its release channel, `/approve-agent` and `vercel.ts` stay deleted.
 - **Migrations.** Take upstream's numbered files in `apps/server/src/persistence/Migrations/` exactly,
   and upstream's changes to `Migrations.ts`, but keep the fork's `ensureForkSchema` import and its call
   at the end of the migrator (the guard checks both). Fork-only tables live in
