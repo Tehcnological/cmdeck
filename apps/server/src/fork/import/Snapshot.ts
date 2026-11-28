@@ -67,13 +67,28 @@ const UNREDACTED_TABLES = new Set(["audit_events"]);
 // src/kiro_crew/snapshot_redact.py _FTS_INDEX_SUFFIXES (Apache-2.0).
 const FTS_INDEX_SUFFIXES = ["data", "idx", "docsize", "config"];
 
+// A string is redacted with its property name, so label-based patterns (`"apiKey": ...`) still match.
+const redactProperty = (key: string, item: unknown): unknown => {
+  if (typeof item !== "string") return redactLeaves(item);
+  try {
+    const labelled = JSON.parse(redactSecrets(JSON.stringify({ [key]: item }))) as Record<
+      string,
+      unknown
+    >;
+    if (typeof labelled[key] === "string") return redactSecrets(labelled[key]);
+  } catch {}
+  return redactSecrets(item);
+};
+
 const redactLeaves = (value: unknown): unknown =>
   typeof value === "string"
     ? redactSecrets(value)
     : Array.isArray(value)
       ? value.map(redactLeaves)
       : value !== null && typeof value === "object"
-        ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, redactLeaves(item)]))
+        ? Object.fromEntries(
+            Object.entries(value).map(([key, item]) => [key, redactProperty(key, item)]),
+          )
         : value;
 
 /** `redactSecrets`, except that JSON stays valid JSON: when redacting the whole text breaks it,

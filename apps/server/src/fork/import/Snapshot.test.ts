@@ -256,6 +256,14 @@ it("redactStoredText keeps JSON valid where redacting the whole text would break
       JSON.stringify({ text: "curl -H Authorization: Bearer [redacted]", n: 1 }),
     ],
     [`"${GITHUB_TOKEN}"`, `"[redacted]"`],
+    // The fallback keeps the label, so a value only its property name marks stays redacted.
+    [
+      JSON.stringify({
+        apiKey: "ordinary-custom-key-1234",
+        text: "curl -H Authorization: Bearer abcdefghijklmnop",
+      }),
+      JSON.stringify({ apiKey: "[redacted]", text: "curl -H Authorization: Bearer [redacted]" }),
+    ],
   ];
   for (const [input, expected] of cases) {
     assert.equal(Snapshot.redactStoredText(input), expected, input);
