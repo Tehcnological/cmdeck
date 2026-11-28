@@ -18,6 +18,21 @@
     {
       "bundles": ["desktop", "web"],
       "license": "Apache-2.0",
+      "name": "Kiro Crew snapshot full-text index handling (app-state snapshots)",
+      "sourceUrl": "https://github.com/kirodotdev/KiroCrew/blob/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/snapshot_redact.py",
+      "generatedNotices": [
+        {
+          "licenseId": "Apache-2.0",
+          "copyrights": ["Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved."],
+          "preamble": [
+            "Adapted for CMDeck's snapshot export (apps/server/src/fork/import/Snapshot.ts) from _FTS_INDEX_SUFFIXES and _fts_layout in snapshot_redact.py. Changes: rewritten in TypeScript; a contentless index is merged with optimize after its triggers re-index the redacted rows, instead of refusing the export."
+          ]
+        }
+      ]
+    },
+    {
+      "bundles": ["desktop", "web"],
+      "license": "Apache-2.0",
       "name": "Kiro Crew lesson consolidation prompt (lessons)",
       "sourceUrl": "https://github.com/kirodotdev/KiroCrew/blob/b75544f0dbef43b7340800819b36ae6cf9fbc2bd/src/kiro_crew/history_consolidation_pass.py",
       "generatedNotices": [

@@ -24,6 +24,9 @@ export const mergeProviderInstanceEnvironment = Effect.fn(function* (
     ...TELEMETRY_OPT_OUT_ENV,
     ...(baseEnv ?? process.env),
   });
+  // AWS credentials reach only instances that declare them. Undefined, not deleted, so a spawn
+  // that extends process.env drops them too; any casing, since Windows reads names either way.
+  for (const name of Object.keys(hostEnv)) if (/^aws_/i.test(name)) hostEnv[name] = undefined;
   if (!environment || environment.length === 0) {
     return hostEnv;
   }
@@ -34,13 +37,12 @@ export const mergeProviderInstanceEnvironment = Effect.fn(function* (
   for (const variable of environment) {
     // An unresolved secret reference carries no value; the registry resolves it for the provider.
     if (typeof variable.value !== "string") continue;
-    // Windows reads names without regard to case, and a child gets the first spelling in sort
-    // order. Upper case sorts first, so the configured value wins even where a spawn merges the
-    // parent environment back in.
+    // Windows reads names without regard to case. Other spellings become undefined so a spawn
+    // that merges the parent environment back in drops them and the configured value wins.
     const name = windows ? variable.name.toUpperCase() : variable.name;
     if (windows) {
       for (const inherited of Object.keys(next)) {
-        if (inherited.toUpperCase() === name) delete next[inherited];
+        if (inherited.toUpperCase() === name) next[inherited] = undefined;
       }
     }
     next[name] = expandHomeVariable(name, variable.value, home);

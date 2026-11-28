@@ -10,6 +10,7 @@ import * as Schema from "effect/Schema";
 
 import { expandHomePath, resolveBaseDir } from "../../os-jank.ts";
 import * as T3Import from "../T3Import.ts";
+import * as Snapshot from "./Snapshot.ts";
 
 export interface ImportLocations {
   /** The folder the source reads, never written to. */
@@ -70,10 +71,22 @@ const make = Effect.gen(function* () {
       plan: t3.plan,
       run: t3.run,
     },
+    snapshot: Snapshot.importSource(t3),
   });
 });
 
 export const layer = Layer.effect(Importer, make).pipe(Layer.provide(T3Import.layer));
+
+/** This build's base dir, or the one `--base-dir` names. */
+export const resolveHome = Effect.fn("Importer.resolveHome")(function* (
+  baseDir: string | undefined,
+) {
+  const envHome = yield* Config.String(APP_HOME_ENV).pipe(
+    Config.orElse(() => Config.String(UPSTREAM_HOME_ENV)),
+    Config.option,
+  );
+  return yield* resolveBaseDir(baseDir ?? Option.getOrUndefined(envHome));
+});
 
 /** Where an import reads from and writes to; the target is this build's base dir unless named. */
 export const resolveImportLocations = Effect.fn("Importer.resolveImportLocations")(
@@ -83,11 +96,7 @@ export const resolveImportLocations = Effect.fn("Importer.resolveImportLocations
     readonly baseDir: string | undefined;
   }) {
     const path = yield* Path.Path;
-    const envHome = yield* Config.String(APP_HOME_ENV).pipe(
-      Config.orElse(() => Config.String(UPSTREAM_HOME_ENV)),
-      Config.option,
-    );
-    const target = yield* resolveBaseDir(input.baseDir ?? Option.getOrUndefined(envHome));
+    const target = yield* resolveHome(input.baseDir);
     const from =
       input.from === undefined ? undefined : path.resolve(yield* expandHomePath(input.from.trim()));
     return { source: yield* input.source.locate(from), target };

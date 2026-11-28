@@ -7,3 +7,4 @@ export { layer as lessons } from "./lessons/Lessons.ts";
 export { layer as monitorLoops } from "./monitoring/MonitorLoops.ts";
 export { layer as sandboxReaper } from "./sandbox/archiveReaper.ts";
 export { layer as sessionState } from "./sessionState/SessionState.ts";
+export { layer as snapshot } from "./import/Snapshot.ts";
