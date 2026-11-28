@@ -131,6 +131,7 @@ function describeSchedule(
   locale: string,
 ): string {
   if (task.schedule.type === "webhook") return resolve(msg("On webhook"));
+  if (task.schedule.type === "event") return task.schedule.events.join(", ");
   if (task.schedule.type === "once") {
     const runAt = new Date(task.schedule.runAt);
     return resolve(
@@ -1638,7 +1639,9 @@ function EnvironmentTasks({
     serverEnvironment.scheduledTasksLive({ environmentId, input: {} }),
   );
   const visibleTasks = tasks.data?.tasks.filter(
-    (task) => projectIds === null || projectIds.includes(task.projectId),
+    (task) =>
+      task.schedule.type !== "event" &&
+      (projectIds === null || projectIds.includes(task.projectId)),
   );
   const canOperate = useAtomValue(
     serverEnvironment.upsertScheduledTask.permissionAtom(environmentId),

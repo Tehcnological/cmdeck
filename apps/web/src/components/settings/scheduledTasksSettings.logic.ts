@@ -41,6 +41,7 @@ import type { ProviderInstanceEntry } from "../../providerInstances";
 import { formatDateTimeTimestamp, formatTimeOfDay } from "../../timestampFormat";
 
 import type { ResolvedSettingsScope } from "./settingsScope";
+import * as EventTriggers from "~/fork/eventTriggers.logic";
 
 /** Abbreviated weekday name, 0 = Sunday. */
 export function weekdayShortLabel(day: number, locale: string = getActiveLocale()): string {
@@ -59,6 +60,7 @@ export function scheduleLabel(
   locale: string = getActiveLocale(),
 ): string {
   if (schedule.type === "webhook") return resolve(msg("On webhook"));
+  if (schedule.type === "event") return EventTriggers.eventScheduleLabel(schedule, resolve);
   if (schedule.type === "once") {
     return resolve(
       msg("Once, {time}", { time: formatDateTimeTimestamp(schedule.runAt, timestampFormat) }),
@@ -122,7 +124,7 @@ export function validateScheduledTasksSearch(raw: Record<string, unknown>) {
   };
 }
 
-export type ScheduleMode = "fixed" | "once" | "interval" | "webhook" | "cron";
+export type ScheduleMode = "fixed" | "once" | "interval" | "webhook" | "cron" | "event";
 export type WorkspaceMode = "root" | "worktree" | "existing_worktree";
 
 export interface DraftState {
@@ -166,6 +168,7 @@ export interface DraftState {
   readonly filters: ReadonlyArray<WebhookFilterDraft>;
   /** The filter rows the form opened with. */
   readonly savedFilters: ReadonlyArray<WebhookFilterDraft>;
+  readonly eventTrigger: EventTriggers.EventTriggerDraft;
 }
 
 export const WEBHOOK_SIGNATURE_DEFAULTS = {
@@ -221,6 +224,8 @@ export function scheduleDraftErrors(draft: DraftState, resolve: MessageResolver 
       ];
     return [];
   }
+  if (draft.scheduleMode === "event")
+    return EventTriggers.eventTriggerDraftErrors(draft.eventTrigger, resolve);
   if (draft.scheduleMode !== "webhook") return [];
   if (parseMaxDeliveryAge(draft.maxDeliveryAgeMinutes) === undefined)
     return [
@@ -282,6 +287,8 @@ export function webhookDeliveryLabel(
 
 export function scheduleFromDraft(draft: DraftState): ScheduledTaskUpsertSchedule | null {
   if (scheduleDraftErrors(draft).length > 0) return null;
+  if (draft.scheduleMode === "event")
+    return EventTriggers.eventScheduleFromDraft(draft.eventTrigger, draft.projectId);
   if (draft.scheduleMode === "once") {
     const saved = draft.savedRunAt ? new Date(draft.savedRunAt) : null;
     if (saved !== null && toDateTimeLocalValue(saved) === draft.runAt)
@@ -417,6 +424,7 @@ export function taskToDraft(task: ScheduledTask): DraftState {
         : "",
     filters,
     savedFilters: filters,
+    eventTrigger: EventTriggers.eventTriggerDraft(schedule, task.projectId),
   };
 }
 
