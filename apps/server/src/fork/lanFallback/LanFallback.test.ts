@@ -191,6 +191,47 @@ describe("LanFallback", () => {
     }),
   );
 
+  // The primary listener refuses remote clients under such a policy, so this must too.
+  it.effect(
+    "opens no listener, at startup or when turned on, while the policy allows no remote clients",
+    () =>
+      Effect.gen(function* () {
+        const enabled = yield* SubscriptionRef.make(true);
+        const secrets = new Map<string, Uint8Array>();
+        let interfaceReads = 0;
+        yield* Effect.gen(function* () {
+          const lan = yield* LanFallback.LanFallback;
+          yield* TestClock.adjust("1 minute");
+          yield* SubscriptionRef.set(enabled, false);
+          yield* SubscriptionRef.set(enabled, true);
+          yield* TestClock.adjust("1 minute");
+          assert.deepStrictEqual(yield* lan.endpoints, []);
+          assert.strictEqual(interfaceReads, 0);
+          assert.strictEqual(secrets.size, 0);
+        }).pipe(
+          Effect.provide(
+            layerLanFallbackTest({
+              enabled,
+              secrets,
+              policy: {
+                schemaVersion: 1,
+                organization: "Example Corp",
+                limits: { clients: ["desktop", "local-browser"] },
+              },
+              lan: {
+                addresses: () => {
+                  interfaceReads += 1;
+                  return ["127.0.0.1"];
+                },
+                acceptsPeer: () => true,
+                primaryServer: () => primary,
+              },
+            }),
+          ),
+        );
+      }),
+  );
+
   it.effect("re-advertises on the next poll when an address goes away", () =>
     Effect.gen(function* () {
       const enabled = yield* SubscriptionRef.make(true);

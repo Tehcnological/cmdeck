@@ -80,7 +80,7 @@ place for sandboxed projects once:
 
 ## Limits
 
-- A thread in a container gets no MCP servers: neither CMDeck's own tools nor ones you set up for Claude. An agent that holds CMDeck's credential could start or steer threads that run on the host, and a named network can still reach this machine (Docker Desktop's `host.docker.internal`, for one).
+- A thread in a container gets no MCP servers: neither CMDeck's own tools nor ones you set up for Claude, in its settings or in the project's `.mcp.json`. An agent that holds CMDeck's credential could start or steer threads that run on the host, and a named network can still reach this machine (Docker Desktop's `host.docker.internal`, for one).
 - Agent settings that point at host paths (a Codex home, a Claude settings file) work only if you
   mount them.
 - Containers are labelled with their thread. Archiving a thread removes its containers, and

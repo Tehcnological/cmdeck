@@ -325,6 +325,8 @@ it.effect.each([true, false])(
       yield* Effect.addFinalizer(() => session.close.pipe(Effect.orDie));
       assert.equal(registered.length, sandboxed ? 0 : 1);
       assert.isUndefined(querySpy.mock.calls[0]?.[0].options?.mcpServers);
+      // Nor any from a repo .mcp.json or a mounted ~/.claude.
+      assert.equal(querySpy.mock.calls[0]?.[0].options?.strictMcpConfig, sandboxed || undefined);
     }).pipe(
       Effect.provide(
         realQueryRunner.pipe(

@@ -123,6 +123,8 @@ import {
   PROVIDER_RETRY_BUDGET_MS,
 } from "@t3tools/provider-core/server/failure";
 import * as ClaudeAdapterV2 from "./ClaudeAdapterV2.ts";
+import { ContainerSandbox } from "../../fork/sandbox/ContainerSandbox.ts";
+import { T3_CODE_ORCHESTRATION_INSTRUCTIONS } from "@t3tools/provider-core/server/orchestrationInstructions";
 import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
 import * as ProviderInstallationGate from "../../provider/ProviderInstallationGate.ts";
 import { ClaudeOrchestratorReplayHarness } from "./ClaudeAdapterV2.testkit.ts";
@@ -27105,6 +27107,51 @@ describe("ClaudeAdapterV2 background wake turns", () => {
           ),
         ),
       ),
+    );
+
+    // Fork: a container gets no MCP servers, so the query must not register or describe them.
+    it.effect.each([true, false])(
+      "opens a query without T3 MCP servers or their instructions in a container: sandboxed %s",
+      (sandboxed) =>
+        Effect.gen(function* () {
+          const harness = yield* makeWakeHarness;
+          const mcpSessions = yield* McpProviderSessions.McpProviderSessions;
+          yield* mcpSessions.set({
+            environmentId: EnvironmentId.make("environment-sandboxed-mcp"),
+            threadId: harness.threadId,
+            providerSessionId: "mcp-session-sandboxed",
+            providerInstanceId: ProviderInstanceId.make("claudeAgent"),
+            endpoint: "http://127.0.0.1:43123/mcp",
+            authorizationHeader: "Bearer secret-claude-token",
+            browserToolsAvailable: true,
+          });
+          yield* harness.runtime.startTurn(
+            makeClaudeTestTurnInput({
+              threadId: harness.threadId,
+              providerThread: harness.providerThread,
+              now: yield* DateTime.now,
+              attemptId: RunAttemptId.make("sandboxed-mcp-attempt"),
+              text: "Hello",
+              attachments: [],
+            }),
+          );
+          const options = harness.getOpenedOptions();
+          const append =
+            (options?.systemPrompt as { readonly append?: string } | undefined)?.append ?? "";
+          assert.equal(options?.mcpServers === undefined, sandboxed);
+          assert.equal(append.includes(T3_CODE_ORCHESTRATION_INSTRUCTIONS), !sandboxed);
+        }).pipe(
+          Effect.scoped,
+          Effect.provide(
+            Layer.mergeAll(
+              IdAllocator.layer,
+              McpProviderSessions.layer,
+              NodeServices.layer,
+              NodeCrypto.layer,
+              Layer.mock(ContainerSandbox)({ isSandboxed: () => Effect.succeed(sandboxed) }),
+            ),
+          ),
+        ),
     );
 
     it.effect("ends a goal check without re-prompting while T3 work will wake the thread", () =>

@@ -11,5 +11,10 @@ apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const sandboxed = y
 apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:command: binaryPath \?\? "claude",
 # ...and gets no MCP servers, so it holds no CMDeck credential, decided once with the scope's say.
 apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const mcpServers = ForkSandbox\.isContained\(sandboxed, unit\) \? undefined : requestedMcpServers;
+# ...nor any from a repo .mcp.json or a mounted ~/.claude, and its prompt describes none (#130).
+apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const strictMcp = ForkSandbox\.isContained\(sandboxed, unit\) \? \{ strictMcpConfig: true \} : \{\};
+apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:options: \{ \.\.\.options, spawnClaudeCodeProcess, \.\.\.strictMcp \},
+apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const sandboxedQuery = yield\* inContainer\(turnInput\.threadId\);
+apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts:const mcpSession = sandboxedQuery +\? undefined +: yield\* mcpSessions\.read\(turnInput\.threadId\);
 # Host git never runs the fsmonitor of a repository a container wrote into the worktree.
 apps/server/src/vcs/VcsProcess.ts:\["core\.fsmonitor", "false"\], // Fork \(WI-2\.18\)
