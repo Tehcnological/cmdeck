@@ -220,6 +220,11 @@ required=(
   'apps/desktop/src/backend/DesktopBackendConfiguration.ts:Effect\.flatMap\(DesktopSecretsKey\.withSecretsKey\(secretsKey, environment\.baseDir\)\)'
   # WI-2.10: scheduled tasks start new threads on the decision service's routed model.
   'apps/server/src/scheduledTasks/ScheduledTaskService.ts:modelSelection: yield\* Decisions\.routeScheduledTask\(active\),'
+  # WI-2.04: bots list in Settings > Threads, and a badge on bot threads in the sidebar.
+  'apps/web/src/components/settings/SettingsPanels.tsx:import \{ BotsSection \} from "~/fork/BotsSection";'
+  'apps/web/src/components/settings/SettingsPanels.tsx:<BotsSection />'
+  'apps/web/src/components/sidebar/SidebarThreadRow.tsx:import \{ BotThreadBadge \} from "\.\./\.\./fork/BotThreadBadge";'
+  'apps/web/src/components/sidebar/SidebarThreadRow.tsx:<BotThreadBadge environmentId=\{thread\.environmentId\} threadId=\{thread\.id\} />'
   # WI-2.05: the right panel's fork surface, the composer's memory chip, /remember and Settings > Memory.
   'apps/web/src/rightPanelStore.ts:"linked-thread", +"cmdeck", +\] as const;'
   'apps/web/src/rightPanelStore.ts:\| \{ id: "cmdeck"; kind: "cmdeck" \}'

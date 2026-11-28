@@ -29,6 +29,15 @@ import {
 } from "./notifications.ts";
 import { DecisionConsentSetInput, DecisionsError, DecisionsStatus } from "./decisions.ts";
 import {
+  BotCreateInput,
+  BotIdInput,
+  BotProfile,
+  BotScheduleInput,
+  BotsError,
+  BotUpdateInput,
+  BotWakeResult,
+} from "./bots.ts";
+import {
   MemoryEditInput,
   MemoryEmbeddingsStatus,
   MemoryInjection,
@@ -67,6 +76,13 @@ export const CMDECK_WS_METHODS = {
   notificationsSubscribeAlerts: "cmdeck.notifications.subscribeAlerts",
   decisionsStatus: "cmdeck.decisions.status",
   decisionsSetConsent: "cmdeck.decisions.setConsent",
+  botsList: "cmdeck.bots.list",
+  botsCreate: "cmdeck.bots.create",
+  botsUpdate: "cmdeck.bots.update",
+  botsDelete: "cmdeck.bots.delete",
+  botsRestore: "cmdeck.bots.restore",
+  botsSchedule: "cmdeck.bots.schedule",
+  botsWake: "cmdeck.bots.wake",
   memoryList: "cmdeck.memory.list",
   memoryRevisions: "cmdeck.memory.revisions",
   memoryEdit: "cmdeck.memory.edit",
@@ -164,6 +180,50 @@ const CmdeckDecisionsStatusRpc = Rpc.make(CMDECK_WS_METHODS.decisionsStatus, {
 const CmdeckDecisionsSetConsentRpc = Rpc.make(CMDECK_WS_METHODS.decisionsSetConsent, {
   payload: DecisionConsentSetInput,
   error: Schema.Union([DecisionsError, EnvironmentAuthorizationError]),
+});
+
+const BotsRpcError = Schema.Union([BotsError, EnvironmentAuthorizationError]);
+
+const CmdeckBotsListRpc = Rpc.make(CMDECK_WS_METHODS.botsList, {
+  payload: Schema.Struct({}),
+  success: Schema.Array(BotProfile),
+  error: BotsRpcError,
+});
+
+const CmdeckBotsCreateRpc = Rpc.make(CMDECK_WS_METHODS.botsCreate, {
+  payload: BotCreateInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsUpdateRpc = Rpc.make(CMDECK_WS_METHODS.botsUpdate, {
+  payload: BotUpdateInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsDeleteRpc = Rpc.make(CMDECK_WS_METHODS.botsDelete, {
+  payload: BotIdInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsRestoreRpc = Rpc.make(CMDECK_WS_METHODS.botsRestore, {
+  payload: BotIdInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsScheduleRpc = Rpc.make(CMDECK_WS_METHODS.botsSchedule, {
+  payload: BotScheduleInput,
+  success: BotProfile,
+  error: BotsRpcError,
+});
+
+const CmdeckBotsWakeRpc = Rpc.make(CMDECK_WS_METHODS.botsWake, {
+  payload: BotIdInput,
+  success: BotWakeResult,
+  error: BotsRpcError,
 });
 
 const MemoryError = Schema.Union([MemoryRpcError, EnvironmentAuthorizationError]);
@@ -267,6 +327,13 @@ export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckNotificationsSubscribeAlertsRpc,
   CmdeckDecisionsStatusRpc,
   CmdeckDecisionsSetConsentRpc,
+  CmdeckBotsListRpc,
+  CmdeckBotsCreateRpc,
+  CmdeckBotsUpdateRpc,
+  CmdeckBotsDeleteRpc,
+  CmdeckBotsRestoreRpc,
+  CmdeckBotsScheduleRpc,
+  CmdeckBotsWakeRpc,
   CmdeckMemoryListRpc,
   CmdeckMemoryRevisionsRpc,
   CmdeckMemoryEditRpc,
@@ -292,6 +359,7 @@ export const FORK_RPC_READ_SCOPES = {
   [CMDECK_WS_METHODS.status]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.notificationChannelsList]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.decisionsStatus]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.botsList]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.memoryList]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.memoryRevisions]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.memoryPreviewEdit]: AuthOrchestrationReadScope,
@@ -318,6 +386,13 @@ export const FORK_RPC_SCOPES = {
   [CMDECK_WS_METHODS.notificationsSubscribeAlerts]: AuthOrchestrationReadScope,
   // Consent decides whether turn text may reach a model API, so only a settings writer grants it.
   [CMDECK_WS_METHODS.decisionsSetConsent]: AuthSettingsWriteScope,
+  // A bot is a thread plus scheduled tasks, so changing one needs what those commands need.
+  [CMDECK_WS_METHODS.botsCreate]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsUpdate]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsDelete]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsRestore]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsSchedule]: AuthOrchestrationOperateScope,
+  [CMDECK_WS_METHODS.botsWake]: AuthOrchestrationOperateScope,
   // Memory is what agents are told every turn, so changing it is a settings write.
   [CMDECK_WS_METHODS.memoryEdit]: AuthSettingsWriteScope,
   [CMDECK_WS_METHODS.memoryRevert]: AuthSettingsWriteScope,

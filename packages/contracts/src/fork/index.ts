@@ -7,3 +7,4 @@ export * from "./memory.ts";
 export * from "./decisions.ts";
 export * from "./approvalPolicy.ts";
 export * from "./messagePins.ts";
+export * from "./bots.ts";

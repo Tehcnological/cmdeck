@@ -7,6 +7,7 @@ import * as SecretResolverLayer from "../secrets/SecretResolver.ts";
 import * as ApprovalGate from "./approvalPolicy/ApprovalGate.ts";
 import * as ApprovalPolicy from "./approvalPolicy/ApprovalPolicy.ts";
 import * as AuditLog from "./audit/AuditLog.ts";
+import * as Bots from "./bots/Bots.ts";
 import * as Decisions from "./decisions/Decisions.ts";
 import * as Notifications from "./notifications/Notifications.ts";
 import * as MemoryEmbeddings from "./memory/MemoryEmbeddings.ts";
@@ -30,6 +31,7 @@ export const layer = Layer.mergeAll(
     UsageAlerts.layer,
   ).pipe(Layer.provideMerge(Notifications.layer), Layer.provideMerge(AuditLog.layer)),
   MessagePins.layer.pipe(Layer.provide(ProjectionStore.layer)),
+  Bots.layer,
 );
 
 /**
