@@ -1,9 +1,10 @@
 // Runs real containers. Gated on CMDECK_SANDBOX_LIVE=1, which only the "Container sandbox
 // (Docker)" job in .github/workflows/fork-ci.yml sets, after pulling the image below.
 // On Windows, point TEMP/TMP at a case-sensitive folder: the test workspaces are made there.
-// CMDECK_SANDBOX_LIVE_RUNTIME picks the OCI runtime (e.g. runsc); unset uses Docker's default.
+// CMDECK_SANDBOX_LIVE_KIND=apple uses Apple `container` (default docker); CMDECK_SANDBOX_LIVE_RUNTIME=runsc picks an OCI runtime.
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import type { SandboxRecipe } from "@t3tools/contracts";
 import { AgentScope } from "@t3tools/shared/AgentScope";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Effect from "effect/Effect";
@@ -13,7 +14,16 @@ import * as Path from "effect/Path";
 import * as ServerConfig from "../../config.ts";
 import * as ProcessRunner from "../../processRunner.ts";
 import { ContainerSandbox, ownerLabel } from "./ContainerSandbox.ts";
-import { containerPathFor } from "./argv.ts";
+import {
+  containerPathFor,
+  LABEL_BOOT,
+  LABEL_OWNER,
+  LABEL_THREAD,
+  listArgs,
+  parseList,
+  RUNTIME_TRAITS,
+  runArgs,
+} from "./argv.ts";
 import {
   gitIn,
   type Host,
@@ -26,7 +36,15 @@ import {
 // Ships git and a shell with no entrypoint (alpine/git's entrypoint is git, so `sh -c` cannot run).
 const IMAGE =
   "buildpack-deps:26.04-scm@sha256:d4ac7970aaf4e0865b0493cfdc569e30888e51a59b4e402cf30f927af26f332b";
-const RECIPE = { image: IMAGE, ociRuntime: process.env.CMDECK_SANDBOX_LIVE_RUNTIME || null };
+const KIND = process.env.CMDECK_SANDBOX_LIVE_KIND === "apple" ? "apple" : "docker";
+const TRAITS = RUNTIME_TRAITS[KIND];
+// Apple `container` has no network-off mode, so the product refuses `none` there: use its own network.
+const RECIPE = {
+  image: IMAGE,
+  runtime: KIND,
+  network: TRAITS.networkNone ? "none" : "default",
+  ociRuntime: process.env.CMDECK_SANDBOX_LIVE_RUNTIME || null,
+} satisfies Partial<SandboxRecipe>;
 const live = process.env.CMDECK_SANDBOX_LIVE === "1";
 
 const probeScript = (canary: string, workspace: string) =>
@@ -78,7 +96,7 @@ const runAgent = (script: string, whileRunning: Effect.Effect<unknown> = Effect.
     return output.stdout.trim().split("\n").at(-1) ?? "";
   });
 
-describe.runIf(live)("container sandbox on a real Docker engine", () => {
+describe.runIf(live)("container sandbox on a real container engine", () => {
   it.live(
     "blocks paths outside the worktree, writes to .git/config and the network",
     () =>
@@ -126,7 +144,7 @@ describe.runIf(live)("container sandbox on a real Docker engine", () => {
           "canary=blocked",
           "worktree=read",
           "gitconfig=blocked",
-          "network=blocked",
+          TRAITS.networkNone ? "network=blocked" : expect.stringMatching(/^network=/),
         ]);
         expect(yield* fileSystem.readFileString(gitConfig)).toBe(gitConfigBefore);
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
@@ -142,36 +160,46 @@ describe.runIf(live)("container sandbox on a real Docker engine", () => {
         const workspace = yield* makeWorkspace;
         const baseDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "cmdeck-reap-" });
         const name = `cmdeck-agent-orphan-${process.pid}`;
-        const docker = (args: ReadonlyArray<string>) =>
+        const cli = (args: ReadonlyArray<string>) =>
           Effect.gen(function* () {
             const runner = yield* ProcessRunner.ProcessRunner;
-            return yield* runner.run({ command: "docker", args, timeout: "60 seconds" });
+            return yield* runner.run({ command: TRAITS.binary, args, timeout: "60 seconds" });
           });
         // An orphan from a crashed server: this server's owner label, an earlier boot.
-        yield* Effect.gen(function* () {
+        const owner = yield* Effect.gen(function* () {
           const { stateDir } = yield* ServerConfig.ServerConfig;
-          yield* docker([
-            "run",
-            "-d",
-            "--name",
+          const owner = ownerLabel(stateDir);
+          const args = runArgs({
+            runtime: KIND,
             name,
-            "--label",
-            `cmdeck.owner=${ownerLabel(stateDir)}`,
-            "--label",
-            "cmdeck.boot=earlier",
-            "--label",
-            `cmdeck.thread=${THREAD}`,
-            IMAGE,
-            "sleep",
-            "300",
-          ]);
+            image: IMAGE,
+            labels: { [LABEL_OWNER]: owner, [LABEL_BOOT]: "earlier", [LABEL_THREAD]: THREAD },
+            workdir: "/",
+            mounts: [],
+            envKeys: [],
+            envValues: {},
+            network: RECIPE.network,
+            ociRuntime: null,
+            cpus: null,
+            memory: null,
+            user: null,
+            tty: false,
+            command: "sleep",
+            args: ["300"],
+          });
+          // Detached, so the orphan outlives this call as a crashed server's would.
+          args.splice(args.indexOf("run") + 1, 0, "-d");
+          yield* cli(args);
+          return owner;
         }).pipe(Effect.provide(layerSandbox({ workspace, host, realHost: true, baseDir })));
 
         // The next start, with a thread in a container, reaps it in the background.
-        const remaining = yield* docker(["ps", "-aq", "--filter", `name=${name}`]).pipe(
-          Effect.map((result) => result.stdout.trim()),
-          // The reap runs in the background at start-up; ask Docker until it has finished.
-          Effect.repeat({ until: (ids) => ids === "", times: 200 }),
+        const remaining = yield* cli(listArgs(KIND, owner)).pipe(
+          Effect.map((result) =>
+            parseList(KIND, result.stdout, owner).filter((listed) => listed.name === name),
+          ),
+          // The reap runs in the background at start-up; ask the runtime until it has finished.
+          Effect.repeat({ until: (left) => left.length === 0, times: 200 }),
           Effect.provide(
             layerSandbox({
               workspace,
@@ -183,7 +211,36 @@ describe.runIf(live)("container sandbox on a real Docker engine", () => {
             }),
           ),
         );
-        expect(remaining).toBe("");
+        expect(remaining).toEqual([]);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    120_000,
+  );
+
+  it.live(
+    "refuses no network only on a runtime that cannot turn it off",
+    () =>
+      Effect.gen(function* () {
+        const host = yield* makeHost;
+        const workspace = yield* makeWorkspace;
+        const refusal = yield* Effect.gen(function* () {
+          const sandbox = yield* ContainerSandbox;
+          yield* sandbox.configure({ thread: { threadId: THREAD, mode: "on" } }, "user");
+          return yield* sandbox.launchRefusal(THREAD, "claudeAgent");
+        }).pipe(
+          Effect.provide(
+            layerSandbox({
+              workspace,
+              host,
+              realHost: true,
+              recipe: { ...RECIPE, network: "none" },
+            }),
+          ),
+        );
+        expect(refusal).toBe(
+          TRAITS.networkNone
+            ? null
+            : "Apple container cannot turn networking off. Choose a named network to use it.",
+        );
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
     120_000,
   );
