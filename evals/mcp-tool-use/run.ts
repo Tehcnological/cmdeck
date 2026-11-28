@@ -87,6 +87,7 @@ import { MessagePinsToolkit } from "../../apps/server/src/fork/messagePins/mcpTo
 import { MemoryToolkit } from "../../apps/server/src/fork/memory/mcpTools.ts";
 import { WorkLedgerToolkit } from "../../apps/server/src/fork/workLedger/mcpTools.ts";
 import { CheckScriptToolkit } from "../../apps/server/src/fork/checkScripts/mcpTools.ts";
+import { SandboxToolkit } from "../../apps/server/src/fork/sandbox/mcpTools.ts";
 import {
   CLAUDE_PROVIDER,
   makeClaudeQueryOptions,
@@ -528,6 +529,7 @@ const t3SourceTools: ReadonlyArray<Tool.Any> = [
   WorkLedgerToolkit,
   CheckScriptToolkit,
   BotsToolkit,
+  SandboxToolkit,
   MessagePinsToolkit,
 ].flatMap((toolkit): ReadonlyArray<Tool.Any> => Object.values(toolkit.tools));
 // McpHttpServer decodes arguments with each tool's JSON codec, which drops undeclared keys.

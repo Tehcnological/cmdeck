@@ -96,6 +96,10 @@ function AuditLog({ environmentId }: { readonly environmentId: EnvironmentId }) 
         return gt("Workflow file changed after approval");
       case "import.run":
         return gt("Data imported");
+      case "sandbox.opted_out":
+        return gt("Container turned off");
+      case "sandbox.network_opened":
+        return gt("Container network opened");
       case "audit.pruned":
         return gt("Old entries removed");
       default:

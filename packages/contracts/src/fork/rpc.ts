@@ -69,6 +69,12 @@ import {
   ThreadMemoryModeInput,
 } from "./memory.ts";
 import {
+  SandboxConfigureInput,
+  SandboxError,
+  SandboxStatus,
+  SandboxStatusInput,
+} from "./sandbox.ts";
+import {
   MessagePin,
   MessagePinInput,
   MessagePinsError,
@@ -114,6 +120,8 @@ export const CMDECK_WS_METHODS = {
   memorySetThreadMode: "cmdeck.memory.setThreadMode",
   memoryInjections: "cmdeck.memory.injections",
   memoryEmbeddingsStatus: "cmdeck.memory.embeddingsStatus",
+  sandboxStatus: "cmdeck.sandbox.status",
+  sandboxConfigure: "cmdeck.sandbox.configure",
   messagePinsList: "cmdeck.messagePins.list",
   messagePinsPin: "cmdeck.messagePins.pin",
   messagePinsUnpin: "cmdeck.messagePins.unpin",
@@ -353,6 +361,18 @@ const CmdeckMemoryEmbeddingsStatusRpc = Rpc.make(CMDECK_WS_METHODS.memoryEmbeddi
   error: EnvironmentAuthorizationError,
 });
 
+const CmdeckSandboxStatusRpc = Rpc.make(CMDECK_WS_METHODS.sandboxStatus, {
+  payload: SandboxStatusInput,
+  success: SandboxStatus,
+  error: Schema.Union([SandboxError, EnvironmentAuthorizationError]),
+});
+
+const CmdeckSandboxConfigureRpc = Rpc.make(CMDECK_WS_METHODS.sandboxConfigure, {
+  payload: SandboxConfigureInput,
+  success: SandboxStatus,
+  error: Schema.Union([SandboxError, EnvironmentAuthorizationError]),
+});
+
 const MessagePinsFailure = Schema.Union([MessagePinsError, EnvironmentAuthorizationError]);
 
 const CmdeckMessagePinsListRpc = Rpc.make(CMDECK_WS_METHODS.messagePinsList, {
@@ -410,6 +430,8 @@ export const ForkWsRpcGroup = RpcGroup.make(
   CmdeckMemorySetThreadModeRpc,
   CmdeckMemoryInjectionsRpc,
   CmdeckMemoryEmbeddingsStatusRpc,
+  CmdeckSandboxStatusRpc,
+  CmdeckSandboxConfigureRpc,
   CmdeckMessagePinsListRpc,
   CmdeckMessagePinsPinRpc,
   CmdeckMessagePinsUnpinRpc,
@@ -435,6 +457,7 @@ export const FORK_RPC_READ_SCOPES = {
   [CMDECK_WS_METHODS.memoryEmbeddingsStatus]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.messagePinsList]: AuthOrchestrationReadScope,
   [CMDECK_WS_METHODS.workLedgerList]: AuthOrchestrationReadScope,
+  [CMDECK_WS_METHODS.sandboxStatus]: AuthOrchestrationReadScope,
 } as const;
 
 type ForkRpcTag = RpcGroup.Rpcs<typeof ForkWsRpcGroup>["_tag"];
@@ -474,6 +497,8 @@ export const FORK_RPC_SCOPES = {
   // Acting in one thread, as sending it a message does.
   [CMDECK_WS_METHODS.memoryRemember]: AuthOrchestrationOperateScope,
   [CMDECK_WS_METHODS.memorySetThreadMode]: AuthOrchestrationOperateScope,
+  // Turning a container off lets agents reach the host, so only a settings writer changes it.
+  [CMDECK_WS_METHODS.sandboxConfigure]: AuthSettingsWriteScope,
   // A pin marks a thread for everyone on the server, as other thread changes do.
   [CMDECK_WS_METHODS.messagePinsPin]: AuthOrchestrationOperateScope,
   [CMDECK_WS_METHODS.messagePinsUnpin]: AuthOrchestrationOperateScope,

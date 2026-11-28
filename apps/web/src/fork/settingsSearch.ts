@@ -52,4 +52,10 @@ export const FORK_SETTINGS_SEARCH_ITEMS = [
     to: "/settings/threads",
     searchTerms: [msg("bot persistent agent schedule wake private memory crew")],
   },
+  {
+    id: "containers",
+    title: msg("Containers"),
+    to: "/settings/general",
+    searchTerms: [msg("sandbox docker gvisor isolation network mounts")],
+  },
 ] as const satisfies ReadonlyArray<SettingsSearchItem>;
