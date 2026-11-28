@@ -363,7 +363,7 @@ jobs:
         run: vp install --frozen-lockfile
 
       - name: Pull the test image
-        run: docker pull alpine:3.20
+        run: docker pull buildpack-deps:26.04-scm@sha256:d4ac7970aaf4e0865b0493cfdc569e30888e51a59b4e402cf30f927af26f332b
 
       - name: Test
         working-directory: apps/server
